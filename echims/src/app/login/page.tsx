@@ -17,17 +17,45 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    // Sign in using Supabase Authentication
+    const { error: loginError } =
+      await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      setError(error.message);
+    // Login failed
+    if (loginError) {
+      console.error("Login error:", loginError.message);
+      setError(loginError.message);
       setLoading(false);
       return;
     }
 
+    // Get the currently authenticated user
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    // Could not retrieve authenticated user
+    if (userError || !user) {
+      console.error(
+        "User verification error:",
+        userError?.message
+      );
+
+      setError("Login succeeded, but the user session could not be verified.");
+      setLoading(false);
+      return;
+    }
+
+    // Display authenticated user's information in browser console
+    console.log("Logged-in user:", user);
+    console.log("User UUID:", user.id);
+    console.log("User email:", user.email);
+
+    // Redirect after successful login
     window.location.href = "/dashboard";
   }
 
@@ -78,6 +106,7 @@ export default function LoginPage() {
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="example@email.com"
                 required
+                autoComplete="email"
                 className="w-full rounded-lg border px-4 py-3 bg-white dark:bg-gray-800"
               />
             </div>
@@ -98,6 +127,7 @@ export default function LoginPage() {
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="Enter your password"
                 required
+                autoComplete="current-password"
                 className="w-full rounded-lg border px-4 py-3 bg-white dark:bg-gray-800"
               />
             </div>
@@ -106,27 +136,33 @@ export default function LoginPage() {
             <div className="flex items-center justify-between text-sm">
 
               <label className="flex items-center gap-2">
-                <input type="checkbox" />
+                <input
+                  type="checkbox"
+                  className="rounded"
+                />
                 Remember me
               </label>
 
               <button
                 type="button"
                 className="underline"
+                onClick={() => {
+                  setError("Password recovery is not configured yet.");
+                }}
               >
                 Forgot password?
               </button>
 
             </div>
 
-            {/* Error */}
+            {/* Error Message */}
             {error && (
               <p className="text-sm text-red-600">
                 {error}
               </p>
             )}
 
-            {/* Login */}
+            {/* Login Button */}
             <button
               type="submit"
               disabled={loading}
@@ -137,6 +173,7 @@ export default function LoginPage() {
 
           </form>
 
+          {/* Authorization Notice */}
           <p className="mt-6 text-center text-xs text-blue-500">
             Authorized RHU Personnel Only
           </p>
