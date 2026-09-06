@@ -17,45 +17,19 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    // Sign in using Supabase Authentication
-    const { error: loginError } =
-      await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-    // Login failed
-    if (loginError) {
-      console.error("Login error:", loginError.message);
-      setError(loginError.message);
+    if (error) {
+      setError(error.message);
       setLoading(false);
       return;
     }
 
-    // Get the currently authenticated user
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    console.log("Login successful:", data.user?.id);
 
-    // Could not retrieve authenticated user
-    if (userError || !user) {
-      console.error(
-        "User verification error:",
-        userError?.message
-      );
-
-      setError("Login succeeded, but the user session could not be verified.");
-      setLoading(false);
-      return;
-    }
-
-    // Display authenticated user's information in browser console
-    console.log("Logged-in user:", user);
-    console.log("User UUID:", user.id);
-    console.log("User email:", user.email);
-
-    // Redirect after successful login
     window.location.href = "/dashboard";
   }
 
@@ -63,7 +37,6 @@ export default function LoginPage() {
     <main className="min-h-screen flex items-center justify-center bg-blue-100 dark:bg-black">
       <div className="w-full max-w-md px-6">
 
-        {/* eCHIMS Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold">
             eCHIMS
@@ -74,7 +47,6 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Login Card */}
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border p-8">
 
           <h2 className="text-2xl font-semibold">
@@ -90,7 +62,6 @@ export default function LoginPage() {
             className="mt-6 space-y-5"
           >
 
-            {/* Email */}
             <div>
               <label
                 htmlFor="email"
@@ -106,12 +77,10 @@ export default function LoginPage() {
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="example@email.com"
                 required
-                autoComplete="email"
                 className="w-full rounded-lg border px-4 py-3 bg-white dark:bg-gray-800"
               />
             </div>
 
-            {/* Password */}
             <div>
               <label
                 htmlFor="password"
@@ -127,42 +96,30 @@ export default function LoginPage() {
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="Enter your password"
                 required
-                autoComplete="current-password"
                 className="w-full rounded-lg border px-4 py-3 bg-white dark:bg-gray-800"
               />
             </div>
 
-            {/* Remember / Forgot */}
             <div className="flex items-center justify-between text-sm">
-
               <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  className="rounded"
-                />
+                <input type="checkbox" />
                 Remember me
               </label>
 
               <button
                 type="button"
                 className="underline"
-                onClick={() => {
-                  setError("Password recovery is not configured yet.");
-                }}
               >
                 Forgot password?
               </button>
-
             </div>
 
-            {/* Error Message */}
             {error && (
               <p className="text-sm text-red-600">
                 {error}
               </p>
             )}
 
-            {/* Login Button */}
             <button
               type="submit"
               disabled={loading}
@@ -173,7 +130,6 @@ export default function LoginPage() {
 
           </form>
 
-          {/* Authorization Notice */}
           <p className="mt-6 text-center text-xs text-blue-500">
             Authorized RHU Personnel Only
           </p>
