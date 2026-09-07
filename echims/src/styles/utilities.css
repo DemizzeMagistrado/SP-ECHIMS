@@ -1,0 +1,11 @@
+.text-muted {
+  color: var(--muted);
+}
+
+.text-primary {
+  color: var(--blue);
+}
+
+.text-heading {
+  color: var(--ink);
+}
