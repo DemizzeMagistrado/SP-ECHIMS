@@ -59,25 +59,25 @@ export function BrandPanel() {
         </h2>
 
         <p>
-          Comprehensive healthcare management for Rural Health Units
+          Comprehensive Healthcare Management for Rural Health Units and City Health Offices.
         </p>
       </div>
 
       <div className="brand-stats">
         <div>
-          <strong>500+</strong>
+          <strong>1,000+</strong>
           <span>Children Tracked</span>
         </div>
 
         <div>
-          <strong>50+</strong>
+          <strong>1,000+</strong>
           <span>Barangays</span>
         </div>
       </div>
 
       <footer>
         <span>Bachelor of Science in Information Technology</span>
-        <small>© 2025 Rural Health Units</small>
+        <small>© 2026 Rural Health Units</small>
       </footer>
     </section>
   );
@@ -859,6 +859,7 @@ function Terms() {
     </p>
   );
 }
+
 export function TermsPage() {
   const router = useRouter();
 
@@ -874,15 +875,15 @@ export function TermsPage() {
             ← Back to registration
           </Link>
 
+          <div className="legal-scroll">
+            <div className="legal-content">
+
           <h1>Terms of Service</h1>
 
           <p className="subtitle">
             Please review the terms and conditions
             before using eCHIMS.
           </p>
-
-          <div className="legal-scroll">
-            <div className="legal-content">
 
               <section>
                 <h2>1. Acceptance of Terms</h2>
@@ -969,56 +970,12 @@ export function TermsPage() {
                 </p>
               </section>
 
-            </div>
-          </div>
-
-          <p className="legal-updated">
-            Last updated: 2025
-          </p>
-
-          <div className="legal-actions">
-            <button
-              type="button"
-              className="primary-button"
-              onClick={() => router.push("/register")}
-            >
-              Accept
-            </button>
-          </div>
-
-        </div>
-      </div>
-    </AuthLayout>
-  );
-}
-
-/* =========================================================
-   PRIVACY POLICY
-========================================================= */
-export function PrivacyPage() {
-  const router = useRouter();
-
-  return (
-    <AuthLayout>
-      <div className="auth-card legal-card">
-        <div className="auth-content">
-
-          <Link
-            className="back-link"
-            href="/register"
-          >
-            ← Back to registration
-          </Link>
-
-          <h1>Privacy Policy</h1>
+<h1>Privacy Policy</h1>
 
           <p className="subtitle">
             Please review how eCHIMS collects, uses,
             and protects information.
           </p>
-
-          <div className="legal-scroll">
-            <div className="legal-content">
 
               <section>
                 <h2>1. Information We Collect</h2>
@@ -1107,7 +1064,234 @@ export function PrivacyPage() {
           </div>
 
           <p className="legal-updated">
-            Last updated: 2025
+            Last updated: 2026
+          </p>
+
+          <div className="legal-actions">
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => router.push("/register")}
+            >
+              Accept
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </AuthLayout>
+  );
+}
+
+/* =========================================================
+   PRIVACY POLICY
+========================================================= */
+export function PrivacyPage() {
+  const router = useRouter();
+
+  return (
+    <AuthLayout>
+      <div className="auth-card legal-card">
+        <div className="auth-content">
+
+          <Link
+            className="back-link"
+            href="/register"
+          >
+            ← Back to registration
+          </Link>
+
+          
+          <div className="legal-scroll">
+            <div className="legal-content">
+
+          <h1>Terms of Service</h1>
+
+          <p className="subtitle">
+            Please review the terms and conditions
+            before using eCHIMS.
+          </p>
+
+              <section>
+                <h2>1. Acceptance of Terms</h2>
+                <p>
+                  By accessing or using eCHIMS, you agree
+                  to comply with these Terms of Service.
+                  If you do not agree with these terms,
+                  please do not use the system.
+                </p>
+              </section>
+
+              <section>
+                <h2>2. Purpose of the System</h2>
+                <p>
+                  eCHIMS is an Early Child Health Information
+                  and Monitoring System designed to support
+                  authorized Rural Health Unit personnel in
+                  managing child health, vaccination,
+                  nutritional monitoring, micronutrient
+                  supplementation, and related health
+                  information.
+                </p>
+              </section>
+
+              <section>
+                <h2>3. Authorized Use</h2>
+                <p>
+                  Access to eCHIMS is limited to authorized
+                  users. Users are responsible for ensuring
+                  that information entered into the system is
+                  accurate and appropriate for their assigned
+                  responsibilities.
+                </p>
+              </section>
+
+              <section>
+                <h2>4. Account Responsibility</h2>
+                <p>
+                  Users are responsible for maintaining the
+                  confidentiality of their account credentials.
+                  Users must not share their passwords or
+                  allow unauthorized individuals to access
+                  their accounts.
+                </p>
+              </section>
+
+              <section>
+                <h2>5. Proper Use of Information</h2>
+                <p>
+                  Information accessed through eCHIMS must
+                  only be used for legitimate health-service,
+                  monitoring, reporting, and administrative
+                  purposes related to the user's authorized
+                  duties.
+                </p>
+              </section>
+
+              <section>
+                <h2>6. Account Access and Suspension</h2>
+                <p>
+                  The system administrator may review,
+                  restrict, suspend, or deactivate an account
+                  when necessary to maintain system security
+                  and proper use of the platform.
+                </p>
+              </section>
+
+              <section>
+                <h2>7. System Availability</h2>
+                <p>
+                  eCHIMS may occasionally be unavailable due
+                  to maintenance, technical issues, network
+                  interruptions, or other circumstances.
+                </p>
+              </section>
+
+              <section>
+                <h2>8. Changes to These Terms</h2>
+                <p>
+                  These Terms of Service may be updated when
+                  necessary. Users will be expected to comply
+                  with the latest applicable version of the
+                  terms.
+                </p>
+              </section>
+
+<h1>Privacy Policy</h1>
+
+          <p className="subtitle">
+            Please review how eCHIMS collects, uses,
+            and protects information.
+          </p>
+
+              <section>
+                <h2>1. Information We Collect</h2>
+                <p>
+                  eCHIMS may collect information necessary
+                  for account management, child health
+                  monitoring, vaccination records,
+                  nutritional assessments, micronutrient
+                  supplementation, inventory management,
+                  and system administration.
+                </p>
+              </section>
+
+              <section>
+                <h2>2. Use of Information</h2>
+                <p>
+                  Information stored in eCHIMS is used to
+                  support child health monitoring, vaccination
+                  compliance, nutritional risk assessment,
+                  reporting, inventory monitoring, and
+                  authorized health-service activities.
+                </p>
+              </section>
+
+              <section>
+                <h2>3. Protection of Information</h2>
+                <p>
+                  Appropriate technical and administrative
+                  measures are applied to help protect
+                  information from unauthorized access,
+                  alteration, disclosure, or misuse.
+                </p>
+              </section>
+
+              <section>
+                <h2>4. User Account Information</h2>
+                <p>
+                  Account information such as name, username,
+                  email address, contact information, role,
+                  and other registration details may be
+                  processed for authentication, authorization,
+                  and account management.
+                </p>
+              </section>
+
+              <section>
+                <h2>5. Child Health Information</h2>
+                <p>
+                  Child health information entered into eCHIMS
+                  must only be accessed and processed by
+                  authorized personnel for legitimate
+                  healthcare and monitoring purposes.
+                </p>
+              </section>
+
+              <section>
+                <h2>6. Access Control</h2>
+                <p>
+                  eCHIMS uses role-based access controls to
+                  help ensure that users can only access
+                  information and functions appropriate to
+                  their assigned responsibilities.
+                </p>
+              </section>
+
+              <section>
+                <h2>7. Data Retention</h2>
+                <p>
+                  Information may be retained for as long as
+                  necessary to support authorized health
+                  monitoring, reporting, administrative, and
+                  record-keeping requirements.
+                </p>
+              </section>
+
+              <section>
+                <h2>8. Privacy Policy Updates</h2>
+                <p>
+                  This Privacy Policy may be updated when
+                  necessary to reflect changes in the system,
+                  its processes, or applicable requirements.
+                </p>
+              </section>
+
+            </div>
+          </div>
+
+          <p className="legal-updated">
+            Last updated: 2026
           </p>
 
           <div className="legal-actions">
