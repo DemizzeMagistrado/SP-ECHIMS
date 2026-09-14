@@ -1,19 +1,28 @@
 CREATE TABLE child_movement (
     movement_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
     movement_type VARCHAR(50) NOT NULL,
     movement_date DATE NOT NULL,
+
     reason TEXT,
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+
+    status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+
     previous_address TEXT,
     new_address TEXT,
-    previous_latitude DECIMAL(10, 7),
-    previous_longitude DECIMAL(10, 7),
-    new_latitude DECIMAL(10, 7),
-    new_longitude DECIMAL(10, 7),
+
+    previous_latitude NUMERIC,
+    previous_longitude NUMERIC,
+
+    new_latitude NUMERIC,
+    new_longitude NUMERIC,
+
     remarks TEXT,
+
     recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     child_id BIGINT NOT NULL,
+
     from_household_id BIGINT,
     to_household_id BIGINT,
 
@@ -27,33 +36,32 @@ CREATE TABLE child_movement (
         FOREIGN KEY (from_household_id)
         REFERENCES household(household_id)
         ON UPDATE CASCADE
-        ON DELETE RESTRICT,
+        ON DELETE SET NULL,
 
     CONSTRAINT fk_movement_to_household
         FOREIGN KEY (to_household_id)
         REFERENCES household(household_id)
         ON UPDATE CASCADE
-        ON DELETE RESTRICT,
-
-    CONSTRAINT chk_movement_type
-        CHECK (
-            movement_type IN (
-                'MIGRATED',
-                'LOST',
-                'RETURNED',
-                'TRANSFERRED'
-            )
-        )
+        ON DELETE SET NULL
 );
 
 
+-- =========================================================
+-- SMS NOTIFICATION
+-- =========================================================
+
 CREATE TABLE sms_notification (
     notification_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
     notification_type VARCHAR(100) NOT NULL,
     message TEXT NOT NULL,
+
     channel VARCHAR(20) NOT NULL DEFAULT 'SMS',
+
     sent_at TIMESTAMPTZ,
-    delivery_status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
+
+    delivery_status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     alert_id BIGINT,
