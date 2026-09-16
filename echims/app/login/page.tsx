@@ -63,11 +63,13 @@ export default function LoginPage() {
                   <button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((visible) => !visible)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B7280]">{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
                 </div>
               </div>
+              <div className="flex items-center justify-between text-sm"><label className="flex items-center gap-2 text-[#6B7280]"><input type="checkbox" className="h-4 w-4 accent-[#0077B6]" />Remember me</label><Link href="/" className="font-semibold text-[#0077B6] hover:underline">Forgot Password?</Link></div>
               {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
               <button type="submit" className="w-full rounded-full bg-[#0784BE] py-3 font-semibold text-white shadow-sm transition-colors hover:bg-[#056d9e]">Sign In</button>
             </form>
-            <div className="my-7 flex items-center gap-3 text-xs uppercase text-[#9CA3AF]"><span className="h-px flex-1 bg-[#E5E7EB]" />Secure RHU Access<span className="h-px flex-1 bg-[#E5E7EB]" /></div>
-            <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-[#0077B6]"><p className="font-semibold">Sign in with your RHU account</p><p className="mt-2">Use the email and password assigned to you by your administrator.</p></div>
+            <div className="my-7 flex items-center gap-3 text-xs uppercase text-[#9CA3AF]"><span className="h-px flex-1 bg-[#E5E7EB]" />New User?<span className="h-px flex-1 bg-[#E5E7EB]" /></div>
+            <p className="text-center text-sm text-[#6B7280]">Need an account? <Link href="/register" className="font-semibold text-[#0077B6] hover:underline">Register here</Link></p>
+            <div className="mt-5 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-[#0077B6]"><p className="font-semibold">Demo Credentials</p><p className="mt-2">Email: <strong>demo@rhu.gov.ph</strong></p><p>Password: <strong>Demo@123</strong></p></div>
             <p className="mt-8 text-center text-xs text-[#9CA3AF]">By signing in, you agree to our <Link href="/" className="text-[#0077B6]">Terms of Service</Link> and <Link href="/" className="text-[#0077B6]">Privacy Policy</Link></p>
           </div>
         </section>
