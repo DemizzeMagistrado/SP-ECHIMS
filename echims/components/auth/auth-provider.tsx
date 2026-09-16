@@ -16,11 +16,23 @@ export type AuthUser = {
   licenseNumber: string
 }
 
+type RegistrationForm = {
+  fullName: string
+  username: string
+  contactNumber: string
+  email: string
+  role: UserRole
+  employeeId: string
+  licenseNumber: string
+  password: string
+}
+
 type AuthContextValue = {
   isAuthenticated: boolean
   isReady: boolean
   user: AuthUser | null
   login: (email: string, password: string) => Promise<{ error?: string }>
+  register: (form: RegistrationForm) => Promise<{ error?: string; needsEmailConfirmation?: boolean }>
   logout: () => Promise<void>
 }
 
@@ -48,6 +60,7 @@ const AuthContext = createContext<AuthContextValue>({
   isReady: false,
   user: null,
   login: async () => ({ error: 'Unable to sign in.' }),
+  register: async () => ({ error: 'Unable to register.' }),
   logout: async () => undefined,
 })
 
@@ -84,6 +97,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: 'Invalid email or password.' }
       }
       return {}
+    },
+    register: async (form) => {
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email: form.email.trim().toLowerCase(),
+          password: form.password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+            data: {
+              full_name: form.fullName.trim(),
+              username: form.username.trim(),
+              contact_number: form.contactNumber.trim(),
+              role: form.role,
+              employee_id: form.employeeId.trim() || null,
+              license_number: form.licenseNumber.trim() || null,
+            },
+          },
+        })
+        if (error) return { error: error.message }
+        return { needsEmailConfirmation: !data.session }
+      } catch {
+        return { error: 'Unable to complete registration. Check your connection and try again.' }
+      }
     },
     logout: async () => {
       await supabase.auth.signOut()
