@@ -97,7 +97,7 @@ export function Sidebar() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="truncate text-sm font-semibold text-white">{user?.fullName ?? 'User'}</p>
-            <p className="truncate text-xs text-white/70">{user?.role ?? 'Authenticated User'}</p>
+            <p className="truncate text-xs text-white/70">{user?.requestedRole ?? user?.role ?? 'Authenticated User'}</p>
           </div>
         </div>
         <button onClick={handleLogout} className="mt-3 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/90 transition-colors hover:bg-white/10 hover:text-white">

@@ -11,12 +11,14 @@ export type AuthUser = {
   username: string
   email: string
   role: UserRole
+  requestedRole: UserRole | null
+  accountStatus: 'PENDING_APPROVAL' | 'APPROVED' | 'UNKNOWN'
   contactNumber: string
   employeeId: string
   licenseNumber: string
 }
 
-type RegistrationForm = {
+export type RegistrationInput = {
   fullName: string
   username: string
   contactNumber: string
@@ -32,7 +34,7 @@ type AuthContextValue = {
   isReady: boolean
   user: AuthUser | null
   login: (email: string, password: string) => Promise<{ error?: string }>
-  register: (form: RegistrationForm) => Promise<{ error?: string; needsEmailConfirmation?: boolean }>
+  register: (input: RegistrationInput) => Promise<{ error?: string; needsEmailConfirmation?: boolean }>
   logout: () => Promise<void>
 }
 
@@ -42,13 +44,17 @@ const roles: UserRole[] = ['Administrator', 'Public Health Nurse', 'Barangay Hea
 function toAuthUser(user: User): AuthUser {
   const metadata = user.app_metadata ?? {}
   const userMetadata = user.user_metadata ?? {}
+  const requestedRole = roles.includes(userMetadata.requested_role as UserRole) ? userMetadata.requested_role as UserRole : null
   const role = roles.includes(metadata.role as UserRole) ? metadata.role as UserRole : DEFAULT_ROLE
+  const accountStatus = userMetadata.account_status === 'PENDING_APPROVAL' ? 'PENDING_APPROVAL' : metadata.role ? 'APPROVED' : 'UNKNOWN'
   return {
     id: user.id,
     fullName: userMetadata.full_name ?? user.email?.split('@')[0] ?? 'RHU User',
     username: userMetadata.username ?? user.email?.split('@')[0] ?? '',
     email: user.email ?? '',
     role,
+    requestedRole,
+    accountStatus,
     contactNumber: userMetadata.contact_number ?? '',
     employeeId: userMetadata.employee_id ?? '',
     licenseNumber: userMetadata.license_number ?? '',
@@ -98,28 +104,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       return {}
     },
-    register: async (form) => {
-      try {
-        const { data, error } = await supabase.auth.signUp({
-          email: form.email.trim().toLowerCase(),
-          password: form.password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
-            data: {
-              full_name: form.fullName.trim(),
-              username: form.username.trim(),
-              contact_number: form.contactNumber.trim(),
-              role: form.role,
-              employee_id: form.employeeId.trim() || null,
-              license_number: form.licenseNumber.trim() || null,
-            },
+    register: async (input) => {
+      const { data, error } = await supabase.auth.signUp({
+        email: input.email.trim(),
+        password: input.password,
+        options: {
+          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/auth/callback`,
+          data: {
+            full_name: input.fullName.trim(),
+            username: input.username.trim(),
+            contact_number: input.contactNumber.trim(),
+            employee_id: input.employeeId.trim(),
+            license_number: input.licenseNumber.trim(),
+            requested_role: input.role,
+            account_status: 'PENDING_APPROVAL',
           },
-        })
-        if (error) return { error: error.message }
-        return { needsEmailConfirmation: !data.session }
-      } catch {
-        return { error: 'Unable to complete registration. Check your connection and try again.' }
+        },
+      })
+      if (error) {
+        const message = error.message.toLowerCase()
+        const code = error.code?.toLowerCase() ?? ''
+        if (code === 'user_already_exists' || code === 'email_exists' || message.includes('already') || message.includes('registered') || message.includes('duplicate') || message.includes('user already exists')) return { error: 'An account with this email already exists. Try signing in instead.' }
+        if (code === 'email_address_invalid' || message.includes('invalid email')) return { error: 'Enter a valid email address.' }
+        if (code === 'weak_password' || message.includes('password')) return { error: 'Choose a stronger password with at least 8 characters, including a number and symbol.' }
+        if (code === 'signup_disabled' || message.includes('signup is disabled')) return { error: 'Registration is currently unavailable. Please contact your administrator.' }
+        if (code === 'over_email_send_rate_limit' || message.includes('rate limit')) return { error: 'Too many registration attempts. Please wait a while and try again.' }
+        if (code === 'email_provider_disabled' || message.includes('email provider')) return { error: 'Email registration is not enabled. Please contact your administrator.' }
+        return { error: 'We could not create your account. Please check your details and try again.' }
       }
+      if (data.user && data.user.identities?.length === 0) return { error: 'An account with this email already exists. Try signing in instead.' }
+      return { needsEmailConfirmation: !data.session }
     },
     logout: async () => {
       await supabase.auth.signOut()
