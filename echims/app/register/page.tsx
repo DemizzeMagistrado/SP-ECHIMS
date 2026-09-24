@@ -26,6 +26,7 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
 
   function update(field: keyof typeof form, value: string) { setForm((current) => ({ ...current, [field]: value })) }
 
@@ -36,6 +37,7 @@ export default function RegisterPage() {
     if (form.password.length < 8) return setError('Password must be at least 8 characters.')
     if (form.password !== form.confirmPassword) return setError('Password and Confirm Password must match.')
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return setError('Enter a valid email address.')
+    if (!agreedToTerms) return setError('You must agree to the terms and conditions.')
     setIsSubmitting(true)
     const result = await register(form)
     setIsSubmitting(false)
@@ -59,6 +61,6 @@ export default function RegisterPage() {
       <div><p className="text-xs font-bold uppercase tracking-wide text-[#0077B6]">Employment / Professional Information</p><div className="mt-3 grid gap-4 sm:grid-cols-2"><label className="text-sm font-semibold text-[#03045E]">Employee ID<input className={inputClass} value={form.employeeId} onChange={(e) => update('employeeId', e.target.value)} /></label><label className="text-sm font-semibold text-[#03045E]">License Number<input className={inputClass} value={form.licenseNumber} onChange={(e) => update('licenseNumber', e.target.value)} /></label></div></div>
       <div><p className="text-xs font-bold uppercase tracking-wide text-[#0077B6]">Password</p><div className="mt-3 grid gap-4 sm:grid-cols-2"><label className="text-sm font-semibold text-[#03045E]">Password<div className="relative"><input className={`${inputClass} pr-12`} type={showPassword ? 'text' : 'password'} value={form.password} onChange={(e) => update('password', e.target.value)} required /><button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B7280]">{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div></label><label className="text-sm font-semibold text-[#03045E]">Confirm Password<div className="relative"><input className={`${inputClass} pr-12`} type={showConfirmPassword ? 'text' : 'password'} value={form.confirmPassword} onChange={(e) => update('confirmPassword', e.target.value)} required /><button type="button" aria-label={showConfirmPassword ? 'Hide password' : 'Show password'} onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B7280]">{showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div></label></div></div>
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}{success && <p role="status" className="rounded-xl bg-green-50 p-3 text-sm text-green-700">{success}</p>}<button type="submit" disabled={isSubmitting} className="w-full rounded-full bg-[#0784BE] py-3 font-semibold text-white shadow-sm transition-colors hover:bg-[#056d9e] disabled:cursor-not-allowed disabled:opacity-60">{isSubmitting ? 'Submitting Registration...' : 'Submit Registration'}</button>
-    </form><div className="my-7 flex items-center gap-3 text-xs uppercase text-[#9CA3AF]"><span className="h-px flex-1 bg-[#E5E7EB]" />Already Registered?<span className="h-px flex-1 bg-[#E5E7EB]" /></div><p className="text-center text-sm text-[#6B7280]">Already have an account? <Link href="/login" className="font-semibold text-[#0077B6] hover:underline">Sign in</Link></p><p className="mt-8 text-center text-xs text-[#9CA3AF]">By registering, you agree to our <Link href="/" className="text-[#0077B6]">Terms of Service</Link> and <Link href="/" className="text-[#0077B6]">Privacy Policy</Link></p></div></section>
+    </form><div className="my-7 flex items-center gap-3 text-xs uppercase text-[#9CA3AF]"><span className="h-px flex-1 bg-[#E5E7EB]" />Already Registered?<span className="h-px flex-1 bg-[#E5E7EB]" /></div><p className="text-center text-sm text-[#6B7280]">Already have an account? <Link href="/login" className="font-semibold text-[#0077B6] hover:underline">Sign in</Link></p><p className="mt-8 text-center text-xs text-[#9CA3AF]">By registering, you agree to our <Link href="/terms" className="text-[#0077B6]">Terms of Service</Link> and <Link href="/privacy" className="text-[#0077B6]">Privacy Policy</Link></p></div></section>
   </div></main>
 }
