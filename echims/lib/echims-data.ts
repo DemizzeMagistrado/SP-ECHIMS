@@ -1,9 +1,9 @@
 export type UserRole = 'Administrator' | 'Public Health Nurse' | 'Barangay Health Worker' | 'Rural Health Midwife' | 'Barangay Nutrition Scholar'
 
 export const roleModules: Record<UserRole, string[]> = {
-  Administrator: ['Dashboard', 'User Management', 'Child Profiling', 'Vaccination', 'Nutritional Assessment', 'Supplementation', 'Inventory', 'Alerts', 'Reports', 'Settings'],
+  Administrator: ['Dashboard', 'User Management', 'Child Profiling', 'Vaccination', 'Health Activities', 'Nutritional Assessment', 'Supplementation', 'Inventory', 'Alerts', 'Reports', 'Settings'],
   'Public Health Nurse': ['Dashboard', 'Child Profiling', 'Vaccination', 'Nutritional Assessment', 'Supplementation', 'Inventory', 'Alerts', 'Reports', 'Settings'],
-  'Barangay Health Worker': ['Dashboard', 'Child Profiling', 'Vaccination', 'Health Activities', 'Alerts', 'Reports'],
+  'Barangay Health Worker': ['Dashboard', 'Child Profiling', 'Vaccination', 'Health Activities', 'Alerts', 'Reports', 'Settings'],
   'Rural Health Midwife': ['Dashboard', 'Child Profiling', 'Vaccination', 'Health Activities', 'Alerts', 'Reports', 'Settings'],
   'Barangay Nutrition Scholar': ['Dashboard', 'Child Profiling', 'Nutritional Assessment', 'Supplementation', 'Health Activities', 'Alerts', 'Reports', 'Settings'],
 }
@@ -43,10 +43,10 @@ export type Permission = 'view' | 'create' | 'edit' | 'approve' | 'export'
 
 const rolePermissions: Record<UserRole, Partial<Record<string, Permission[]>>> = {
   Administrator: { '*': ['view', 'create', 'edit', 'approve', 'export'] },
-  'Public Health Nurse': { 'Child Profiling': ['view', 'create', 'edit', 'export'], Vaccination: ['view', 'create', 'edit', 'approve', 'export'], 'Nutritional Assessment': ['view', 'create', 'edit', 'export'], Supplementation: ['view', 'create', 'edit', 'export'], Inventory: ['view', 'edit', 'export'], Reports: ['view', 'create', 'export'] },
-  'Barangay Health Worker': { 'Child Profiling': ['view', 'create', 'edit'], Vaccination: ['view', 'create', 'edit'], 'Health Activities': ['view', 'create', 'edit'], Alerts: ['view'], Reports: ['view', 'create', 'export'] },
-  'Rural Health Midwife': { 'Child Profiling': ['view', 'create', 'edit'], Vaccination: ['view', 'create', 'edit'], 'Health Activities': ['view', 'create', 'edit'], Alerts: ['view'], Reports: ['view', 'create', 'export'], Settings: ['view'] },
-  'Barangay Nutrition Scholar': { 'Child Profiling': ['view', 'create', 'edit'], 'Nutritional Assessment': ['view', 'create', 'edit', 'export'], Supplementation: ['view', 'create', 'edit'], 'Health Activities': ['view', 'create', 'edit'], Alerts: ['view'], Reports: ['view', 'create', 'export'], Settings: ['view'] },
+  'Public Health Nurse': { 'Child Profiling': ['view', 'create', 'edit', 'export'], Vaccination: ['view', 'create', 'edit', 'approve', 'export'], 'Nutritional Assessment': ['view', 'create', 'edit', 'export'], Supplementation: ['view', 'create', 'edit', 'export'], Inventory: ['view', 'edit', 'export'], Reports: ['view', 'create', 'export'], Settings: ['view'] },
+  'Barangay Health Worker': { 'Child Profiling': ['view', 'create', 'edit'], Vaccination: ['view', 'create', 'edit'], 'Health Activities': ['view', 'create', 'edit'], Alerts: ['view'], Reports: ['view', 'export'], Settings: ['view'] },
+  'Rural Health Midwife': { 'Child Profiling': ['view', 'approve'], Vaccination: ['view', 'create', 'edit'], 'Health Activities': ['view', 'create', 'edit'], Alerts: ['view'], Reports: ['view', 'export'], Settings: ['view'] },
+  'Barangay Nutrition Scholar': { 'Child Profiling': ['view'], 'Nutritional Assessment': ['view', 'create', 'edit', 'export'], Supplementation: ['view', 'create', 'edit'], 'Health Activities': ['view', 'create', 'edit'], Alerts: ['view'], Reports: ['view', 'export'], Settings: ['view'] },
 }
 
 export function canPerform(role: UserRole, module: string, permission: Permission) {
@@ -59,7 +59,13 @@ export function slugToTitle(slug: string[]) {
 }
 
 export function canAccess(role: UserRole, path: string) {
-  if (path.startsWith('/dashboard')) return true
-  const module = Object.keys(moduleRoutes).find((key) => path.startsWith(moduleRoutes[key]))
-  return module ? roleModules[role].includes(module) : true
+  if (path === '/dashboard' || path.startsWith('/dashboard/')) return roleModules[role].includes('Dashboard')
+  const routeAliases: Record<string, string> = {
+    '/children': 'Child Profiling', '/child-profiling': 'Child Profiling',
+    '/nutrition': 'Nutritional Assessment', '/nutritional-assessment': 'Nutritional Assessment',
+    '/inventory': 'Inventory', '/vaccination': 'Vaccination', '/supplementation': 'Supplementation',
+    '/health-activities': 'Health Activities', '/alerts': 'Alerts', '/reports': 'Reports', '/settings': 'Settings', '/user-management': 'User Management',
+  }
+  const module = Object.entries(routeAliases).find(([prefix]) => path === prefix || path.startsWith(`${prefix}/`))?.[1] ?? Object.keys(moduleRoutes).find((key) => path.startsWith(moduleRoutes[key]))
+  return module ? roleModules[role].includes(module) : false
 }

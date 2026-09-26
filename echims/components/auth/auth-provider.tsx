@@ -40,13 +40,26 @@ type AuthContextValue = {
 
 const DEFAULT_ROLE: UserRole = 'Barangay Health Worker'
 const roles: UserRole[] = ['Administrator', 'Public Health Nurse', 'Barangay Health Worker', 'Rural Health Midwife', 'Barangay Nutrition Scholar']
+const roleAliases: Record<string, UserRole> = {
+  admin: 'Administrator', administrator: 'Administrator',
+  phn: 'Public Health Nurse', 'public health nurse': 'Public Health Nurse',
+  bhw: 'Barangay Health Worker', 'barangay health worker': 'Barangay Health Worker',
+  rhm: 'Rural Health Midwife', midwife: 'Rural Health Midwife', 'rural health midwife': 'Rural Health Midwife',
+  bns: 'Barangay Nutrition Scholar', 'barangay nutrition scholar': 'Barangay Nutrition Scholar',
+}
+
+function resolveTrustedRole(value: unknown): UserRole {
+  const normalized = String(value ?? '').trim().toLowerCase()
+  return roleAliases[normalized] ?? DEFAULT_ROLE
+}
 
 function toAuthUser(user: User): AuthUser {
   const metadata = user.app_metadata ?? {}
   const userMetadata = user.user_metadata ?? {}
   const requestedRole = roles.includes(userMetadata.requested_role as UserRole) ? userMetadata.requested_role as UserRole : null
-  const role = roles.includes(metadata.role as UserRole) ? metadata.role as UserRole : DEFAULT_ROLE
-  const accountStatus = userMetadata.account_status === 'PENDING_APPROVAL' ? 'PENDING_APPROVAL' : metadata.role ? 'APPROVED' : 'UNKNOWN'
+  // Existing registered users may have their selected role in user metadata until an administrator promotes it to app_metadata.
+  const role = resolveTrustedRole(metadata.role ?? metadata.user_role ?? userMetadata.requested_role)
+  const accountStatus = userMetadata.account_status === 'PENDING_APPROVAL' && !metadata.role && !metadata.user_role ? 'PENDING_APPROVAL' : metadata.role || metadata.user_role ? 'APPROVED' : 'UNKNOWN'
   return {
     id: user.id,
     fullName: userMetadata.full_name ?? user.email?.split('@')[0] ?? 'RHU User',

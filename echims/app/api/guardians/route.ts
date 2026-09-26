@@ -20,8 +20,16 @@ function childIdFromParam(value: string | null) {
 export async function GET(request: Request) {
   const { supabase, response } = await authorize()
   if (response) return response
-  const childId = childIdFromParam(new URL(request.url).searchParams.get('childId'))
-  if (!childId) return NextResponse.json({ error: 'A valid child is required.' }, { status: 400 })
+  const params = new URL(request.url).searchParams
+  const childId = childIdFromParam(params.get('childId'))
+  if (!childId) {
+    const query = params.get('q')?.trim() ?? ''
+    if (!query) return NextResponse.json([])
+    const pattern = `%${query}%`
+    const { data, error } = await supabase.from('guardian').select('guardian_id, first_name, middle_name, last_name, contact_number, address, relationship_to_child').or(`first_name.ilike.${pattern},last_name.ilike.${pattern}`).order('last_name').limit(20)
+    if (error) return NextResponse.json({ error: 'Unable to search guardians.' }, { status: 500 })
+    return NextResponse.json(data ?? [])
+  }
   const { data: child, error: childError } = await supabase.from('child').select('guardian_id').eq('child_id', childId).maybeSingle()
   if (childError || !child) return NextResponse.json({ error: 'Child could not be found.' }, { status: 404 })
   if (!child.guardian_id) return NextResponse.json(null)
