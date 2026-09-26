@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/auth/auth-provider'
 import type { UserRole } from '@/lib/echims-data'
@@ -28,6 +28,30 @@ export default function RegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
 
+  useEffect(() => {
+  const savedForm = sessionStorage.getItem('echims-registration-form')
+  const savedTerms = sessionStorage.getItem('echims-terms-accepted')
+
+  if (savedForm) {
+    try {
+      setForm(JSON.parse(savedForm))
+    } catch {
+      sessionStorage.removeItem('echims-registration-form')
+    }
+  }
+
+  if (savedTerms === 'true') {
+    setAgreedToTerms(true)
+  }
+}, [])
+
+useEffect(() => {
+  sessionStorage.setItem(
+    'echims-registration-form',
+    JSON.stringify(form)
+  )
+}, [form])
+
   function update(field: keyof typeof form, value: string) { setForm((current) => ({ ...current, [field]: value })) }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -47,7 +71,7 @@ export default function RegisterPage() {
       setForm(initialForm)
       return
     }
-    router.push('/dashboard')
+    router.push('/register/success')  
   }
 
   const selectedRole = roleOptions.find((role) => role.value === form.role)
