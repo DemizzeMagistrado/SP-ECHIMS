@@ -3,7 +3,11 @@ import { createClient } from '@/lib/supabase/server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 
 const roleAliases: Record<string, UserRole> = { administrator: 'Administrator', admin: 'Administrator', 'public health nurse': 'Public Health Nurse', phn: 'Public Health Nurse', 'barangay health worker': 'Barangay Health Worker', bhw: 'Barangay Health Worker', 'rural health midwife': 'Rural Health Midwife', rhm: 'Rural Health Midwife', 'barangay nutrition scholar': 'Barangay Nutrition Scholar', bns: 'Barangay Nutrition Scholar' }
-function trustedRole(user: { app_metadata?: Record<string, unknown> }) { const raw = String(user.app_metadata?.role ?? user.app_metadata?.user_role ?? '').trim().toLowerCase(); return roleAliases[raw] }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function trustedRole(supabase: any) {
+  const { data } = await supabase.rpc('get_my_profile').maybeSingle()
+  return roleAliases[String(data?.role ?? '').trim().toLowerCase()]
+}
 
 function parseId(value: unknown) {
   const parsed = Number(String(value ?? '').replace(/^CH-/, '').split('-').pop())
@@ -20,7 +24,7 @@ async function session(permission: 'view' | 'create' | 'edit') {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
-  const role = trustedRole(user)
+  const role = await trustedRole(supabase)
   return role && canPerform(role, 'Child Profiling', permission) ? { supabase, user, role } : { supabase, user, role, forbidden: true as const }
 }
 

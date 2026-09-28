@@ -7,8 +7,8 @@ const roleAliases: Record<string, UserRole> = { admin: 'Administrator', administ
 async function authorize(permission: 'view' | 'create') {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const rawRole = user?.app_metadata?.role ?? user?.app_metadata?.user_role ?? user?.user_metadata?.role ?? user?.user_metadata?.user_role ?? user?.user_metadata?.requested_role
-  const role = roleAliases[String(rawRole ?? '').trim().toLowerCase()]
+  const { data: profile } = user ? await supabase.rpc('get_my_profile').maybeSingle() : { data: null }
+  const role = roleAliases[String(profile?.role ?? '').trim().toLowerCase()]
   if (!user || !role || !canPerform(role, 'Nutritional Assessment', permission)) return { supabase, response: NextResponse.json({ error: 'You are not authorized to access nutrition records.' }, { status: 403 }) }
   return { supabase, response: null }
 }

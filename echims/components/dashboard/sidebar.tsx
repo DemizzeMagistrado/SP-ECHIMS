@@ -43,8 +43,8 @@ export function Sidebar() {
     return roleModules[role].includes(item.label)
   })
 
-  function handleLogout() {
-    logout()
+  async function handleLogout() {
+    await logout()
     window.location.assign('/login')
   }
 

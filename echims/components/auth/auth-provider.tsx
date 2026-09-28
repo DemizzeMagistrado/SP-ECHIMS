@@ -53,24 +53,37 @@ function resolveTrustedRole(value: unknown): UserRole {
   return roleAliases[normalized] ?? DEFAULT_ROLE
 }
 
-function toAuthUser(user: User): AuthUser {
-  const metadata = user.app_metadata ?? {}
+type ProfileRow = {
+  user_id: string
+  full_name: string | null
+  username: string | null
+  email: string | null
+  contact_number: string | null
+  account_status: string | null
+  role: string | null
+  employee_id: string | null
+  license_number: string | null
+}
+
+// role/account_status come from public.get_my_profile(), which reads the trusted
+// administrator/health_worker/* tables server-side (RLS + SECURITY DEFINER), not from
+// client-editable JWT metadata.
+function toAuthUser(user: User, profile: ProfileRow | null): AuthUser {
   const userMetadata = user.user_metadata ?? {}
   const requestedRole = roles.includes(userMetadata.requested_role as UserRole) ? userMetadata.requested_role as UserRole : null
-  // Existing registered users may have their selected role in user metadata until an administrator promotes it to app_metadata.
-  const role = resolveTrustedRole(metadata.role ?? metadata.user_role ?? userMetadata.requested_role)
-  const accountStatus = userMetadata.account_status === 'PENDING_APPROVAL' && !metadata.role && !metadata.user_role ? 'PENDING_APPROVAL' : metadata.role || metadata.user_role ? 'APPROVED' : 'UNKNOWN'
+  const role = resolveTrustedRole(profile?.role)
+  const accountStatus = profile?.account_status === 'PENDING' ? 'PENDING_APPROVAL' : profile?.account_status === 'ACTIVE' ? 'APPROVED' : 'UNKNOWN'
   return {
     id: user.id,
-    fullName: userMetadata.full_name ?? user.email?.split('@')[0] ?? 'RHU User',
-    username: userMetadata.username ?? user.email?.split('@')[0] ?? '',
-    email: user.email ?? '',
+    fullName: profile?.full_name ?? userMetadata.full_name ?? user.email?.split('@')[0] ?? 'RHU User',
+    username: profile?.username ?? userMetadata.username ?? user.email?.split('@')[0] ?? '',
+    email: profile?.email ?? user.email ?? '',
     role,
     requestedRole,
     accountStatus,
-    contactNumber: userMetadata.contact_number ?? '',
-    employeeId: userMetadata.employee_id ?? '',
-    licenseNumber: userMetadata.license_number ?? '',
+    contactNumber: profile?.contact_number ?? userMetadata.contact_number ?? '',
+    employeeId: profile?.employee_id ?? userMetadata.employee_id ?? '',
+    licenseNumber: profile?.license_number ?? userMetadata.license_number ?? '',
   }
 }
 
@@ -90,14 +103,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true
-    supabase.auth.getUser().then(({ data }: { data: { user: User | null } }) => {
-      if (mounted) {
-        setUser(data.user ? toAuthUser(data.user) : null)
-        setIsReady(true)
+
+    async function loadUser(authUser: User | null) {
+      if (!authUser) {
+        if (mounted) setUser(null)
+        return
       }
+      const { data: profile } = await supabase.rpc('get_my_profile').maybeSingle() as { data: ProfileRow | null }
+      if (mounted) setUser(toAuthUser(authUser, profile))
+    }
+
+    supabase.auth.getUser().then(async ({ data }: { data: { user: User | null } }) => {
+      await loadUser(data.user)
+      if (mounted) setIsReady(true)
     })
     const { data: listener } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
-      if (mounted) setUser(session?.user ? toAuthUser(session.user) : null)
+      loadUser(session?.user ?? null)
     })
     return () => {
       mounted = false
