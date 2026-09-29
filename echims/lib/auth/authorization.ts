@@ -7,6 +7,12 @@ import {
   type Role,
 } from './permissions'
 
+export type AccountStatus =
+  | 'PENDING'
+  | 'ACTIVE'
+  | 'INACTIVE'
+  | 'SUSPENDED'
+
 export async function getAuthorizationContext() {
   const supabase = await createClient()
 
@@ -40,7 +46,7 @@ export async function getAuthorizationContext() {
   )
 
   // ---------------------------------------------------------
-  // 2. users table
+  // 2. public.users
   // ---------------------------------------------------------
 
   const {
@@ -77,14 +83,28 @@ export async function getAuthorizationContext() {
   // 3. Account status
   // ---------------------------------------------------------
 
-  if (
-    String(profile.account_status).toLowerCase() !== 'active'
-  ) {
+  const accountStatus = String(
+    profile.account_status
+  ).toUpperCase() as AccountStatus
+
+  console.log(
+    'AUTH DEBUG: Account status:',
+    accountStatus
+  )
+
+  // Do not resolve role for accounts that are not active.
+  if (accountStatus !== 'ACTIVE') {
     console.error(
       'AUTH DEBUG: Account is not active:',
-      profile.account_status
+      accountStatus
     )
-    return null
+    return {
+      authUser: user,
+      profile,
+      role: null,
+      assignments: [],
+      accountStatus,
+    }
   }
 
   console.log('AUTH DEBUG: Account is active')
@@ -137,20 +157,24 @@ export async function getAuthorizationContext() {
       administratorResult.error?.message,
 
     phn: phnResult.data,
-    phnError: phnResult.error?.message,
+    phnError:
+      phnResult.error?.message,
 
     rhm: rhmResult.data,
-    rhmError: rhmResult.error?.message,
+    rhmError:
+      rhmResult.error?.message,
 
     bhw: bhwResult.data,
-    bhwError: bhwResult.error?.message,
+    bhwError:
+      bhwResult.error?.message,
 
     bns: bnsResult.data,
-    bnsError: bnsResult.error?.message,
+    bnsError:
+      bnsResult.error?.message,
   })
 
   // ---------------------------------------------------------
-  // 5. Determine role
+  // 5. Determine exactly one real role
   // ---------------------------------------------------------
 
   const roleMatches: Role[] = []
@@ -180,12 +204,20 @@ export async function getAuthorizationContext() {
     roleMatches
   )
 
+  // No role or multiple roles is a database authorization problem.
   if (roleMatches.length !== 1) {
     console.error(
       'AUTH DEBUG: Expected exactly one role, found:',
       roleMatches.length
     )
-    return null
+
+    return {
+      authUser: user,
+      profile,
+      role: null,
+      assignments: [],
+      accountStatus,
+    }
   }
 
   const role = roleMatches[0]
@@ -196,7 +228,7 @@ export async function getAuthorizationContext() {
   )
 
   // ---------------------------------------------------------
-  // 6. Get assignments
+  // 6. Get active assignments
   // ---------------------------------------------------------
 
   const {
@@ -227,7 +259,7 @@ export async function getAuthorizationContext() {
       )
     `)
     .eq('user_id', user.id)
-    .eq('status', 'Active')
+    .eq('status', 'ACTIVE')
 
   if (assignmentError) {
     console.error(
@@ -255,21 +287,59 @@ export async function getAuthorizationContext() {
     profile,
     role,
     assignments: assignments ?? [],
+    accountStatus,
   }
 }
+
+// ---------------------------------------------------------
+// Permission-protected pages
+// ---------------------------------------------------------
 
 export async function requirePermission(
   permission: Permission
 ) {
   const context = await getAuthorizationContext()
 
+  // Not logged in / no public.users record / database error
   if (!context) {
     console.error(
-      'AUTH DEBUG: getAuthorizationContext() returned null'
+      'AUTH DEBUG: No authorization context'
     )
 
     redirect('/login')
   }
+
+  // ---------------------------------------------------------
+  // Account status handling
+  // ---------------------------------------------------------
+
+  if (context.accountStatus === 'PENDING') {
+    redirect('/account-pending')
+  }
+
+  if (context.accountStatus === 'INACTIVE') {
+    redirect('/account-inactive')
+  }
+
+  if (context.accountStatus === 'SUSPENDED') {
+    redirect('/account-suspended')
+  }
+
+  // ---------------------------------------------------------
+  // Active account but no valid role
+  // ---------------------------------------------------------
+
+  if (!context.role) {
+    console.error(
+      'AUTH DEBUG: Active account has no valid role'
+    )
+
+    redirect('/unauthorized')
+  }
+
+  // ---------------------------------------------------------
+  // Permission check
+  // ---------------------------------------------------------
 
   console.log(
     'AUTH DEBUG: Checking permission:',
@@ -281,7 +351,9 @@ export async function requirePermission(
   if (!hasPermission(context.role, permission)) {
     console.error(
       'AUTH DEBUG: Permission denied:',
-      permission
+      permission,
+      'for role:',
+      context.role
     )
 
     redirect('/unauthorized')
