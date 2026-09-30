@@ -1,120 +1,518 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
-import { Eye, EyeOff } from 'lucide-react'
-import { FormEvent, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Eye, EyeOff, ChevronDown, Check } from 'lucide-react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+
 import { useAuth } from '@/components/auth/auth-provider'
 import type { UserRole } from '@/lib/echims-data'
 
-const FORM_KEY = 'echims_registration_form'
-const TERMS_KEY = 'echims_terms_accepted'
+type Barangay = {
+  barangay_id: number
+  barangay_name: string
+}
 
-const roleOptions: { value: UserRole; description: string }[] = [
-  { value: 'Administrator', description: 'Manages RHU users, permissions, and system operations.' },
-  { value: 'Public Health Nurse', description: 'Public health nurses coordinate approved RHU activities.' },
-  { value: 'Barangay Health Worker', description: 'Supports household visits and community health records.' },
-  { value: 'Rural Health Midwife', description: 'Coordinates maternal and child health services.' },
-  { value: 'Barangay Nutrition Scholar', description: 'Supports nutrition monitoring and supplementation.' },
+type WorkplaceOption = {
+  rhu_id: number
+  rhu_name: string
+  province: string
+  municipality: string
+  city: string
+  barangays: Barangay[]
+}
+
+/*
+|--------------------------------------------------------------------------
+| WORKPLACE DATA
+|--------------------------------------------------------------------------
+*/
+
+const workplaceOptions: WorkplaceOption[] = [
+  {
+    rhu_id: 2,
+    rhu_name: 'RHU 1',
+    province: 'Camarines Norte',
+    municipality: 'Daet',
+    city: '',
+    barangays: [
+      { barangay_id: 6, barangay_name: 'Barangay II' },
+      { barangay_id: 8, barangay_name: 'Calasgasan' },
+      { barangay_id: 9, barangay_name: 'Camambugan' },
+      { barangay_id: 10, barangay_name: 'Alawihao' },
+      { barangay_id: 11, barangay_name: 'Dogongan' },
+      { barangay_id: 12, barangay_name: 'Bibirao' },
+      { barangay_id: 13, barangay_name: 'Pamorangon' },
+      { barangay_id: 14, barangay_name: 'Magang' },
+      { barangay_id: 15, barangay_name: 'Mancruz' },
+    ],
+  },
+  {
+    rhu_id: 4,
+    rhu_name: 'RHU 2',
+    province: 'Camarines Norte',
+    municipality: 'Daet',
+    city: '',
+    barangays: [
+      { barangay_id: 16, barangay_name: 'Barangay VI' },
+      { barangay_id: 17, barangay_name: 'Barangay I' },
+      { barangay_id: 18, barangay_name: 'Barangay VIII' },
+      { barangay_id: 19, barangay_name: 'Barangay VII' },
+      { barangay_id: 20, barangay_name: 'Gubat' },
+      { barangay_id: 21, barangay_name: 'San Isidro' },
+      { barangay_id: 22, barangay_name: 'Mambalite' },
+      { barangay_id: 23, barangay_name: 'Bagasbas' },
+      { barangay_id: 24, barangay_name: 'Cobangbang' },
+    ],
+  },
+  {
+    rhu_id: 5,
+    rhu_name: 'RHU 3',
+    province: 'Camarines Norte',
+    municipality: 'Daet',
+    city: '',
+    barangays: [
+      { barangay_id: 25, barangay_name: 'Awitan' },
+      { barangay_id: 26, barangay_name: 'Borabod' },
+      { barangay_id: 27, barangay_name: 'Lag-On' },
+      { barangay_id: 28, barangay_name: 'Barangay V' },
+      { barangay_id: 29, barangay_name: 'Barangay IV' },
+      { barangay_id: 30, barangay_name: 'Barangay III' },
+      { barangay_id: 31, barangay_name: 'Gahonon' },
+    ],
+  },
 ]
 
-const initialForm = {
+const roles: UserRole[] = [
+  'Administrator',
+  'Public Health Nurse',
+  'Rural Health Midwife',
+  'Barangay Health Worker',
+  'Barangay Nutrition Scholar',
+]
+
+type RegistrationState = {
+  fullName: string
+  username: string
+  contactNumber: string
+  email: string
+
+  role: UserRole
+
+  employeeId: string
+  licenseNumber: string
+
+  province: string
+  municipality: string
+  city: string
+
+  rhu_id: string
+
+  barangay_id: string
+  barangay_ids: string[]
+
+  password: string
+  confirmPassword: string
+
+  acceptedTerms: boolean
+}
+
+const initialForm: RegistrationState = {
   fullName: '',
   username: '',
   contactNumber: '',
   email: '',
-  role: 'Barangay Health Worker' as UserRole,
+
+  role: 'Barangay Health Worker',
+
   employeeId: '',
   licenseNumber: '',
+
+  province: '',
+  municipality: '',
+  city: '',
+
+  rhu_id: '',
+
+  barangay_id: '',
+  barangay_ids: [],
+
   password: '',
   confirmPassword: '',
+
+  acceptedTerms: false,
 }
 
-type FormState = typeof initialForm
+const STORAGE_KEY = 'echims-registration-form'
 
 export default function RegisterPage() {
   const router = useRouter()
-  const { register } = useAuth()
-  const [form, setForm] = useState<FormState>(initialForm)
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [agreedToTerms, setAgreedToTerms] = useState(false)
-  const [hydrated, setHydrated] = useState(false)
+  const searchParams = useSearchParams()
 
-  // Restore saved form + terms acceptance once on mount
+  const { register } = useAuth()
+
+  const [form, setForm] =
+    useState<RegistrationState>(initialForm)
+
+  const [showPassword, setShowPassword] =
+    useState(false)
+
+  const [showConfirmPassword, setShowConfirmPassword] =
+    useState(false)
+
+  const [showRoleMenu, setShowRoleMenu] =
+    useState(false)
+
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  /*
+  |--------------------------------------------------------------------------
+  | SUCCESS MESSAGE AFTER EMAIL REGISTRATION
+  |--------------------------------------------------------------------------
+  */
+
+  const emailSuccess =
+    searchParams.get('success') === 'email'
+
+  /*
+  |--------------------------------------------------------------------------
+  | RESTORE FORM
+  |--------------------------------------------------------------------------
+  */
+
   useEffect(() => {
     try {
-      const savedForm = sessionStorage.getItem(FORM_KEY)
-      if (savedForm) {
-        setForm({ ...initialForm, ...JSON.parse(savedForm), password: '', confirmPassword: '' })
-      }
-      if (sessionStorage.getItem(TERMS_KEY) === 'true') setAgreedToTerms(true)
+      const saved =
+        sessionStorage.getItem(STORAGE_KEY)
+
+      if (!saved) return
+
+      const parsed = JSON.parse(saved)
+
+      setForm({
+        ...initialForm,
+        ...parsed,
+        barangay_ids:
+          parsed.barangay_ids ?? [],
+      })
     } catch {
-      sessionStorage.removeItem(FORM_KEY)
+      sessionStorage.removeItem(STORAGE_KEY)
     }
-    setHydrated(true)
   }, [])
 
-  // Save form only after restore finished (passwords are never stored)
-  useEffect(() => {
-    if (!hydrated) return
-    const { password: _p, confirmPassword: _c, ...safeForm } = form
-    sessionStorage.setItem(FORM_KEY, JSON.stringify(safeForm))
-  }, [form, hydrated])
+  /*
+  |--------------------------------------------------------------------------
+  | SAVE FORM
+  |--------------------------------------------------------------------------
+  */
 
-  // Keep checkbox and storage in sync
   useEffect(() => {
-    if (!hydrated) return
-    sessionStorage.setItem(TERMS_KEY, String(agreedToTerms))
-  }, [agreedToTerms, hydrated])
+    sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(form)
+    )
+  }, [form])
 
-  function update(field: keyof FormState, value: string) {
-    setForm((current) => ({ ...current, [field]: value }))
+  /*
+  |--------------------------------------------------------------------------
+  | ROLE HELPERS
+  |--------------------------------------------------------------------------
+  */
+
+  const isAdministrator =
+    form.role === 'Administrator'
+
+  const isPHN =
+    form.role === 'Public Health Nurse'
+
+  const isRHM =
+    form.role === 'Rural Health Midwife'
+
+  const isBarangayWorker =
+    form.role === 'Barangay Health Worker' ||
+    form.role === 'Barangay Nutrition Scholar'
+
+  /*
+  |--------------------------------------------------------------------------
+  | SELECTED RHU
+  |--------------------------------------------------------------------------
+  */
+
+  const selectedRhu = useMemo(
+    () =>
+      workplaceOptions.find(
+        (rhu) =>
+          String(rhu.rhu_id) === form.rhu_id
+      ),
+    [form.rhu_id]
+  )
+
+  /*
+  |--------------------------------------------------------------------------
+  | UPDATE FIELD
+  |--------------------------------------------------------------------------
+  */
+
+  function update(
+    field: keyof RegistrationState,
+    value: string | boolean | string[]
+  ) {
+    setForm((current) => ({
+      ...current,
+      [field]: value,
+    }))
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  /*
+  |--------------------------------------------------------------------------
+  | ROLE CHANGE
+  |--------------------------------------------------------------------------
+  */
+
+  function handleRoleChange(role: UserRole) {
+    setForm((current) => ({
+      ...current,
+      role,
+
+      employeeId: '',
+      licenseNumber: '',
+
+      province: '',
+      municipality: '',
+      city: '',
+
+      rhu_id: '',
+
+      barangay_id: '',
+      barangay_ids: [],
+    }))
+
+    setShowRoleMenu(false)
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | RHU CHANGE
+  |--------------------------------------------------------------------------
+  */
+
+  function handleRhuChange(value: string) {
+    const rhu = workplaceOptions.find(
+      (item) =>
+        String(item.rhu_id) === value
+    )
+
+    setForm((current) => ({
+      ...current,
+
+      rhu_id: value,
+
+      province: rhu?.province ?? '',
+      municipality: rhu?.municipality ?? '',
+      city: rhu?.city ?? '',
+
+      barangay_id: '',
+      barangay_ids: [],
+    }))
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | RHM BARANGAY SELECTION
+  |--------------------------------------------------------------------------
+  */
+
+  function toggleBarangay(
+    barangayId: string
+  ) {
+    setForm((current) => {
+      const exists =
+        current.barangay_ids.includes(
+          barangayId
+        )
+
+      return {
+        ...current,
+
+        barangay_ids: exists
+          ? current.barangay_ids.filter(
+              (id) => id !== barangayId
+            )
+          : [
+              ...current.barangay_ids,
+              barangayId,
+            ],
+      }
+    })
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | VALIDATION
+  |--------------------------------------------------------------------------
+  */
+
+  function validate() {
+    if (!form.fullName.trim()) {
+      return 'Full name is required.'
+    }
+
+    if (!form.username.trim()) {
+      return 'Username is required.'
+    }
+
+    if (!form.contactNumber.trim()) {
+      return 'Contact number is required.'
+    }
+
+    if (!form.email.trim()) {
+      return 'Email is required.'
+    }
+
+    if (!form.password) {
+      return 'Password is required.'
+    }
+
+    if (form.password !== form.confirmPassword) {
+      return 'Passwords do not match.'
+    }
+
+    if (!form.acceptedTerms) {
+      return 'You must accept the Terms and Conditions and Privacy Policy.'
+    }
+
+    if (isAdministrator) {
+      return null
+    }
+
+    if (!form.rhu_id) {
+      return 'Please select your RHU.'
+    }
+
+    if (isPHN) {
+      return null
+    }
+
+    if (isRHM) {
+      if (form.barangay_ids.length === 0) {
+        return 'Please select at least one barangay.'
+      }
+
+      return null
+    }
+
+    if (isBarangayWorker) {
+      if (!form.barangay_id) {
+        return 'Please select your assigned barangay.'
+      }
+    }
+
+    return null
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | SUBMIT
+  |--------------------------------------------------------------------------
+  */
+
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault()
+
     setError('')
-    setSuccess('')
 
-    if (form.password.length < 8) return setError('Password must be at least 8 characters.')
-    if (form.password !== form.confirmPassword) return setError('Password and Confirm Password must match.')
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return setError('Enter a valid email address.')
-    if (!agreedToTerms) return setError('You must agree to the Terms of Service and Privacy Policy.')
+    const validationError = validate()
 
-    setIsSubmitting(true)
-    const result = await register(form)
-    setIsSubmitting(false)
-
-    if (result.error) return setError(result.error)
-
-    sessionStorage.removeItem(FORM_KEY)
-    sessionStorage.removeItem(TERMS_KEY)
-    setAgreedToTerms(false)
-
-    if (result.needsEmailConfirmation) {
-      setSuccess('Registration submitted. Check your email to verify your account. Your selected role will be reviewed by an administrator.')
-      setForm(initialForm)
+    if (validationError) {
+      setError(validationError)
       return
     }
-    router.push('/register/success')
+
+    setLoading(true)
+
+    const result = await register({
+      fullName: form.fullName,
+      username: form.username,
+      contactNumber: form.contactNumber,
+      email: form.email,
+      role: form.role,
+
+      employeeId: isAdministrator
+        ? undefined
+        : form.employeeId,
+
+      licenseNumber: isAdministrator
+        ? undefined
+        : form.licenseNumber,
+
+      province: form.province,
+      municipality: form.municipality,
+      city: form.city,
+
+      rhu_id: isAdministrator
+        ? undefined
+        : form.rhu_id,
+
+      barangay_id: isBarangayWorker
+        ? form.barangay_id
+        : undefined,
+
+      barangay_ids: isRHM
+        ? form.barangay_ids
+        : [],
+
+      password: form.password,
+    })
+
+    setLoading(false)
+
+    if (result.error) {
+      setError(result.error)
+      return
+    }
+
+    sessionStorage.removeItem(
+      STORAGE_KEY
+    )
+
+    if (result.needsEmailConfirmation) {
+      router.push(
+        '/register?success=email'
+      )
+      return
+    }
+
+    router.push('/login')
   }
 
-  const selectedRole = roleOptions.find((role) => role.value === form.role)
+  /*
+  |--------------------------------------------------------------------------
+  | SHARED LOGIN STYLES
+  |--------------------------------------------------------------------------
+  */
+
   const inputClass =
-    'mt-2 w-full rounded-full border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-3 text-sm outline-none focus:border-[#0077B6] focus:ring-2 focus:ring-[#CAF0F8]'
-  const labelClass = 'text-sm font-semibold text-[#03045E]'
-  const sectionClass = 'text-xs font-bold uppercase tracking-wide text-[#0077B6]'
+    'mt-2 w-full rounded-full border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-3 outline-none focus:border-[#0077B6] focus:ring-2 focus:ring-[#CAF0F8]'
+
+  const labelClass =
+    'text-sm font-semibold text-[#03045E]'
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#CAF0F8] p-4 sm:p-8">
-      <div className="flex w-full max-w-6xl overflow-hidden rounded-[28px] bg-white shadow-xl lg:min-h-[665px]">
-        {/* Left brand panel */}
-        <section className="hidden w-1/2 flex-col justify-between bg-gradient-to-br from-[#123C82] to-[#087DB9] p-14 text-white lg:flex">
+    <main className="flex h-screen overflow-hidden items-center justify-center bg-[#CAF0F8] p-4 sm:p-8">
+
+      <div className="flex h-screen flex-col lg:flex-row rounded-[28px] bg-white shadow-xl lg:min-h-[665px]">
+
+        {/* =====================================================
+            LEFT SIDE — SAME AS LOGIN
+        ===================================================== */}
+
+    <section className="hidden h-screen w-[38%] flex-col justify-center bg-gradient-to-br from-[#0077B6] to-[#03045E] px-8 text-white lg:flex lg:px-14">
           <div>
+
             <img
               src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/echimes%20white%20and%20blue-gtjr6RbRtIsj4rnx93fDvsrSwRYq5X.png"
               alt="eCHIMS logo"
@@ -122,169 +520,876 @@ export default function RegisterPage() {
               height={120}
               className="h-auto w-full max-w-[430px]"
             />
+
             <h1 className="mt-14 text-center text-2xl font-bold leading-relaxed">
               Early Child Health Information and Monitoring System
             </h1>
+
             <p className="mt-5 text-center text-base text-blue-100">
               Comprehensive healthcare management for Rural Health Units
             </p>
+
           </div>
+
           <div>
+
             <div className="flex justify-center gap-16 text-center">
+
               <div>
-                <p className="text-4xl font-bold text-cyan-300">500+</p>
-                <p className="mt-2 text-sm text-blue-100">Children Tracked</p>
+                <p className="text-4xl font-bold text-cyan-300">
+                  500+
+                </p>
+
+                <p className="mt-2 text-sm text-blue-100">
+                  Children Tracked
+                </p>
               </div>
+
               <div className="border-l border-white/20 pl-16">
-                <p className="text-4xl font-bold text-cyan-300">50+</p>
-                <p className="mt-2 text-sm text-blue-100">Barangays</p>
+                <p className="text-4xl font-bold text-cyan-300">
+                  50+
+                </p>
+
+                <p className="mt-2 text-sm text-blue-100">
+                  Barangays
+                </p>
               </div>
+
             </div>
+
             <div className="mt-12 border-t border-white/20 pt-8 text-center text-sm text-blue-100">
-              <p>Bachelor of Science in Information Technology</p>
-              <p className="mt-3">© 2025 Rural Health Units</p>
+
+              <p>
+                Bachelor of Science in Information Technology
+              </p>
+
+              <p className="mt-3">
+                © 2025 Rural Health Units
+              </p>
+
             </div>
+
           </div>
+
         </section>
 
-        {/* Form panel */}
-        <section className="flex flex-1 flex-col justify-center px-7 py-10 sm:px-14 lg:w-1/2">
-          <div className="mx-auto w-full max-w-md">
-            <h2 className="text-3xl font-bold text-[#03045E]">Create your account</h2>
-            <p className="mt-2 text-[#6B7280]">Register for the eCHIMS health network</p>
+        {/* =====================================================
+            RIGHT SIDE
+        ===================================================== */}
 
-            <form onSubmit={handleSubmit} className="mt-7 space-y-5">
+      <section className="h-screen w-full overflow-y-auto px-5 py-8 lg:w-[62%] lg:px-12">
+         <div className="mx-auto w-full max-w-3xl rounded-3xl bg-white p-7 shadow-xl sm:p-10">
+
+            {/* =================================================
+                HEADER
+            ================================================= */}
+
+            <h2 className="text-3xl font-bold text-[#03045E]">
+              Create Account
+            </h2>
+
+            <p className="mt-2 text-[#6B7280]">
+              Register for your RHU account
+            </p>
+
+            {/* =================================================
+                EMAIL SUCCESS
+            ================================================= */}
+
+            {emailSuccess && (
+              <div className="mt-5 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-[#0077B6]">
+
+                <p className="font-semibold">
+                  Registration submitted
+                </p>
+
+                <p className="mt-1">
+                  Please check your email and
+                  confirm your account before
+                  signing in.
+                </p>
+
+              </div>
+            )}
+
+            {/* =================================================
+                FORM
+            ================================================= */}
+
+            <form
+              onSubmit={handleSubmit}
+              className="mt-7 space-y-5"
+            >
+
+              {/* =================================================
+                  PERSONAL INFORMATION
+              ================================================= */}
+
               <div>
-                <p className={sectionClass}>Personal Information</p>
-                <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                  <label className={`${labelClass} sm:col-span-2`}>
-                    Full Name
-                    <input className={inputClass} value={form.fullName} onChange={(e) => update('fullName', e.target.value)} required />
-                  </label>
-                  <label className={labelClass}>
-                    Username
-                    <input className={inputClass} value={form.username} onChange={(e) => update('username', e.target.value)} required />
-                  </label>
-                  <label className={labelClass}>
-                    Contact Number
-                    <input className={inputClass} value={form.contactNumber} onChange={(e) => update('contactNumber', e.target.value)} required />
-                  </label>
-                  <label className={`${labelClass} sm:col-span-2`}>
-                    Email Address
-                    <input className={inputClass} type="email" value={form.email} onChange={(e) => update('email', e.target.value)} required />
-                  </label>
+                <p className="mb-4 text-base font-bold text-[#03045E]">
+                  Personal Information
+                </p>
+
+                <div className="space-y-4">
+
+                  <div>
+                    <label
+                      htmlFor="fullName"
+                      className={labelClass}
+                    >
+                      Full Name
+                    </label>
+
+                    <input
+                      id="fullName"
+                      type="text"
+                      value={form.fullName}
+                      onChange={(event) =>
+                        update(
+                          'fullName',
+                          event.target.value
+                        )
+                      }
+                      className={inputClass}
+                      placeholder="Enter your full name"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="username"
+                      className={labelClass}
+                    >
+                      Username
+                    </label>
+
+                    <input
+                      id="username"
+                      type="text"
+                      value={form.username}
+                      onChange={(event) =>
+                        update(
+                          'username',
+                          event.target.value
+                        )
+                      }
+                      className={inputClass}
+                      placeholder="Enter username"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="contactNumber"
+                      className={labelClass}
+                    >
+                      Contact Number
+                    </label>
+
+                    <input
+                      id="contactNumber"
+                      type="tel"
+                      value={
+                        form.contactNumber
+                      }
+                      onChange={(event) =>
+                        update(
+                          'contactNumber',
+                          event.target.value
+                        )
+                      }
+                      className={inputClass}
+                      placeholder="09XXXXXXXXX"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="email"
+                      className={labelClass}
+                    >
+                      Email Address
+                    </label>
+
+                    <input
+                      id="email"
+                      type="email"
+                      value={form.email}
+                      onChange={(event) =>
+                        update(
+                          'email',
+                          event.target.value
+                        )
+                      }
+                      className={inputClass}
+                      placeholder="you@example.com"
+                      required
+                    />
+                  </div>
+
                 </div>
               </div>
 
-              <div>
-                <label htmlFor="role" className={labelClass}>Account Role</label>
-                <select id="role" className={inputClass} value={form.role} onChange={(e) => update('role', e.target.value)}>
-                  {roleOptions.map((role) => (
-                    <option key={role.value}>{role.value}</option>
-                  ))}
-                </select>
-                <p className="mt-2 text-xs text-[#6B7280]">{selectedRole?.description}</p>
-              </div>
+              {/* =================================================
+                  ROLE
+              ================================================= */}
 
               <div>
-                <p className={sectionClass}>Employment / Professional Information</p>
-                <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                  <label className={labelClass}>
-                    Employee ID
-                    <input className={inputClass} value={form.employeeId} onChange={(e) => update('employeeId', e.target.value)} />
-                  </label>
-                  <label className={labelClass}>
-                    License Number
-                    <input className={inputClass} value={form.licenseNumber} onChange={(e) => update('licenseNumber', e.target.value)} />
-                  </label>
+
+                <label
+                  htmlFor="role"
+                  className={labelClass}
+                >
+                  Account Role
+                </label>
+
+                <div className="relative mt-2">
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowRoleMenu(
+                        (visible) => !visible
+                      )
+                    }
+                    className="flex w-full items-center justify-between rounded-full border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-3 text-left outline-none focus:border-[#0077B6] focus:ring-2 focus:ring-[#CAF0F8]"
+                  >
+                    <span className="text-sm text-[#374151]">
+                      {form.role}
+                    </span>
+
+                    <ChevronDown
+                      size={18}
+                      className="text-[#6B7280]"
+                    />
+                  </button>
+
+                  {showRoleMenu && (
+                    <div className="absolute z-50 mt-2 w-full overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-lg">
+
+                      {roles.map((role) => (
+                        <button
+                          key={role}
+                          type="button"
+                          onClick={() =>
+                            handleRoleChange(
+                              role
+                            )
+                          }
+                          className="flex w-full items-center justify-between px-4 py-3 text-left text-sm text-[#374151] hover:bg-[#CAF0F8]"
+                        >
+                          <span>
+                            {role}
+                          </span>
+
+                          {form.role ===
+                            role && (
+                            <Check
+                              size={17}
+                              className="text-[#0077B6]"
+                            />
+                          )}
+                        </button>
+                      ))}
+
+                    </div>
+                  )}
+
                 </div>
               </div>
 
-              <div>
-                <p className={sectionClass}>Password</p>
-                <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                  <label className={labelClass}>
-                    Password
-                    <div className="relative">
+              {/* =================================================
+                  WORKPLACE
+              ================================================= */}
+
+              {!isAdministrator && (
+                <div>
+
+                  <p className="mb-1 text-base font-bold text-[#03045E]">
+                    Assigned Workplace
+                  </p>
+
+                  <p className="mb-4 text-xs text-[#6B7280]">
+                    This information will be
+                    verified by an administrator.
+                  </p>
+
+                  {/* PROVINCE */}
+
+                  <div className="mb-4">
+                    <label className={labelClass}>
+                      Province
+                    </label>
+
+                    <input
+                      type="text"
+                      value={form.province}
+                      readOnly
+                      className={`${inputClass} cursor-not-allowed bg-[#E5E7EB]`}
+                      placeholder="Select RHU first"
+                    />
+                  </div>
+
+                  {/* MUNICIPALITY */}
+
+                  <div className="mb-4">
+                    <label className={labelClass}>
+                      Municipality
+                    </label>
+
+                    <input
+                      type="text"
+                      value={
+                        form.municipality
+                      }
+                      readOnly
+                      className={`${inputClass} cursor-not-allowed bg-[#E5E7EB]`}
+                      placeholder="Select RHU first"
+                    />
+                  </div>
+
+                  {/* CITY */}
+
+                  <div className="mb-4">
+                    <label className={labelClass}>
+                      City
+                    </label>
+
+                    <input
+                      type="text"
+                      value={
+                        form.city ||
+                        'Not applicable'
+                      }
+                      readOnly
+                      className={`${inputClass} cursor-not-allowed bg-[#E5E7EB]`}
+                    />
+                  </div>
+
+                  {/* RHU */}
+
+                  <div>
+                    <label
+                      htmlFor="rhu"
+                      className={labelClass}
+                    >
+                      RHU
+                    </label>
+
+                    <select
+                      id="rhu"
+                      value={form.rhu_id}
+                      onChange={(event) =>
+                        handleRhuChange(
+                          event.target.value
+                        )
+                      }
+                      className={inputClass}
+                      required
+                    >
+                      <option value="">
+                        Select RHU
+                      </option>
+
+                      {workplaceOptions.map(
+                        (rhu) => (
+                          <option
+                            key={rhu.rhu_id}
+                            value={rhu.rhu_id}
+                          >
+                            {rhu.rhu_name}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </div>
+
+                  {/* =================================================
+                      RHM
+                  ================================================= */}
+
+                  {isRHM && (
+                    <div className="mt-4">
+
+                      <label className={labelClass}>
+                        Assigned Barangays
+                      </label>
+
+                      <p className="mt-1 text-xs text-[#6B7280]">
+                        Select all barangays
+                        assigned to you.
+                      </p>
+
+                      <div className="mt-2 max-h-52 overflow-y-auto rounded-2xl border border-[#E5E7EB] bg-[#F3F4F6] p-2">
+
+                        {!selectedRhu ? (
+                          <p className="p-3 text-sm text-[#9CA3AF]">
+                            Select RHU first.
+                          </p>
+                        ) : (
+                          selectedRhu.barangays.map(
+                            (barangay) => {
+                              const id =
+                                String(
+                                  barangay.barangay_id
+                                )
+
+                              const selected =
+                                form.barangay_ids.includes(
+                                  id
+                                )
+
+                              return (
+                                <button
+                                  key={id}
+                                  type="button"
+                                  onClick={() =>
+                                    toggleBarangay(
+                                      id
+                                    )
+                                  }
+                                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                                    selected
+                                      ? 'bg-[#CAF0F8] text-[#03045E]'
+                                      : 'text-[#374151] hover:bg-white'
+                                  }`}
+                                >
+                                  <span
+                                    className={`flex h-5 w-5 items-center justify-center rounded-md border ${
+                                      selected
+                                        ? 'border-[#0077B6] bg-[#0077B6] text-white'
+                                        : 'border-[#D1D5DB] bg-white'
+                                    }`}
+                                  >
+                                    {selected && (
+                                      <Check
+                                        size={13}
+                                      />
+                                    )}
+                                  </span>
+
+                                  {
+                                    barangay.barangay_name
+                                  }
+                                </button>
+                              )
+                            }
+                          )
+                        )}
+
+                      </div>
+
+                    </div>
+                  )}
+
+                  {/* =================================================
+                      BHW / BNS
+                  ================================================= */}
+
+                  {isBarangayWorker && (
+                    <div className="mt-4">
+
+                      <label
+                        htmlFor="barangay"
+                        className={labelClass}
+                      >
+                        Assigned Barangay
+                      </label>
+
+                      <select
+                        id="barangay"
+                        value={
+                          form.barangay_id
+                        }
+                        onChange={(event) =>
+                          update(
+                            'barangay_id',
+                            event.target.value
+                          )
+                        }
+                        disabled={!selectedRhu}
+                        className={`${inputClass} disabled:cursor-not-allowed disabled:bg-[#E5E7EB]`}
+                        required
+                      >
+                        <option value="">
+                          {selectedRhu
+                            ? 'Select barangay'
+                            : 'Select RHU first'}
+                        </option>
+
+                        {selectedRhu?.barangays.map(
+                          (barangay) => (
+                            <option
+                              key={
+                                barangay.barangay_id
+                              }
+                              value={
+                                barangay.barangay_id
+                              }
+                            >
+                              {
+                                barangay.barangay_name
+                              }
+                            </option>
+                          )
+                        )}
+                      </select>
+
+                    </div>
+                  )}
+
+                  {/* PHN */}
+
+                  {isPHN && (
+                    <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 p-3 text-xs text-[#0077B6]">
+                      Public Health Nurses are
+                      assigned to an RHU and do
+                      not select an individual
+                      barangay during registration.
+                    </div>
+                  )}
+
+                </div>
+              )}
+
+              {/* =================================================
+                  EMPLOYMENT
+              ================================================= */}
+
+              {!isAdministrator && (
+                <div>
+
+                  <p className="mb-4 text-base font-bold text-[#03045E]">
+                    Employment / Professional Information
+                  </p>
+
+                  <div className="space-y-4">
+
+                    <div>
+                      <label
+                        htmlFor="employeeId"
+                        className={labelClass}
+                      >
+                        Employee ID
+                      </label>
+
                       <input
-                        className={`${inputClass} pr-12`}
-                        type={showPassword ? 'text' : 'password'}
-                        value={form.password}
-                        onChange={(e) => update('password', e.target.value)}
+                        id="employeeId"
+                        type="text"
+                        value={
+                          form.employeeId
+                        }
+                        onChange={(event) =>
+                          update(
+                            'employeeId',
+                            event.target.value
+                          )
+                        }
+                        className={inputClass}
+                        placeholder="Enter employee ID"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="licenseNumber"
+                        className={labelClass}
+                      >
+                        License Number
+                      </label>
+
+                      <input
+                        id="licenseNumber"
+                        type="text"
+                        value={
+                          form.licenseNumber
+                        }
+                        onChange={(event) =>
+                          update(
+                            'licenseNumber',
+                            event.target.value
+                          )
+                        }
+                        className={inputClass}
+                        placeholder="Enter license number"
+                      />
+                    </div>
+
+                  </div>
+
+                </div>
+              )}
+
+              {/* =================================================
+                  ADMINISTRATOR
+              ================================================= */}
+
+              {isAdministrator && (
+                <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-[#0077B6]">
+
+                  <p className="font-semibold">
+                    Administrator Account
+                  </p>
+
+                  <p className="mt-1 text-xs leading-5">
+                    Administrator accounts do not
+                    require an RHU, barangay,
+                    Employee ID, or License Number.
+                  </p>
+
+                </div>
+              )}
+
+              {/* =================================================
+                  PASSWORD
+              ================================================= */}
+
+              <div>
+
+                <p className="mb-4 text-base font-bold text-[#03045E]">
+                  Account Security
+                </p>
+
+                <div className="space-y-4">
+
+                  <div>
+
+                    <label
+                      htmlFor="password"
+                      className={labelClass}
+                    >
+                      Password
+                    </label>
+
+                    <div className="relative mt-2">
+
+                      <input
+                        id="password"
+                        type={
+                          showPassword
+                            ? 'text'
+                            : 'password'
+                        }
+                        value={
+                          form.password
+                        }
+                        onChange={(event) =>
+                          update(
+                            'password',
+                            event.target.value
+                          )
+                        }
+                        className="w-full rounded-full border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-3 pr-12 outline-none focus:border-[#0077B6] focus:ring-2 focus:ring-[#CAF0F8]"
+                        placeholder="Create your password"
                         required
                       />
+
                       <button
                         type="button"
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
-                        onClick={() => setShowPassword(!showPassword)}
+                        aria-label={
+                          showPassword
+                            ? 'Hide password'
+                            : 'Show password'
+                        }
+                        onClick={() =>
+                          setShowPassword(
+                            (visible) =>
+                              !visible
+                          )
+                        }
                         className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B7280]"
                       >
-                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        {showPassword ? (
+                          <EyeOff size={18} />
+                        ) : (
+                          <Eye size={18} />
+                        )}
                       </button>
+
                     </div>
-                  </label>
-                  <label className={labelClass}>
-                    Confirm Password
-                    <div className="relative">
+
+                  </div>
+
+                  <div>
+
+                    <label
+                      htmlFor="confirmPassword"
+                      className={labelClass}
+                    >
+                      Confirm Password
+                    </label>
+
+                    <div className="relative mt-2">
+
                       <input
-                        className={`${inputClass} pr-12`}
-                        type={showConfirmPassword ? 'text' : 'password'}
-                        value={form.confirmPassword}
-                        onChange={(e) => update('confirmPassword', e.target.value)}
+                        id="confirmPassword"
+                        type={
+                          showConfirmPassword
+                            ? 'text'
+                            : 'password'
+                        }
+                        value={
+                          form.confirmPassword
+                        }
+                        onChange={(event) =>
+                          update(
+                            'confirmPassword',
+                            event.target.value
+                          )
+                        }
+                        className="w-full rounded-full border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-3 pr-12 outline-none focus:border-[#0077B6] focus:ring-2 focus:ring-[#CAF0F8]"
+                        placeholder="Confirm your password"
                         required
                       />
+
                       <button
                         type="button"
-                        aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        aria-label={
+                          showConfirmPassword
+                            ? 'Hide password'
+                            : 'Show password'
+                        }
+                        onClick={() =>
+                          setShowConfirmPassword(
+                            (visible) =>
+                              !visible
+                          )
+                        }
                         className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B7280]"
                       >
-                        {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        {showConfirmPassword ? (
+                          <EyeOff size={18} />
+                        ) : (
+                          <Eye size={18} />
+                        )}
                       </button>
+
                     </div>
-                  </label>
+
+                  </div>
+
                 </div>
+
               </div>
 
-              <label className="flex items-start gap-3 text-sm text-[#6B7280]">
+              {/* =================================================
+                  TERMS
+              ================================================= */}
+
+              <label className="flex items-start gap-2 text-sm text-[#6B7280]">
+
                 <input
                   type="checkbox"
-                  checked={agreedToTerms}
-                  onChange={(e) => setAgreedToTerms(e.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-[#E5E7EB] accent-[#0077B6]"
+                  checked={
+                    form.acceptedTerms
+                  }
+                  onChange={(event) =>
+                    update(
+                      'acceptedTerms',
+                      event.target.checked
+                    )
+                  }
+                  className="mt-1 h-4 w-4 accent-[#0077B6]"
                 />
+
                 <span>
-                  I agree to the{' '}
-                  <Link href="/terms" className="font-semibold text-[#0077B6] hover:underline">Terms of Service</Link>{' '}
+                  I agree to our{' '}
+                  <Link
+                    href="/terms"
+                    className="font-semibold text-[#0077B6] hover:underline"
+                  >
+                    Terms of Service
+                  </Link>{' '}
                   and{' '}
-                  <Link href="/privacy" className="font-semibold text-[#0077B6] hover:underline">Privacy Policy</Link>
+                  <Link
+                    href="/privacy"
+                    className="font-semibold text-[#0077B6] hover:underline"
+                  >
+                    Privacy Policy
+                  </Link>
                 </span>
+
               </label>
 
-              {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-              {success && <p role="status" className="rounded-xl bg-green-50 p-3 text-sm text-green-700">{success}</p>}
+              {/* =================================================
+                  ERROR
+              ================================================= */}
+
+              {error && (
+                <p
+                  role="alert"
+                  className="text-sm text-red-600"
+                >
+                  {error}
+                </p>
+              )}
+
+              {/* =================================================
+                  SUBMIT
+              ================================================= */}
 
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={loading}
                 className="w-full rounded-full bg-[#0784BE] py-3 font-semibold text-white shadow-sm transition-colors hover:bg-[#056d9e] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSubmitting ? 'Submitting Registration...' : 'Submit Registration'}
+                {loading
+                  ? 'Creating Account...'
+                  : 'Create Account'}
               </button>
+
             </form>
+
+            {/* =================================================
+                LOGIN LINK
+            ================================================= */}
 
             <div className="my-7 flex items-center gap-3 text-xs uppercase text-[#9CA3AF]">
               <span className="h-px flex-1 bg-[#E5E7EB]" />
               Already Registered?
               <span className="h-px flex-1 bg-[#E5E7EB]" />
             </div>
+
             <p className="text-center text-sm text-[#6B7280]">
               Already have an account?{' '}
-              <Link href="/login" className="font-semibold text-[#0077B6] hover:underline">Sign in</Link>
+              <Link
+                href="/login"
+                className="font-semibold text-[#0077B6] hover:underline"
+              >
+                Sign In
+              </Link>
             </p>
+
+            {/* =================================================
+                FOOTER
+            ================================================= */}
+
+            <p className="mt-8 text-center text-xs text-[#9CA3AF]">
+              By registering, you agree to our{' '}
+              <Link
+                href="/terms"
+                className="text-[#0077B6]"
+              >
+                Terms of Service
+              </Link>{' '}
+              and{' '}
+              <Link
+                href="/privacy"
+                className="text-[#0077B6]"
+              >
+                Privacy Policy
+              </Link>
+            </p>
+
           </div>
+
         </section>
+
       </div>
+
     </main>
   )
 }

@@ -1,13 +1,58 @@
-import { requirePermission } from '@/lib/auth/authorization'
-import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+
+import { getAuthorizationContext } from '@/lib/auth/authorization'
 import UserManagementClient from './user-management-client'
 
+type Assignment = {
+  assignment_id: number
+  user_id: string
+  barangay_id: number
+  assigned_date: string
+  status: string
+  barangay: {
+    barangay_id: number
+    barangay_name: string
+    municipality: string | null
+    province: string | null
+    rhu_id: number
+    rhu_name: string | null
+  }
+}
+
+type UserRow = {
+  user_id: string
+  full_name: string
+  username: string
+  email: string
+  contact_number: string | null
+  account_status: string
+  role: string
+  assignment: Assignment | null
+}
+
 export default async function UserManagementPage() {
-  await requirePermission('users.view')
+  const context = await getAuthorizationContext()
 
-  const supabase = await createClient()
+  if (!context) {
+    redirect('/login')
+  }
 
-  const { data: users, error } = await supabase
+  if (context.role !== 'Administrator') {
+    redirect('/unauthorized')
+  }
+
+  const supabase = await import('@/lib/supabase/server').then(
+    (module) => module.createClient()
+  )
+
+  /* =========================================================
+     LOAD USERS
+  ========================================================= */
+
+  const {
+    data: users,
+    error: usersError,
+  } = await supabase
     .from('users')
     .select(`
       user_id,
@@ -15,20 +60,34 @@ export default async function UserManagementPage() {
       username,
       email,
       contact_number,
-      account_status,
-      created_at
+      account_status
     `)
-    .order('created_at', { ascending: false })
+    .order('created_at', {
+      ascending: false,
+    })
 
-  if (error) {
-    throw new Error(error.message)
+  if (usersError) {
+    console.error(
+      'USER MANAGEMENT: users query error:',
+      usersError.message
+    )
+
+    return (
+      <div className="rounded-2xl bg-white p-8 shadow-sm">
+        <h1 className="text-2xl font-bold text-[#023E8A]">
+          User Management
+        </h1>
+
+        <p className="mt-4 text-sm text-red-600">
+          Unable to load user accounts.
+        </p>
+      </div>
+    )
   }
 
-  /*
-   * Get actual role membership.
-   * Role is determined from the role tables,
-   * not from registration metadata.
-   */
+  /* =========================================================
+     LOAD ROLE TABLES
+  ========================================================= */
 
   const [
     administratorResult,
@@ -58,111 +117,208 @@ export default async function UserManagementPage() {
       .select('user_id'),
   ])
 
-  const roleMap = new Map<
-    string,
-    string
-  >()
+  /* =========================================================
+     BUILD ROLE MAP
+  ========================================================= */
 
-  administratorResult.data?.forEach((row) => {
+  const roleMap = new Map<string, string>()
+
+  for (const row of administratorResult.data ?? []) {
     roleMap.set(row.user_id, 'Administrator')
-  })
-
-  phnResult.data?.forEach((row) => {
-    roleMap.set(row.user_id, 'PHN')
-  })
-
-  rhmResult.data?.forEach((row) => {
-    roleMap.set(row.user_id, 'RHM')
-  })
-
-  bhwResult.data?.forEach((row) => {
-    roleMap.set(row.user_id, 'BHW')
-  })
-
-  bnsResult.data?.forEach((row) => {
-    roleMap.set(row.user_id, 'BNS')
-  })
-
-  /*
-   * Get active worker assignments.
-   */
-
-  const { data: assignments, error: assignmentError } =
-    await supabase
-      .from('health_worker_assignment')
-      .select(`
-        assignment_id,
-        user_id,
-        barangay_id,
-        assigned_date,
-        status,
-        barangay (
-          barangay_id,
-          barangay_name,
-          municipality,
-          province,
-          rhu_id,
-          rhu (
-            rhu_id,
-            rhu_name
-          )
-        )
-      `)
-      .eq('status', 'ACTIVE')
-
-  if (assignmentError) {
-    throw new Error(assignmentError.message)
   }
+
+  for (const row of phnResult.data ?? []) {
+    roleMap.set(row.user_id, 'Public Health Nurse')
+  }
+
+  for (const row of rhmResult.data ?? []) {
+    roleMap.set(row.user_id, 'Rural Health Midwife')
+  }
+
+  for (const row of bhwResult.data ?? []) {
+    roleMap.set(row.user_id, 'Barangay Health Worker')
+  }
+
+  for (const row of bnsResult.data ?? []) {
+    roleMap.set(
+      row.user_id,
+      'Barangay Nutrition Scholar'
+    )
+  }
+
+  /* =========================================================
+     LOAD WORKPLACE ASSIGNMENTS
+     
+     We intentionally load PENDING and ACTIVE assignments.
+     
+     PENDING = waiting for administrator verification
+     ACTIVE  = approved workplace
+  ========================================================= */
+
+  const {
+    data: assignments,
+    error: assignmentsError,
+  } = await supabase
+    .from('health_worker_assignment')
+    .select(`
+      assignment_id,
+      user_id,
+      barangay_id,
+      assigned_date,
+      status,
+      barangay (
+        barangay_id,
+        barangay_name,
+        municipality,
+        province,
+        rhu_id,
+        rhu (
+          rhu_id,
+          rhu_name
+        )
+      )
+    `)
+    .in('status', ['PENDING', 'ACTIVE'])
+    .order('assigned_date', {
+      ascending: false,
+    })
+
+  if (assignmentsError) {
+    console.error(
+      'USER MANAGEMENT: assignment query error:',
+      assignmentsError.message
+    )
+  }
+
+  /* =========================================================
+     BUILD ASSIGNMENT MAP
+     
+     If a user somehow has more than one assignment,
+     prefer PENDING because it requires verification.
+     
+     NOTE:
+     Your database supports multiple barangays for workers.
+     This first UI displays the most relevant assignment.
+  ========================================================= */
 
   const assignmentMap = new Map<
     string,
-    {
-      barangayName: string
-      municipality: string
-      province: string
-      rhuName: string
-    }
+    Assignment
   >()
 
-  assignments?.forEach((assignment: any) => {
-    const barangay = assignment.barangay
+  for (const rawAssignment of assignments ?? []) {
+    const rawBarangay = Array.isArray(
+      rawAssignment.barangay
+    )
+      ? rawAssignment.barangay[0]
+      : rawAssignment.barangay
 
-    if (!barangay) {
-      return
+    if (!rawBarangay) {
+      continue
     }
 
-    const rhu = barangay.rhu
+    const rawRhu = Array.isArray(rawBarangay.rhu)
+      ? rawBarangay.rhu[0]
+      : rawBarangay.rhu
 
-    assignmentMap.set(assignment.user_id, {
-      barangayName: barangay.barangay_name,
-      municipality: barangay.municipality,
-      province: barangay.province,
-      rhuName: rhu?.rhu_name ?? 'No RHU',
-    })
-  })
+    const assignment: Assignment = {
+      assignment_id:
+        rawAssignment.assignment_id,
 
-  const enrichedUsers = (users ?? []).map((user) => {
-    const assignment = assignmentMap.get(user.user_id)
+      user_id:
+        rawAssignment.user_id,
 
-    return {
-      ...user,
+      barangay_id:
+        rawAssignment.barangay_id,
 
-      role: roleMap.get(user.user_id) ?? 'No Role',
+      assigned_date:
+        rawAssignment.assigned_date,
 
-      assignment: assignment
-        ? {
-            barangayName: assignment.barangayName,
-            municipality: assignment.municipality,
-            province: assignment.province,
-            rhuName: assignment.rhuName,
-          }
-        : null,
+      status:
+        rawAssignment.status,
+
+      barangay: {
+        barangay_id:
+          rawBarangay.barangay_id,
+
+        barangay_name:
+          rawBarangay.barangay_name,
+
+        municipality:
+          rawBarangay.municipality,
+
+        province:
+          rawBarangay.province,
+
+        rhu_id:
+          rawBarangay.rhu_id,
+
+        rhu_name:
+          rawRhu?.rhu_name ?? null,
+      },
     }
-  })
+
+    const existing =
+      assignmentMap.get(
+        assignment.user_id
+      )
+
+    /*
+     * Prefer PENDING over ACTIVE.
+     */
+    if (
+      !existing ||
+      (
+        assignment.status === 'PENDING' &&
+        existing.status !== 'PENDING'
+      )
+    ) {
+      assignmentMap.set(
+        assignment.user_id,
+        assignment
+      )
+    }
+  }
+
+  /* =========================================================
+     FORMAT USERS FOR CLIENT
+  ========================================================= */
+
+  const formattedUsers: UserRow[] =
+    (users ?? []).map((user) => ({
+      user_id: user.user_id,
+
+      full_name:
+        user.full_name ?? 'Unnamed User',
+
+      username:
+        user.username ?? '',
+
+      email:
+        user.email ?? '',
+
+      contact_number:
+        user.contact_number ?? null,
+
+      account_status:
+        user.account_status ?? 'PENDING',
+
+      role:
+        roleMap.get(user.user_id) ??
+        'Unassigned',
+
+      assignment:
+        assignmentMap.get(user.user_id) ??
+        null,
+    }))
+
+  /* =========================================================
+     RENDER
+  ========================================================= */
 
   return (
     <UserManagementClient
-      users={enrichedUsers}
+      users={formattedUsers}
     />
   )
 }
