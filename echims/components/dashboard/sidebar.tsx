@@ -58,7 +58,7 @@ const menuItems = [
   {
     icon: Activity,
     label: 'Health Activities',
-    href: moduleRoutes['Health Activities'],
+    href: '/health-activities',
   },
   {
     icon: Apple,

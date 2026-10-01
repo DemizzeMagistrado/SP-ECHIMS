@@ -69,61 +69,29 @@ const locationOptions: ProvinceOption[] = [
 
         rhus: [
           {
-            rhu_id: 1,
-            rhu_name: 'Daet RHU 1',
+            rhu_id: 2,
+            rhu_name: 'RHU 1',
 
             barangays: [
               {
-                barangay_id: 1,
-                barangay_name: 'Barangay I',
-              },
-              {
-                barangay_id: 2,
+                barangay_id: 6,
                 barangay_name: 'Barangay II',
               },
               {
-                barangay_id: 3,
-                barangay_name: 'Barangay III',
-              },
-              {
-                barangay_id: 4,
-                barangay_name: 'Barangay IV',
-              },
-              {
-                barangay_id: 5,
-                barangay_name: 'Barangay V',
-              },
-              {
-                barangay_id: 6,
-                barangay_name: 'Barangay VI',
-              },
-              {
-                barangay_id: 7,
-                barangay_name: 'Barangay VII',
-              },
-              {
                 barangay_id: 8,
-                barangay_name: 'Barangay VIII',
+                barangay_name: 'Calasgasan',
               },
-            ],
-          },
-
-          {
-            rhu_id: 2,
-            rhu_name: 'Daet RHU 2',
-
-            barangays: [
               {
                 barangay_id: 9,
-                barangay_name: 'Alawihao',
+                barangay_name: 'Camambugan',
               },
               {
                 barangay_id: 10,
-                barangay_name: 'Awitan',
+                barangay_name: 'Alawihao',
               },
               {
                 barangay_id: 11,
-                barangay_name: 'Bagasbas',
+                barangay_name: 'Dogongan',
               },
               {
                 barangay_id: 12,
@@ -131,47 +99,47 @@ const locationOptions: ProvinceOption[] = [
               },
               {
                 barangay_id: 13,
-                barangay_name: 'Borabod',
+                barangay_name: 'Pamorangon',
               },
               {
                 barangay_id: 14,
-                barangay_name: 'Calasgasan',
+                barangay_name: 'Magang',
               },
               {
                 barangay_id: 15,
-                barangay_name: 'Camambugan',
+                barangay_name: 'Mancruz',
               },
             ],
           },
 
           {
-            rhu_id: 3,
-            rhu_name: 'Daet RHU 3',
+            rhu_id: 4,
+            rhu_name: 'RHU 2',
 
             barangays: [
               {
                 barangay_id: 16,
-                barangay_name: 'Cobangbang',
+                barangay_name: 'Barangay VI',
               },
               {
                 barangay_id: 17,
-                barangay_name: 'Dogongan',
+                barangay_name: 'Barangay I',
               },
               {
                 barangay_id: 18,
-                barangay_name: 'Gahonon',
+                barangay_name: 'Barangay VIII',
               },
               {
                 barangay_id: 19,
-                barangay_name: 'Gubat',
+                barangay_name: 'Barangay VII',
               },
               {
                 barangay_id: 20,
-                barangay_name: 'Lag-on',
+                barangay_name: 'Gubat',
               },
               {
                 barangay_id: 21,
-                barangay_name: 'Magang',
+                barangay_name: 'San Isidro',
               },
               {
                 barangay_id: 22,
@@ -179,11 +147,47 @@ const locationOptions: ProvinceOption[] = [
               },
               {
                 barangay_id: 23,
-                barangay_name: 'Mancruz',
+                barangay_name: 'Bagasbas',
               },
               {
                 barangay_id: 24,
-                barangay_name: 'Pamorangon',
+                barangay_name: 'Cobangbang',
+              },
+            ],
+          },
+
+          {
+            rhu_id: 5,
+            rhu_name: 'RHU 3',
+
+            barangays: [
+              {
+                barangay_id: 25,
+                barangay_name: 'Awitan',
+              },
+              {
+                barangay_id: 26,
+                barangay_name: 'Borabod',
+              },
+              {
+                barangay_id: 27,
+                barangay_name: 'Lag-On',
+              },
+              {
+                barangay_id: 28,
+                barangay_name: 'Barangay V',
+              },
+              {
+                barangay_id: 29,
+                barangay_name: 'Barangay IV',
+              },
+              {
+                barangay_id: 30,
+                barangay_name: 'Barangay III',
+              },
+              {
+                barangay_id: 31,
+                barangay_name: 'Gahonon',
               },
             ],
           },

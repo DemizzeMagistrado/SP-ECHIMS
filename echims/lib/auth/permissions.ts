@@ -187,6 +187,8 @@ export const rolePermissions: Record<
     'dashboard.view',
 
     'health_activities.view',
+    'health_activities.request',
+
 
     'gis.view',
 

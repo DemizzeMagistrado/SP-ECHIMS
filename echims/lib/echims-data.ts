@@ -1,8 +1,8 @@
 export type UserRole = 'Administrator' | 'Public Health Nurse' | 'Barangay Health Worker' | 'Rural Health Midwife' | 'Barangay Nutrition Scholar'
   
 export const roleModules: Record<UserRole, string[]> = {
-  Administrator: ['Dashboard', 'User Management', 'Child Profiling', 'Vaccination', 'Nutritional Assessment', 'Supplementation', 'Inventory', 'Alerts', 'Reports', 'Settings'],
-  'Public Health Nurse': ['Dashboard', 'Child Profiling', 'Vaccination', 'Nutritional Assessment', 'Supplementation', 'Inventory', 'Alerts', 'Reports', 'Settings'],
+  Administrator: ['Dashboard', 'User Management','Health Activities', 'Child Profiling', 'Vaccination', 'Nutritional Assessment', 'Supplementation', 'Inventory', 'Alerts', 'Reports', 'Settings'],
+  'Public Health Nurse': ['Dashboard', 'Health Activities','Child Profiling', 'Vaccination', 'Nutritional Assessment', 'Supplementation', 'Inventory', 'Alerts', 'Reports', 'Settings'],
   'Barangay Health Worker': ['Dashboard', 'Child Profiling', 'Vaccination', 'Health Activities', 'Alerts', 'Reports'],
   'Rural Health Midwife': ['Dashboard', 'Child Profiling', 'Vaccination', 'Health Activities', 'Alerts', 'Reports', 'Settings'],
   'Barangay Nutrition Scholar': ['Dashboard', 'Child Profiling', 'Nutritional Assessment', 'Supplementation', 'Health Activities', 'Alerts', 'Reports', 'Settings'],
