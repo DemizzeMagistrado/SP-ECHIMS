@@ -1,6 +1,14 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { getAuthorizationContext } from '@/lib/auth/authorization'
+import {
+  NextResponse,
+} from 'next/server'
+
+import {
+  createClient,
+} from '@/lib/supabase/server'
+
+import {
+  getAuthorizationContext,
+} from '@/lib/auth/authorization'
 
 const ALLOWED_STATUSES = [
   'ACTIVE',
@@ -8,30 +16,50 @@ const ALLOWED_STATUSES = [
   'SUSPENDED',
 ] as const
 
-type AccountStatus = (typeof ALLOWED_STATUSES)[number]
+type AccountStatus =
+  (typeof ALLOWED_STATUSES)[number]
 
-export async function PATCH(request: Request) {
+export async function PATCH(
+  request: Request
+) {
   try {
-    const context = await getAuthorizationContext()
+    /* =====================================================
+       AUTHORIZATION
+    ===================================================== */
+
+    const context =
+      await getAuthorizationContext()
 
     if (!context) {
       return NextResponse.json(
         {
-          error: 'Your account is not authorized.',
+          error:
+            'Your account is not authorized.',
         },
-        { status: 401 }
+        {
+          status: 401,
+        }
       )
     }
 
-    // Only Administrators can manage user accounts.
-    if (context.role !== 'Administrator') {
+    if (
+      context.role !==
+      'Administrator'
+    ) {
       return NextResponse.json(
         {
-          error: 'Administrator permission is required.',
+          error:
+            'Administrator permission is required.',
         },
-        { status: 403 }
+        {
+          status: 403,
+        }
       )
     }
+
+    /* =====================================================
+       REQUEST BODY
+    ===================================================== */
 
     let body: {
       userId?: string
@@ -39,35 +67,43 @@ export async function PATCH(request: Request) {
     }
 
     try {
-      body = await request.json()
+      body =
+        await request.json()
     } catch {
       return NextResponse.json(
         {
-          error: 'Invalid request body.',
+          error:
+            'Invalid request body.',
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       )
     }
 
-    const userId = body.userId?.trim()
-    const accountStatus = body.accountStatus?.trim().toUpperCase()
+    const userId =
+      body.userId?.trim()
 
-    /* =========================================================
-       VALIDATE USER ID
-    ========================================================= */
+    const accountStatus =
+      body.accountStatus
+        ?.trim()
+        .toUpperCase()
+
+    /* =====================================================
+       VALIDATION
+    ===================================================== */
 
     if (!userId) {
       return NextResponse.json(
         {
-          error: 'User ID is required.',
+          error:
+            'User ID is required.',
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       )
     }
-
-    /* =========================================================
-       VALIDATE ACCOUNT STATUS
-    ========================================================= */
 
     if (
       !accountStatus ||
@@ -77,40 +113,57 @@ export async function PATCH(request: Request) {
     ) {
       return NextResponse.json(
         {
-          error: 'Invalid account status.',
+          error:
+            'Invalid account status.',
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       )
     }
 
-    /* =========================================================
-       PREVENT ADMIN FROM CHANGING THEIR OWN STATUS
-    ========================================================= */
-
-    if (userId === context.authUser.id) {
+    /*
+     * Prevent the logged-in administrator
+     * from disabling their own account.
+     */
+    if (
+      userId ===
+      context.authUser.id
+    ) {
       return NextResponse.json(
         {
           error:
             'You cannot change your own account status.',
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       )
     }
 
-    const supabase = await createClient()
+    const supabase =
+      await createClient()
 
-    /* =========================================================
-       VERIFY TARGET USER EXISTS
-    ========================================================= */
+    /* =====================================================
+       TARGET USER
+    ===================================================== */
 
-    const { data: targetUser, error: targetUserError } =
-      await supabase
-        .from('users')
-        .select(
-          'user_id, full_name, email, account_status'
-        )
-        .eq('user_id', userId)
-        .maybeSingle()
+    const {
+      data: targetUser,
+      error: targetUserError,
+    } = await supabase
+      .from('users')
+      .select(`
+        user_id,
+        full_name,
+        email,
+        account_status
+      `)
+      .eq(
+        'user_id',
+        userId
+      )
+      .maybeSingle()
 
     if (targetUserError) {
       console.error(
@@ -120,37 +173,277 @@ export async function PATCH(request: Request) {
 
       return NextResponse.json(
         {
-          error: 'Unable to find the user.',
+          error:
+            'Unable to find the user.',
         },
-        { status: 500 }
+        {
+          status: 500,
+        }
       )
     }
 
     if (!targetUser) {
       return NextResponse.json(
         {
-          error: 'User not found.',
+          error:
+            'User not found.',
         },
-        { status: 404 }
+        {
+          status: 404,
+        }
       )
     }
 
-    /* =========================================================
-       UPDATE ACCOUNT STATUS
-    ========================================================= */
+    /* =====================================================
+       DETERMINE ROLE / WORKPLACE TYPE
+    ===================================================== */
 
-    const { data: updatedUser, error: userUpdateError } =
-      await supabase
-        .from('users')
-        .update({
-          account_status:
-            accountStatus as AccountStatus,
-        })
-        .eq('user_id', userId)
-        .select(
-          'user_id, full_name, email, account_status'
-        )
-        .single()
+    const {
+      data: administrator,
+      error: administratorError,
+    } = await supabase
+      .from('administrator')
+      .select('user_id')
+      .eq(
+        'user_id',
+        userId
+      )
+      .maybeSingle()
+
+    if (administratorError) {
+      console.error(
+        'ADMIN ROLE LOOKUP ERROR:',
+        administratorError.message
+      )
+
+      return NextResponse.json(
+        {
+          error:
+            'Unable to verify the user role.',
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    const {
+      data: phn,
+      error: phnError,
+    } = await supabase
+      .from(
+        'public_health_nurse'
+      )
+      .select(
+        'user_id, rhu_id'
+      )
+      .eq(
+        'user_id',
+        userId
+      )
+      .maybeSingle()
+
+    if (phnError) {
+      console.error(
+        'PHN ROLE LOOKUP ERROR:',
+        phnError.message
+      )
+
+      return NextResponse.json(
+        {
+          error:
+            'Unable to verify the PHN workplace.',
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    const isAdministrator =
+      Boolean(administrator)
+
+    const isPhn =
+      Boolean(phn)
+
+    /* =====================================================
+       VALIDATE WORKPLACE BEFORE ACTIVATION
+    ===================================================== */
+
+    if (
+      accountStatus ===
+      'ACTIVE'
+    ) {
+      /*
+       * Administrator does not need
+       * a geographic workplace.
+       */
+      if (isAdministrator) {
+        // Valid.
+      }
+
+      /*
+       * PHN must have one RHU.
+       */
+      else if (isPhn) {
+        if (!phn?.rhu_id) {
+          return NextResponse.json(
+            {
+              error:
+                'This Public Health Nurse does not have an RHU assignment.',
+            },
+            {
+              status: 400,
+            }
+          )
+        }
+
+        const {
+          data: rhu,
+          error: rhuError,
+        } = await supabase
+          .from('rhu')
+          .select(
+            'rhu_id, account_status'
+          )
+          .eq(
+            'rhu_id',
+            phn.rhu_id
+          )
+          .maybeSingle()
+
+        if (rhuError) {
+          console.error(
+            'PHN RHU LOOKUP ERROR:',
+            rhuError.message
+          )
+
+          return NextResponse.json(
+            {
+              error:
+                'Unable to verify the PHN RHU.',
+            },
+            {
+              status: 500,
+            }
+          )
+        }
+
+        if (!rhu) {
+          return NextResponse.json(
+            {
+              error:
+                'The assigned RHU no longer exists.',
+            },
+            {
+              status: 400,
+            }
+          )
+        }
+
+        if (
+          rhu.account_status !==
+          'ACTIVE'
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                'The assigned RHU is not active.',
+            },
+            {
+              status: 400,
+            }
+          )
+        }
+      }
+
+      /*
+       * RHM / BHW / BNS require
+       * at least one geographic
+       * assignment.
+       */
+      else {
+        const {
+          data:
+            existingAssignments,
+          error:
+            existingAssignmentError,
+        } = await supabase
+          .from(
+            'health_worker_assignment'
+          )
+          .select(`
+            assignment_id,
+            barangay_id,
+            status
+          `)
+          .eq(
+            'user_id',
+            userId
+          )
+
+        if (
+          existingAssignmentError
+        ) {
+          console.error(
+            'ASSIGNMENT LOOKUP ERROR:',
+            existingAssignmentError
+              .message
+          )
+
+          return NextResponse.json(
+            {
+              error:
+                'Unable to verify the workplace assignment.',
+            },
+            {
+              status: 500,
+            }
+          )
+        }
+
+        if (
+          !existingAssignments ||
+          existingAssignments.length ===
+            0
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                'This health worker does not have a workplace assignment.',
+            },
+            {
+              status: 400,
+            }
+          )
+        }
+      }
+    }
+
+    /* =====================================================
+       UPDATE USER ACCOUNT
+    ===================================================== */
+
+    const {
+      data: updatedUser,
+      error: userUpdateError,
+    } = await supabase
+      .from('users')
+      .update({
+        account_status:
+          accountStatus as AccountStatus,
+      })
+      .eq(
+        'user_id',
+        userId
+      )
+      .select(`
+        user_id,
+        full_name,
+        email,
+        account_status
+      `)
+      .single()
 
     if (userUpdateError) {
       console.error(
@@ -163,35 +456,40 @@ export async function PATCH(request: Request) {
           error:
             'Unable to update the account status.',
         },
-        { status: 500 }
+        {
+          status: 500,
+        }
       )
     }
 
-    /* =========================================================
-       SYNCHRONIZE WORKPLACE ASSIGNMENT
-       
-       Registration creates:
-       
-       users.account_status = PENDING
-       health_worker_assignment.status = PENDING
+    /* =====================================================
+       SYNCHRONIZE WORKER ASSIGNMENTS
 
-       Administrator approval:
-       
-       users.account_status = ACTIVE
-       health_worker_assignment.status = ACTIVE
+       PHN:
+       - no health_worker_assignment rows
+       - public_health_nurse.rhu_id defines scope
 
-       Administrator rejection/deactivation:
-       
-       users.account_status = INACTIVE
-       health_worker_assignment.status = INACTIVE
-    ========================================================= */
+       Administrator:
+       - no geographic assignment
+
+       RHM/BHW/BNS:
+       - assignment rows follow account
+         activation/deactivation.
+    ===================================================== */
 
     if (
-      accountStatus === 'ACTIVE' ||
-      accountStatus === 'INACTIVE'
+      !isAdministrator &&
+      !isPhn &&
+      (
+        accountStatus ===
+          'ACTIVE' ||
+        accountStatus ===
+          'INACTIVE'
+      )
     ) {
       const assignmentStatus =
-        accountStatus === 'ACTIVE'
+        accountStatus ===
+        'ACTIVE'
           ? 'ACTIVE'
           : 'INACTIVE'
 
@@ -199,15 +497,39 @@ export async function PATCH(request: Request) {
         data: assignments,
         error: assignmentError,
       } = await supabase
-        .from('health_worker_assignment')
-        .update({
-          status: assignmentStatus,
-        })
-        .eq('user_id', userId)
-        .in('status', ['PENDING', 'ACTIVE'])
-        .select(
-          'assignment_id, user_id, barangay_id, status'
+        .from(
+          'health_worker_assignment'
         )
+        .update({
+          status:
+            assignmentStatus,
+        })
+        .eq(
+          'user_id',
+          userId
+        )
+
+        /*
+         * Include INACTIVE.
+         *
+         * This is necessary for:
+         * INACTIVE → ACTIVE
+         * reactivation.
+         */
+        .in(
+          'status',
+          [
+            'PENDING',
+            'ACTIVE',
+            'INACTIVE',
+          ]
+        )
+        .select(`
+          assignment_id,
+          user_id,
+          barangay_id,
+          status
+        `)
 
       if (assignmentError) {
         console.error(
@@ -216,8 +538,7 @@ export async function PATCH(request: Request) {
         )
 
         /*
-         * Roll back the account status if the workplace
-         * assignment could not be synchronized.
+         * Best-effort rollback.
          */
         await supabase
           .from('users')
@@ -225,40 +546,60 @@ export async function PATCH(request: Request) {
             account_status:
               targetUser.account_status,
           })
-          .eq('user_id', userId)
+          .eq(
+            'user_id',
+            userId
+          )
 
         return NextResponse.json(
           {
             error:
               'The account status could not be synchronized with the workplace assignment.',
           },
-          { status: 500 }
+          {
+            status: 500,
+          }
         )
       }
 
       return NextResponse.json({
         success: true,
-        userId: updatedUser.user_id,
+
+        userId:
+          updatedUser.user_id,
+
         accountStatus:
           updatedUser.account_status,
+
+        workplaceType:
+          'BARANGAY_ASSIGNMENT',
+
         assignmentsUpdated:
-          assignments?.length ?? 0,
+          assignments?.length ??
+          0,
       })
     }
 
-    /* =========================================================
-       SUSPENDED ACCOUNT
-       
-       Keep assignment status unchanged.
-       Suspension prevents normal account access while
-       preserving the workplace assignment history.
-    ========================================================= */
+    /* =====================================================
+       PHN / ADMIN / SUSPENSION
+    ===================================================== */
 
     return NextResponse.json({
       success: true,
-      userId: updatedUser.user_id,
+
+      userId:
+        updatedUser.user_id,
+
       accountStatus:
         updatedUser.account_status,
+
+      workplaceType:
+        isAdministrator
+          ? 'SYSTEM'
+          : isPhn
+            ? 'RHU'
+            : 'BARANGAY_ASSIGNMENT',
+
       assignmentsUpdated: 0,
     })
   } catch (error) {
@@ -269,9 +610,12 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json(
       {
-        error: 'Internal server error.',
+        error:
+          'Internal server error.',
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     )
   }
 }

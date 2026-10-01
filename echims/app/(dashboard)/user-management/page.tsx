@@ -1,7 +1,13 @@
 import { redirect } from 'next/navigation'
 
 import { getAuthorizationContext } from '@/lib/auth/authorization'
+import { createClient } from '@/lib/supabase/server'
+
 import UserManagementClient from './user-management-client'
+
+/* =========================================================
+   TYPES
+========================================================= */
 
 type Assignment = {
   assignment_id: number
@@ -9,6 +15,7 @@ type Assignment = {
   barangay_id: number
   assigned_date: string
   status: string
+
   barangay: {
     barangay_id: number
     barangay_name: string
@@ -19,6 +26,13 @@ type Assignment = {
   }
 }
 
+type PhnWorkplace = {
+  rhu_id: number
+  rhu_name: string
+  municipality: string | null
+  province: string | null
+}
+
 type UserRow = {
   user_id: string
   full_name: string
@@ -27,27 +41,37 @@ type UserRow = {
   contact_number: string | null
   account_status: string
   role: string
-  assignment: Assignment | null
+
+  assignments: Assignment[]
+
+  phn_workplace: PhnWorkplace | null
 }
 
+/* =========================================================
+   PAGE
+========================================================= */
+
 export default async function UserManagementPage() {
-  const context = await getAuthorizationContext()
+  const context =
+    await getAuthorizationContext()
 
   if (!context) {
     redirect('/login')
   }
 
-  if (context.role !== 'Administrator') {
+  if (
+    context.role !==
+    'Administrator'
+  ) {
     redirect('/unauthorized')
   }
 
-  const supabase = await import('@/lib/supabase/server').then(
-    (module) => module.createClient()
-  )
+  const supabase =
+    await createClient()
 
-  /* =========================================================
+  /* =======================================================
      LOAD USERS
-  ========================================================= */
+  ======================================================= */
 
   const {
     data: users,
@@ -62,9 +86,12 @@ export default async function UserManagementPage() {
       contact_number,
       account_status
     `)
-    .order('created_at', {
-      ascending: false,
-    })
+    .order(
+      'created_at',
+      {
+        ascending: false,
+      }
+    )
 
   if (usersError) {
     console.error(
@@ -85,9 +112,9 @@ export default async function UserManagementPage() {
     )
   }
 
-  /* =========================================================
+  /* =======================================================
      LOAD ROLE TABLES
-  ========================================================= */
+  ======================================================= */
 
   const [
     administratorResult,
@@ -102,7 +129,16 @@ export default async function UserManagementPage() {
 
     supabase
       .from('public_health_nurse')
-      .select('user_id'),
+      .select(`
+        user_id,
+        rhu_id,
+        rhu (
+          rhu_id,
+          rhu_name,
+          municipality,
+          province
+        )
+      `),
 
     supabase
       .from('rural_health_midwife')
@@ -117,49 +153,173 @@ export default async function UserManagementPage() {
       .select('user_id'),
   ])
 
-  /* =========================================================
+  /* =======================================================
+     LOG ROLE QUERY ERRORS
+  ======================================================= */
+
+  if (administratorResult.error) {
+    console.error(
+      'ADMINISTRATOR QUERY ERROR:',
+      administratorResult.error.message
+    )
+  }
+
+  if (phnResult.error) {
+    console.error(
+      'PHN QUERY ERROR:',
+      phnResult.error.message
+    )
+  }
+
+  if (rhmResult.error) {
+    console.error(
+      'RHM QUERY ERROR:',
+      rhmResult.error.message
+    )
+  }
+
+  if (bhwResult.error) {
+    console.error(
+      'BHW QUERY ERROR:',
+      bhwResult.error.message
+    )
+  }
+
+  if (bnsResult.error) {
+    console.error(
+      'BNS QUERY ERROR:',
+      bnsResult.error.message
+    )
+  }
+
+  /* =======================================================
      BUILD ROLE MAP
-  ========================================================= */
+  ======================================================= */
 
-  const roleMap = new Map<string, string>()
+  const roleMap =
+    new Map<string, string>()
 
-  for (const row of administratorResult.data ?? []) {
-    roleMap.set(row.user_id, 'Administrator')
+  for (
+    const row of
+    administratorResult.data ?? []
+  ) {
+    roleMap.set(
+      row.user_id,
+      'Administrator'
+    )
   }
 
-  for (const row of phnResult.data ?? []) {
-    roleMap.set(row.user_id, 'Public Health Nurse')
+  for (
+    const row of
+    phnResult.data ?? []
+  ) {
+    roleMap.set(
+      row.user_id,
+      'Public Health Nurse'
+    )
   }
 
-  for (const row of rhmResult.data ?? []) {
-    roleMap.set(row.user_id, 'Rural Health Midwife')
+  for (
+    const row of
+    rhmResult.data ?? []
+  ) {
+    roleMap.set(
+      row.user_id,
+      'Rural Health Midwife'
+    )
   }
 
-  for (const row of bhwResult.data ?? []) {
-    roleMap.set(row.user_id, 'Barangay Health Worker')
+  for (
+    const row of
+    bhwResult.data ?? []
+  ) {
+    roleMap.set(
+      row.user_id,
+      'Barangay Health Worker'
+    )
   }
 
-  for (const row of bnsResult.data ?? []) {
+  for (
+    const row of
+    bnsResult.data ?? []
+  ) {
     roleMap.set(
       row.user_id,
       'Barangay Nutrition Scholar'
     )
   }
 
-  /* =========================================================
-     LOAD WORKPLACE ASSIGNMENTS
-     
-     We intentionally load PENDING and ACTIVE assignments.
-     
-     PENDING = waiting for administrator verification
-     ACTIVE  = approved workplace
-  ========================================================= */
+  /* =======================================================
+     BUILD PHN WORKPLACE MAP
+
+     PHN:
+     public_health_nurse.rhu_id
+              ↓
+             RHU
+              ↓
+     all barangays in that RHU
+  ======================================================= */
+
+  const phnWorkplaceMap =
+    new Map<
+      string,
+      PhnWorkplace
+    >()
+
+  for (
+    const row of
+    phnResult.data ?? []
+  ) {
+    if (!row.rhu_id) {
+      continue
+    }
+
+    const rawRhu =
+      Array.isArray(row.rhu)
+        ? row.rhu[0]
+        : row.rhu
+
+    if (!rawRhu) {
+      continue
+    }
+
+    phnWorkplaceMap.set(
+      row.user_id,
+      {
+        rhu_id:
+          rawRhu.rhu_id,
+
+        rhu_name:
+          rawRhu.rhu_name,
+
+        municipality:
+          rawRhu.municipality,
+
+        province:
+          rawRhu.province,
+      }
+    )
+  }
+
+  /* =======================================================
+     LOAD HEALTH WORKER ASSIGNMENTS
+
+     We load:
+     PENDING
+     ACTIVE
+     INACTIVE
+
+     because Administrator must be able to inspect pending
+     registrations and reactivate inactive accounts.
+  ======================================================= */
 
   const {
     data: assignments,
     error: assignmentsError,
   } = await supabase
-    .from('health_worker_assignment')
+    .from(
+      'health_worker_assignment'
+    )
     .select(`
       assignment_id,
       user_id,
@@ -178,10 +338,20 @@ export default async function UserManagementPage() {
         )
       )
     `)
-    .in('status', ['PENDING', 'ACTIVE'])
-    .order('assigned_date', {
-      ascending: false,
-    })
+    .in(
+      'status',
+      [
+        'PENDING',
+        'ACTIVE',
+        'INACTIVE',
+      ]
+    )
+    .order(
+      'assigned_date',
+      {
+        ascending: false,
+      }
+    )
 
   if (assignmentsError) {
     console.error(
@@ -190,36 +360,43 @@ export default async function UserManagementPage() {
     )
   }
 
-  /* =========================================================
-     BUILD ASSIGNMENT MAP
-     
-     If a user somehow has more than one assignment,
-     prefer PENDING because it requires verification.
-     
-     NOTE:
-     Your database supports multiple barangays for workers.
-     This first UI displays the most relevant assignment.
-  ========================================================= */
+  /* =======================================================
+     BUILD MULTIPLE ASSIGNMENT MAP
 
-  const assignmentMap = new Map<
-    string,
-    Assignment
-  >()
+     RHM can have multiple barangays.
 
-  for (const rawAssignment of assignments ?? []) {
-    const rawBarangay = Array.isArray(
-      rawAssignment.barangay
-    )
-      ? rawAssignment.barangay[0]
-      : rawAssignment.barangay
+     user_id
+       ↓
+     Assignment[]
+  ======================================================= */
+
+  const assignmentMap =
+    new Map<
+      string,
+      Assignment[]
+    >()
+
+  for (
+    const rawAssignment of
+    assignments ?? []
+  ) {
+    const rawBarangay =
+      Array.isArray(
+        rawAssignment.barangay
+      )
+        ? rawAssignment.barangay[0]
+        : rawAssignment.barangay
 
     if (!rawBarangay) {
       continue
     }
 
-    const rawRhu = Array.isArray(rawBarangay.rhu)
-      ? rawBarangay.rhu[0]
-      : rawBarangay.rhu
+    const rawRhu =
+      Array.isArray(
+        rawBarangay.rhu
+      )
+        ? rawBarangay.rhu[0]
+        : rawBarangay.rhu
 
     const assignment: Assignment = {
       assignment_id:
@@ -254,67 +431,131 @@ export default async function UserManagementPage() {
           rawBarangay.rhu_id,
 
         rhu_name:
-          rawRhu?.rhu_name ?? null,
+          rawRhu?.rhu_name ??
+          null,
       },
     }
 
     const existing =
       assignmentMap.get(
         assignment.user_id
-      )
+      ) ?? []
 
-    /*
-     * Prefer PENDING over ACTIVE.
-     */
-    if (
-      !existing ||
-      (
-        assignment.status === 'PENDING' &&
-        existing.status !== 'PENDING'
-      )
-    ) {
-      assignmentMap.set(
-        assignment.user_id,
-        assignment
-      )
-    }
+    existing.push(
+      assignment
+    )
+
+    assignmentMap.set(
+      assignment.user_id,
+      existing
+    )
   }
 
-  /* =========================================================
+  /* =======================================================
+     SORT ASSIGNMENTS
+
+     PENDING first so requested workplaces are obvious.
+  ======================================================= */
+
+  const assignmentPriority:
+    Record<string, number> = {
+      PENDING: 0,
+      ACTIVE: 1,
+      INACTIVE: 2,
+    }
+
+  for (
+    const [
+      userId,
+      userAssignments,
+    ] of assignmentMap
+  ) {
+    userAssignments.sort(
+      (a, b) => {
+        const statusDifference =
+          (
+            assignmentPriority[
+              a.status
+            ] ?? 99
+          ) -
+          (
+            assignmentPriority[
+              b.status
+            ] ?? 99
+          )
+
+        if (
+          statusDifference !== 0
+        ) {
+          return statusDifference
+        }
+
+        return (
+          a.barangay.barangay_name.localeCompare(
+            b.barangay.barangay_name
+          )
+        )
+      }
+    )
+
+    assignmentMap.set(
+      userId,
+      userAssignments
+    )
+  }
+
+  /* =======================================================
      FORMAT USERS FOR CLIENT
-  ========================================================= */
+  ======================================================= */
 
-  const formattedUsers: UserRow[] =
-    (users ?? []).map((user) => ({
-      user_id: user.user_id,
+  const formattedUsers:
+    UserRow[] =
+    (users ?? []).map(
+      (user) => ({
+        user_id:
+          user.user_id,
 
-      full_name:
-        user.full_name ?? 'Unnamed User',
+        full_name:
+          user.full_name ??
+          'Unnamed User',
 
-      username:
-        user.username ?? '',
+        username:
+          user.username ??
+          '',
 
-      email:
-        user.email ?? '',
+        email:
+          user.email ??
+          '',
 
-      contact_number:
-        user.contact_number ?? null,
+        contact_number:
+          user.contact_number ??
+          null,
 
-      account_status:
-        user.account_status ?? 'PENDING',
+        account_status:
+          user.account_status ??
+          'PENDING',
 
-      role:
-        roleMap.get(user.user_id) ??
-        'Unassigned',
+        role:
+          roleMap.get(
+            user.user_id
+          ) ??
+          'Unassigned',
 
-      assignment:
-        assignmentMap.get(user.user_id) ??
-        null,
-    }))
+        assignments:
+          assignmentMap.get(
+            user.user_id
+          ) ?? [],
 
-  /* =========================================================
+        phn_workplace:
+          phnWorkplaceMap.get(
+            user.user_id
+          ) ?? null,
+      })
+    )
+
+  /* =======================================================
      RENDER
-  ========================================================= */
+  ======================================================= */
 
   return (
     <UserManagementClient

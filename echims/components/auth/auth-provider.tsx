@@ -17,6 +17,10 @@ import type {
 import type { UserRole } from '@/lib/echims-data'
 import { createClient } from '@/lib/supabase/client'
 
+/* =========================================================
+   TYPES
+========================================================= */
+
 export type AuthUser = {
   id: string
   fullName: string
@@ -24,14 +28,14 @@ export type AuthUser = {
   email: string
   role: UserRole
   contactNumber: string
+
   employeeId: string
   licenseNumber: string
 
-  province: string
-  municipality: string
-  city: string
+  province_id?: string
+  municipality_id?: string
+  rhu_id?: string
 
-  rhu_id: string
   barangay_id: string
   barangay_ids: string[]
 }
@@ -46,11 +50,17 @@ export type RegistrationForm = {
   employeeId?: string
   licenseNumber?: string
 
-  province: string
-  municipality: string
-  city: string
-
+  /*
+   * Geographic / workplace IDs
+   */
+  province_id?: string
+  municipality_id?: string
   rhu_id?: string
+
+  /*
+   * BHW / BNS = one barangay
+   * RHM = multiple barangays
+   */
   barangay_id?: string
   barangay_ids?: string[]
 
@@ -65,7 +75,9 @@ type AuthContextValue = {
   login: (
     email: string,
     password: string
-  ) => Promise<{ error?: string }>
+  ) => Promise<{
+    error?: string
+  }>
 
   register: (
     form: RegistrationForm
@@ -77,16 +89,24 @@ type AuthContextValue = {
   logout: () => Promise<void>
 }
 
+/* =========================================================
+   ROLE CONFIGURATION
+========================================================= */
+
 const DEFAULT_ROLE: UserRole =
   'Barangay Health Worker'
 
 const roles: UserRole[] = [
   'Administrator',
   'Public Health Nurse',
-  'Barangay Health Worker',
   'Rural Health Midwife',
+  'Barangay Health Worker',
   'Barangay Nutrition Scholar',
 ]
+
+/* =========================================================
+   CONVERT SUPABASE USER
+========================================================= */
 
 function toAuthUser(user: User): AuthUser {
   const metadata = user.user_metadata ?? {}
@@ -131,14 +151,15 @@ function toAuthUser(user: User): AuthUser {
     licenseNumber:
       metadata.license_number ?? '',
 
-    province:
-      metadata.province ?? '',
+    province_id:
+      metadata.province_id
+        ? String(metadata.province_id)
+        : '',
 
-    municipality:
-      metadata.municipality ?? '',
-
-    city:
-      metadata.city ?? '',
+    municipality_id:
+      metadata.municipality_id
+        ? String(metadata.municipality_id)
+        : '',
 
     rhu_id:
       metadata.rhu_id
@@ -153,6 +174,10 @@ function toAuthUser(user: User): AuthUser {
     barangay_ids: barangayIds,
   }
 }
+
+/* =========================================================
+   AUTH CONTEXT
+========================================================= */
 
 const AuthContext =
   createContext<AuthContextValue>({
@@ -171,6 +196,10 @@ const AuthContext =
     logout: async () => undefined,
   })
 
+/* =========================================================
+   AUTH PROVIDER
+========================================================= */
+
 export function AuthProvider({
   children,
 }: {
@@ -184,52 +213,60 @@ export function AuthProvider({
 
   const supabase = createClient()
 
+  /* =======================================================
+     LOAD AUTH USER
+  ======================================================= */
+
   useEffect(() => {
-  let mounted = true
+    let mounted = true
 
-  const loadUser = async () => {
-    const result =
-      await supabase.auth.getUser()
+    const loadUser = async () => {
+      const result =
+        await supabase.auth.getUser()
 
-    if (!mounted) return
+      if (!mounted) return
 
-    const authUser =
-      result.data?.user ?? null
+      const authUser =
+        result.data?.user ?? null
 
-    setUser(
-      authUser
-        ? toAuthUser(authUser)
-        : null
-    )
+      setUser(
+        authUser
+          ? toAuthUser(authUser)
+          : null
+      )
 
-    setIsReady(true)
-  }
+      setIsReady(true)
+    }
 
-  loadUser()
+    loadUser()
 
-  const {
-    data: listener,
-  } =
-    supabase.auth.onAuthStateChange(
-      (
-        _event: AuthChangeEvent,
-        session: Session | null
-      ) => {
-        if (!mounted) return
+    const {
+      data: listener,
+    } =
+      supabase.auth.onAuthStateChange(
+        (
+          _event: AuthChangeEvent,
+          session: Session | null
+        ) => {
+          if (!mounted) return
 
-        setUser(
-          session?.user
-            ? toAuthUser(session.user)
-            : null
-        )
-      }
-    )
+          setUser(
+            session?.user
+              ? toAuthUser(session.user)
+              : null
+          )
+        }
+      )
 
-  return () => {
-    mounted = false
-    listener.subscription.unsubscribe()
-  }
-}, [supabase])
+    return () => {
+      mounted = false
+      listener.subscription.unsubscribe()
+    }
+  }, [supabase])
+
+  /* =======================================================
+     AUTH FUNCTIONS
+  ======================================================= */
 
   const value =
     useMemo<AuthContextValue>(
@@ -240,6 +277,10 @@ export function AuthProvider({
         isReady,
 
         user,
+
+        /* =================================================
+           LOGIN
+        ================================================= */
 
         login: async (
           email,
@@ -279,39 +320,59 @@ export function AuthProvider({
           return {}
         },
 
+        /* =================================================
+           REGISTER
+        ================================================= */
+
         register: async (form) => {
           try {
-            /*
-             * Normalize workplace data according
-             * to the selected role.
-             */
+            /* ---------------------------------------------
+               Normalize workplace data
+            --------------------------------------------- */
 
-            let rhuId: string | null =
-              form.rhu_id?.trim() || null
-
-            let barangayId: string | null =
+            let provinceId:
+              string | null =
+              form.province_id?.trim() ||
               null
 
-            let barangayIds: string[] = []
+            let municipalityId:
+              string | null =
+              form.municipality_id?.trim() ||
+              null
+
+            let rhuId:
+              string | null =
+              form.rhu_id?.trim() ||
+              null
+
+            let barangayId:
+              string | null =
+              null
+
+            let barangayIds:
+              string[] = []
+
+            /* ---------------------------------------------
+               RHM
+               One RHU + multiple barangays
+            --------------------------------------------- */
 
             if (
               form.role ===
               'Rural Health Midwife'
             ) {
               barangayIds =
-                form.barangay_ids ?? []
-
-              barangayIds =
-                barangayIds
+                (form.barangay_ids ?? [])
                   .map((id) => id.trim())
                   .filter(Boolean)
 
-              /*
-               * Keep barangay_id empty for RHM
-               * because RHM can have multiple.
-               */
               barangayId = null
             }
+
+            /* ---------------------------------------------
+               BHW / BNS
+               One RHU + one barangay
+            --------------------------------------------- */
 
             if (
               form.role ===
@@ -329,9 +390,11 @@ export function AuthProvider({
                   : []
             }
 
-            /*
-             * PHN selects RHU only.
-             */
+            /* ---------------------------------------------
+               PHN
+               One RHU
+            --------------------------------------------- */
+
             if (
               form.role ===
               'Public Health Nurse'
@@ -340,17 +403,25 @@ export function AuthProvider({
               barangayIds = []
             }
 
-            /*
-             * Administrator has no workplace.
-             */
+            /* ---------------------------------------------
+               ADMIN
+               No workplace
+            --------------------------------------------- */
+
             if (
               form.role ===
               'Administrator'
             ) {
+              provinceId = null
+              municipalityId = null
               rhuId = null
               barangayId = null
               barangayIds = []
             }
+
+            /* ---------------------------------------------
+               SUPABASE AUTH METADATA
+            --------------------------------------------- */
 
             const metadata = {
               full_name:
@@ -377,21 +448,21 @@ export function AuthProvider({
 
               license_number:
                 form.role ===
-                  'Administrator'
-                  ? null
-                  : form.licenseNumber?.trim() ||
-                    null,
+                  'Public Health Nurse' ||
+                form.role ===
+                  'Rural Health Midwife'
+                  ? form.licenseNumber?.trim() ||
+                    null
+                  : null,
 
-              province:
-                form.province.trim(),
+              province_id:
+                provinceId,
 
-              municipality:
-                form.municipality.trim(),
+              municipality_id:
+                municipalityId,
 
-              city:
-                form.city.trim(),
-
-              rhu_id: rhuId,
+              rhu_id:
+                rhuId,
 
               barangay_id:
                 barangayId,
@@ -399,6 +470,10 @@ export function AuthProvider({
               barangay_ids:
                 barangayIds,
             }
+
+            /* ---------------------------------------------
+               CREATE SUPABASE AUTH ACCOUNT
+            --------------------------------------------- */
 
             const {
               data,
@@ -443,20 +518,31 @@ export function AuthProvider({
           }
         },
 
+        /* =================================================
+           LOGOUT
+        ================================================= */
+
         logout: async () => {
           await supabase.auth.signOut()
           setUser(null)
         },
       }),
+
       [isReady, supabase, user]
     )
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider
+      value={value}
+    >
       {children}
     </AuthContext.Provider>
   )
 }
+
+/* =========================================================
+   USE AUTH
+========================================================= */
 
 export function useAuth() {
   return useContext(AuthContext)
