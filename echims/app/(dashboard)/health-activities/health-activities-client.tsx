@@ -21,6 +21,8 @@ import {
   useState,
 } from 'react'
 
+import HealthActivityCalendar from './health-activity-calendar'
+
 /* =========================================================
    TYPES
 ========================================================= */
@@ -82,6 +84,12 @@ type Activity = {
   approved_by: string | null
   barangay_id: number
   barangay: Barangay | Barangay[] | null
+  requested_by_name?: string | null
+  approved_by_name?: string | null
+  responsible_personnel?: {
+    user_id: string
+    full_name: string
+  }[]
 }
 
 type Suggestion = {
@@ -107,6 +115,14 @@ type RuleEvaluation = {
   warnings: RuleConflict[]
   suggestions: Suggestion[]
 }
+
+type PersonnelOption = {
+  user_id: string
+  full_name: string
+  role: string
+}
+
+type CalendarView = 'MONTH' | 'WEEK' | 'DAY'
 
 /* =========================================================
    ACTIVITY CONFIGURATION
@@ -287,11 +303,154 @@ function StatusBadge({
   )
 }
 
+function ActivityDetailsModal({
+  activity,
+  canReview,
+  onClose,
+  onReview,
+}: {
+  activity: Activity
+  canReview: boolean
+  onClose: () => void
+  onReview: () => void
+}) {
+  const barangay = getBarangay(activity)
+
+  const details = [
+    {
+      label: 'Activity',
+      value: formatActivityType(activity.activity_type),
+    },
+    {
+      label: 'Date',
+      value: formatDate(activity.schedule_date),
+    },
+    {
+      label: 'Time',
+      value:
+        activity.start_time || activity.end_time
+          ? `${formatTime(activity.start_time)} – ${formatTime(
+              activity.end_time,
+            )}`
+          : 'Time not specified',
+    },
+    {
+      label: 'Location / Barangay',
+      value: [
+        barangay?.barangay_name ??
+          `Barangay ${activity.barangay_id}`,
+        barangay?.municipality,
+        barangay?.province,
+      ]
+        .filter(Boolean)
+        .join(', '),
+    },
+    {
+      label: 'Conflict Status',
+      value: activity.conflict_status.replaceAll('_', ' '),
+    },
+    {
+      label: 'Requested by',
+      value: activity.requested_by_name ?? 'Name unavailable',
+    },
+    {
+      label: 'Requested by',
+      value: activity.requested_by_name ?? 'Name unavailable',
+    },
+    {
+      label: 'Responsible personnel',
+      value:
+        activity.responsible_personnel
+          ?.map((person) => person.full_name)
+          .join(', ') || 'Not assigned yet',
+    },
+    {
+      label: 'Approved by',
+      value: activity.approved_by_name ?? 'Not available',
+    },
+  ]
+
+  return (
+    <ModalShell
+      title="Health Activity Details"
+      onClose={onClose}
+    >
+      <div className="space-y-5">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-gray-500">
+            Schedule #{activity.schedule_id}
+          </p>
+
+          <StatusBadge status={activity.status} />
+        </div>
+
+        <dl className="grid gap-4 rounded-xl bg-[#F7F9FA] p-4 sm:grid-cols-2">
+          {details.map(({ label, value }) => (
+            <div key={label}>
+              <dt className="text-xs font-medium text-gray-500">
+                {label}
+              </dt>
+
+              <dd className="mt-1 break-words text-sm font-semibold text-gray-800">
+                {value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+
+        <div>
+          <p className="text-sm font-semibold text-gray-700">
+            Activity Remarks
+          </p>
+
+          <p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-600">
+            {activity.remarks?.trim() || 'No remarks provided.'}
+          </p>
+        </div>
+
+        {activity.review_remarks?.trim() && (
+          <div>
+            <p className="text-sm font-semibold text-gray-700">
+              PHN Review Remarks
+            </p>
+
+            <p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-600">
+              {activity.review_remarks}
+            </p>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2 border-t pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium hover:bg-gray-50"
+          >
+            Close
+          </button>
+
+          {canReview && activity.status === 'PENDING' && (
+            <button
+              type="button"
+              onClick={onReview}
+              className="rounded-xl bg-[#087DB9] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#056d9e]"
+            >
+              Review Request
+            </button>
+          )}
+        </div>
+      </div>
+    </ModalShell>
+  )
+}
+
 /* =========================================================
    MAIN COMPONENT
 ========================================================= */
 
 export default function HealthActivitiesClient() {
+  const [showCalendar, setShowCalendar] = useState(false)
+  
   const [
     activities,
     setActivities,
@@ -326,6 +485,9 @@ export default function HealthActivitiesClient() {
     null
   )
 
+  const [reviewActivity, setReviewActivity] =
+  useState<Activity | null>(null)
+
   const [
     ruleEvaluation,
     setRuleEvaluation,
@@ -334,7 +496,7 @@ export default function HealthActivitiesClient() {
       null
     )
 
-  /* -----------------------------------------------------
+    /* -----------------------------------------------------
      LOAD ACTIVITIES
   ----------------------------------------------------- */
 
@@ -435,7 +597,7 @@ export default function HealthActivitiesClient() {
               .includes(
                 normalizedSearch
               )
-
+              
           return (
             matchesStatus &&
             matchesSearch
@@ -489,6 +651,41 @@ export default function HealthActivitiesClient() {
     void loadActivities()
   }
 
+const now = new Date()
+const today = getTodayString()
+const currentTime = [
+  String(now.getHours()).padStart(2, '0'),
+  String(now.getMinutes()).padStart(2, '0'),
+  String(now.getSeconds()).padStart(2, '0'),
+].join(':')
+
+const upcomingActivities = filteredActivities
+  .filter((activity) => {
+    if (activity.status !== 'APPROVED') return false
+
+    if (activity.schedule_date > today) return true
+    if (activity.schedule_date < today) return false
+
+    // Keep today's activities without an end time.
+    if (!activity.end_time) return true
+
+    const endTime =
+      activity.end_time.length === 5
+        ? `${activity.end_time}:00`
+        : activity.end_time
+
+    return endTime > currentTime
+  })
+  .sort(
+    (a, b) =>
+      a.schedule_date.localeCompare(b.schedule_date) ||
+      (a.start_time ?? '99:99').localeCompare(
+        b.start_time ?? '99:99',
+      ) ||
+      a.schedule_id - b.schedule_id,
+  )
+  .slice(0, 5)
+
   return (
     <div className="min-h-screen bg-[#F7F9FA]">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -514,34 +711,35 @@ export default function HealthActivitiesClient() {
             </p>
           </div>
 
-          {canRequest && (
+
+          {/* CALENDAR BUTTON */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* CALENDAR TOGGLE */}
             <button
               type="button"
-              onClick={() => {
-                setRuleEvaluation(
-                  null
-                )
-
-                setShowRequestModal(
-                  true
-                )
-              }}
-              className="
-                inline-flex items-center
-                justify-center gap-2
-                rounded-xl bg-[#087DB9]
-                px-4 py-3
-                text-sm font-semibold
-                text-white
-                hover:bg-[#056d9e]
-              "
+              onClick={() => setShowCalendar((previous) => !previous)}
+              aria-pressed={showCalendar}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#087DB9] bg-white px-4 py-3 text-sm font-semibold text-[#087DB9] hover:bg-[#F4FBFD]"
             >
-              <Plus size={18} />
-
-              Request Activity
+              <CalendarDays size={18} />
+              {showCalendar ? 'Show List' : 'Calendar'}
             </button>
-          )}
-        </div>
+
+            {canRequest && (
+              <button
+                type="button"
+                onClick={() => {
+                  setRuleEvaluation(null)
+                  setShowRequestModal(true)
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#087DB9] px-4 py-3 text-sm font-semibold text-white hover:bg-[#056d9e]"
+              >
+                <Plus size={18} />
+                Request Activity
+              </button>
+            )}
+          </div>
+          </div>
 
         {/* SUMMARY */}
 
@@ -652,6 +850,7 @@ export default function HealthActivitiesClient() {
           </div>
         )}
 
+
         {/* FILTERS */}
 
         <div
@@ -734,7 +933,7 @@ export default function HealthActivitiesClient() {
               Cancelled
             </option>
           </select>
-
+          
           <button
             type="button"
             onClick={() =>
@@ -754,7 +953,66 @@ export default function HealthActivitiesClient() {
 
             Refresh
           </button>
+          
         </div>
+
+
+{/* UPCOMING ACTIVITIES */}
+{!loading && !error && (
+  <section className="mt-5 rounded-2xl bg-white p-5 ring-1 ring-gray-200">
+    <div className="flex items-center gap-2">
+      <CalendarDays size={20} className="text-[#087DB9]" />
+
+      <h2 className="font-bold text-[#03045E]">
+        Upcoming Activities
+      </h2>
+    </div>
+
+    <p className="mt-1 text-xs text-gray-500">
+      Next five approved activities matching your filters.
+    </p>
+
+    {upcomingActivities.length === 0 ? (
+      <p className="mt-4 text-sm text-gray-500">
+        No upcoming approved activities match your filters.
+      </p>
+    ) : (
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {upcomingActivities.map((activity) => (
+          <button
+            key={activity.schedule_id}
+            type="button"
+            onClick={() => setSelectedActivity(activity)}
+            className="rounded-xl border border-gray-200 p-4 text-left transition hover:border-[#087DB9] hover:bg-[#F4FBFD]"
+          >
+            <p className="text-sm font-semibold text-[#03045E]">
+              {formatActivityType(activity.activity_type)}
+            </p>
+
+            <p className="mt-2 text-sm text-gray-600">
+              {formatDate(activity.schedule_date)}
+            </p>
+
+            <p className="mt-1 text-xs text-gray-500">
+              {formatTime(activity.start_time)}
+              {' – '}
+              {formatTime(activity.end_time)}
+            </p>
+
+            <p className="mt-2 text-xs text-gray-600">
+              {getBarangay(activity)?.barangay_name ??
+                `Barangay ${activity.barangay_id}`}
+            </p>
+
+            <div className="mt-3">
+              <StatusBadge status={activity.status} />
+            </div>
+          </button>
+        ))}
+      </div>
+    )}
+  </section>
+)}
 
         {/* CONTENT */}
 
@@ -777,8 +1035,14 @@ export default function HealthActivitiesClient() {
             >
               {error}
             </div>
-          ) : filteredActivities
-              .length === 0 ? (
+                    ) : showCalendar ? (
+            <HealthActivityCalendar
+              activities={filteredActivities}
+              onSelectActivity={(activity) =>
+                setSelectedActivity(activity)
+              }
+            />
+          ) : filteredActivities.length === 0 ? (
             <div
               className="
                 rounded-2xl bg-white
@@ -825,7 +1089,7 @@ export default function HealthActivitiesClient() {
                       canReview
                     }
                     onReview={() =>
-                      setSelectedActivity(
+                      setReviewActivity(
                         activity
                       )
                     }
@@ -856,31 +1120,35 @@ export default function HealthActivitiesClient() {
           />
         )}
 
+      {/* DETAILS MODAL */}
+      {selectedActivity && (
+        <ActivityDetailsModal
+          activity={selectedActivity}
+          canReview={canReview}
+          onClose={() => setSelectedActivity(null)}
+          onReview={() => {
+            setReviewActivity(selectedActivity)
+            setSelectedActivity(null)
+          }}
+        />
+      )}
+
       {/* PHN REVIEW MODAL */}
-
-      {selectedActivity &&
-        canReview && (
-          <ReviewActivityModal
-            activity={
-              selectedActivity
-            }
-            onClose={() =>
-              setSelectedActivity(
-                null
-              )
-            }
-            onUpdated={() => {
-              setSelectedActivity(
-                null
-              )
-
-              void loadActivities()
-            }}
-          />
-        )}
+      {reviewActivity && canReview && (
+        <ReviewActivityModal
+          key={reviewActivity.schedule_id}
+          activity={reviewActivity}
+          onClose={() => setReviewActivity(null)}
+          onUpdated={() => {
+            setReviewActivity(null)
+            void loadActivities()
+          }}
+        />
+      )}
     </div>
   )
 }
+
 
 /* =========================================================
    SUMMARY CARD
@@ -1625,6 +1893,7 @@ function ReviewActivityModal({
       | 'REJECT'
       | 'RESCHEDULE'
   ) {
+    
     if (
       action === 'REJECT' &&
       !remarks.trim()

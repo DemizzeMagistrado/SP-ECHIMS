@@ -1096,11 +1096,85 @@ export async function GET() {
       )
     }
 
-    return NextResponse.json({
-      role,
-      activities:
-        activities ?? [],
-    })
+    const rows = activities ?? []
+
+const { data: people, error: peopleError } =
+  rows.length > 0
+    ? await supabase.rpc('get_health_activity_people', {
+        p_schedule_ids: rows.map((activity) => activity.schedule_id),
+      })
+    : { data: [], error: null }
+
+if (peopleError) {
+  console.error('Activity personnel lookup failed:', peopleError)
+
+  return NextResponse.json(
+    { error: 'Unable to load activity personnel.' },
+    { status: 500 },
+  )
+}
+
+type ActivityPeople = {
+  schedule_id: number
+  requested_by_name: string | null
+  approved_by_name: string | null
+  responsible_personnel: {
+    user_id: string
+    full_name: string
+  }[]
+}
+
+const peopleBySchedule = new Map(
+  ((people ?? []) as ActivityPeople[]).map((person) => [
+    String(person.schedule_id),
+    person,
+  ]),
+)
+
+return NextResponse.json({
+  role,
+  activities: rows.map((activity) => {
+    const names = peopleBySchedule.get(String(activity.schedule_id))
+
+    return {
+      ...activity,
+      requested_by_name: names?.requested_by_name ?? null,
+      approved_by_name: names?.approved_by_name ?? null,
+      responsible_personnel: names?.responsible_personnel ?? [],
+    }
+  }),
+})
+
+const requesterIds = [
+  ...new Set(rows.map((activity) => activity.created_by)),
+].filter((id): id is string => Boolean(id))
+
+const requesterNames = new Map<string, string>()
+
+if (requesterIds.length > 0) {
+  const { data: requesters, error: requestersError } =
+    await supabase
+      .from('users')
+      .select('user_id, full_name')
+      .in('user_id', requesterIds)
+
+  if (requestersError) {
+    console.error('Unable to load requester names:', requestersError)
+  } else {
+    for (const requester of requesters ?? []) {
+      requesterNames.set(requester.user_id, requester.full_name)
+    }
+  }
+}
+
+return NextResponse.json({
+  role,
+  activities: rows.map((activity) => ({
+    ...activity,
+    requested_by_name:
+      requesterNames.get(activity.created_by) ?? null,
+  })),
+})
   } catch (error) {
     console.error(
       'Health activities GET error:',
