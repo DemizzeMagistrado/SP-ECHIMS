@@ -1,11 +1,14 @@
 export type UserRole = 'Administrator' | 'Public Health Nurse' | 'Barangay Health Worker' | 'Rural Health Midwife' | 'Barangay Nutrition Scholar'
 
+// Modules match the approved role matrix. "Limited" / "Approve" / "Request" / "Read" /
+// "Nutrition" nuances live in rolePermissions below — presence in roleModules only
+// controls whether the sidebar item and route are visible to the role.
 export const roleModules: Record<UserRole, string[]> = {
-  Administrator: ['Dashboard', 'User Management', 'Child Profiling', 'Vaccination', 'Health Activities', 'Nutritional Assessment', 'Supplementation', 'Inventory', 'Alerts', 'Reports', 'Settings'],
-  'Public Health Nurse': ['Dashboard', 'Child Profiling', 'Vaccination', 'Nutritional Assessment', 'Supplementation', 'Inventory', 'Alerts', 'Reports', 'Settings'],
-  'Barangay Health Worker': ['Dashboard', 'Child Profiling', 'Vaccination', 'Health Activities', 'Alerts', 'Reports', 'Settings'],
-  'Rural Health Midwife': ['Dashboard', 'Child Profiling', 'Vaccination', 'Health Activities', 'Alerts', 'Reports', 'Settings'],
-  'Barangay Nutrition Scholar': ['Dashboard', 'Child Profiling', 'Nutritional Assessment', 'Supplementation', 'Health Activities', 'Alerts', 'Reports', 'Settings'],
+  Administrator: ['Dashboard', 'User Management', 'Child Profiling', 'Geospatial', 'Masterlist Upload', 'Vaccination', 'Vaccination Schedule', 'Nutritional Assessment', 'Supplementation', 'Inventory', 'Stock Allocation', 'Inventory Transactions', 'Alerts', 'SMS', 'Reports', 'Settings', 'Organization'],
+  'Public Health Nurse': ['Dashboard', 'Child Profiling', 'Geospatial', 'Masterlist Upload', 'Vaccination', 'Vaccination Schedule', 'Nutritional Assessment', 'Supplementation', 'Inventory', 'Stock Allocation', 'Inventory Transactions', 'Alerts', 'SMS', 'Reports', 'Settings', 'Organization'],
+  'Barangay Health Worker': ['Dashboard', 'Child Profiling', 'Geospatial', 'Masterlist Upload', 'Vaccination', 'Vaccination Schedule', 'Inventory', 'Inventory Transactions', 'Alerts', 'Reports', 'Settings', 'Organization'],
+  'Rural Health Midwife': ['Dashboard', 'Child Profiling', 'Geospatial', 'Vaccination', 'Vaccination Schedule', 'Nutritional Assessment', 'Supplementation', 'Inventory', 'Inventory Transactions', 'Alerts', 'Reports', 'Settings', 'Organization'],
+  'Barangay Nutrition Scholar': ['Dashboard', 'Child Profiling', 'Geospatial', 'Masterlist Upload', 'Nutritional Assessment', 'Supplementation', 'Inventory', 'Inventory Transactions', 'Alerts', 'SMS', 'Reports', 'Settings', 'Organization'],
 }
 
 export const children = [
@@ -36,17 +39,90 @@ export const alerts = [
 ]
 
 export const moduleRoutes: Record<string, string> = {
-  Dashboard: '/dashboard', 'User Management': '/user-management', 'Child Profiling': '/child-profiling/children', Vaccination: '/vaccination/records', Supplementation: '/supplementation/records', 'Nutritional Assessment': '/nutritional-assessment/records', Inventory: '/inventory/stock-overview', Alerts: '/alerts', Reports: '/reports', Settings: '/settings', 'Health Activities': '/health-activities',
+  Dashboard: '/dashboard',
+  'User Management': '/user-management',
+  'Child Profiling': '/child-profiling/children',
+  Geospatial: '/geospatial',
+  'Masterlist Upload': '/masterlist-upload',
+  Vaccination: '/vaccination/records',
+  'Vaccination Schedule': '/vaccination/schedule',
+  'Nutritional Assessment': '/nutritional-assessment/records',
+  Supplementation: '/supplementation/records',
+  Inventory: '/inventory/stock-overview',
+  'Stock Allocation': '/inventory/stock-allocation',
+  'Inventory Transactions': '/inventory/transactions',
+  Alerts: '/alerts',
+  SMS: '/sms',
+  Reports: '/reports',
+  Settings: '/settings',
+  Organization: '/organization',
 }
 
-export type Permission = 'view' | 'create' | 'edit' | 'approve' | 'export'
+export type Permission = 'view' | 'create' | 'edit' | 'approve' | 'export' | 'request'
 
+// Mirrors the role matrix. 'approve'/'request' encode the Vaccination Schedule nuances.
+// 'view' with no 'edit' means Read-only (e.g. Organization for non-Admins). "Limited"
+// scopes (Inventory, Reports) are expressed as narrower permission sets, not special markers.
 const rolePermissions: Record<UserRole, Partial<Record<string, Permission[]>>> = {
-  Administrator: { '*': ['view', 'create', 'edit', 'approve', 'export'] },
-  'Public Health Nurse': { 'Child Profiling': ['view', 'create', 'edit', 'export'], Vaccination: ['view', 'create', 'edit', 'approve', 'export'], 'Nutritional Assessment': ['view', 'create', 'edit', 'export'], Supplementation: ['view', 'create', 'edit', 'export'], Inventory: ['view', 'edit', 'export'], Reports: ['view', 'create', 'export'], Settings: ['view'] },
-  'Barangay Health Worker': { 'Child Profiling': ['view', 'create', 'edit'], Vaccination: ['view', 'create', 'edit'], 'Health Activities': ['view', 'create', 'edit'], Alerts: ['view'], Reports: ['view', 'export'], Settings: ['view'] },
-  'Rural Health Midwife': { 'Child Profiling': ['view', 'approve'], Vaccination: ['view', 'create', 'edit'], 'Health Activities': ['view', 'create', 'edit'], Alerts: ['view'], Reports: ['view', 'export'], Settings: ['view'] },
-  'Barangay Nutrition Scholar': { 'Child Profiling': ['view'], 'Nutritional Assessment': ['view', 'create', 'edit', 'export'], Supplementation: ['view', 'create', 'edit'], 'Health Activities': ['view', 'create', 'edit'], Alerts: ['view'], Reports: ['view', 'export'], Settings: ['view'] },
+  Administrator: { '*': ['view', 'create', 'edit', 'approve', 'export', 'request'] },
+  'Public Health Nurse': {
+    'Child Profiling': ['view', 'create', 'edit', 'export'],
+    Geospatial: ['view', 'export'],
+    'Masterlist Upload': ['view', 'create', 'edit'],
+    Vaccination: ['view', 'create', 'edit', 'export'],
+    'Vaccination Schedule': ['view', 'approve', 'export'],
+    'Nutritional Assessment': ['view', 'create', 'edit', 'export'],
+    Supplementation: ['view', 'create', 'edit', 'export'],
+    Inventory: ['view', 'edit', 'export'],
+    'Stock Allocation': ['view', 'create', 'edit', 'approve'],
+    'Inventory Transactions': ['view', 'create', 'edit', 'export'],
+    Alerts: ['view'],
+    SMS: ['view', 'create'],
+    Reports: ['view', 'create', 'export'],
+    Settings: ['view', 'edit'],
+    Organization: ['view'],
+  },
+  'Barangay Health Worker': {
+    'Child Profiling': ['view', 'create', 'edit'],
+    Geospatial: ['view'],
+    'Masterlist Upload': ['view', 'create'],
+    Vaccination: ['view', 'create', 'edit'],
+    'Vaccination Schedule': ['view', 'request'],
+    Inventory: ['view'], // Limited: view-only
+    'Inventory Transactions': ['view'], // Limited: view-only
+    Alerts: ['view'],
+    Reports: ['view', 'export'], // Limited: only own barangay reports
+    Settings: ['view', 'edit'],
+    Organization: ['view'], // Read
+  },
+  'Rural Health Midwife': {
+    'Child Profiling': ['view', 'approve'],
+    Geospatial: ['view'],
+    Vaccination: ['view', 'create', 'edit'],
+    'Vaccination Schedule': ['view', 'request'],
+    'Nutritional Assessment': ['view', 'create', 'edit'],
+    Supplementation: ['view', 'create', 'edit'],
+    Inventory: ['view'], // Limited
+    'Inventory Transactions': ['view'], // Limited
+    Alerts: ['view'],
+    Reports: ['view', 'export'], // Limited
+    Settings: ['view', 'edit'],
+    Organization: ['view'], // Read
+  },
+  'Barangay Nutrition Scholar': {
+    'Child Profiling': ['view'], // View-only — no create/edit
+    Geospatial: ['view'],
+    'Masterlist Upload': ['view', 'create'],
+    'Nutritional Assessment': ['view', 'create', 'edit', 'export'],
+    Supplementation: ['view', 'create', 'edit'],
+    Inventory: ['view'], // Limited
+    'Inventory Transactions': ['view'], // Limited
+    Alerts: ['view'],
+    SMS: ['view', 'create'], // ✓* nutrition SMS only
+    Reports: ['view', 'export'], // Nutrition reports only
+    Settings: ['view', 'edit'],
+    Organization: ['view'], // Read
+  },
 }
 
 export function canPerform(role: UserRole, module: string, permission: Permission) {
@@ -63,8 +139,17 @@ export function canAccess(role: UserRole, path: string) {
   const routeAliases: Record<string, string> = {
     '/children': 'Child Profiling', '/child-profiling': 'Child Profiling',
     '/nutrition': 'Nutritional Assessment', '/nutritional-assessment': 'Nutritional Assessment',
-    '/inventory': 'Inventory', '/vaccination': 'Vaccination', '/supplementation': 'Supplementation',
-    '/health-activities': 'Health Activities', '/alerts': 'Alerts', '/reports': 'Reports', '/settings': 'Settings', '/user-management': 'User Management',
+    '/inventory/stock-allocation': 'Stock Allocation',
+    '/inventory/transactions': 'Inventory Transactions',
+    '/inventory': 'Inventory',
+    '/vaccination/schedule': 'Vaccination Schedule',
+    '/vaccination': 'Vaccination',
+    '/supplementation': 'Supplementation',
+    '/geospatial': 'Geospatial',
+    '/masterlist-upload': 'Masterlist Upload',
+    '/sms': 'SMS',
+    '/organization': 'Organization',
+    '/alerts': 'Alerts', '/reports': 'Reports', '/settings': 'Settings', '/user-management': 'User Management',
   }
   const module = Object.entries(routeAliases).find(([prefix]) => path === prefix || path.startsWith(`${prefix}/`))?.[1] ?? Object.keys(moduleRoutes).find((key) => path.startsWith(moduleRoutes[key]))
   return module ? roleModules[role].includes(module) : false

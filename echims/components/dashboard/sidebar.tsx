@@ -6,6 +6,7 @@ import {
   Home,
   Baby,
   Syringe,
+  CalendarClock,
   Apple,
   Package,
   AlertCircle,
@@ -14,8 +15,13 @@ import {
   User,
   LogOut,
   Users,
-  Activity,
   Map,
+  MapPin,
+  Upload,
+  Boxes,
+  ArrowLeftRight,
+  MessageSquare,
+  Building2,
 } from 'lucide-react'
 import { moduleRoutes, roleModules, type UserRole } from '@/lib/echims-data'
 import Image from 'next/image'
@@ -23,25 +29,31 @@ import { useAuth } from '@/components/auth/auth-provider'
 
 const menuItems = [
   { icon: Home, label: 'Dashboard', href: '/dashboard' },
-  { icon: Users, label: 'User Management', href: '/user-management' },
+  { icon: Users, label: 'User Management', href: moduleRoutes['User Management'] },
   { icon: Baby, label: 'Child Profiling', href: moduleRoutes['Child Profiling'] },
+  { icon: MapPin, label: 'Geospatial', href: moduleRoutes.Geospatial },
+  { icon: Upload, label: 'Masterlist Upload', href: moduleRoutes['Masterlist Upload'] },
   { icon: Syringe, label: 'Vaccination', href: moduleRoutes.Vaccination },
-  { icon: Activity, label: 'Health Activities', href: moduleRoutes['Health Activities'] },
+  { icon: CalendarClock, label: 'Vaccination Schedule', href: moduleRoutes['Vaccination Schedule'] },
   { icon: Apple, label: 'Nutritional Assessment', href: moduleRoutes['Nutritional Assessment'] },
   { icon: Package, label: 'Supplementation', href: moduleRoutes.Supplementation },
   { icon: Map, label: 'Inventory', href: moduleRoutes.Inventory },
+  { icon: Boxes, label: 'Stock Allocation', href: moduleRoutes['Stock Allocation'] },
+  { icon: ArrowLeftRight, label: 'Inventory Transactions', href: moduleRoutes['Inventory Transactions'] },
   { icon: AlertCircle, label: 'Alerts', href: moduleRoutes.Alerts },
+  { icon: MessageSquare, label: 'SMS', href: moduleRoutes.SMS },
   { icon: FileText, label: 'Reports', href: moduleRoutes.Reports },
   { icon: Settings, label: 'Settings', href: moduleRoutes.Settings },
+  { icon: Building2, label: 'Organization', href: moduleRoutes.Organization },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
   const { logout, user } = useAuth()
-  const role: UserRole = user?.role ?? 'Administrator'
-  const visibleItems = menuItems.filter((item) => {
-    return roleModules[role].includes(item.label)
-  })
+  // Hide every optional item until the role has loaded so pending-approval accounts and
+  // early-render frames never flash a broader menu than the user is entitled to.
+  const role = user?.role as UserRole | undefined
+  const visibleItems = role ? menuItems.filter((item) => roleModules[role].includes(item.label)) : menuItems.filter((item) => item.label === 'Dashboard')
 
   async function handleLogout() {
     await logout()

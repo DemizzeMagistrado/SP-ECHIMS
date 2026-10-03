@@ -66,7 +66,7 @@ export async function POST(request: Request) {
   const middleName = String(body.middle_name ?? '').trim() || null
   const lastName = String(body.last_name ?? '').trim()
   const dob = String(body.date_of_birth ?? '')
-  const sex = String(body.sex ?? '').trim()
+  const sex = String(body.sex ?? '').trim().toUpperCase()
   const barangayId = parseId(body.barangay_id)
   let householdId = parseId(body.household_id)
   if (!firstName || !lastName || !dob || !sex || !barangayId) return invalid('First name, last name, date of birth, sex, and barangay are required.')
@@ -107,7 +107,7 @@ export async function PATCH(request: Request) {
   const body = await request.json().catch(() => null) as Record<string, unknown> | null
   const childId = parseId(body?.child_id)
   if (!childId) return invalid('A valid child is required.')
-  const updates = Object.fromEntries(['first_name', 'middle_name', 'last_name', 'date_of_birth', 'sex', 'birth_place', 'address', 'barangay_id', 'household_id', 'guardian_id'].filter((field) => body?.[field] !== undefined).map((field) => [field, body?.[field] === '' ? null : body?.[field]]))
+  const updates = Object.fromEntries(['first_name', 'middle_name', 'last_name', 'date_of_birth', 'sex', 'birth_place', 'address', 'barangay_id', 'household_id', 'guardian_id'].filter((field) => body?.[field] !== undefined).map((field) => [field, field === 'sex' ? String(body?.sex ?? '').trim().toUpperCase() || null : body?.[field] === '' ? null : body?.[field]]))
   if (updates.date_of_birth && monthsOld(String(updates.date_of_birth)) > 59) return invalid('Child must be between 0 and 59 months old at registration.')
   const result = await auth.supabase.from('child').update(updates).eq('child_id', childId)
   if (result.error) return invalid(result.error.code === '42501' ? 'You are not authorized to edit this child.' : 'Unable to update the child record.', result.error.code === '42501' ? 403 : 500)

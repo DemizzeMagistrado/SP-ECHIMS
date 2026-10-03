@@ -19,8 +19,11 @@ const icons = [Baby, Syringe, Apple, Package, AlertCircle, Clock]
 const colors = ['bg-[#E6F2FF] text-[#03045E]', 'bg-[#E0F2FE] text-[#0077B6]', 'bg-[#CCFBF1] text-[#00B4D8]', 'bg-[#DCFCE7] text-[#10B981]', 'bg-[#FEE2E2] text-[#EF4444]', 'bg-[#FFF7ED] text-[#C2410C]']
 
 export function DashboardOverview() {
-  const { user } = useAuth()
-  const role = user?.role ?? 'Barangay Health Worker'
+  const { user, isReady } = useAuth()
+  // Wait for the trusted role before picking content so each role sees ITS own dashboard
+  // from the first paint — never a generic BHW fallback or a flash of the wrong view.
+  if (!isReady || !user?.role) return <div className="rounded-2xl border border-sky-200 bg-white p-10 text-center text-[#6B7280]">Loading your dashboard...</div>
+  const role = user.role
   const content = dashboardContent[role]
 
   return (
@@ -44,7 +47,7 @@ export function DashboardOverview() {
         })}
       </div>
 
-      {role === 'Public Health Nurse' && <section aria-labelledby="phn-health-activities" className="rounded-2xl border border-[#E5E7EB] bg-white p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-semibold text-[#0077B6]">Health Activities</p><h3 id="phn-health-activities" className="mt-1 text-xl font-bold text-[#03045E]">Approval queue</h3></div><a href="/health-activities" className="text-sm font-semibold text-[#0077B6]">View all</a></div><div className="mt-5 grid gap-3 sm:grid-cols-3"><div className="rounded-xl bg-[#FFF7ED] p-4"><p className="text-sm text-[#9A3412]">Pending</p><p className="mt-1 text-2xl font-bold text-[#9A3412]">5</p></div><div className="rounded-xl bg-[#E8F7EE] p-4"><p className="text-sm text-[#16803C]">Approved</p><p className="mt-1 text-2xl font-bold text-[#16803C]">18</p></div><div className="rounded-xl bg-[#FEECEC] p-4"><p className="text-sm text-[#B42318]">Rejected</p><p className="mt-1 text-2xl font-bold text-[#B42318]">2</p></div></div></section>}
+      {role === 'Public Health Nurse' && <section aria-labelledby="phn-schedule-approvals" className="rounded-2xl border border-[#E5E7EB] bg-white p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-semibold text-[#0077B6]">Vaccination Schedule</p><h3 id="phn-schedule-approvals" className="mt-1 text-xl font-bold text-[#03045E]">Approval queue</h3></div><a href="/vaccination/schedule" className="text-sm font-semibold text-[#0077B6]">View all</a></div><div className="mt-5 grid gap-3 sm:grid-cols-3"><div className="rounded-xl bg-[#FFF7ED] p-4"><p className="text-sm text-[#9A3412]">Pending</p><p className="mt-1 text-2xl font-bold text-[#9A3412]">5</p></div><div className="rounded-xl bg-[#E8F7EE] p-4"><p className="text-sm text-[#16803C]">Approved</p><p className="mt-1 text-2xl font-bold text-[#16803C]">18</p></div><div className="rounded-xl bg-[#FEECEC] p-4"><p className="text-sm text-[#B42318]">Rejected</p><p className="mt-1 text-2xl font-bold text-[#B42318]">2</p></div></div></section>}
 
       <section aria-labelledby="today-activities" className="rounded-2xl border border-[#E5E7EB] bg-white p-6">
         <div className="flex items-center justify-between"><div><p className="text-sm font-semibold text-[#0077B6]">Today&apos;s Activities</p><h3 id="today-activities" className="mt-1 text-xl font-bold text-[#03045E]">Scheduled work for your role</h3></div><Clock className="text-[#00B4D8]" aria-hidden="true" /></div>
