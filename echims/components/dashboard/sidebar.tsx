@@ -6,7 +6,6 @@ import {
   Home,
   Baby,
   Syringe,
-  CalendarClock,
   Apple,
   Package,
   AlertCircle,
@@ -15,36 +14,31 @@ import {
   User,
   LogOut,
   Users,
+  Activity,
   Map,
-  MapPin,
-  Upload,
-  Boxes,
-  ArrowLeftRight,
-  MessageSquare,
-  Building2,
 } from 'lucide-react'
 import { moduleRoutes, roleModules, type UserRole } from '@/lib/echims-data'
 import Image from 'next/image'
 import { useAuth } from '@/components/auth/auth-provider'
 
-const menuItems = [
+// Flat top-level menu per the frontend guide. Each parent page renders its own sub-tabs
+// (see moduleTabs in echims-data.ts) for Geospatial/Masterlist Import/Vaccination Schedule/
+// Stock Allocation/Inventory Transactions/Organization.
+// matchPrefixes keeps the parent highlighted when the user is on any of its sub-routes
+// (e.g. /vaccination/schedule still highlights the Vaccination parent).
+type MenuItem = { icon: typeof Home; label: string; href: string; matchPrefixes?: string[] }
+const menuItems: MenuItem[] = [
   { icon: Home, label: 'Dashboard', href: '/dashboard' },
   { icon: Users, label: 'User Management', href: moduleRoutes['User Management'] },
-  { icon: Baby, label: 'Child Profiling', href: moduleRoutes['Child Profiling'] },
-  { icon: MapPin, label: 'Geospatial', href: moduleRoutes.Geospatial },
-  { icon: Upload, label: 'Masterlist Upload', href: moduleRoutes['Masterlist Upload'] },
-  { icon: Syringe, label: 'Vaccination', href: moduleRoutes.Vaccination },
-  { icon: CalendarClock, label: 'Vaccination Schedule', href: moduleRoutes['Vaccination Schedule'] },
-  { icon: Apple, label: 'Nutritional Assessment', href: moduleRoutes['Nutritional Assessment'] },
-  { icon: Package, label: 'Supplementation', href: moduleRoutes.Supplementation },
-  { icon: Map, label: 'Inventory', href: moduleRoutes.Inventory },
-  { icon: Boxes, label: 'Stock Allocation', href: moduleRoutes['Stock Allocation'] },
-  { icon: ArrowLeftRight, label: 'Inventory Transactions', href: moduleRoutes['Inventory Transactions'] },
+  { icon: Baby, label: 'Child Profiling', href: moduleRoutes['Child Profiling'], matchPrefixes: ['/child-profiling', '/children', '/geospatial', '/masterlist-upload'] },
+  { icon: Syringe, label: 'Vaccination', href: moduleRoutes.Vaccination, matchPrefixes: ['/vaccination', '/vaccinations'] },
+  { icon: Apple, label: 'Nutritional Assessment', href: moduleRoutes['Nutritional Assessment'], matchPrefixes: ['/nutritional-assessment', '/nutrition'] },
+  { icon: Package, label: 'Supplementation', href: moduleRoutes.Supplementation, matchPrefixes: ['/supplementation', '/supplements'] },
+  { icon: Map, label: 'Inventory', href: moduleRoutes.Inventory, matchPrefixes: ['/inventory'] },
+  { icon: Activity, label: 'Health Activities', href: moduleRoutes['Health Activities'], matchPrefixes: ['/health-activities'] },
   { icon: AlertCircle, label: 'Alerts', href: moduleRoutes.Alerts },
-  { icon: MessageSquare, label: 'SMS', href: moduleRoutes.SMS },
   { icon: FileText, label: 'Reports', href: moduleRoutes.Reports },
-  { icon: Settings, label: 'Settings', href: moduleRoutes.Settings },
-  { icon: Building2, label: 'Organization', href: moduleRoutes.Organization },
+  { icon: Settings, label: 'Settings', href: moduleRoutes.Settings, matchPrefixes: ['/settings', '/organization'] },
 ]
 
 export function Sidebar() {
@@ -81,7 +75,8 @@ export function Sidebar() {
         <ul className="space-y-1 px-2">
           {visibleItems.map((item) => {
             const Icon = item.icon
-            const isActive = pathname === item.href || (item.href === '/' && pathname === '/')
+            const prefixMatch = item.matchPrefixes?.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)) ?? false
+            const isActive = pathname === item.href || prefixMatch || (item.href === '/' && pathname === '/')
             return (
               <li key={item.href}>
                 <Link

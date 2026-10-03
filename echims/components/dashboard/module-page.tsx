@@ -2,8 +2,18 @@
 
 import { useMemo, useState } from 'react'
 import { Search, Download, Plus, MapPin, Upload, CalendarDays, CheckCircle2, AlertTriangle, ArrowRight, FileText } from 'lucide-react'
-import { alerts, canPerform, children, inventory, vaccines, type UserRole } from '@/lib/echims-data'
+import { alerts, canPerform, children, inventory, moduleTabs, vaccines, type UserRole } from '@/lib/echims-data'
 import { useAuth } from '@/components/auth/auth-provider'
+import { ModuleTabs } from '@/components/dashboard/module-tabs'
+
+// Maps the first URL segment to the parent module whose tab strip to render.
+const tabParentForRoot: Record<string, keyof typeof moduleTabs> = {
+  vaccination: 'Vaccination',
+  inventory: 'Inventory',
+  'child-profiling': 'Child Profiling',
+  geospatial: 'Child Profiling',
+  'masterlist-upload': 'Child Profiling',
+}
 
 export function ModulePage({ slug }: { slug: string[] }) {
   const title = slug.map((part) => part.replace(/-/g, ' ')).join(': ').replace(/\b\w/g, (letter) => letter.toUpperCase())
@@ -47,10 +57,13 @@ export function ModulePage({ slug }: { slug: string[] }) {
 
   if (root === 'reports') { const reportTypes = role === 'Barangay Nutrition Scholar' ? ['Child Health Summary', 'Nutrition Risk Register', 'Supplementation Report'] : role === 'Barangay Health Worker' || role === 'Rural Health Midwife' ? ['Child Health Summary', 'Vaccination Coverage', 'Activity Performance'] : ['Child Health Summary', 'Vaccination Coverage', 'Nutrition Risk Register', 'Inventory Movement', 'Supplementation Report', 'Activity Performance']; return <section className="flex flex-col gap-6"><Header title="Reports" description="Generate and export health program reports." action={canCreate ? 'Generate report' : 'View reports'} onAction={canCreate ? () => setShowForm(true) : undefined} /><div className="grid gap-4 md:grid-cols-3">{reportTypes.map((report) => <button key={report} onClick={() => canCreate && setShowForm(true)} disabled={!canCreate} className="flex items-center gap-4 rounded-xl border border-[#E5E7EB] bg-white p-5 text-left shadow-sm transition hover:border-[#90E0EF] disabled:cursor-default disabled:opacity-70"><div className="flex size-10 items-center justify-center rounded-lg bg-[#E0F5FA] text-[#0077B6]"><FileText size={19} /></div><span className="font-semibold text-[#03045E]">{report}</span></button>)}</div>{showForm && <SimpleForm title="Generate report" onClose={() => setShowForm(false)} />}</section> }
 
-  if (root === 'vaccination' && (slug[1] === 'calendar' || slug[1] === 'schedule')) return <CalendarView title={slug[1] === 'schedule' ? 'Vaccination Schedule' : 'Vaccination Calendar'} canCreate={canCreate} canApprove={canPerform(role, 'Vaccination Schedule', 'approve')} canRequest={canPerform(role, 'Vaccination Schedule', 'request')} />
+  const parentForTabs = tabParentForRoot[root]
+  const tabStrip = parentForTabs ? <ModuleTabs parent={parentForTabs} role={role} /> : null
+
+  if (root === 'vaccination' && (slug[1] === 'calendar' || slug[1] === 'schedule')) return <div className="flex flex-col gap-6">{tabStrip}<CalendarView title={slug[1] === 'schedule' ? 'Vaccination Schedule' : 'Vaccination Calendar'} canCreate={canCreate} canApprove={canPerform(role, 'Vaccination Schedule', 'approve')} canRequest={canPerform(role, 'Vaccination Schedule', 'request')} /></div>
 
   const isTable = rows.length > 0
-  return <section className="flex flex-col gap-6"><Header title={title} description={descriptionFor(root)} action={canCreate ? (root === 'child-profiling' ? 'Upload Masterlist' : 'Add new record') : 'View records'} onAction={canCreate ? () => setShowForm(true) : undefined} /><div className="flex flex-col gap-4 rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm md:flex-row md:items-center"><div className="relative flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${root === 'inventory' ? 'items' : 'records'}...`} className="w-full rounded-lg border border-[#E5E7EB] py-2.5 pl-10 pr-3 text-sm outline-none focus:border-[#0077B6]" /></div><select aria-label="Filter by barangay" className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm text-[#6B7280] outline-none focus:border-[#0077B6]"><option>All barangays</option><option>San Isidro</option><option>Poblacion</option><option>Mabini</option><option>San Roque</option></select>{canExport && <button className="flex items-center justify-center gap-2 rounded-lg border border-[#0077B6] px-4 py-2.5 text-sm font-semibold text-[#0077B6]"><Download size={16} />Export CSV</button>}</div>{isTable ? <DataTable root={root} rows={rows} /> : <EmptyModule title={title} onAction={() => canCreate && setShowForm(true)} />}{showForm && canCreate && <SimpleForm title={root === 'child-profiling' ? 'Add child profile' : `Add ${title.toLowerCase()} record`} onClose={() => setShowForm(false)} />}</section>
+  return <div className="flex flex-col gap-6">{tabStrip}<section className="flex flex-col gap-6"><Header title={title} description={descriptionFor(root)} action={canCreate ? (root === 'child-profiling' ? 'Upload Masterlist' : 'Add new record') : 'View records'} onAction={canCreate ? () => setShowForm(true) : undefined} /><div className="flex flex-col gap-4 rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm md:flex-row md:items-center"><div className="relative flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${root === 'inventory' ? 'items' : 'records'}...`} className="w-full rounded-lg border border-[#E5E7EB] py-2.5 pl-10 pr-3 text-sm outline-none focus:border-[#0077B6]" /></div><select aria-label="Filter by barangay" className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm text-[#6B7280] outline-none focus:border-[#0077B6]"><option>All barangays</option><option>San Isidro</option><option>Poblacion</option><option>Mabini</option><option>San Roque</option></select>{canExport && <button className="flex items-center justify-center gap-2 rounded-lg border border-[#0077B6] px-4 py-2.5 text-sm font-semibold text-[#0077B6]"><Download size={16} />Export CSV</button>}</div>{isTable ? <DataTable root={root} rows={rows} /> : <EmptyModule title={title} onAction={() => canCreate && setShowForm(true)} />}{showForm && canCreate && <SimpleForm title={root === 'child-profiling' ? 'Add child profile' : `Add ${title.toLowerCase()} record`} onClose={() => setShowForm(false)} />}</section></div>
 }
 
 function UserManagement({ currentUser, onCreate, showForm, onClose }: { currentUser: { fullName: string; username: string; email: string; role: UserRole; employeeId: string } | null; onCreate: () => void; showForm: boolean; onClose: () => void }) {
