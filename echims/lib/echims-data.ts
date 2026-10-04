@@ -122,6 +122,7 @@ const rolePermissions: Record<UserRole, Partial<Record<string, Permission[]>>> =
     'Vaccination Schedule': ['view', 'request'],
     Inventory: ['view'], // Limited: view-only
     'Inventory Transactions': ['view'], // Limited: view-only
+    'Health Activities': ['view', 'create', 'edit'],
     Alerts: ['view'],
     Reports: ['view', 'export'], // Limited: only own barangay reports
     Settings: ['view', 'edit'],
@@ -136,6 +137,7 @@ const rolePermissions: Record<UserRole, Partial<Record<string, Permission[]>>> =
     Supplementation: ['view', 'create', 'edit'],
     Inventory: ['view'], // Limited
     'Inventory Transactions': ['view'], // Limited
+    'Health Activities': ['view', 'create', 'edit'],
     Alerts: ['view'],
     Reports: ['view', 'export'], // Limited
     Settings: ['view', 'edit'],
@@ -149,6 +151,7 @@ const rolePermissions: Record<UserRole, Partial<Record<string, Permission[]>>> =
     Supplementation: ['view', 'create', 'edit'],
     Inventory: ['view'], // Limited
     'Inventory Transactions': ['view'], // Limited
+    'Health Activities': ['view', 'create', 'edit'],
     Alerts: ['view'],
     SMS: ['view', 'create'], // ✓* nutrition SMS only
     Reports: ['view', 'export'], // Nutrition reports only

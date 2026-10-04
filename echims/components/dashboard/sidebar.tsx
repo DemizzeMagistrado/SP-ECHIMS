@@ -51,7 +51,10 @@ export function Sidebar() {
 
   async function handleLogout() {
     await logout()
-    window.location.assign('/login')
+    // replace (not assign) so the dashboard is overwritten in the browser history.
+    // Otherwise the back arrow brings the user to /dashboard, which auth-redirects to
+    // /login — looking like logout dumped them on login instead of the landing page.
+    window.location.replace('/')
   }
 
   return (

@@ -11,7 +11,9 @@ export default function SettingsPage() {
 
   function handleLogout() {
     logout()
-    window.location.assign('/login')
+    // replace (not assign) so the dashboard is overwritten in the browser history —
+    // see sidebar.tsx for the full rationale.
+    window.location.replace('/')
   }
 
   return (

@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
 import { FormEvent, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/auth/auth-provider'
 import type { UserRole } from '@/lib/echims-data'
 
@@ -18,7 +17,6 @@ const roleOptions: { value: UserRole; description: string }[] = [
 const initialForm = { fullName: '', username: '', contactNumber: '', email: '', role: 'Barangay Health Worker' as UserRole, employeeId: '', licenseNumber: '', password: '', confirmPassword: '' }
 
 export default function RegisterPage() {
-  const router = useRouter()
   const { register } = useAuth()
   const [form, setForm] = useState(initialForm)
   const [showPassword, setShowPassword] = useState(false)
@@ -46,7 +44,9 @@ export default function RegisterPage() {
       setForm(initialForm)
       return
     }
-    router.push('/dashboard')
+    // Hard navigation (not router.push) so the dashboard mounts with the auth cookie
+    // already visible to getUser() — same race fix as /login.
+    window.location.assign('/dashboard')
   }
 
   const selectedRole = roleOptions.find((role) => role.value === form.role)

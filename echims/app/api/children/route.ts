@@ -76,7 +76,7 @@ export async function POST(request: Request) {
   const household = body.new_household && typeof body.new_household === 'object' ? body.new_household as Record<string, unknown> : null
   if (!householdId && household) {
     const created = await auth.supabase.from('household').insert({ household_no: String(household.household_no ?? '').trim(), household_address: String(household.household_address ?? '').trim(), purok: String(household.purok ?? '').trim() || null, is_4ps_member: Boolean(household.is_4ps_member), barangay_id: barangayId }).select('household_id').single()
-    if (created.error) return invalid('Unable to create the household. Check the household details.', 400)
+    if (created.error) return invalid(created.error.code === '42501' ? 'You are not assigned to this barangay, so you cannot create a household here. Ask your administrator to assign your account to the barangay first.' : 'Unable to create the household. Check the household details.', created.error.code === '42501' ? 403 : 400)
     householdId = created.data.household_id
   }
   if (!householdId) return invalid('Select an existing household or enter new household details.')
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
   const newGuardian = body.new_guardian && typeof body.new_guardian === 'object' ? body.new_guardian as Record<string, unknown> : null
   if (!guardianId && newGuardian) {
     const guardian = await auth.supabase.from('guardian').insert({ first_name: String(newGuardian.first_name ?? '').trim(), middle_name: String(newGuardian.middle_name ?? '').trim() || null, last_name: String(newGuardian.last_name ?? '').trim(), contact_number: String(newGuardian.contact_number ?? '').trim() || null, address: String(newGuardian.address ?? '').trim() || null, relationship_to_child: String(newGuardian.relationship_to_child ?? '').trim() || null }).select('guardian_id').single()
-    if (guardian.error) return invalid('Unable to create the guardian. Check the guardian details.')
+    if (guardian.error) return invalid(guardian.error.code === '42501' ? 'You are not authorized to register a guardian. Your account may still be pending approval.' : 'Unable to create the guardian. Check the guardian details.', guardian.error.code === '42501' ? 403 : 400)
     guardianId = guardian.data.guardian_id
   }
   if (guardianId) { const guardian = await auth.supabase.from('guardian').select('guardian_id').eq('guardian_id', guardianId).maybeSingle(); if (!guardian.data) return invalid('Selected guardian was not found.') }
