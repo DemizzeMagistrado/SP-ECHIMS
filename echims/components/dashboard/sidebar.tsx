@@ -75,8 +75,7 @@ const menuItems: MenuItem[] = [
   {
     icon: Activity,
     label: 'Health Activities',
-    href: moduleRoutes['Health Activities'],
-    matchPrefixes: ['/health-activities'],
+    href: '/health-activities',
   },
   {
     icon: Apple,
