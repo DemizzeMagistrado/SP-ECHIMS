@@ -60,6 +60,34 @@ function isPastDate(date: string) {
   return date < localToday
 }
 
+function personnelValidationResponse(error: {
+  code?: string
+  message: string
+}) {
+  if (error.code === '23P01') {
+    return NextResponse.json(
+      { error: error.message },
+      { status: 409 },
+    )
+  }
+
+  if (error.code === '22023') {
+    return NextResponse.json(
+      { error: error.message },
+      { status: 400 },
+    )
+  }
+
+  if (error.code === '42501') {
+    return NextResponse.json(
+      { error: 'You cannot access personnel for this barangay.' },
+      { status: 403 },
+    )
+  }
+
+  return null
+}
+
 /* =========================================================
    PATCH
    PHN reviews health activity request
@@ -426,322 +454,50 @@ export async function PATCH(
        SCH-R008
     ===================================================== */
 
-    if (
-      action === 'RESCHEDULE'
-    ) {
-      const newDate = String(
-        body.scheduleDate ?? ''
-      ).trim()
-
-      const newStartTime =
-        String(
-          body.startTime ?? ''
-        ).trim()
-
-      const newEndTime =
-        String(
-          body.endTime ?? ''
-        ).trim()
-
-      /* -----------------------------------------------
-         Validate new schedule
-      ----------------------------------------------- */
-
-      if (
-        !newDate ||
-        !newStartTime ||
-        !newEndTime
-      ) {
+    if (action === 'RESCHEDULE') {
+      if (!reviewRemarks.trim()) {
         return NextResponse.json(
-          {
-            error:
-              'New date, start time, and end time are required.',
-          },
-          {
-            status: 400,
-          }
+          { error: 'Explain what the requester needs to revise.' },
+          { status: 400 },
         )
       }
 
-      if (
-        newEndTime <=
-        newStartTime
-      ) {
-        return NextResponse.json(
-          {
-            error:
-              'SCH-R003: End time must be later than start time.',
-            rule:
-              'SCH-R003',
-          },
-          {
-            status: 400,
-          }
-        )
-      }
-
-      if (
-        isPastDate(newDate)
-      ) {
-        return NextResponse.json(
-          {
-            error:
-              'SCH-R014: A health activity cannot be rescheduled to a past date.',
-            rule:
-              'SCH-R014',
-          },
-          {
-            status: 400,
-          }
-        )
-      }
-
-      /* -----------------------------------------------
-         Re-run scheduling rules
-      ----------------------------------------------- */
-
-      const {
-        data: conflictData,
-        error: conflictError,
-      } = await supabase.rpc(
-        'check_health_activity_conflicts',
+      const { data, error } = await supabase.rpc(
+        'return_health_activity_for_revision',
         {
-          p_schedule_date:
-            newDate,
-
-          p_start_time:
-            newStartTime,
-
-          p_end_time:
-            newEndTime,
-
-          p_barangay_id:
-            schedule.barangay_id,
-
-          p_created_by:
-            schedule.created_by,
-
-          p_exclude_schedule_id:
-            numericScheduleId,
-        }
+          p_schedule_id: numericScheduleId,
+          p_review_remarks: reviewRemarks,
+        },
       )
 
-      if (conflictError) {
-        console.error(
-          'Reschedule conflict evaluation error:',
-          conflictError
-        )
-
-        return NextResponse.json(
-          {
-            error:
-              'Unable to evaluate the proposed schedule.',
-          },
-          {
-            status: 500,
-          }
-        )
-      }
-
-      const conflictRows =
-        (conflictData ??
-          []) as ConflictRow[]
-
-      const hardConflicts =
-        conflictRows.filter(
-          (item) =>
-            item.conflict_rule ===
-            'SCH-R002'
-        )
-
-      const warnings =
-        conflictRows.filter(
-          (item) =>
-            item.conflict_rule ===
-            'SCH-R001'
-        )
-
-      /* -----------------------------------------------
-         Suggestions
-      ----------------------------------------------- */
-
-      let suggestions:
-        ScheduleSuggestion[] = []
-
-      if (
-        conflictRows.length > 0
-      ) {
-        const {
-          data:
-            suggestionData,
-          error:
-            suggestionError,
-        } = await supabase.rpc(
-          'suggest_health_activity_slots',
-          {
-            p_requested_date:
-              newDate,
-
-            p_barangay_id:
-              schedule.barangay_id,
-
-            p_created_by:
-              schedule.created_by,
-
-            p_exclude_schedule_id:
-              numericScheduleId,
-
-            p_days_to_check:
-              7,
-
-            p_max_suggestions:
-              3,
-          }
-        )
-
-        if (
-          suggestionError
-        ) {
-          console.error(
-            'Reschedule suggestion error:',
-            suggestionError
-          )
-        } else {
-          suggestions =
-            (suggestionData ??
-              []) as ScheduleSuggestion[]
-        }
-      }
-
-      /* -----------------------------------------------
-         Determine conflict state
-
-         DETECTED:
-         new schedule still conflicts.
-
-         RESOLVED:
-         previous schedule had a conflict,
-         new schedule is clear.
-
-         NONE:
-         no previous/current conflict.
-      ----------------------------------------------- */
-
-      const conflictStatus =
-        conflictRows.length > 0
-          ? 'DETECTED'
-          : schedule.conflict_status ===
-              'DETECTED'
-            ? 'RESOLVED'
-            : 'NONE'
-
-      const reviewedAt =
-        new Date().toISOString()
-
-      const {
-        data,
-        error,
-      } = await supabase
-        .from(
-          'health_activity_schedule'
-        )
-        .update({
-          schedule_date:
-            newDate,
-
-          start_time:
-            newStartTime,
-
-          end_time:
-            newEndTime,
-
-          /*
-           * SCH-R008:
-           * changing scheduling-critical
-           * fields does not approve it.
-           */
-          status:
-            'PENDING',
-
-          /*
-           * PHN performed this review
-           * action, but the activity is
-           * still not approved.
-           */
-          reviewed_by:
-            user.id,
-
-          approved_by:
-            null,
-
-          reviewed_at:
-            reviewedAt,
-
-          review_remarks:
-            reviewRemarks ||
-            null,
-
-          conflict_status:
-            conflictStatus,
-        })
-        .eq(
-          'schedule_id',
-          numericScheduleId
-        )
-        .eq(
-          'status',
-          'PENDING'
-        )
-        .select()
-        .single()
-
       if (error) {
-        console.error(
-          'Reschedule activity error:',
-          error
-        )
+        const status =
+          error.code === '42501'
+            ? 403
+            : error.code === 'P0002'
+              ? 404
+              : error.code === '22023'
+                ? 400
+                : 500
+
+        if (status === 500) {
+          console.error('Return for revision error:', error)
+        }
 
         return NextResponse.json(
           {
             error:
-              'Unable to reschedule health activity.',
+              status === 500
+                ? 'Unable to return this request for revision.'
+                : error.message,
           },
-          {
-            status: 500,
-          }
+          { status },
         )
       }
 
       return NextResponse.json({
-        message:
-          hardConflicts.length > 0
-            ? 'Schedule updated, but a worker conflict must still be resolved before approval.'
-            : warnings.length > 0
-              ? 'Schedule updated with a same-barangay warning and remains pending PHN approval.'
-              : 'Schedule updated successfully and remains pending approval.',
-
-        rule:
-          'SCH-R008',
-
-        activity:
-          data,
-
-        ruleEvaluation: {
-          hasConflict:
-            conflictRows.length >
-            0,
-
-          hasHardConflict:
-            hardConflicts.length >
-            0,
-
-          conflicts:
-            hardConflicts,
-
-          warnings,
-
-          suggestions,
-        },
+        message: 'Request returned to its creator for revision.',
+        activity: data,
       })
     }
 
@@ -936,22 +692,27 @@ export async function PATCH(
       .select()
       .single()
 
-    if (approveError) {
-      console.error(
-        'Approve activity error:',
-        approveError
-      )
+      if (approveError) {
+        console.error('Approve activity error:', approveError)
 
-      return NextResponse.json(
-        {
-          error:
-            'Unable to approve health activity request.',
-        },
-        {
-          status: 500,
+        const validationResponse =
+          personnelValidationResponse(approveError)
+
+        if (validationResponse) {
+          return validationResponse
         }
-      )
-    }
+
+        // Temporary diagnostic response for local development.
+        return NextResponse.json(
+          {
+            error:
+              process.env.NODE_ENV === 'development'
+                ? approveError.message
+                : 'Unable to approve health activity request.',
+          },
+          { status: 500 },
+        )
+}
 
     return NextResponse.json({
       message:

@@ -1133,6 +1133,7 @@ const peopleBySchedule = new Map(
 
 return NextResponse.json({
   role,
+  currentUserId: user.id,
   activities: rows.map((activity) => {
     const names = peopleBySchedule.get(String(activity.schedule_id))
 
