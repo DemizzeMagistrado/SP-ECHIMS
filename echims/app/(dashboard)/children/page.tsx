@@ -1,53 +1,250 @@
 'use client'
 
+// Children list page. Register uses the shared ChildFormModal.
+// Editing happens from the profile page (/children/[childId]), not from this list.
+//
+// CHILD-USR004 — Search and filter children.
+// Health workers often triage dozens of records at once: searching by a child's name is
+// not enough. This page combines a free-text search (name / ID) with three structured
+// filters (Barangay, Age Group per OPT+ bands, Status) so any health worker can zero in
+// on the subset they care about without scrolling the entire list.
+
 import { useMemo, useState } from 'react'
 import useSWR from 'swr'
-import { Search, Plus, X, Eye, Edit3 } from 'lucide-react'
+import Link from 'next/link'
+import { Plus, Search, X } from 'lucide-react'
+import { useAuth } from '@/components/auth/auth-provider'
+import { canPerform, type UserRole } from '@/lib/echims-data'
+import { ModuleTabs } from '@/components/dashboard/module-tabs'
+import { ChildFormModal } from '@/components/children/child-form-modal'
+import { useToast } from '@/components/ui/toast'
 
-type ChildProfile = {
+type Child = {
   id: string
   householdNumber: string
   name: string
-  relationship: string
   barangay: string
   address: string
   dob: string
   age: string
   sex: string
-  civilStatus: string
-  education: string
-  religion: string
-  ethnicity: string
-  fourPs: string
-  philhealthId: string
-  philhealthType: string
-  philhealthCategory: string
-  medicalHistory: string
-  risk: string
-  lmp: string
-  waterSource: string
-  toiletFacility: string
   status: string
+  monitoringStatus: string
+}
+type Barangay = { barangay_id: number; barangay_name: string }
+
+const fetcher = async (url: string) => {
+  const response = await fetch(url)
+  const data = await response.json()
+  if (!response.ok) throw new Error(data.error || 'Unable to load records.')
+  return data
 }
 
-const initialChildren: ChildProfile[] = [
-  { id: 'CH-2025-001', householdNumber: 'HH-0182', name: 'Maria Santos', relationship: 'Daughter', barangay: 'San Isidro', address: 'Purok 2, San Isidro', dob: '2022-04-15', age: '2 yrs 4 mos', sex: 'Female', civilStatus: 'Single', education: 'Not applicable', religion: 'Roman Catholic', ethnicity: 'Tagalog', fourPs: 'Yes', philhealthId: 'PH-88219', philhealthType: 'Sponsored', philhealthCategory: '4Ps', medicalHistory: 'No known history', risk: 'Normal', lmp: '', waterSource: 'Level II communal faucet', toiletFacility: 'Sanitary toilet', status: 'Under Monitoring' },
-  { id: 'CH-2025-002', householdNumber: 'HH-0247', name: 'Juan Dela Cruz', relationship: 'Son', barangay: 'Poblacion', address: 'Purok 5, Poblacion', dob: '2023-01-22', age: '1 yr 8 mos', sex: 'Male', civilStatus: 'Single', education: 'Not applicable', religion: 'Roman Catholic', ethnicity: 'Cebuano', fourPs: 'No', philhealthId: '', philhealthType: 'None', philhealthCategory: 'None', medicalHistory: 'Recurrent cough', risk: 'At Risk', lmp: '', waterSource: 'Deep well', toiletFacility: 'Shared toilet', status: 'Needs Follow-up' },
+// OPT+ age-band options the UI exposes. Each band carries its own matcher so the filter
+// stays declarative at the call site. 'all' is the no-filter sentinel.
+type AgeBand = 'all' | 'newborn' | 'infant' | 'psac'
+const ageBands: { value: AgeBand; label: string; matches: (dob: string) => boolean }[] = [
+  { value: 'all', label: 'All ages', matches: () => true },
+  { value: 'newborn', label: 'Newborn (0-28 days)', matches: (dob) => daysOld(dob) >= 0 && daysOld(dob) <= 28 },
+  { value: 'infant', label: 'Infant (0-11 months)', matches: (dob) => monthsOld(dob) < 12 },
+  { value: 'psac', label: 'PSAC (12-59 months)', matches: (dob) => { const m = monthsOld(dob); return m >= 12 && m <= 59 } },
 ]
 
-const emptyProfile: ChildProfile = { id: '', householdNumber: '', name: '', relationship: '', barangay: '', address: '', dob: '', age: '', sex: '', civilStatus: 'Single', education: '', religion: '', ethnicity: '', fourPs: 'No', philhealthId: '', philhealthType: 'None', philhealthCategory: 'None', medicalHistory: '', risk: 'Normal', lmp: '', waterSource: '', toiletFacility: '', status: 'Active' }
+const statusOptions = ['all', 'ACTIVE', 'INACTIVE', 'MOVED', 'LOST', 'DECEASED'] as const
+type StatusFilter = typeof statusOptions[number]
 
-const fields: Array<{ key: keyof ChildProfile; label: string; section: string; type?: string; options?: string[] }> = [
-  { key: 'name', label: "Child's Full Name", section: 'Child Information' }, { key: 'householdNumber', label: 'Household Number', section: 'Household Information' }, { key: 'relationship', label: 'Relationship to Household Head', section: 'Household Information' }, { key: 'barangay', label: 'Barangay', section: 'Household Information', options: ['San Isidro', 'Poblacion', 'Mabini', 'San Roque'] }, { key: 'address', label: 'Address', section: 'Household Information' }, { key: 'dob', label: 'Date of Birth', section: 'Child Information', type: 'date' }, { key: 'sex', label: 'Sex', section: 'Child Information', options: ['Female', 'Male', 'Intersex'] }, { key: 'civilStatus', label: 'Civil Status', section: 'Socioeconomic and Membership Information', options: ['Single', 'Married', 'Not applicable'] }, { key: 'education', label: 'Educational Attainment', section: 'Socioeconomic and Membership Information' }, { key: 'religion', label: 'Religion', section: 'Socioeconomic and Membership Information' }, { key: 'ethnicity', label: 'Ethnicity', section: 'Socioeconomic and Membership Information' }, { key: 'fourPs', label: '4Ps Membership', section: 'Socioeconomic and Membership Information', options: ['Yes', 'No'] }, { key: 'philhealthId', label: 'PhilHealth ID', section: 'Socioeconomic and Membership Information' }, { key: 'philhealthType', label: 'PhilHealth Membership Type', section: 'Socioeconomic and Membership Information', options: ['None', 'Sponsored', 'Direct contributor'] }, { key: 'philhealthCategory', label: 'PhilHealth Category', section: 'Socioeconomic and Membership Information', options: ['None', '4Ps', 'Indigent', 'Private'] }, { key: 'medicalHistory', label: 'Medical History', section: 'Health Information' }, { key: 'risk', label: 'Age/Health-Risk Classification', section: 'Health Information', options: ['Normal', 'At Risk', 'Needs Follow-up'] }, { key: 'lmp', label: 'LMP, if applicable', section: 'Health Information', type: 'date' }, { key: 'waterSource', label: 'Water Source Type', section: 'Household Facilities', options: ['Level II communal faucet', 'Deep well', 'Spring', 'Other'] }, { key: 'toiletFacility', label: 'Toilet Facility Type', section: 'Household Facilities', options: ['Sanitary toilet', 'Shared toilet', 'None'] },]
+function daysOld(dob: string) {
+  if (!dob) return -1
+  const birth = new Date(`${dob}T00:00:00Z`)
+  if (isNaN(birth.getTime())) return -1
+  return Math.floor((Date.now() - birth.getTime()) / 86400000)
+}
+function monthsOld(dob: string) {
+  if (!dob) return -1
+  const birth = new Date(`${dob}T00:00:00Z`)
+  if (isNaN(birth.getTime())) return -1
+  const now = new Date()
+  return (now.getUTCFullYear() - birth.getUTCFullYear()) * 12 + now.getUTCMonth() - birth.getUTCMonth() - (now.getUTCDate() < birth.getUTCDate() ? 1 : 0)
+}
 
 export default function ChildHealthPage() {
-  const { data: liveChildren, mutate } = useSWR<ChildProfile[]>('/api/children', (url: string) => fetch(url).then((response) => response.json()))
-  const [children, setChildren] = useState(initialChildren)
-  const records = liveChildren ?? children
-  const [searchTerm, setSearchTerm] = useState('')
-  const [editing, setEditing] = useState<ChildProfile | null>(null)
-  const filteredChildren = useMemo(() => records.filter((child) => `${child.name} ${child.id} ${child.barangay}`.toLowerCase().includes(searchTerm.toLowerCase())), [records, searchTerm])
-  const grouped = fields.reduce<Record<string, typeof fields>>((acc, field) => { (acc[field.section] ??= []).push(field); return acc }, {})
-  function saveProfile() { if (!editing?.name.trim()) return; const next = { ...editing, id: editing.id || `CH-2025-${String(children.length + 1).padStart(3, '0')}`, age: editing.dob ? 'Recorded' : editing.age }; setChildren((current) => editing.id ? current.map((child) => child.id === editing.id ? next : child) : [...current, next]); setEditing(null) }
-  return <div className="space-y-6"><div className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-3xl font-bold text-foreground">Child Profiling</h1><p className="mt-1 text-muted-foreground">Household and child records for {children.length} registered children</p></div><button onClick={() => setEditing({ ...emptyProfile })} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white"><Plus size={20} />Add New Child</button></div><div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} /><input aria-label="Search children" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search by name, ID, or barangay..." className="w-full rounded-lg border border-border bg-white py-2 pl-10 pr-4" /></div><div className="overflow-hidden rounded-2xl border border-border bg-white"><div className="overflow-x-auto"><table className="w-full"><thead className="bg-muted"><tr>{['ID','Name','Household','Barangay','Age','Risk','Status','Actions'].map((heading) => <th key={heading} className="px-5 py-4 text-left text-sm font-semibold">{heading}</th>)}</tr></thead><tbody className="divide-y divide-border">{filteredChildren.map((child) => <tr key={child.id} className="hover:bg-muted"><td className="px-5 py-4 text-sm font-medium">{child.id}</td><td className="px-5 py-4 text-sm">{child.name}</td><td className="px-5 py-4 text-sm">{child.householdNumber}</td><td className="px-5 py-4 text-sm">{child.barangay}</td><td className="px-5 py-4 text-sm">{child.age}</td><td className="px-5 py-4 text-sm"><span className="rounded-full bg-orange-100 px-3 py-1 text-xs text-orange-700">{child.risk}</span></td><td className="px-5 py-4 text-sm">{child.status}</td><td className="px-5 py-4 text-sm"><div className="flex gap-3"><button aria-label={`View ${child.name}`} onClick={() => setEditing(child)} className="text-primary"><Eye size={17} /></button><button aria-label={`Edit ${child.name}`} onClick={() => setEditing({ ...child })} className="text-primary"><Edit3 size={17} /></button></div></td></tr>)}</tbody></table></div></div>{editing && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"><div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"><div className="mb-6 flex items-center justify-between"><div><h2 className="text-2xl font-bold text-[#03045E]">{editing.id ? 'Child and Household Profile' : 'Add Child Profile'}</h2><p className="text-sm text-muted-foreground">Complete the household profiling form.</p></div><button aria-label="Close profile form" onClick={() => setEditing(null)}><X /></button></div>{Object.entries(grouped).map(([section, sectionFields]) => <section key={section} className="mb-6"><h3 className="mb-3 border-b border-border pb-2 text-sm font-bold uppercase tracking-wide text-[#0077B6]">{section}</h3><div className="grid gap-4 md:grid-cols-2">{sectionFields.map((field) => <label key={field.key} className="text-sm font-medium text-foreground">{field.label}{field.options ? <select value={String(editing[field.key])} onChange={(event) => setEditing({ ...editing, [field.key]: event.target.value })} className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 font-normal"><option value="">Select...</option>{field.options.map((option) => <option key={option}>{option}</option>)}</select> : <input type={field.type ?? 'text'} value={String(editing[field.key])} onChange={(event) => setEditing({ ...editing, [field.key]: event.target.value })} className="mt-1 w-full rounded-lg border border-border px-3 py-2 font-normal" />}</label>)}</div></section>)}<div className="flex justify-end gap-3"><button onClick={() => setEditing(null)} className="rounded-lg border border-border px-4 py-2">Cancel</button><button onClick={saveProfile} className="rounded-lg bg-primary px-4 py-2 text-white">Save Profile</button></div></div></div>}</div>
+  // Wait for the trusted role from auth-provider before deriving permissions, otherwise a
+  // BNS (view-only) briefly sees the Register Child button during the first render.
+  const { user, isReady } = useAuth()
+  const role = user?.role as UserRole | undefined
+  const isApproved = user?.accountStatus === 'APPROVED'
+  const canRegister = Boolean(role && isApproved && canPerform(role, 'Child Profiling', 'create'))
+
+  const { data: children, error, isLoading, mutate } = useSWR<Child[]>('/api/children', fetcher)
+  const { data: barangays } = useSWR<Barangay[]>('/api/barangays', fetcher)
+
+  // Filters — all independent, combined with AND. 'all' / '' means no filter.
+  const [search, setSearch] = useState('')
+  const [barangayFilter, setBarangayFilter] = useState('all')
+  const [ageFilter, setAgeFilter] = useState<AgeBand>('all')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+
+  const [registerOpen, setRegisterOpen] = useState(false)
+  const { showToast } = useToast()
+
+  const records = children ?? []
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    const ageMatcher = ageBands.find((b) => b.value === ageFilter)?.matches ?? (() => true)
+    return records.filter((c) => {
+      if (q && !`${c.name} ${c.id}`.toLowerCase().includes(q)) return false
+      if (barangayFilter !== 'all' && c.barangay !== barangayFilter) return false
+      if (statusFilter !== 'all' && c.status !== statusFilter) return false
+      if (ageFilter !== 'all' && !ageMatcher(c.dob)) return false
+      return true
+    })
+  }, [records, search, barangayFilter, ageFilter, statusFilter])
+
+  const anyFilterActive = search.trim() !== '' || barangayFilter !== 'all' || ageFilter !== 'all' || statusFilter !== 'all'
+  function clearFilters() {
+    setSearch('')
+    setBarangayFilter('all')
+    setAgeFilter('all')
+    setStatusFilter('all')
+  }
+
+  const barangayLabelById = (id: string) => barangays?.find((b) => String(b.barangay_id) === id)?.barangay_name ?? id
+  const activeChips: { label: string; onClear: () => void }[] = []
+  if (barangayFilter !== 'all') activeChips.push({ label: `Barangay: ${barangayLabelById(barangayFilter)}`, onClear: () => setBarangayFilter('all') })
+  if (ageFilter !== 'all') activeChips.push({ label: ageBands.find((b) => b.value === ageFilter)?.label ?? ageFilter, onClear: () => setAgeFilter('all') })
+  if (statusFilter !== 'all') activeChips.push({ label: `Status: ${statusFilter}`, onClear: () => setStatusFilter('all') })
+
+  if (!isReady) {
+    return <div className="space-y-6"><div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Loading child profiling...</div></div>
+  }
+
+  return (
+    <div className="space-y-6">
+      <ModuleTabs parent="Child Profiling" role={role} />
+
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Child Profiling</h1>
+          <p className="mt-1 text-muted-foreground">Register and monitor children aged 0–59 months.</p>
+        </div>
+        {canRegister && (
+          <button onClick={() => setRegisterOpen(true)} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white">
+            <Plus size={20} />Register Child
+          </button>
+        )}
+      </header>
+
+      {/* Search + structured filters live together so health workers can combine them freely. */}
+      <div className="rounded-2xl border border-border bg-white p-4 space-y-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by child name or ID..."
+            className="w-full rounded-lg border border-border bg-white py-2 pl-10 pr-4"
+          />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <label className="grid gap-1 text-sm">
+            <span className="font-medium text-muted-foreground">Barangay</span>
+            <select value={barangayFilter} onChange={(e) => setBarangayFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-white px-3">
+              <option value="all">All barangays</option>
+              {(barangays ?? []).map((b) => <option key={b.barangay_id} value={String(b.barangay_id)}>{b.barangay_name}</option>)}
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm">
+            <span className="font-medium text-muted-foreground">Age group</span>
+            <select value={ageFilter} onChange={(e) => setAgeFilter(e.target.value as AgeBand)} className="h-10 rounded-lg border border-border bg-white px-3">
+              {ageBands.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm">
+            <span className="font-medium text-muted-foreground">Status</span>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className="h-10 rounded-lg border border-border bg-white px-3">
+              <option value="all">All statuses</option>
+              {statusOptions.filter((s) => s !== 'all').map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </label>
+        </div>
+
+        {/* Active-filter chip row + result count + clear-all affordance. Only renders when
+            there's actually something to show, so the resting state stays uncluttered. */}
+        {anyFilterActive && (
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <span className="text-xs text-muted-foreground">
+              Showing <strong className="text-foreground">{filtered.length}</strong> of {records.length}
+            </span>
+            {activeChips.map((chip) => (
+              <span key={chip.label} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                {chip.label}
+                <button type="button" onClick={chip.onClear} aria-label={`Remove filter ${chip.label}`} className="hover:text-primary/70"><X size={12} /></button>
+              </span>
+            ))}
+            <button type="button" onClick={clearFilters} className="ml-auto text-xs font-medium text-muted-foreground hover:text-foreground">
+              Clear filters
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-border bg-white">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-muted">
+              <tr>
+                {['ID', 'Name', 'Household', 'Barangay', 'Age', 'Status', 'Monitoring Status', 'Actions'].map((h) => (
+                  <th key={h} className="px-5 py-4 text-left text-sm font-semibold">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {isLoading ? (
+                <tr><td colSpan={8} className="px-5 py-8 text-center">Loading child records...</td></tr>
+              ) : error ? (
+                <tr><td colSpan={8} className="px-5 py-8 text-center text-red-600">{error.message}</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={8} className="px-5 py-8 text-center text-muted-foreground">
+                  {anyFilterActive ? 'No children match the current filters. Try broadening your search or clearing filters.' : 'No children have been registered yet.'}
+                </td></tr>
+              ) : filtered.map((c) => (
+                <tr key={c.id}>
+                  <td className="px-5 py-4 text-sm font-medium">{c.id}</td>
+                  <td className="px-5 py-4 text-sm">{c.name}</td>
+                  <td className="px-5 py-4 text-sm">{c.householdNumber}</td>
+                  <td className="px-5 py-4 text-sm">{barangayLabelById(c.barangay)}</td>
+                  <td className="px-5 py-4 text-sm">{c.age}</td>
+                  <td className="px-5 py-4 text-sm">
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      c.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' :
+                      c.status === 'DECEASED' ? 'bg-red-50 text-red-700' :
+                      c.status === 'MOVED' || c.status === 'LOST' ? 'bg-amber-50 text-amber-700' :
+                      'bg-muted text-muted-foreground'
+                    }`}>{c.status ?? '—'}</span>
+                  </td>
+                  <td className="px-5 py-4 text-sm">{c.monitoringStatus}</td>
+                  <td className="px-5 py-4 text-sm">
+                    <Link href={`/child-profiling/children/${c.id.replace('CH-', '')}`} className="inline-flex items-center gap-1.5 rounded-lg border border-primary bg-white px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary hover:text-white">View</Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {registerOpen && canRegister && (
+        <ChildFormModal
+          mode="create"
+          onClose={() => setRegisterOpen(false)}
+          onSaved={() => {
+            setRegisterOpen(false)
+            mutate()
+            showToast({ type: 'success', message: 'Child registered successfully' })
+          }}
+          onError={(message) => showToast({ type: 'error', message })}
+        />
+      )}
+    </div>
+  )
 }

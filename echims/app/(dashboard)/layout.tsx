@@ -3,6 +3,7 @@ import { Sidebar } from '@/components/dashboard/sidebar'
 import { TopNav } from '@/components/dashboard/top-nav'
 import { getAuthorizationContext } from '@/lib/auth/authorization'
 import { hasPermission, type Role } from '@/lib/auth/permissions'
+import { ToastProvider } from '@/components/ui/toast'
 
 export default async function DashboardLayout({
   children,
@@ -112,21 +113,23 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen items-stretch bg-[#CAF0F8]">
-      <Sidebar
-        role={context.role}
-        fullName={context.profile.full_name}
-      />
+    <ToastProvider>
+      <div className="flex min-h-screen items-stretch bg-[#CAF0F8]">
+        <Sidebar
+          role={context.role}
+          fullName={context.profile.full_name}
+        />
 
-      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-        <TopNav />
+        <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+          <TopNav />
 
-        <main className="min-h-0 flex-1 overflow-y-auto bg-[#CAF0F8] p-8">
-          <div className="mx-auto w-full max-w-7xl">
-            {children}
-          </div>
-        </main>
+          <main className="min-h-0 flex-1 overflow-y-auto bg-[#CAF0F8] p-8">
+            <div className="mx-auto w-full max-w-7xl">
+              {children}
+            </div>
+          </main>
+        </div>
       </div>
-    </div>
+    </ToastProvider>
   )
 }

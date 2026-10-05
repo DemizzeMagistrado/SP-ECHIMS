@@ -34,7 +34,17 @@ const roleLabels: Record<Role, UserRole> = {
   BNS: 'Barangay Nutrition Scholar',
 }
 
-const menuItems = [
+// Flat top-level menu. matchPrefixes keeps the parent highlighted when the user is on
+// any of its sub-routes (e.g. /child-profiling/children/2 still highlights Child Profiling,
+// /vaccination/schedule still highlights Vaccination).
+type MenuItem = {
+  icon: typeof Home
+  label: string
+  href: string
+  matchPrefixes?: string[]
+}
+
+const menuItems: MenuItem[] = [
   {
     icon: Home,
     label: 'Dashboard',
@@ -49,11 +59,18 @@ const menuItems = [
     icon: Baby,
     label: 'Child Profiling',
     href: moduleRoutes['Child Profiling'],
+    matchPrefixes: [
+      '/child-profiling',
+      '/children',
+      '/geospatial',
+      '/masterlist-upload',
+    ],
   },
   {
     icon: Syringe,
     label: 'Vaccination',
     href: moduleRoutes.Vaccination,
+    matchPrefixes: ['/vaccination', '/vaccinations'],
   },
   {
     icon: Activity,
@@ -64,16 +81,19 @@ const menuItems = [
     icon: Apple,
     label: 'Nutritional Assessment',
     href: moduleRoutes['Nutritional Assessment'],
+    matchPrefixes: ['/nutritional-assessment', '/nutrition'],
   },
   {
     icon: Package,
     label: 'Supplementation',
     href: moduleRoutes.Supplementation,
+    matchPrefixes: ['/supplementation', '/supplements'],
   },
   {
     icon: Map,
     label: 'Inventory',
     href: moduleRoutes.Inventory,
+    matchPrefixes: ['/inventory'],
   },
   {
     icon: AlertCircle,
@@ -89,6 +109,7 @@ const menuItems = [
     icon: Settings,
     label: 'Settings',
     href: moduleRoutes.Settings,
+    matchPrefixes: ['/settings', '/organization'],
   },
 ]
 
@@ -108,14 +129,16 @@ export function Sidebar({
     return roleModules[frontendRole].includes(item.label)
   })
 
-  function handleLogout() {
-    logout()
-    window.location.assign('/login')
+  async function handleLogout() {
+    await logout()
+    // replace (not assign) so the dashboard is overwritten in the browser history.
+    // Otherwise the back arrow brings the user to /dashboard, which auth-redirects to
+    // /login — looking like logout dumped them on login instead of the landing page.
+    window.location.replace('/')
   }
 
   return (
     <aside className="sticky top-0 flex max-h-screen min-h-screen w-56 shrink-0 flex-col overflow-y-auto border-r border-[#0B4F8A] bg-[#075985] text-white">
-
       {/* Logo */}
       <div className="border-b border-white/15 px-5 pb-5 pt-5">
         <div className="flex h-14 items-center overflow-visible">
@@ -135,9 +158,15 @@ export function Sidebar({
         <ul className="space-y-1 px-2">
           {visibleItems.map((item) => {
             const Icon = item.icon
-
+            const prefixMatch =
+              item.matchPrefixes?.some(
+                (prefix) =>
+                  pathname === prefix ||
+                  pathname.startsWith(`${prefix}/`),
+              ) ?? false
             const isActive =
               pathname === item.href ||
+              prefixMatch ||
               (item.href === '/' && pathname === '/')
 
             return (
@@ -150,10 +179,7 @@ export function Sidebar({
                       : 'text-sky-50 hover:bg-white/10 hover:text-white'
                   }`}
                 >
-                  <Icon
-                    size={20}
-                    strokeWidth={1.5}
-                  />
+                  <Icon size={20} strokeWidth={1.5} />
 
                   <span>{item.label}</span>
                 </Link>
@@ -166,7 +192,6 @@ export function Sidebar({
       {/* User Profile */}
       <div className="border-t border-white/15 p-3">
         <div className="flex items-center gap-3 rounded-xl border border-white/15 bg-white/10 px-3 py-3">
-
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20">
             <User
               size={18}
@@ -184,7 +209,6 @@ export function Sidebar({
               {roleLabels[role]}
             </p>
           </div>
-
         </div>
 
         <button
@@ -206,7 +230,6 @@ export function Sidebar({
           eCHIMS v1.0
         </p>
       </div>
-
     </aside>
   )
 }
