@@ -1,21 +1,24 @@
 CREATE TABLE health_activity_schedule (
     schedule_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
-    activity_name VARCHAR(150) NOT NULL,
     activity_type VARCHAR(100) NOT NULL,
-    scheduled_date DATE NOT NULL,
+    schedule_date DATE NOT NULL,
     start_time TIME,
     end_time TIME,
-    location TEXT,
-    description TEXT,
 
     status VARCHAR(20) NOT NULL DEFAULT 'SCHEDULED',
-
-    barangay_id BIGINT NOT NULL,
-    created_by UUID NOT NULL,
+    remarks TEXT,
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by UUID NOT NULL,
+    barangay_id BIGINT NOT NULL,
+    approved_by UUID,
+
+    CONSTRAINT fk_schedule_created_by
+        FOREIGN KEY (created_by)
+        REFERENCES health_worker(user_id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
 
     CONSTRAINT fk_schedule_barangay
         FOREIGN KEY (barangay_id)
@@ -23,11 +26,11 @@ CREATE TABLE health_activity_schedule (
         ON UPDATE CASCADE
         ON DELETE RESTRICT,
 
-    CONSTRAINT fk_schedule_created_by
-        FOREIGN KEY (created_by)
-        REFERENCES health_worker(user_id)
+    CONSTRAINT fk_schedule_approved_by
+        FOREIGN KEY (approved_by)
+        REFERENCES public_health_nurse(user_id)
         ON UPDATE CASCADE
-        ON DELETE RESTRICT,
+        ON DELETE SET NULL,
 
     CONSTRAINT chk_schedule_status
         CHECK (
@@ -41,23 +44,20 @@ CREATE TABLE health_activity_schedule (
 );
 
 
+-- =========================================================
+-- CHILD PROFILE RECORD
+-- =========================================================
 
 CREATE TABLE child_profile_record (
-    profile_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    profile_record_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+    profiling_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    remarks TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     child_id BIGINT NOT NULL,
+    schedule_id BIGINT,
     recorded_by UUID NOT NULL,
-
-    record_date DATE NOT NULL DEFAULT CURRENT_DATE,
-
-    weight_kg DECIMAL(5,2),
-    height_cm DECIMAL(5,2),
-    head_circumference_cm DECIMAL(5,2),
-
-    remarks TEXT,
-
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     CONSTRAINT fk_profile_child
         FOREIGN KEY (child_id)
@@ -65,47 +65,38 @@ CREATE TABLE child_profile_record (
         ON UPDATE CASCADE
         ON DELETE RESTRICT,
 
+    CONSTRAINT fk_profile_schedule
+        FOREIGN KEY (schedule_id)
+        REFERENCES health_activity_schedule(schedule_id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL,
+
     CONSTRAINT fk_profile_recorded_by
         FOREIGN KEY (recorded_by)
         REFERENCES health_worker(user_id)
         ON UPDATE CASCADE
-        ON DELETE RESTRICT,
-
-    CONSTRAINT chk_profile_weight
-        CHECK (weight_kg IS NULL OR weight_kg > 0),
-
-    CONSTRAINT chk_profile_height
-        CHECK (height_cm IS NULL OR height_cm > 0),
-
-    CONSTRAINT chk_profile_head_circumference
-        CHECK (
-            head_circumference_cm IS NULL
-            OR head_circumference_cm > 0
-        )
+        ON DELETE RESTRICT
 );
 
 
+-- =========================================================
+-- VACCINATION RECORD
+-- =========================================================
 
 CREATE TABLE vaccination_record (
-    vaccination_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-
-    child_id BIGINT NOT NULL,
-    vaccine_item_id BIGINT NOT NULL,
-
-    schedule_id BIGINT,
+    vaccination_record_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
     vaccination_date DATE NOT NULL,
     dose_number INTEGER NOT NULL,
-
-    administered_by UUID NOT NULL,
-
     batch_number VARCHAR(100),
+    vaccination_site VARCHAR(150),
     remarks TEXT,
-
-    status VARCHAR(20) NOT NULL DEFAULT 'COMPLETED',
-
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    child_id BIGINT NOT NULL,
+    vaccine_id BIGINT NOT NULL,
+    recorded_by UUID NOT NULL,
+    schedule_id BIGINT,
 
     CONSTRAINT fk_vaccination_child
         FOREIGN KEY (child_id)
@@ -114,8 +105,14 @@ CREATE TABLE vaccination_record (
         ON DELETE RESTRICT,
 
     CONSTRAINT fk_vaccination_vaccine
-        FOREIGN KEY (vaccine_item_id)
-        REFERENCES vaccine(item_id)
+        FOREIGN KEY (vaccine_id)
+        REFERENCES vaccine(vaccine_id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_vaccination_recorded_by
+        FOREIGN KEY (recorded_by)
+        REFERENCES health_worker(user_id)
         ON UPDATE CASCADE
         ON DELETE RESTRICT,
 
@@ -125,49 +122,35 @@ CREATE TABLE vaccination_record (
         ON UPDATE CASCADE
         ON DELETE SET NULL,
 
-    CONSTRAINT fk_vaccination_administered_by
-        FOREIGN KEY (administered_by)
-        REFERENCES health_worker(user_id)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT,
-
     CONSTRAINT chk_vaccination_dose
-        CHECK (dose_number > 0),
-
-    CONSTRAINT chk_vaccination_status
-        CHECK (
-            status IN (
-                'COMPLETED',
-                'MISSED',
-                'CANCELLED'
-            )
-        )
+        CHECK (dose_number > 0)
 );
 
 
-
+-- =========================================================
+-- NUTRITIONAL ASSESSMENT
+-- =========================================================
 
 CREATE TABLE nutritional_assessment (
     assessment_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
-    child_id BIGINT NOT NULL,
-    assessed_by UUID NOT NULL,
-
     assessment_date DATE NOT NULL DEFAULT CURRENT_DATE,
 
-    weight_kg DECIMAL(5,2) NOT NULL,
-    height_cm DECIMAL(5,2) NOT NULL,
+    weight NUMERIC NOT NULL,
+    height NUMERIC NOT NULL,
+    muac NUMERIC,
 
-    weight_for_age VARCHAR(50),
-    height_for_age VARCHAR(50),
-    weight_for_height VARCHAR(50),
+    weight_for_age VARCHAR(100),
+    height_for_age VARCHAR(100),
+    weight_for_height VARCHAR(100),
 
     nutritional_status VARCHAR(100) NOT NULL,
-
     remarks TEXT,
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    child_id BIGINT NOT NULL,
+    assessed_by UUID NOT NULL,
 
     CONSTRAINT fk_nutrition_child
         FOREIGN KEY (child_id)
@@ -182,34 +165,36 @@ CREATE TABLE nutritional_assessment (
         ON DELETE RESTRICT,
 
     CONSTRAINT chk_nutrition_weight
-        CHECK (weight_kg > 0),
+        CHECK (weight > 0),
 
     CONSTRAINT chk_nutrition_height
-        CHECK (height_cm > 0)
+        CHECK (height > 0),
+
+    CONSTRAINT chk_nutrition_muac
+        CHECK (
+            muac IS NULL
+            OR muac > 0
+        )
 );
 
 
+-- =========================================================
+-- SUPPLEMENTATION RECORD
+-- =========================================================
 
 CREATE TABLE supplementation_record (
-    supplementation_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-
-    child_id BIGINT NOT NULL,
-    supplement_item_id BIGINT NOT NULL,
-
-    schedule_id BIGINT,
+    supplementation_record_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
     supplementation_date DATE NOT NULL,
-    quantity DECIMAL(10,2) NOT NULL,
-
-    administered_by UUID NOT NULL,
-
+    quantity_given NUMERIC NOT NULL,
     batch_number VARCHAR(100),
     remarks TEXT,
-
-    status VARCHAR(20) NOT NULL DEFAULT 'GIVEN',
-
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    child_id BIGINT NOT NULL,
+    recorded_by UUID NOT NULL,
+    supplement_id BIGINT NOT NULL,
+    schedule_id BIGINT,
 
     CONSTRAINT fk_supplementation_child
         FOREIGN KEY (child_id)
@@ -217,9 +202,15 @@ CREATE TABLE supplementation_record (
         ON UPDATE CASCADE
         ON DELETE RESTRICT,
 
+    CONSTRAINT fk_supplementation_recorded_by
+        FOREIGN KEY (recorded_by)
+        REFERENCES health_worker(user_id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
     CONSTRAINT fk_supplementation_supplement
-        FOREIGN KEY (supplement_item_id)
-        REFERENCES supplement(item_id)
+        FOREIGN KEY (supplement_id)
+        REFERENCES supplement(supplement_id)
         ON UPDATE CASCADE
         ON DELETE RESTRICT,
 
@@ -229,25 +220,6 @@ CREATE TABLE supplementation_record (
         ON UPDATE CASCADE
         ON DELETE SET NULL,
 
-    CONSTRAINT fk_supplementation_administered_by
-        FOREIGN KEY (administered_by)
-        REFERENCES health_worker(user_id)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT,
-
     CONSTRAINT chk_supplementation_quantity
-        CHECK (quantity > 0),
-
-    CONSTRAINT chk_supplementation_status
-        CHECK (
-            status IN (
-                'GIVEN',
-                'MISSED',
-                'CANCELLED'
-            )
-        )
+        CHECK (quantity_given > 0)
 );
-
-
-
-

@@ -6,10 +6,15 @@ CREATE TABLE rhu (
     contact_number VARCHAR(20),
     email VARCHAR(150),
     account_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
-    
+
     CONSTRAINT chk_rhu_account_status
         CHECK (account_status IN ('ACTIVE', 'INACTIVE'))
 );
+
+
+-- =========================================================
+-- BARANGAY
+-- =========================================================
 
 CREATE TABLE barangay (
     barangay_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -26,13 +31,18 @@ CREATE TABLE barangay (
         ON DELETE RESTRICT
 );
 
+
+-- =========================================================
+-- HOUSEHOLD
+-- =========================================================
+
 CREATE TABLE household (
     household_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     household_address TEXT NOT NULL,
     purok VARCHAR(100),
     is_4ps_member BOOLEAN NOT NULL DEFAULT FALSE,
-    latitude DECIMAL(10, 7),
-    longitude DECIMAL(10, 7),
+    latitude NUMERIC,
+    longitude NUMERIC,
     barangay_id BIGINT NOT NULL,
 
     CONSTRAINT fk_household_barangay
@@ -42,20 +52,38 @@ CREATE TABLE household (
         ON DELETE RESTRICT
 );
 
+
+-- =========================================================
+-- USERS
+-- NOTE:
+-- Passwords are handled by Supabase Auth (auth.users).
+-- Do NOT store passwords here.
+-- =========================================================
+
 CREATE TABLE users (
     user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     full_name VARCHAR(150) NOT NULL,
-    username VARCHAR(50) NOT NULL UNIQUE,
-    password_hash TEXT,
+    username VARCHAR(100) NOT NULL UNIQUE,
     email VARCHAR(150) UNIQUE,
     contact_number VARCHAR(20),
     account_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     last_login TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT chk_user_account_status
-        CHECK (account_status IN ('ACTIVE', 'INACTIVE', 'SUSPENDED'))
+    CONSTRAINT chk_users_account_status
+        CHECK (
+            account_status IN (
+                'ACTIVE',
+                'INACTIVE',
+                'SUSPENDED'
+            )
+        )
 );
+
+
+-- =========================================================
+-- ADMINISTRATOR
+-- =========================================================
 
 CREATE TABLE administrator (
     user_id UUID PRIMARY KEY,
@@ -67,9 +95,14 @@ CREATE TABLE administrator (
         ON DELETE CASCADE
 );
 
+
+-- =========================================================
+-- HEALTH WORKER
+-- =========================================================
+
 CREATE TABLE health_worker (
     user_id UUID PRIMARY KEY,
-    employee_id VARCHAR(50) UNIQUE,
+    employee_id VARCHAR(100) UNIQUE,
     license_number VARCHAR(100),
 
     CONSTRAINT fk_health_worker_user
@@ -78,6 +111,11 @@ CREATE TABLE health_worker (
         ON UPDATE CASCADE
         ON DELETE CASCADE
 );
+
+
+-- =========================================================
+-- PUBLIC HEALTH NURSE
+-- =========================================================
 
 CREATE TABLE public_health_nurse (
     user_id UUID PRIMARY KEY,
@@ -89,15 +127,10 @@ CREATE TABLE public_health_nurse (
         ON DELETE CASCADE
 );
 
-CREATE TABLE rural_health_midwife (
-    user_id UUID PRIMARY KEY,
 
-    CONSTRAINT fk_midwife_health_worker
-        FOREIGN KEY (user_id)
-        REFERENCES health_worker(user_id)
-        ON UPDATE CASCADE
-        ON DELETE CASCADE
-);
+-- =========================================================
+-- BARANGAY HEALTH WORKER
+-- =========================================================
 
 CREATE TABLE barangay_health_worker (
     user_id UUID PRIMARY KEY,
@@ -109,6 +142,11 @@ CREATE TABLE barangay_health_worker (
         ON DELETE CASCADE
 );
 
+
+-- =========================================================
+-- BARANGAY NUTRITION SCHOLAR
+-- =========================================================
+
 CREATE TABLE barangay_nutrition_scholar (
     user_id UUID PRIMARY KEY,
 
@@ -118,6 +156,26 @@ CREATE TABLE barangay_nutrition_scholar (
         ON UPDATE CASCADE
         ON DELETE CASCADE
 );
+
+
+-- =========================================================
+-- RURAL HEALTH MIDWIFE
+-- =========================================================
+
+CREATE TABLE rural_health_midwife (
+    user_id UUID PRIMARY KEY,
+
+    CONSTRAINT fk_midwife_health_worker
+        FOREIGN KEY (user_id)
+        REFERENCES health_worker(user_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);
+
+
+-- =========================================================
+-- HEALTH WORKER ASSIGNMENT
+-- =========================================================
 
 CREATE TABLE health_worker_assignment (
     assignment_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -142,6 +200,11 @@ CREATE TABLE health_worker_assignment (
         CHECK (status IN ('ACTIVE', 'INACTIVE'))
 );
 
+
+-- =========================================================
+-- GUARDIAN
+-- =========================================================
+
 CREATE TABLE guardian (
     guardian_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     first_name VARCHAR(100) NOT NULL,
@@ -155,18 +218,21 @@ CREATE TABLE guardian (
 );
 
 
+-- =========================================================
+-- CHILD
+-- =========================================================
+
 CREATE TABLE child (
     child_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     first_name VARCHAR(100) NOT NULL,
     middle_name VARCHAR(100),
     last_name VARCHAR(100) NOT NULL,
     date_of_birth DATE NOT NULL,
-    sex VARCHAR(20) NOT NULL,
-    birth_place VARCHAR(200),
+    sex VARCHAR(10) NOT NULL,
+    birth_place VARCHAR(150),
     address TEXT,
     registration_date DATE NOT NULL DEFAULT CURRENT_DATE,
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
-
     household_id BIGINT NOT NULL,
     barangay_id BIGINT NOT NULL,
     guardian_id BIGINT,
@@ -193,9 +259,21 @@ CREATE TABLE child (
         CHECK (sex IN ('MALE', 'FEMALE')),
 
     CONSTRAINT chk_child_status
-        CHECK (status IN ('ACTIVE', 'INACTIVE', 'MOVED', 'LOST', 'DECEASED'))
+        CHECK (
+            status IN (
+                'ACTIVE',
+                'INACTIVE',
+                'MOVED',
+                'LOST',
+                'DECEASED'
+            )
+        )
 );
 
+
+-- =========================================================
+-- ITEM
+-- =========================================================
 
 CREATE TABLE item (
     item_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -208,28 +286,38 @@ CREATE TABLE item (
         CHECK (status IN ('ACTIVE', 'INACTIVE'))
 );
 
+
+-- =========================================================
+-- VACCINE
+-- =========================================================
+
 CREATE TABLE vaccine (
-    item_id BIGINT PRIMARY KEY,
-    vaccine_type VARCHAR(100) NOT NULL,
-    dosage_volume VARCHAR(50),
+    vaccine_id BIGINT PRIMARY KEY,
+    vaccine_type VARCHAR(150) NOT NULL,
+    dose_volume VARCHAR(100),
     route VARCHAR(100),
     target_age VARCHAR(100),
 
     CONSTRAINT fk_vaccine_item
-        FOREIGN KEY (item_id)
+        FOREIGN KEY (vaccine_id)
         REFERENCES item(item_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE
 );
 
+
+-- =========================================================
+-- SUPPLEMENT
+-- =========================================================
+
 CREATE TABLE supplement (
-    item_id BIGINT PRIMARY KEY,
-    supplement_type VARCHAR(100) NOT NULL,
+    supplement_id BIGINT PRIMARY KEY,
+    supplement_type VARCHAR(150) NOT NULL,
     dosage VARCHAR(100),
     age_group VARCHAR(100),
 
     CONSTRAINT fk_supplement_item
-        FOREIGN KEY (item_id)
+        FOREIGN KEY (supplement_id)
         REFERENCES item(item_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE
