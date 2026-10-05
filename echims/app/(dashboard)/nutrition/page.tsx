@@ -16,9 +16,9 @@ const fields: Array<{ key: keyof Assessment; label: string; section: string; typ
   { key: 'child', label: 'Child', section: 'Child Information' }, { key: 'date', label: 'Assessment Date', section: 'Child Information', type: 'date' }, { key: 'weight', label: 'Weight', section: 'Anthropometric Measurements' }, { key: 'height', label: 'Height', section: 'Anthropometric Measurements' }, { key: 'muac', label: 'MUAC', section: 'Anthropometric Measurements' }, { key: 'weightAge', label: 'Weight-for-Age', section: 'Nutritional Classification', options: ['Normal', 'MAM', 'SAM'] }, { key: 'heightAge', label: 'Height-for-Age', section: 'Nutritional Classification', options: ['Normal', 'Stunted'] }, { key: 'weightHeight', label: 'Weight-for-Height', section: 'Nutritional Classification', options: ['Normal', 'Wasted', 'SAM', 'Overweight'] }, { key: 'status', label: 'Nutritional Status', section: 'Nutritional Classification', options: ['Normal', 'MAM', 'SAM', 'Stunted', 'Wasted', 'Overweight', 'Other'] }, { key: 'edema', label: 'Bilateral Pitting Edema', section: 'Additional Assessment Information', options: ['None', '+1', '+2', '+3'] }, { key: 'ipGroup', label: 'Belongs to IP Group', section: 'Additional Assessment Information', options: ['Yes', 'No'] }, { key: 'disability', label: 'Disability', section: 'Additional Assessment Information', options: ['Yes', 'No'] }, { key: 'remarks', label: 'Remarks', section: 'Remarks' },]
 
 export default function NutritionPage() {
-  const { data: liveAssessments } = useSWR<Assessment[]>('/api/nutrition', (url: string) => fetch(url).then((response) => response.json()))
+  const { data: liveAssessments } = useSWR<Assessment[] | { data?: Assessment[]; error?: string }>('/api/nutrition', (url: string) => fetch(url).then((response) => response.json()))
   const [assessments, setAssessments] = useState(initialAssessments)
-  const records = liveAssessments ?? assessments
+  const records = Array.isArray(liveAssessments) ? liveAssessments : Array.isArray(liveAssessments?.data) ? liveAssessments.data : assessments
   const [category, setCategory] = useState('All')
   const [editing, setEditing] = useState<Assessment | null>(null)
   const grouped = fields.reduce<Record<string, typeof fields>>((acc, field) => { (acc[field.section] ??= []).push(field); return acc }, {})

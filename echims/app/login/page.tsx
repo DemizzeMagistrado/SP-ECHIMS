@@ -4,11 +4,9 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
 import { FormEvent, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/auth/auth-provider'
 
 export default function LoginPage() {
-  const router = useRouter()
   const { login } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -23,7 +21,11 @@ export default function LoginPage() {
       setError(result.error)
       return
     }
-    router.push('/dashboard')
+    // Hard navigation (not router.push) so the dashboard mounts with the auth cookie
+    // already visible to getUser()/SSR. router.push races the just-written session
+    // cookie — on the first try the layout sees isReady=true, user=null, and bounces
+    // back to /login; a second attempt works only because the cookie is finally there.
+    window.location.assign('/dashboard')
   }
 
   return (
