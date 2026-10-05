@@ -6,6 +6,7 @@ import { Sidebar } from '@/components/dashboard/sidebar'
 import { TopNav } from '@/components/dashboard/top-nav'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canAccess, type UserRole } from '@/lib/echims-data'
+import { ToastProvider } from '@/components/ui/toast'
 
 export default function DashboardLayout({
   children,
@@ -28,22 +29,24 @@ export default function DashboardLayout({
   if (!isReady || !isAuthenticated || !user) return null
 
   return (
-    <div className="flex min-h-screen items-stretch bg-[#CAF0F8]">
-      {/* Sidebar */}
-      <Sidebar />
+    <ToastProvider>
+      <div className="flex min-h-screen items-stretch bg-[#CAF0F8]">
+        {/* Sidebar */}
+        <Sidebar />
 
-      {/* Main content area */}
-      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-        {/* Top Navigation */}
-        <TopNav />
+        {/* Main content area */}
+        <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+          {/* Top Navigation */}
+          <TopNav />
 
-        {/* Page content */}
-        <main className="min-h-0 flex-1 overflow-y-auto bg-[#CAF0F8] p-8">
-          <div className="mx-auto w-full max-w-7xl">
-            {children}
-          </div>
-        </main>
+          {/* Page content */}
+          <main className="min-h-0 flex-1 overflow-y-auto bg-[#CAF0F8] p-8">
+            <div className="mx-auto w-full max-w-7xl">
+              {children}
+            </div>
+          </main>
+        </div>
       </div>
-    </div>
+    </ToastProvider>
   )
 }

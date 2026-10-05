@@ -43,12 +43,34 @@ export async function GET(request: Request) {
   if (childId) {
     const child = rows[0]
     if (!child) return invalid('Child could not be found.', 404)
-    const [guardian, profile, assessment] = await Promise.all([
+    // Fan out all related-record queries in parallel. The vaccination/nutrition/supplementation
+    // calls return full history (ordered newest first) so the profile view can render it;
+    // the barangay/household/rhu calls hydrate the names the UI shows next to IDs.
+    const [guardian, profile, latestAssessment, barangay, household, vaccinations, assessments, supplementations] = await Promise.all([
       child.guardian_id ? auth.supabase.from('guardian').select('*').eq('guardian_id', child.guardian_id).maybeSingle() : Promise.resolve({ data: null }),
       auth.supabase.from('child_profile_record').select('*').eq('child_id', child.child_id).order('profiling_date', { ascending: false }).limit(1).maybeSingle(),
       auth.supabase.from('nutritional_assessment').select('nutritional_status, assessment_date').eq('child_id', child.child_id).order('assessment_date', { ascending: false }).limit(1).maybeSingle(),
+      child.barangay_id ? auth.supabase.from('barangay').select('barangay_id, barangay_name, municipality, province, rhu_id').eq('barangay_id', child.barangay_id).maybeSingle() : Promise.resolve({ data: null }),
+      child.household_id ? auth.supabase.from('household').select('household_id, household_no, household_address, purok, is_4ps_member').eq('household_id', child.household_id).maybeSingle() : Promise.resolve({ data: null }),
+      auth.supabase.from('vaccination_record').select('vaccination_record_id, vaccination_date, dose_number, batch_number, vaccination_site, remarks, vaccine_id, vaccine:vaccine(vaccine_type, dose_volume, route, target_age)').eq('child_id', child.child_id).order('vaccination_date', { ascending: false }),
+      auth.supabase.from('nutritional_assessment').select('assessment_id, assessment_date, weight, height, muac, weight_for_age, height_for_age, weight_for_height, nutritional_status, remarks').eq('child_id', child.child_id).order('assessment_date', { ascending: false }),
+      auth.supabase.from('supplementation_record').select('supplementation_record_id, supplementation_date, quantity_given, batch_number, remarks, supplement_id, supplement:supplement(supplement_type, dosage, age_group)').eq('child_id', child.child_id).order('supplementation_date', { ascending: false }),
     ])
-    return NextResponse.json({ child, guardian: guardian.data, profile: profile.data, monitoringStatus: assessment.data?.nutritional_status ?? 'Not Yet Assessed' })
+    // Hydrate the barangay's RHU name in a second step so the UI can show the full
+    // hierarchy (RHU → Municipality → Barangay) without the client making another call.
+    const rhu = barangay.data?.rhu_id ? await auth.supabase.from('rhu').select('rhu_id, rhu_name').eq('rhu_id', barangay.data.rhu_id).maybeSingle() : { data: null }
+    return NextResponse.json({
+      child,
+      guardian: guardian.data,
+      profile: profile.data,
+      monitoringStatus: latestAssessment.data?.nutritional_status ?? 'Not Yet Assessed',
+      barangay: barangay.data,
+      household: household.data,
+      rhu: rhu.data,
+      vaccinations: vaccinations.data ?? [],
+      assessments: assessments.data ?? [],
+      supplementations: supplementations.data ?? [],
+    })
   }
   const assessments = await auth.supabase.from('nutritional_assessment').select('child_id, nutritional_status, assessment_date').in('child_id', rows.map((child) => child.child_id)).order('assessment_date', { ascending: false })
   const latestStatus = new Map<number, string>()
@@ -107,19 +129,80 @@ export async function PATCH(request: Request) {
   const body = await request.json().catch(() => null) as Record<string, unknown> | null
   const childId = parseId(body?.child_id)
   if (!childId) return invalid('A valid child is required.')
-  const updates = Object.fromEntries(['first_name', 'middle_name', 'last_name', 'date_of_birth', 'sex', 'birth_place', 'address', 'barangay_id', 'household_id', 'guardian_id'].filter((field) => body?.[field] !== undefined).map((field) => [field, field === 'sex' ? String(body?.sex ?? '').trim().toUpperCase() || null : body?.[field] === '' ? null : body?.[field]]))
+
+  // Build the child-table UPDATE payload. Form state sends every value as a string, so
+  // bigint FK columns (barangay_id, household_id, guardian_id) need to be coerced before
+  // sending to Supabase — otherwise PostgREST may silently reject the update. Sex is
+  // normalized to the uppercase MALE/FEMALE the CHECK constraint expects.
+  const idFields = new Set(['barangay_id', 'household_id', 'guardian_id'])
+  const childFields = ['first_name', 'middle_name', 'last_name', 'date_of_birth', 'sex', 'birth_place', 'address', 'barangay_id', 'household_id', 'guardian_id']
+  const updates: Record<string, unknown> = {}
+  for (const field of childFields) {
+    if (body?.[field] === undefined) continue
+    const raw = body[field]
+    if (field === 'sex') {
+      const sex = String(raw ?? '').trim().toUpperCase()
+      updates.sex = sex || null
+    } else if (idFields.has(field)) {
+      // Empty string → null (unlink). Otherwise coerce to int for bigint columns.
+      if (raw === '' || raw === null || raw === undefined) {
+        updates[field] = null
+      } else {
+        const n = Number(raw)
+        if (!Number.isSafeInteger(n) || n <= 0) return invalid(`Invalid ${field} value.`)
+        updates[field] = n
+      }
+    } else {
+      updates[field] = raw === '' ? null : raw
+    }
+  }
+
   if (updates.date_of_birth && monthsOld(String(updates.date_of_birth)) > 59) return invalid('Child must be between 0 and 59 months old at registration.')
-  const result = await auth.supabase.from('child').update(updates).eq('child_id', childId)
-  if (result.error) return invalid(result.error.code === '42501' ? 'You are not authorized to edit this child.' : 'Unable to update the child record.', result.error.code === '42501' ? 403 : 500)
-  const profileFields = ['relationship_to_household_head', 'civil_status', 'educational_attainment', 'religion', 'ethnicity', 'philhealth_membership_type', 'philhealth_category', 'water_source_type', 'toilet_facility_type', 'medical_history', 'last_menstrual_period']
+
+  // Only run the UPDATE if there's actually something to change. select() + maybeSingle()
+  // after the update confirms a row was returned — if the UPDATE matched zero rows (wrong
+  // id, or RLS blocked it silently), we surface a clear error instead of claiming success.
+  if (Object.keys(updates).length > 0) {
+    const result = await auth.supabase.from('child').update(updates).eq('child_id', childId).select('child_id').maybeSingle()
+    if (result.error) {
+      const code = result.error.code
+      const message = code === '42501'
+        ? 'You are not authorized to edit this child. Your account may not be assigned to the child\'s barangay.'
+        : code === '23514'
+          ? 'One of the values does not meet the database rules (e.g. sex must be Male or Female).'
+          : code === '23503'
+            ? 'The barangay, household, or guardian you selected does not exist.'
+            : `Unable to update the child record. [${code ?? 'unknown'}] ${result.error.message ?? ''}`.trim()
+      return invalid(message, code === '42501' ? 403 : 500)
+    }
+    if (!result.data) {
+      return invalid('No child record was updated. The child may have been removed, or your account does not have access to this barangay.', 403)
+    }
+  }
+
+  // Profile fields (child_profile_record). philhealth_id_number was previously missing —
+  // added so edits to the PhilHealth ID actually persist.
+  const profileFields = ['relationship_to_household_head', 'civil_status', 'educational_attainment', 'religion', 'ethnicity', 'philhealth_id_number', 'philhealth_membership_type', 'philhealth_category', 'water_source_type', 'toilet_facility_type', 'medical_history', 'last_menstrual_period']
   const patchBody = body ?? {}
   const profileUpdates = Object.fromEntries(profileFields.filter((field) => patchBody[field] !== undefined).map((field) => [field, patchBody[field] === '' ? null : patchBody[field]]))
   if (Object.keys(profileUpdates).length) {
     const existing = await auth.supabase.from('child_profile_record').select('profile_record_id').eq('child_id', childId).order('profiling_date', { ascending: false }).limit(1).maybeSingle()
+    // Chain .select().maybeSingle() so we can tell apart (a) a real DB error, (b) RLS
+    // silently returning zero rows, and (c) a legitimate successful write.
     const profileResult = existing.data
-      ? await auth.supabase.from('child_profile_record').update(profileUpdates).eq('profile_record_id', existing.data.profile_record_id)
-      : await auth.supabase.from('child_profile_record').insert({ ...profileUpdates, child_id: childId, profiling_date: new Date().toISOString().slice(0, 10), recorded_by: auth.user.id })
-    if (profileResult.error) return invalid('Child updated, but profiling details could not be saved.', 500)
+      ? await auth.supabase.from('child_profile_record').update(profileUpdates).eq('profile_record_id', existing.data.profile_record_id).select('profile_record_id').maybeSingle()
+      : await auth.supabase.from('child_profile_record').insert({ ...profileUpdates, child_id: childId, profiling_date: new Date().toISOString().slice(0, 10), recorded_by: auth.user.id }).select('profile_record_id').maybeSingle()
+    if (profileResult.error) {
+      const code = profileResult.error.code
+      const message = code === '42501'
+        ? 'Child updated, but you are not authorized to change its profiling details for this barangay.'
+        : `Child updated, but profiling details could not be saved. [${code ?? 'unknown'}] ${profileResult.error.message ?? ''}`.trim()
+      return invalid(message, code === '42501' ? 403 : 500)
+    }
+    if (!profileResult.data) {
+      // No DB error but zero rows written — almost always an RLS mismatch.
+      return invalid('Child updated, but profiling details were not saved. Your account may not be assigned to this child\'s barangay.', 403)
+    }
   }
   return NextResponse.json({ message: 'Child updated successfully.' })
 }
