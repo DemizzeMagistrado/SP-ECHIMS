@@ -9,10 +9,11 @@
 import { use, useState } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
-import { ArrowLeft, Pencil, Baby, Users, Syringe, Scale, Pill, MapPin, Phone, Home } from 'lucide-react'
+import { ArrowLeft, Pencil, Baby, Users, Syringe, Scale, Pill, MapPin, Phone, Home, ArrowRightLeft, History } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { ChildFormModal } from '@/components/children/child-form-modal'
+import { ChangeStatusModal } from '@/components/children/change-status-modal'
 import { useToast } from '@/components/ui/toast'
 
 type ChildRow = {
@@ -60,6 +61,7 @@ type RhuRow = { rhu_id: number; rhu_name: string | null }
 type Vaccination = { vaccination_record_id: number; vaccination_date: string; dose_number: number | null; batch_number: string | null; vaccination_site: string | null; remarks: string | null; vaccine: { vaccine_type: string; dose_volume: string | null; route: string | null; target_age: string | null } | null }
 type Assessment = { assessment_id: number; assessment_date: string; weight: number | null; height: number | null; muac: number | null; weight_for_age: string | null; height_for_age: string | null; weight_for_height: string | null; nutritional_status: string | null; remarks: string | null }
 type Supplementation = { supplementation_record_id: number; supplementation_date: string; quantity_given: number | null; batch_number: string | null; remarks: string | null; supplement: { supplement_type: string; dosage: string | null; age_group: string | null } | null }
+type MovementRow = { movement_id: number; movement_type: string; movement_date: string; reason: string | null; status: string; previous_address: string | null; new_address: string | null; remarks: string | null; recorded_at: string }
 
 type ProfilePayload = {
   child: ChildRow
@@ -197,7 +199,15 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
   // and on success mutates the SWR cache so the profile re-renders with the new data
   // without the user leaving the page.
   const [editOpen, setEditOpen] = useState(false)
+  const [statusOpen, setStatusOpen] = useState(false)
   const { showToast } = useToast()
+
+  // Movement history — loaded alongside the main profile. Updates whenever the user
+  // marks a status change via the ChangeStatusModal (we mutate() this on save).
+  const { data: movements, mutate: mutateMovements } = useSWR<MovementRow[]>(
+    isReady && canView && Number.isSafeInteger(parsedId) && parsedId > 0 ? `/api/children/${parsedId}/movement` : null,
+    fetcher,
+  )
 
   if (!isReady) {
     return <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Loading child profile...</div>
@@ -206,7 +216,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
   if (!canView) {
     return (
       <div className="space-y-4">
-        <Link href="/children" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft size={16} />Back to Children</Link>
+        <Link href="/child-profiling/children" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft size={16} />Back to Children</Link>
         <div className="rounded-2xl border border-border bg-white p-10 text-center text-red-600">You are not authorized to view child profiles.</div>
       </div>
     )
@@ -215,7 +225,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
   if (!Number.isSafeInteger(parsedId) || parsedId <= 0) {
     return (
       <div className="space-y-4">
-        <Link href="/children" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft size={16} />Back to Children</Link>
+        <Link href="/child-profiling/children" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft size={16} />Back to Children</Link>
         <div className="rounded-2xl border border-border bg-white p-10 text-center text-red-600">Invalid child ID.</div>
       </div>
     )
@@ -225,7 +235,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
     if (error) {
       return (
         <div className="space-y-4">
-          <Link href="/children" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft size={16} />Back to Children</Link>
+          <Link href="/child-profiling/children" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft size={16} />Back to Children</Link>
           <div className="rounded-2xl border border-border bg-white p-10 text-center text-red-600">{error.message}</div>
         </div>
       )
@@ -240,11 +250,16 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link href="/children" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft size={16} />Back to Children</Link>
+        <Link href="/child-profiling/children" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft size={16} />Back to Children</Link>
         {canEdit && (
-          <button type="button" onClick={() => setEditOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary hover:bg-primary/5">
-            <Pencil size={16} />Edit profile
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setStatusOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-border bg-white px-4 py-2 text-sm font-medium text-foreground hover:bg-muted">
+              <ArrowRightLeft size={16} />Change status
+            </button>
+            <button type="button" onClick={() => setEditOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary hover:bg-primary/5">
+              <Pencil size={16} />Edit profile
+            </button>
+          </div>
         )}
       </div>
 
@@ -425,6 +440,36 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
         </div>
       </SectionCard>
 
+      {/* Movement history — only renders when at least one movement is on file.
+          Shows chronological audit trail of status changes (MOVED/LOST/RETURNED/TRANSFERRED). */}
+      {movements && movements.length > 0 && (
+        <SectionCard title="Movement History" subtitle={`${movements.length} record${movements.length === 1 ? '' : 's'}`} icon={<History size={18} />}>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-muted/60">
+                <tr>
+                  {['Date', 'Type', 'Status', 'Reason', 'New address', 'Remarks'].map((heading) => (
+                    <th key={heading} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{heading}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {movements.map((record) => (
+                  <tr key={record.movement_id}>
+                    <td className="px-4 py-3 text-sm">{formatDate(record.movement_date)}</td>
+                    <td className="px-4 py-3 text-sm font-medium">{record.movement_type}</td>
+                    <td className="px-4 py-3 text-sm">{record.status}</td>
+                    <td className="px-4 py-3 text-sm">{record.reason ?? '—'}</td>
+                    <td className="px-4 py-3 text-sm">{record.new_address ?? '—'}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{record.remarks ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
+      )}
+
       {editOpen && canEdit && (
         <ChildFormModal
           mode="edit"
@@ -436,6 +481,23 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
             // re-renders with the saved values. User stays on this page.
             mutate()
             showToast({ type: 'success', message: 'Changes saved' })
+          }}
+          onError={(message) => showToast({ type: 'error', message })}
+        />
+      )}
+
+      {statusOpen && canEdit && (
+        <ChangeStatusModal
+          childId={parsedId}
+          currentStatus={child.status ?? 'ACTIVE'}
+          childName={fullName}
+          onClose={() => setStatusOpen(false)}
+          onSaved={() => {
+            setStatusOpen(false)
+            // Refetch both the profile (status chip updates) and movement history (new row).
+            mutate()
+            mutateMovements()
+            showToast({ type: 'success', message: 'Status updated' })
           }}
           onError={(message) => showToast({ type: 'error', message })}
         />
