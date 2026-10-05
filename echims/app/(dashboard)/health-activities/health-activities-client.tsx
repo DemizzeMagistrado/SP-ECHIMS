@@ -489,9 +489,6 @@ export default function HealthActivitiesClient() {
 
         <div className="mb-7 flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
-            <p className="mb-1 text-sm font-semibold text-[#087db9]">
-              eCHIMS Workspace
-            </p>
 
             <h1 className="text-3xl font-black tracking-tight text-[#07145e] sm:text-4xl">
               Health Activities
@@ -1233,7 +1230,7 @@ function UpdateStatusModal({
 
     try {
       const response = await fetch(
-        `/api/health-activities/${activity.schedule_id}/lifecycle`,
+        `/api/health-activities/${activity.schedule_id}/management`,
         {
           method: 'PATCH',
           headers: {

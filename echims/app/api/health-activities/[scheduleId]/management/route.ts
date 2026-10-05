@@ -183,7 +183,7 @@ export async function PATCH(
     }
 
     const { data, error } = await supabase.rpc(
-      'manage_health_activity_lifecycle',
+      'manage_health_activity_management',
       {
         p_schedule_id: numericScheduleId,
         p_action: action,
@@ -194,7 +194,6 @@ export async function PATCH(
         p_completion_date: completionDate,
       },
     )
-
     if (error) {
       const errorStatuses: Record<string, number> = {
         '42501': 403,
