@@ -129,7 +129,10 @@ const rolePermissions: Record<UserRole, Partial<Record<string, Permission[]>>> =
     Organization: ['view'], // Read
   },
   'Rural Health Midwife': {
-    'Child Profiling': ['view', 'approve'],
+    // Manuscript section 4.4.1 lists RHM as "Verify child records before service delivery"
+    // and "Record child health services and interventions" — so RHM needs create+edit on
+    // Child Profiling in addition to the view+approve review workflow.
+    'Child Profiling': ['view', 'create', 'edit', 'approve'],
     Geospatial: ['view'],
     Vaccination: ['view', 'create', 'edit'],
     'Vaccination Schedule': ['view', 'request'],
