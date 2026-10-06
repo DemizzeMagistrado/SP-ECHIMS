@@ -23,7 +23,7 @@ const roleAliases: Record<string, NutritionRole> = {
 }
 
 const assessmentFields = `
-  assessment_id, child_id, assessed_by, schedule_id,
+  assessment_id, child_id, assessed_by, schedule_id, client_request_id,
   assessment_date, weight, height, muac, measurement_type, edema_grade,
   age_days, sex_at_assessment, normalized_height_cm,
   waz, haz, whz, baz, bmi,
@@ -31,8 +31,10 @@ const assessmentFields = `
   muac_status, nutritional_status, evaluation_status,
   engine_version, evaluated_at, remarks, created_at,
   child (child_id, first_name, middle_name, last_name,
-    date_of_birth, sex, barangay_id,
-    barangay (barangay_id, barangay_name))
+    date_of_birth, sex, barangay_id, address,
+    guardian (guardian_id, first_name, middle_name, last_name, relationship_to_child),
+    household (household_address, purok),
+    barangay (barangay_id, barangay_name, municipality, province))
 `
 
 function fail(message: string, status: number) {
@@ -58,7 +60,10 @@ async function authorize(): Promise<Authorization> {
   if (accountResult.data?.account_status !== 'ACTIVE') {
     return { response: fail('An active account is required.', 403) }
   }
-  const role = roleAliases[String(profileResult.data?.role ?? '').trim().toLowerCase()]
+  const profileData: unknown = profileResult.data
+  const roleKey = profileData && typeof profileData === 'object' && 'role' in profileData
+    ? String(profileData.role ?? '').trim().toLowerCase() : ''
+  const role = roleAliases[roleKey]
   if (!role) return { response: fail('You cannot access nutrition assessments.', 403) }
 
   let barangayIds: number[] | null = null
@@ -83,11 +88,10 @@ async function authorize(): Promise<Authorization> {
     barangayIds = [...new Set((data ?? []).map((item) => Number(item.barangay_id)))]
   }
 
-  // Matches existing database role access. Administrators view/supervise;
-  // assessment creation requires a health-worker assessor.
+  // Only BNS can record assessments; other permitted roles retain scoped viewing.
   return { context: {
     supabase, userId: user.id, role,
-    canCreate: role === 'PHN' || role === 'RHM' || role === 'BNS',
+    canCreate: role === 'BNS',
     barangayIds,
   } }
 }
@@ -112,6 +116,41 @@ function measurement(value: unknown): number | null {
   return Number.isFinite(number) && number > 0 ? number : null
 }
 
+type ChildProfile = {
+  child_id: number
+  profile_record_id: number
+  profiling_date: string | null
+  ethnicity: string | null
+}
+
+async function latestChildProfiles(supabase: Supabase, childIds: number[]) {
+  const ids = [...new Set(childIds)]
+  const profiles = new Map<number, ChildProfile>()
+  // Use only already-visible child IDs. RLS still controls profile access.
+  // Date precedence matches /api/children; the ID breaks same-date ties.
+  for (let start = 0; start < ids.length; start += 200) {
+    const chunk = ids.slice(start, start + 200)
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await supabase.from('child_profile_record')
+        .select('child_id, profile_record_id, profiling_date, ethnicity')
+        .in('child_id', chunk)
+        .order('profiling_date', { ascending: false, nullsFirst: false })
+        .order('profile_record_id', { ascending: false })
+        .range(offset, offset + 999)
+      if (error) {
+        console.error('Nutrition child-profile lookup failed:', error)
+        throw new Error('Unable to load child-profile information.')
+      }
+      for (const row of (data ?? []) as ChildProfile[]) {
+        const childId = Number(row.child_id)
+        if (!profiles.has(childId)) profiles.set(childId, row)
+      }
+      if ((data?.length ?? 0) < 1000) break
+    }
+  }
+  return profiles
+}
+
 export async function GET() {
   try {
     const auth = await authorize()
@@ -129,8 +168,10 @@ export async function GET() {
     for (let offset = 0; ; offset += 1000) {
       let query = supabase.from('child').select(`
         child_id, first_name, middle_name, last_name,
-        date_of_birth, sex, barangay_id,
-        barangay (barangay_id, barangay_name)
+        date_of_birth, sex, barangay_id, address,
+        guardian (guardian_id, first_name, middle_name, last_name, relationship_to_child),
+        household (household_address, purok),
+        barangay (barangay_id, barangay_name, municipality, province)
       `).eq('status', 'ACTIVE').order('child_id').range(offset, offset + 999)
       if (barangayIds !== null) query = query.in('barangay_id', barangayIds)
       const { data, error } = await query
@@ -142,18 +183,35 @@ export async function GET() {
       if ((data?.length ?? 0) < 1000) break
     }
 
-    // RLS enforces assessment visibility, including historical/inactive children.
-    const { data, error } = await supabase.from('nutritional_assessment')
-      .select(assessmentFields)
-      .order('assessment_date', { ascending: false })
-      .order('created_at', { ascending: false })
-      .order('assessment_id', { ascending: false })
-      .limit(500)
-    if (error) {
-      console.error('Nutrition assessment GET failed:', error)
-      return fail('Unable to load nutrition assessments.', 500)
+    // Page through all RLS-visible assessments; summaries must not stop at 500.
+    const assessments: Record<string, unknown>[] = []
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await supabase.from('nutritional_assessment')
+        .select(assessmentFields)
+        .order('assessment_date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .order('assessment_id', { ascending: false })
+        .range(offset, offset + 999)
+      if (error) {
+        console.error('Nutrition assessment GET failed:', error)
+        return fail('Unable to load nutrition assessments.', 500)
+      }
+      assessments.push(...(data ?? []))
+      if ((data?.length ?? 0) < 1000) break
     }
-    return NextResponse.json({ ...metadata, data: data ?? [], children }, {
+    const profiles = await latestChildProfiles(supabase, [
+      ...children.map((child) => Number(child.child_id)),
+      ...assessments.map((assessment) => Number(assessment.child_id)),
+    ])
+    return NextResponse.json({
+      ...metadata,
+      data: assessments.map((assessment) => ({
+        ...assessment, profile: profiles.get(Number(assessment.child_id)) ?? null,
+      })),
+      children: children.map((child) => ({
+        ...child, profile: profiles.get(Number(child.child_id)) ?? null,
+      })),
+    }, {
       headers: { 'Cache-Control': 'private, no-store' },
     })
   } catch (error) {
@@ -162,12 +220,41 @@ export async function GET() {
   }
 }
 
+type StoredAssessment = Record<string, unknown> & { child_id: number }
+
+function sameRequestValues(row: StoredAssessment, body: Record<string, unknown>) {
+  const optionalNumber = (value: unknown) => value == null || value === '' ? null : Number(value)
+  return Number(row.child_id) === Number(body.child_id)
+    && String(row.assessment_date) === body.assessment_date
+    && Number(row.weight) === Number(body.weight)
+    && Number(row.height) === Number(body.height)
+    && optionalNumber(row.muac) === optionalNumber(body.muac)
+    && row.measurement_type === body.measurement_type
+    && Number(row.edema_grade) === body.edema_grade
+    && optionalNumber(row.schedule_id) === optionalNumber(body.schedule_id)
+    && String(row.remarks ?? '').trim() === String(body.remarks ?? '').trim()
+}
+async function existingRequest(supabase: Supabase, userId: string, requestId: string) {
+  return supabase.from('nutritional_assessment').select(assessmentFields)
+    .eq('assessed_by', userId).eq('client_request_id', requestId).maybeSingle()
+}
+async function replayResponse(supabase: Supabase, row: StoredAssessment, body: Record<string, unknown>) {
+  if (!sameRequestValues(row, body)) {
+    return fail('This request ID was already saved with different measurements. Refresh the child history before creating another assessment.', 409)
+  }
+  const profiles = await latestChildProfiles(supabase, [Number(row.child_id)])
+  return NextResponse.json({
+    message: 'This assessment was already saved. No duplicate was created.', replayed: true,
+    data: { ...row, profile: profiles.get(Number(row.child_id)) ?? null },
+  })
+}
+
 export async function POST(request: Request) {
   try {
     const auth = await authorize()
     if (auth.response) return auth.response
     const { supabase, userId, canCreate, barangayIds } = auth.context
-    if (!canCreate) return fail('Your role cannot record assessments.', 403)
+    if (!canCreate) return fail('Only Barangay Nutrition Scholars can record assessments.', 403)
 
     const payload: unknown = await request.json().catch(() => null)
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
@@ -176,10 +263,19 @@ export async function POST(request: Request) {
     const body = payload as Record<string, unknown>
     const allowed = new Set([
       'child_id', 'assessment_date', 'weight', 'height', 'muac',
-      'measurement_type', 'edema_grade', 'remarks', 'schedule_id',
+      'measurement_type', 'edema_grade', 'remarks', 'schedule_id', 'client_request_id', 'request_owner_id',
     ])
     if (Object.keys(body).some((key) => !allowed.has(key))) {
-      return fail('Submit measurement fields only. Scores and classifications are server-generated.', 400)
+      return fail('Submit assessment measurements only. Child information comes from the child profile; scores and classifications are server-generated.', 400)
+    }
+
+    if (body.request_owner_id != null && body.request_owner_id !== userId) {
+      return fail('Sign back into the account that recorded this assessment draft.', 403)
+    }
+    const requestId = body.client_request_id == null ? null : body.client_request_id
+    if (requestId !== null && (typeof requestId !== 'string'
+        || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId))) {
+      return fail('Invalid assessment request identifier.', 400)
     }
 
     const childId = positiveId(body.child_id)
@@ -205,6 +301,12 @@ export async function POST(request: Request) {
     const scheduleId = body.schedule_id == null ? null : positiveId(body.schedule_id)
     if (body.schedule_id != null && scheduleId === null) return fail('Invalid schedule ID.', 400)
 
+    if (requestId !== null) {
+      const previous = await existingRequest(supabase, userId, requestId)
+      if (previous.error) return fail('Unable to verify the assessment request.', 500)
+      if (previous.data) return await replayResponse(supabase, previous.data as StoredAssessment, body)
+    }
+
     const { data: child, error: childError } = await supabase.from('child')
       .select('child_id, barangay_id, status').eq('child_id', childId).maybeSingle()
     if (childError) return fail('Unable to verify the selected child.', 500)
@@ -224,8 +326,33 @@ export async function POST(request: Request) {
       }
     }
 
+    // Cross-check raw measurements even when a new request UUID is supplied.
+    // Existing UUID retries were handled above; different same-day measurements
+    // remain possible after the user reviews the child's history.
+    for (let offset = 0; ; offset += 1000) {
+      const { data: sameDay, error: duplicateError } = await supabase.from('nutritional_assessment')
+        .select('assessment_id, child_id, assessment_date, weight, height, muac, measurement_type, edema_grade')
+        .eq('child_id', childId).eq('assessment_date', body.assessment_date)
+        .order('assessment_id', { ascending: true }).range(offset, offset + 999)
+      if (duplicateError) return fail('Unable to check existing assessments for duplicates. Your draft was not submitted.', 500)
+      const duplicate = (sameDay ?? []).find((row) =>
+        Number(row.weight) === weight && Number(row.height) === height
+        && (row.muac == null ? null : Number(row.muac)) === muac
+        && row.measurement_type === body.measurement_type
+        && Number(row.edema_grade) === body.edema_grade)
+      if (duplicate) return NextResponse.json({
+        error: `Matching measurements already exist as assessment #${duplicate.assessment_id} for this child and date. Review the existing record before creating another assessment.`,
+        duplicate_assessment_id: duplicate.assessment_id,
+      }, { status: 409 })
+      if ((sameDay ?? []).length < 1000) break
+    }
+
+    // Read linked demographics before the write so lookup failure cannot
+    // report a failed save after an assessment was already committed.
+    const profiles = await latestChildProfiles(supabase, [childId])
+
     const { data, error } = await supabase.from('nutritional_assessment').insert({
-      child_id: childId, assessed_by: userId,
+      child_id: childId, assessed_by: userId, client_request_id: requestId,
       assessment_date: body.assessment_date,
       weight, height, muac,
       measurement_type: body.measurement_type,
@@ -237,6 +364,13 @@ export async function POST(request: Request) {
     }).select(assessmentFields).single()
 
     if (error) {
+      // Another tab or retry may have committed this request concurrently.
+      if (error.code === '23505' && requestId !== null) {
+        const previous = await existingRequest(supabase, userId, requestId)
+        if (!previous.error && previous.data) {
+          return await replayResponse(supabase, previous.data as StoredAssessment, body)
+        }
+      }
       console.error('Nutrition assessment POST failed:', error)
       const statuses: Record<string, number> = {
         '42501': 403, '22023': 400, '22007': 400, '22008': 400,
@@ -249,7 +383,10 @@ export async function POST(request: Request) {
         status === 409 ? 'This assessment conflicts with an existing record.' :
         'Unable to save the assessment. Check the server log.', status)
     }
-    return NextResponse.json({ message: 'Assessment saved and evaluated.', data }, { status: 201 })
+    return NextResponse.json({
+      message: 'Assessment saved and evaluated.',
+      data: { ...data, profile: profiles.get(childId) ?? null },
+    }, { status: 201 })
   } catch (error) {
     console.error('Nutrition POST failed:', error)
     return fail('An unexpected error occurred.', 500)
