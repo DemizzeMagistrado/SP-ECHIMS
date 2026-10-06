@@ -14,6 +14,7 @@ import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { ChildFormModal } from '@/components/children/child-form-modal'
 import { ChangeStatusModal } from '@/components/children/change-status-modal'
+import { VaccinationScheduleSection } from '@/components/children/vaccination-schedule-section'
 import { useToast } from '@/components/ui/toast'
 
 type ChildRow = {
@@ -342,6 +343,10 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
           )}
         </SectionCard>
       </div>
+
+      {/* NIP-USR001 — Vaccination Schedule request + preview. Computed from DOB + NIP
+          catalog, already-administered doses excluded. BHW/RHM can request, PHN reviews. */}
+      <VaccinationScheduleSection childId={child.child_id} />
 
       {/* Vaccination history */}
       <SectionCard title="Vaccination History" subtitle={`${vaccinations.length} record${vaccinations.length === 1 ? '' : 's'}`} icon={<Syringe size={18} />}>
