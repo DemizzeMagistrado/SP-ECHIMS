@@ -6,9 +6,10 @@ import { canPerform, type UserRole } from '@/lib/echims-data'
 // POST /api/vaccination/review
 // Body: { schedule_id: number, action: 'APPROVE' | 'REJECT', review_remarks?: string }
 //
-// Only PHN, RHM, or Admin can review. RLS on health_activity_schedule enforces that
-// PHN can only review requests within their RHU, and RHM/BHW within their assigned
-// barangay — same scoping already used by the broader health activity workflow.
+// Only PHN or Admin can review. The role matrix lists Vaccination Schedule for RHM as
+// ['view', 'request'] (no 'approve'), and the Supabase schema's reviewed_by/approved_by
+// FKs point to public_health_nurse only — so RHM is excluded here to match both.
+// RLS on health_activity_schedule still scopes rows: PHN sees only their RHU, Admin all.
 
 const roleAliases: Record<string, UserRole> = {
   administrator: 'Administrator', admin: 'Administrator',
@@ -38,8 +39,8 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return invalid('Please sign in before reviewing a request.', 401)
   const role = await trustedRole(supabase)
-  if (role !== 'Public Health Nurse' && role !== 'Rural Health Midwife' && role !== 'Administrator') {
-    return invalid('Only Public Health Nurses, Rural Health Midwives, or Administrators can review schedule requests.', 403)
+  if (role !== 'Public Health Nurse' && role !== 'Administrator') {
+    return invalid('Only Public Health Nurses or Administrators can review schedule requests.', 403)
   }
 
   const body = await request.json().catch(() => null) as { schedule_id?: number; action?: string; review_remarks?: string } | null
