@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
+import { buildRiskMonitoring, type MonitoringRule } from '@/lib/nutrition-risk'
 import { createClient } from '@/lib/supabase/server'
-
 type NutritionRole = 'Administrator' | 'PHN' | 'RHM' | 'BNS'
 type Supabase = Awaited<ReturnType<typeof createClient>>
 type AuthContext = {
@@ -14,14 +14,12 @@ type Authorization = { context: AuthContext; response?: never } | {
   context?: never
   response: NextResponse
 }
-
 const roleAliases: Record<string, NutritionRole> = {
   admin: 'Administrator', administrator: 'Administrator',
   phn: 'PHN', 'public health nurse': 'PHN',
   rhm: 'RHM', 'rural health midwife': 'RHM',
   bns: 'BNS', 'barangay nutrition scholar': 'BNS',
 }
-
 const assessmentFields = `
   assessment_id, child_id, assessed_by, schedule_id, client_request_id,
   assessment_date, weight, height, muac, measurement_type, edema_grade,
@@ -29,23 +27,20 @@ const assessmentFields = `
   waz, haz, whz, baz, bmi,
   weight_for_age, height_for_age, weight_for_height, bmi_for_age,
   muac_status, nutritional_status, evaluation_status,
-  engine_version, evaluated_at, remarks, created_at,
-  child (child_id, first_name, middle_name, last_name,
+  engine_version, evaluated_at, is_at_risk, remarks, created_at,
+  child!inner (child_id, status, first_name, middle_name, last_name,
     date_of_birth, sex, barangay_id, address,
     guardian (guardian_id, first_name, middle_name, last_name, relationship_to_child),
     household (household_address, purok),
     barangay (barangay_id, barangay_name, municipality, province))
 `
-
 function fail(message: string, status: number) {
   return NextResponse.json({ error: message }, { status })
 }
-
 async function authorize(): Promise<Authorization> {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) return { response: fail('Unauthorized.', 401) }
-
   const [profileResult, accountResult] = await Promise.all([
     supabase.rpc('get_my_profile').maybeSingle(),
     supabase.from('users').select('account_status')
@@ -65,7 +60,6 @@ async function authorize(): Promise<Authorization> {
     ? String(profileData.role ?? '').trim().toLowerCase() : ''
   const role = roleAliases[roleKey]
   if (!role) return { response: fail('You cannot access nutrition assessments.', 403) }
-
   let barangayIds: number[] | null = null
   if (role === 'PHN') {
     const { data: phn, error } = await supabase.from('public_health_nurse')
@@ -87,7 +81,6 @@ async function authorize(): Promise<Authorization> {
     if (error) return { response: fail('Unable to determine assigned barangays.', 500) }
     barangayIds = [...new Set((data ?? []).map((item) => Number(item.barangay_id)))]
   }
-
   // Only BNS can record assessments; other permitted roles retain scoped viewing.
   return { context: {
     supabase, userId: user.id, role,
@@ -95,34 +88,29 @@ async function authorize(): Promise<Authorization> {
     barangayIds,
   } }
 }
-
 function isDate(value: unknown): value is string {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
   const parsed = new Date(`${value}T00:00:00.000Z`)
   return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
 }
-
 function positiveId(value: unknown): number | null {
   if (typeof value !== 'number' && typeof value !== 'string') return null
   if (!/^\d+$/.test(String(value))) return null
   const id = Number(value)
   return Number.isSafeInteger(id) && id > 0 ? id : null
 }
-
 function measurement(value: unknown): number | null {
   if (typeof value !== 'number' && typeof value !== 'string') return null
   if (typeof value === 'string' && !/^\d+(?:\.\d+)?$/.test(value.trim())) return null
   const number = Number(value)
   return Number.isFinite(number) && number > 0 ? number : null
 }
-
 type ChildProfile = {
   child_id: number
   profile_record_id: number
   profiling_date: string | null
   ethnicity: string | null
 }
-
 async function latestChildProfiles(supabase: Supabase, childIds: number[]) {
   const ids = [...new Set(childIds)]
   const profiles = new Map<number, ChildProfile>()
@@ -150,7 +138,6 @@ async function latestChildProfiles(supabase: Supabase, childIds: number[]) {
   }
   return profiles
 }
-
 export async function GET() {
   try {
     const auth = await authorize()
@@ -158,11 +145,10 @@ export async function GET() {
     const { supabase, role, canCreate, userId, barangayIds } = auth.context
     const metadata = { role, currentUserId: userId, permissions: { create: canCreate } }
     if (barangayIds?.length === 0) {
-      return NextResponse.json({ ...metadata, data: [], children: [] }, {
+      return NextResponse.json({ ...metadata, data: [], children: [], risk_monitoring: buildRiskMonitoring([], []) }, {
         headers: { 'Cache-Control': 'private, no-store' },
       })
     }
-
     // Fetch child options in pages so large scoped barangays are not truncated.
     const children: Record<string, unknown>[] = []
     for (let offset = 0; ; offset += 1000) {
@@ -182,16 +168,16 @@ export async function GET() {
       children.push(...(data ?? []))
       if ((data?.length ?? 0) < 1000) break
     }
-
     // Page through all RLS-visible assessments; summaries must not stop at 500.
     const assessments: Record<string, unknown>[] = []
     for (let offset = 0; ; offset += 1000) {
-      const { data, error } = await supabase.from('nutritional_assessment')
+      let assessmentQuery = supabase.from('nutritional_assessment')
         .select(assessmentFields)
         .order('assessment_date', { ascending: false })
-        .order('created_at', { ascending: false })
         .order('assessment_id', { ascending: false })
         .range(offset, offset + 999)
+      if (barangayIds !== null) assessmentQuery = assessmentQuery.in('child.barangay_id', barangayIds)
+      const { data, error } = await assessmentQuery
       if (error) {
         console.error('Nutrition assessment GET failed:', error)
         return fail('Unable to load nutrition assessments.', 500)
@@ -199,12 +185,19 @@ export async function GET() {
       assessments.push(...(data ?? []))
       if ((data?.length ?? 0) < 1000) break
     }
+    const { data: monitoringRules, error: monitoringRulesError } = await supabase.rpc('get_nutrition_monitoring_rules')
+    if (monitoringRulesError) {
+      console.error('Nutrition monitoring rule lookup failed:', monitoringRulesError)
+      return fail('Unable to load nutrition monitoring rules. Install the NUT-USR004 database migration and retry.', 500)
+    }
+    const riskMonitoring = buildRiskMonitoring(assessments, (monitoringRules ?? []) as MonitoringRule[])
     const profiles = await latestChildProfiles(supabase, [
       ...children.map((child) => Number(child.child_id)),
       ...assessments.map((assessment) => Number(assessment.child_id)),
     ])
     return NextResponse.json({
       ...metadata,
+      risk_monitoring: riskMonitoring,
       data: assessments.map((assessment) => ({
         ...assessment, profile: profiles.get(Number(assessment.child_id)) ?? null,
       })),
@@ -219,9 +212,7 @@ export async function GET() {
     return fail('An unexpected error occurred.', 500)
   }
 }
-
 type StoredAssessment = Record<string, unknown> & { child_id: number }
-
 function sameRequestValues(row: StoredAssessment, body: Record<string, unknown>) {
   const optionalNumber = (value: unknown) => value == null || value === '' ? null : Number(value)
   return Number(row.child_id) === Number(body.child_id)
@@ -248,14 +239,12 @@ async function replayResponse(supabase: Supabase, row: StoredAssessment, body: R
     data: { ...row, profile: profiles.get(Number(row.child_id)) ?? null },
   })
 }
-
 export async function POST(request: Request) {
   try {
     const auth = await authorize()
     if (auth.response) return auth.response
     const { supabase, userId, canCreate, barangayIds } = auth.context
     if (!canCreate) return fail('Only Barangay Nutrition Scholars can record assessments.', 403)
-
     const payload: unknown = await request.json().catch(() => null)
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
       return fail('Request body must be a JSON object.', 400)
@@ -268,7 +257,6 @@ export async function POST(request: Request) {
     if (Object.keys(body).some((key) => !allowed.has(key))) {
       return fail('Submit assessment measurements only. Child information comes from the child profile; scores and classifications are server-generated.', 400)
     }
-
     if (body.request_owner_id != null && body.request_owner_id !== userId) {
       return fail('Sign back into the account that recorded this assessment draft.', 403)
     }
@@ -277,7 +265,6 @@ export async function POST(request: Request) {
         || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId))) {
       return fail('Invalid assessment request identifier.', 400)
     }
-
     const childId = positiveId(body.child_id)
     const weight = measurement(body.weight)
     const height = measurement(body.height)
@@ -300,13 +287,11 @@ export async function POST(request: Request) {
     }
     const scheduleId = body.schedule_id == null ? null : positiveId(body.schedule_id)
     if (body.schedule_id != null && scheduleId === null) return fail('Invalid schedule ID.', 400)
-
     if (requestId !== null) {
       const previous = await existingRequest(supabase, userId, requestId)
       if (previous.error) return fail('Unable to verify the assessment request.', 500)
       if (previous.data) return await replayResponse(supabase, previous.data as StoredAssessment, body)
     }
-
     const { data: child, error: childError } = await supabase.from('child')
       .select('child_id, barangay_id, status').eq('child_id', childId).maybeSingle()
     if (childError) return fail('Unable to verify the selected child.', 500)
@@ -314,7 +299,6 @@ export async function POST(request: Request) {
       return fail('Child not found in your geographic scope.', 403)
     }
     if (child.status !== 'ACTIVE') return fail('Select an active child.', 400)
-
     if (scheduleId !== null) {
       const { data: schedule, error } = await supabase.from('health_activity_schedule')
         .select('barangay_id, activity_type, status').eq('schedule_id', scheduleId).maybeSingle()
@@ -325,7 +309,6 @@ export async function POST(request: Request) {
         return fail('Link an approved, ongoing, or completed nutrition activity in the child’s barangay.', 400)
       }
     }
-
     // Cross-check raw measurements even when a new request UUID is supplied.
     // Existing UUID retries were handled above; different same-day measurements
     // remain possible after the user reviews the child's history.
@@ -346,11 +329,9 @@ export async function POST(request: Request) {
       }, { status: 409 })
       if ((sameDay ?? []).length < 1000) break
     }
-
     // Read linked demographics before the write so lookup failure cannot
     // report a failed save after an assessment was already committed.
     const profiles = await latestChildProfiles(supabase, [childId])
-
     const { data, error } = await supabase.from('nutritional_assessment').insert({
       child_id: childId, assessed_by: userId, client_request_id: requestId,
       assessment_date: body.assessment_date,
@@ -362,7 +343,6 @@ export async function POST(request: Request) {
       // Required existing column; the database evaluator replaces this value.
       nutritional_status: 'NOT_EVALUATED',
     }).select(assessmentFields).single()
-
     if (error) {
       // Another tab or retry may have committed this request concurrently.
       if (error.code === '23505' && requestId !== null) {
