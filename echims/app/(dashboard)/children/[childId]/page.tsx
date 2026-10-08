@@ -1,22 +1,19 @@
 'use client'
-
 // CHILD-USR003 — View Child Profile
 // Centralized profile view that pulls the child record, their linked guardian,
 // their household and barangay context, and every related health record
 // (vaccinations, nutritional assessments, supplementations) in one page.
 // Backed by GET /api/children?childId={id} which fans the queries out in parallel.
-
-import { use, useState } from 'react'
+import { use, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
-import { ArrowLeft, Pencil, Baby, Users, Syringe, Scale, Pill, MapPin, Phone, Home, ArrowRightLeft, History } from 'lucide-react'
+import { ArrowLeft, Pencil, Baby, Users, Syringe, Scale, Pill, MapPin, Phone, Home, ArrowRightLeft, History, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { ChildFormModal } from '@/components/children/child-form-modal'
 import { ChangeStatusModal } from '@/components/children/change-status-modal'
 import { VaccinationScheduleSection } from '@/components/children/vaccination-schedule-section'
 import { useToast } from '@/components/ui/toast'
-
 type ChildRow = {
   child_id: number
   first_name: string
@@ -60,10 +57,25 @@ type BarangayRow = { barangay_id: number; barangay_name: string; municipality: s
 type HouseholdRow = { household_id: number; household_no: string | null; household_address: string | null; purok: string | null; is_4ps_member: boolean | null }
 type RhuRow = { rhu_id: number; rhu_name: string | null }
 type Vaccination = { vaccination_record_id: number; vaccination_date: string; dose_number: number | null; batch_number: string | null; vaccination_site: string | null; remarks: string | null; vaccine: { vaccine_type: string; dose_volume: string | null; route: string | null; target_age: string | null } | null }
-type Assessment = { assessment_id: number; assessment_date: string; weight: number | null; height: number | null; muac: number | null; weight_for_age: string | null; height_for_age: string | null; weight_for_height: string | null; nutritional_status: string | null; remarks: string | null }
+type Assessment = {
+  assessment_id: number
+  assessment_date: string
+  weight: number | string | null
+  height: number | string | null
+  muac: number | string | null
+  weight_for_age: string | null
+  height_for_age: string | null
+  weight_for_height: string | null
+  nutritional_status: string | null
+  remarks: string | null
+  is_at_risk: boolean | null
+  // Other saved evaluator fields supplied by the child API.
+  bmi_for_age?: string | null
+  muac_status?: string | null
+  evaluation_status?: string | null
+}
 type Supplementation = { supplementation_record_id: number; supplementation_date: string; quantity_given: number | null; batch_number: string | null; remarks: string | null; supplement: { supplement_type: string; dosage: string | null; age_group: string | null } | null }
 type MovementRow = { movement_id: number; movement_type: string; movement_date: string; reason: string | null; status: string; previous_address: string | null; new_address: string | null; remarks: string | null; recorded_at: string }
-
 type ProfilePayload = {
   child: ChildRow
   guardian: Guardian | null
@@ -76,14 +88,14 @@ type ProfilePayload = {
   assessments: Assessment[]
   supplementations: Supplementation[]
 }
-
 const fetcher = async (url: string) => {
-  const response = await fetch(url)
-  const data = await response.json()
+  const response = await fetch(url, { cache: 'no-store' })
+  let data
+  try { data = await response.json() }
+  catch { throw new Error('The server returned an unreadable child profile response.') }
   if (!response.ok) throw new Error(data.error || 'Unable to load the child profile.')
   return data
 }
-
 function ageDescription(dob: string) {
   if (!dob) return '—'
   const birth = new Date(`${dob}T00:00:00Z`)
@@ -96,7 +108,6 @@ function ageDescription(dob: string) {
   const remainder = months % 12
   return remainder ? `${years} y ${remainder} mo` : `${years} years`
 }
-
 function classificationForDob(dob: string) {
   if (!dob) return '—'
   const birth = new Date(`${dob}T00:00:00Z`)
@@ -110,20 +121,17 @@ function classificationForDob(dob: string) {
   if (months <= 59) return 'PSAC (1-4 y/o)'
   return 'Out of 0-59 months range'
 }
-
 function formatDate(value: string | null | undefined) {
   if (!value) return '—'
   const date = new Date(`${value}T00:00:00Z`)
   if (isNaN(date.getTime())) return value
   return date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
 }
-
 function titleCase(value: string | null | undefined) {
   if (!value) return '—'
   return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase()
 }
-
-function Chip({ children, tone = 'default' }: { children: React.ReactNode; tone?: 'default' | 'success' | 'warning' | 'danger' }) {
+function Chip({ children, tone = 'default' }: { children: ReactNode; tone?: 'default' | 'success' | 'warning' | 'danger' }) {
   const colors = {
     default: 'bg-muted text-muted-foreground',
     success: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
@@ -132,16 +140,74 @@ function Chip({ children, tone = 'default' }: { children: React.ReactNode; tone?
   }[tone]
   return <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${colors}`}>{children}</span>
 }
-
-function statusTone(status: string): 'default' | 'success' | 'warning' | 'danger' {
-  const normalized = status.toLowerCase()
-  if (normalized.includes('normal') || normalized.includes('healthy')) return 'success'
-  if (normalized.includes('at risk') || normalized.includes('under')) return 'warning'
-  if (normalized.includes('severe') || normalized.includes('wasted')) return 'danger'
+type Tone = 'default' | 'success' | 'warning' | 'danger'
+function classificationCode(value: string | null | undefined) {
+  return String(value ?? '').trim().toUpperCase().replace(/[\s-]+/g, '_')
+}
+const urgentNutritionCodes = new Set([
+  'SAM', 'SEVERE_ACUTE_MALNUTRITION', 'INFANT_URGENT_REVIEW',
+  'SEVERELY_UNDERWEIGHT', 'SEVERELY_STUNTED', 'SEVERELY_WASTED',
+  'SEVERE_WASTING', 'SEVERE_THINNESS', 'SEVERELY_THIN',
+])
+const riskNutritionCodes = new Set([
+  ...urgentNutritionCodes,
+  'MAM', 'MODERATE_ACUTE_MALNUTRITION', 'UNDERWEIGHT', 'STUNTED',
+  'WASTED', 'WASTING', 'THINNESS', 'THIN', 'OVERWEIGHT', 'OBESE',
+  'OBESITY', 'POSSIBLE_RISK_OF_OVERWEIGHT', 'AT_RISK',
+])
+const nonRiskNutritionCodes = new Set([
+  'NORMAL', 'NOT_UNDERWEIGHT', 'NOT_STUNTED',
+  'NO_ACUTE_CRITERIA_IDENTIFIED', 'NOT_APPLICABLE',
+])
+function classificationLabel(value: string | null | undefined) {
+  const code = classificationCode(value)
+  if (!code) return 'Not available'
+  if (code === 'SAM' || code === 'MAM') return code
+  if (code === 'NOT_INTERPRETABLE_EDEMA') return 'Not interpretable (edema)'
+  return code.toLowerCase().replace(/_/g, ' ').replace(/^./, (letter) => letter.toUpperCase())
+}
+function statusTone(status: string): Tone {
+  const code = classificationCode(status)
+  if (urgentNutritionCodes.has(code)) return 'danger'
+  if (riskNutritionCodes.has(code) || code === 'NEEDS_VERIFICATION') return 'warning'
+  if (nonRiskNutritionCodes.has(code) || code === 'HEALTHY') return 'success'
   return 'default'
 }
-
-function InfoRow({ label, value, icon }: { label: string; value: React.ReactNode; icon?: React.ReactNode }) {
+function latestAssessment(rows: Assessment[]): Assessment | null {
+  return [...rows].sort((a, b) =>
+    b.assessment_date.localeCompare(a.assessment_date)
+      || Number(b.assessment_id) - Number(a.assessment_id),
+  )[0] ?? null
+}
+function nutritionSummary(record: Assessment | null): {
+  label: string; tone: Tone; detail: string; reasons: string[]
+} {
+  if (!record) return {
+    label: 'Nutrition: Not assessed', tone: 'default',
+    detail: 'No saved nutritional assessment is available for this child.', reasons: [],
+  }
+  const values = [record.weight_for_age, record.height_for_age, record.weight_for_height,
+    record.nutritional_status, record.bmi_for_age, record.muac_status]
+  const codes = values.map(classificationCode)
+  const reasons = [...new Set(codes.filter((code) => riskNutritionCodes.has(code)))].map(classificationLabel)
+  if (record.is_at_risk === true) return {
+    label: 'Nutrition: At risk',
+    tone: codes.some((code) => urgentNutritionCodes.has(code)) ? 'danger' : 'warning',
+    detail: codes.includes('NOT_INTERPRETABLE_EDEMA')
+      ? 'The saved assessment is flagged for nutrition follow-up. Weight-based indicators are recorded as not interpretable because of edema.'
+      : 'The latest saved assessment is flagged for nutrition follow-up. Review its classifications and related alerts.',
+    reasons,
+  }
+  if (record.is_at_risk === false) return {
+    label: 'Nutrition: No recorded risk', tone: 'success',
+    detail: 'The latest saved assessment has no recorded nutritional risk. This describes that assessment only.', reasons: [],
+  }
+  return {
+    label: 'Nutrition: Needs review', tone: 'warning',
+    detail: 'The stored risk result is unavailable or incomplete. A normal result is not assumed.', reasons: [],
+  }
+}
+function InfoRow({ label, value, icon }: { label: string; value: ReactNode; icon?: ReactNode }) {
   return (
     <div className="grid grid-cols-[160px_1fr] items-start gap-3 py-2">
       <dt className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -152,8 +218,7 @@ function InfoRow({ label, value, icon }: { label: string; value: React.ReactNode
     </div>
   )
 }
-
-function SectionCard({ title, subtitle, icon, children, action }: { title: string; subtitle?: string; icon?: React.ReactNode; children: React.ReactNode; action?: React.ReactNode }) {
+function SectionCard({ title, subtitle, icon, children, action }: { title: string; subtitle?: string; icon?: ReactNode; children: ReactNode; action?: ReactNode }) {
   return (
     <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
       <div className="mb-4 flex items-start justify-between gap-4">
@@ -170,7 +235,6 @@ function SectionCard({ title, subtitle, icon, children, action }: { title: strin
     </section>
   )
 }
-
 function EmptyRow({ colSpan, label }: { colSpan: number; label: string }) {
   return (
     <tr>
@@ -180,7 +244,6 @@ function EmptyRow({ colSpan, label }: { colSpan: number; label: string }) {
     </tr>
   )
 }
-
 export default function ChildProfilePage({ params }: { params: Promise<{ childId: string }> }) {
   // Next 16 app-router: params is a Promise, unwrapped with React.use()
   const { childId } = use(params)
@@ -190,30 +253,26 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
   const isApproved = user?.accountStatus === 'APPROVED'
   const canView = Boolean(role && isApproved && canPerform(role, 'Child Profiling', 'view'))
   const canEdit = Boolean(role && isApproved && canPerform(role, 'Child Profiling', 'edit'))
-
+  const canViewNutrition = Boolean(role && isApproved && canPerform(role, 'Nutritional Assessment', 'view'))
   const { data, error, isLoading, mutate } = useSWR<ProfilePayload>(
     isReady && canView && Number.isSafeInteger(parsedId) && parsedId > 0 ? `/api/children?childId=${parsedId}` : null,
     fetcher,
   )
-
   // In-place edit modal: opens over this profile page, saves via PATCH /api/children,
   // and on success mutates the SWR cache so the profile re-renders with the new data
   // without the user leaving the page.
   const [editOpen, setEditOpen] = useState(false)
   const [statusOpen, setStatusOpen] = useState(false)
   const { showToast } = useToast()
-
   // Movement history — loaded alongside the main profile. Updates whenever the user
   // marks a status change via the ChangeStatusModal (we mutate() this on save).
   const { data: movements, mutate: mutateMovements } = useSWR<MovementRow[]>(
     isReady && canView && Number.isSafeInteger(parsedId) && parsedId > 0 ? `/api/children/${parsedId}/movement` : null,
     fetcher,
   )
-
   if (!isReady) {
     return <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Loading child profile...</div>
   }
-
   if (!canView) {
     return (
       <div className="space-y-4">
@@ -222,7 +281,6 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
       </div>
     )
   }
-
   if (!Number.isSafeInteger(parsedId) || parsedId <= 0) {
     return (
       <div className="space-y-4">
@@ -231,7 +289,6 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
       </div>
     )
   }
-
   if (isLoading || !data) {
     if (error) {
       return (
@@ -243,11 +300,11 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
     }
     return <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Loading child profile...</div>
   }
-
   const { child, guardian, profile, monitoringStatus, barangay, household, rhu, vaccinations, assessments, supplementations } = data
   const fullName = [child.first_name, child.middle_name, child.last_name].filter(Boolean).join(' ')
+  const latestNutrition = latestAssessment(assessments ?? [])
+  const nutrition = nutritionSummary(latestNutrition)
   const guardianName = guardian ? [guardian.first_name, guardian.middle_name, guardian.last_name].filter(Boolean).join(' ') : null
-
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -263,7 +320,6 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
           </div>
         )}
       </div>
-
       {/* Hero card: child identity + quick status chips */}
       <section className="rounded-2xl border border-border bg-gradient-to-r from-primary/5 to-sky-50 p-6 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -283,10 +339,10 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
             <Chip tone="success">{classificationForDob(child.date_of_birth)}</Chip>
             <Chip tone={statusTone(monitoringStatus)}>Monitoring: {monitoringStatus}</Chip>
             <Chip>{child.status ?? 'ACTIVE'}</Chip>
+            <Chip tone={nutrition.tone}>{nutrition.label}</Chip>
           </div>
         </div>
       </section>
-
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Personal information */}
         <SectionCard title="Personal Information" subtitle="Profiling details collected during the home visit" icon={<Baby size={18} />}>
@@ -326,7 +382,6 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
             )}
           </dl>
         </SectionCard>
-
         {/* Guardian information */}
         <SectionCard title="Guardian Information" subtitle="Person responsible for the child's care" icon={<Users size={18} />}>
           {guardian ? (
@@ -343,11 +398,9 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
           )}
         </SectionCard>
       </div>
-
       {/* NIP-USR001 — Vaccination Schedule request + preview. Computed from DOB + NIP
           catalog, already-administered doses excluded. BHW/RHM can request, PHN reviews. */}
       <VaccinationScheduleSection childId={child.child_id} />
-
       {/* Vaccination history */}
       <SectionCard title="Vaccination History" subtitle={`${vaccinations.length} record${vaccinations.length === 1 ? '' : 's'}`} icon={<Syringe size={18} />}>
         <div className="overflow-x-auto">
@@ -378,7 +431,34 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
           </table>
         </div>
       </SectionCard>
-
+      {/* Nutritional assessment summary */}
+      <SectionCard
+        title="Latest Nutritional Assessment"
+        subtitle={latestNutrition
+          ? `Assessment #${latestNutrition.assessment_id} · ${formatDate(latestNutrition.assessment_date)}`
+          : 'Saved assessment results'}
+        icon={<AlertCircle size={18} />}
+        action={canViewNutrition ? <Link href="/nutritional-assessment/records" className="text-sm font-medium text-primary underline">View assessments</Link> : undefined}>
+        <div className="space-y-3">
+          <Chip tone={nutrition.tone}>{nutrition.label}</Chip>
+          <p className="text-sm text-muted-foreground">{nutrition.detail}</p>
+          {nutrition.reasons.length > 0 && <div className="flex flex-wrap gap-2">{nutrition.reasons.map((reason) =>
+            <Chip key={reason} tone={statusTone(reason)}>{reason}</Chip>,
+          )}</div>}
+          {latestNutrition && <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { label: 'Weight-for-age', value: latestNutrition.weight_for_age },
+              { label: 'Height-for-age', value: latestNutrition.height_for_age },
+              { label: 'Weight-for-length/height', value: latestNutrition.weight_for_height },
+              { label: 'Screening status', value: latestNutrition.nutritional_status },
+            ].map((item) => <div key={item.label} className="rounded-lg bg-muted/40 p-3">
+              <dt className="mb-2 text-xs text-muted-foreground">{item.label}</dt>
+              <dd><Chip tone={statusTone(item.value ?? '')}>{classificationLabel(item.value)}</Chip></dd>
+            </div>)}
+          </dl>}
+          <p className="text-xs text-muted-foreground">Based on the stored risk flag for this saved assessment. Latest means the newest assessment date, then the highest assessment ID on that date.</p>
+        </div>
+      </SectionCard>
       {/* Nutritional assessment history */}
       <SectionCard title="Nutritional Assessment History" subtitle={`${assessments.length} assessment${assessments.length === 1 ? '' : 's'}`} icon={<Scale size={18} />}>
         <div className="overflow-x-auto">
@@ -400,11 +480,11 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
                     <td className="px-4 py-3 text-sm">{record.weight ?? '—'}</td>
                     <td className="px-4 py-3 text-sm">{record.height ?? '—'}</td>
                     <td className="px-4 py-3 text-sm">{record.muac ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm">{record.weight_for_age ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm">{record.height_for_age ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm">{record.weight_for_height ?? '—'}</td>
+                    <td className="px-4 py-3 text-sm"><Chip tone={statusTone(record.weight_for_age ?? '')}>{classificationLabel(record.weight_for_age)}</Chip></td>
+                    <td className="px-4 py-3 text-sm"><Chip tone={statusTone(record.height_for_age ?? '')}>{classificationLabel(record.height_for_age)}</Chip></td>
+                    <td className="px-4 py-3 text-sm"><Chip tone={statusTone(record.weight_for_height ?? '')}>{classificationLabel(record.weight_for_height)}</Chip></td>
                     <td className="px-4 py-3 text-sm">
-                      {record.nutritional_status ? <Chip tone={statusTone(record.nutritional_status)}>{record.nutritional_status}</Chip> : '—'}
+                      <Chip tone={statusTone(record.nutritional_status ?? '')}>{classificationLabel(record.nutritional_status)}</Chip>
                     </td>
                   </tr>
                 ))
@@ -413,7 +493,6 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
           </table>
         </div>
       </SectionCard>
-
       {/* Supplementation history */}
       <SectionCard title="Supplementation History" subtitle={`${supplementations.length} record${supplementations.length === 1 ? '' : 's'}`} icon={<Pill size={18} />}>
         <div className="overflow-x-auto">
@@ -444,7 +523,6 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
           </table>
         </div>
       </SectionCard>
-
       {/* Movement history — only renders when at least one movement is on file.
           Shows chronological audit trail of status changes (MOVED/LOST/RETURNED/TRANSFERRED). */}
       {movements && movements.length > 0 && (
@@ -474,7 +552,6 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
           </div>
         </SectionCard>
       )}
-
       {editOpen && canEdit && (
         <ChildFormModal
           mode="edit"
@@ -490,7 +567,6 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
           onError={(message) => showToast({ type: 'error', message })}
         />
       )}
-
       {statusOpen && canEdit && (
         <ChangeStatusModal
           childId={parsedId}
