@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { withHistoryComparisons } from '@/lib/nutrition-history'
 import { createClient } from '@/lib/supabase/server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 const roleAliases: Record<string, UserRole> = { administrator: 'Administrator', admin: 'Administrator', 'public health nurse': 'Public Health Nurse', phn: 'Public Health Nurse', 'barangay health worker': 'Barangay Health Worker', bhw: 'Barangay Health Worker', 'rural health midwife': 'Rural Health Midwife', rhm: 'Rural Health Midwife', 'barangay nutrition scholar': 'Barangay Nutrition Scholar', bns: 'Barangay Nutrition Scholar' }
@@ -47,7 +48,7 @@ export async function GET(request: Request) {
       child.barangay_id ? auth.supabase.from('barangay').select('barangay_id, barangay_name, municipality, province, rhu_id').eq('barangay_id', child.barangay_id).maybeSingle() : Promise.resolve({ data: null }),
       child.household_id ? auth.supabase.from('household').select('household_id, household_no, household_address, purok, is_4ps_member').eq('household_id', child.household_id).maybeSingle() : Promise.resolve({ data: null }),
       auth.supabase.from('vaccination_record').select('vaccination_record_id, vaccination_date, dose_number, batch_number, vaccination_site, remarks, vaccine_id, vaccine:vaccine(vaccine_type, dose_volume, route, target_age)').eq('child_id', child.child_id).order('vaccination_date', { ascending: false }),
-      auth.supabase.from('nutritional_assessment').select('assessment_id, assessment_date, weight, height, muac, measurement_type, edema_grade, waz, haz, whz, baz, bmi_for_age, muac_status, weight_for_age, height_for_age, weight_for_height, nutritional_status, evaluation_status, is_at_risk, engine_version, evaluated_at, remarks').eq('child_id', child.child_id).order('assessment_date', { ascending: false }).order('assessment_id', { ascending: false }),
+      auth.supabase.from('nutritional_assessment').select('assessment_id, assessment_date, weight, height, muac, measurement_type, edema_grade, waz, haz, whz, baz, bmi_for_age, muac_status, weight_for_age, height_for_age, weight_for_height, nutritional_status, evaluation_status, is_at_risk, engine_version, evaluated_at, remarks').eq('child_id', child.child_id).order('assessment_date', { ascending: true }).order('assessment_id', { ascending: true }),
       auth.supabase.from('supplementation_record').select('supplementation_record_id, supplementation_date, quantity_given, batch_number, remarks, supplement_id, supplement:supplement(supplement_type, dosage, age_group)').eq('child_id', child.child_id).order('supplementation_date', { ascending: false }),
     ])
     if (latestAssessment.error || assessments.error) return invalid('Unable to load nutritional assessment results. Please retry.', 500)
@@ -63,7 +64,7 @@ export async function GET(request: Request) {
       household: household.data,
       rhu: rhu.data,
       vaccinations: vaccinations.data ?? [],
-      assessments: assessments.data ?? [],
+      assessments: withHistoryComparisons(assessments.data ?? []),
       supplementations: supplementations.data ?? [],
     })
   }

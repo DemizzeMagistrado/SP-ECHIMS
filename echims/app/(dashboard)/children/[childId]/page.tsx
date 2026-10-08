@@ -7,6 +7,8 @@
 import { use, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
+import { NutritionHistorySection } from '@/components/children/nutrition-history-section'
+import type { HistoryAssessment } from '@/lib/nutrition-history'
 import { ArrowLeft, Pencil, Baby, Users, Syringe, Scale, Pill, MapPin, Phone, Home, ArrowRightLeft, History, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
@@ -58,7 +60,7 @@ type BarangayRow = { barangay_id: number; barangay_name: string; municipality: s
 type HouseholdRow = { household_id: number; household_no: string | null; household_address: string | null; purok: string | null; is_4ps_member: boolean | null }
 type RhuRow = { rhu_id: number; rhu_name: string | null }
 type Vaccination = { vaccination_record_id: number; vaccination_date: string; dose_number: number | null; batch_number: string | null; vaccination_site: string | null; remarks: string | null; vaccine: { vaccine_type: string; dose_volume: string | null; route: string | null; target_age: string | null } | null }
-type Assessment = {
+type Assessment = HistoryAssessment & {
   assessment_id: number
   assessment_date: string
   weight: number | string | null
@@ -450,41 +452,8 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
           </p>
         </div>
       </SectionCard>
-
       {/* Nutritional assessment history */}
-      <SectionCard title="Nutritional Assessment History" subtitle={`${assessments.length} assessment${assessments.length === 1 ? '' : 's'}`} icon={<Scale size={18} />}>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-muted/60">
-              <tr>
-                {['Date', 'Weight (kg)', 'Height (cm)', 'MUAC (cm)', 'WFA', 'HFA', 'WFH', 'Status'].map((heading) => (
-                  <th key={heading} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{heading}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {assessments.length === 0 ? (
-                <EmptyRow colSpan={8} label="No nutritional assessments recorded yet." />
-              ) : (
-                assessments.map((record) => (
-                  <tr key={record.assessment_id}>
-                    <td className="px-4 py-3 text-sm">{formatDate(record.assessment_date)}</td>
-                    <td className="px-4 py-3 text-sm">{record.weight ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm">{record.height ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm">{record.muac ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm"><Chip tone={statusTone(record.weight_for_age ?? '')}>{classificationLabel(record.weight_for_age)}</Chip></td>
-                    <td className="px-4 py-3 text-sm"><Chip tone={statusTone(record.height_for_age ?? '')}>{classificationLabel(record.height_for_age)}</Chip></td>
-                    <td className="px-4 py-3 text-sm"><Chip tone={statusTone(record.weight_for_height ?? '')}>{classificationLabel(record.weight_for_height)}</Chip></td>
-                    <td className="px-4 py-3 text-sm">
-                      <Chip tone={statusTone(record.nutritional_status ?? '')}>{classificationLabel(record.nutritional_status)}</Chip>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </SectionCard>
+      <NutritionHistorySection assessments={assessments ?? []} />
       {/* Supplementation history */}
       <SectionCard title="Supplementation History" subtitle={`${supplementations.length} record${supplementations.length === 1 ? '' : 's'}`} icon={<Pill size={18} />}>
         <div className="overflow-x-auto">
