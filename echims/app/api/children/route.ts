@@ -1,25 +1,21 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
-
 const roleAliases: Record<string, UserRole> = { administrator: 'Administrator', admin: 'Administrator', 'public health nurse': 'Public Health Nurse', phn: 'Public Health Nurse', 'barangay health worker': 'Barangay Health Worker', bhw: 'Barangay Health Worker', 'rural health midwife': 'Rural Health Midwife', rhm: 'Rural Health Midwife', 'barangay nutrition scholar': 'Barangay Nutrition Scholar', bns: 'Barangay Nutrition Scholar' }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function trustedRole(supabase: any) {
   const { data } = await supabase.rpc('get_my_profile').maybeSingle()
   return roleAliases[String(data?.role ?? '').trim().toLowerCase()]
 }
-
 function parseId(value: unknown) {
   const parsed = Number(String(value ?? '').replace(/^CH-/, '').split('-').pop())
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
 }
-
 function monthsOld(value: string) {
   const birth = new Date(`${value}T00:00:00Z`)
   const now = new Date()
   return (now.getUTCFullYear() - birth.getUTCFullYear()) * 12 + now.getUTCMonth() - birth.getUTCMonth() - (now.getUTCDate() < birth.getUTCDate() ? 1 : 0)
 }
-
 async function session(permission: 'view' | 'create' | 'edit') {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -27,9 +23,7 @@ async function session(permission: 'view' | 'create' | 'edit') {
   const role = await trustedRole(supabase)
   return role && canPerform(role, 'Child Profiling', permission) ? { supabase, user, role } : { supabase, user, role, forbidden: true as const }
 }
-
 function invalid(message: string, status = 400) { return NextResponse.json({ error: message }, { status }) }
-
 export async function GET(request: Request) {
   const auth = await session('view')
   if (!auth) return invalid('Please sign in before accessing child records.', 401)
@@ -49,13 +43,14 @@ export async function GET(request: Request) {
     const [guardian, profile, latestAssessment, barangay, household, vaccinations, assessments, supplementations] = await Promise.all([
       child.guardian_id ? auth.supabase.from('guardian').select('*').eq('guardian_id', child.guardian_id).maybeSingle() : Promise.resolve({ data: null }),
       auth.supabase.from('child_profile_record').select('*').eq('child_id', child.child_id).order('profiling_date', { ascending: false }).limit(1).maybeSingle(),
-      auth.supabase.from('nutritional_assessment').select('nutritional_status, assessment_date').eq('child_id', child.child_id).order('assessment_date', { ascending: false }).limit(1).maybeSingle(),
+      auth.supabase.from('nutritional_assessment').select('assessment_id, nutritional_status, assessment_date, is_at_risk, evaluation_status').eq('child_id', child.child_id).order('assessment_date', { ascending: false }).order('assessment_id', { ascending: false }).limit(1).maybeSingle(),
       child.barangay_id ? auth.supabase.from('barangay').select('barangay_id, barangay_name, municipality, province, rhu_id').eq('barangay_id', child.barangay_id).maybeSingle() : Promise.resolve({ data: null }),
       child.household_id ? auth.supabase.from('household').select('household_id, household_no, household_address, purok, is_4ps_member').eq('household_id', child.household_id).maybeSingle() : Promise.resolve({ data: null }),
       auth.supabase.from('vaccination_record').select('vaccination_record_id, vaccination_date, dose_number, batch_number, vaccination_site, remarks, vaccine_id, vaccine:vaccine(vaccine_type, dose_volume, route, target_age)').eq('child_id', child.child_id).order('vaccination_date', { ascending: false }),
-      auth.supabase.from('nutritional_assessment').select('assessment_id, assessment_date, weight, height, muac, weight_for_age, height_for_age, weight_for_height, nutritional_status, remarks').eq('child_id', child.child_id).order('assessment_date', { ascending: false }),
+      auth.supabase.from('nutritional_assessment').select('assessment_id, assessment_date, weight, height, muac, measurement_type, edema_grade, waz, haz, whz, baz, bmi_for_age, muac_status, weight_for_age, height_for_age, weight_for_height, nutritional_status, evaluation_status, is_at_risk, engine_version, evaluated_at, remarks').eq('child_id', child.child_id).order('assessment_date', { ascending: false }).order('assessment_id', { ascending: false }),
       auth.supabase.from('supplementation_record').select('supplementation_record_id, supplementation_date, quantity_given, batch_number, remarks, supplement_id, supplement:supplement(supplement_type, dosage, age_group)').eq('child_id', child.child_id).order('supplementation_date', { ascending: false }),
     ])
+    if (latestAssessment.error || assessments.error) return invalid('Unable to load nutritional assessment results. Please retry.', 500)
     // Hydrate the barangay's RHU name in a second step so the UI can show the full
     // hierarchy (RHU → Municipality → Barangay) without the client making another call.
     const rhu = barangay.data?.rhu_id ? await auth.supabase.from('rhu').select('rhu_id, rhu_name').eq('rhu_id', barangay.data.rhu_id).maybeSingle() : { data: null }
@@ -63,7 +58,7 @@ export async function GET(request: Request) {
       child,
       guardian: guardian.data,
       profile: profile.data,
-      monitoringStatus: latestAssessment.data?.nutritional_status ?? 'Not Yet Assessed',
+      monitoringStatus: latestAssessment.data ? latestAssessment.data.nutritional_status ?? 'Needs Review' : 'Not Yet Assessed',
       barangay: barangay.data,
       household: household.data,
       rhu: rhu.data,
@@ -72,12 +67,12 @@ export async function GET(request: Request) {
       supplementations: supplementations.data ?? [],
     })
   }
-  const assessments = await auth.supabase.from('nutritional_assessment').select('child_id, nutritional_status, assessment_date').in('child_id', rows.map((child) => child.child_id)).order('assessment_date', { ascending: false })
+  const assessments = await auth.supabase.from('nutritional_assessment').select('assessment_id, child_id, nutritional_status, assessment_date, is_at_risk, evaluation_status').in('child_id', rows.map((child) => child.child_id)).order('assessment_date', { ascending: false }).order('assessment_id', { ascending: false })
+  if (assessments.error) return invalid('Unable to load nutritional assessment results. Please retry.', 500)
   const latestStatus = new Map<number, string>()
-  for (const assessment of assessments.data ?? []) if (!latestStatus.has(assessment.child_id)) latestStatus.set(assessment.child_id, assessment.nutritional_status)
+  for (const assessment of assessments.data ?? []) if (!latestStatus.has(assessment.child_id)) latestStatus.set(assessment.child_id, assessment.nutritional_status ?? 'Needs Review')
   return NextResponse.json(rows.map((child) => ({ id: `CH-${child.child_id}`, householdNumber: child.household_id ? `HH-${child.household_id}` : '', name: [child.first_name, child.middle_name, child.last_name].filter(Boolean).join(' '), barangay: child.barangay_id ? String(child.barangay_id) : '', address: child.address ?? '', dob: child.date_of_birth, age: `${Math.max(0, monthsOld(child.date_of_birth))} mos`, sex: child.sex, status: child.status, monitoringStatus: latestStatus.get(child.child_id) ?? 'Not Yet Assessed', guardianId: child.guardian_id })))
 }
-
 export async function POST(request: Request) {
   const auth = await session('create')
   if (!auth) return invalid('Please sign in before registering a child.', 401)
@@ -121,7 +116,6 @@ export async function POST(request: Request) {
   if (Object.keys(profile).length) { const result = await auth.supabase.from('child_profile_record').insert({ ...profile, child_id: inserted.data.child_id, profiling_date: new Date().toISOString().slice(0, 10), recorded_by: auth.user.id }); if (result.error) return invalid('Child saved, but profiling details could not be saved.', 500) }
   return NextResponse.json({ child_id: inserted.data.child_id }, { status: 201 })
 }
-
 export async function PATCH(request: Request) {
   const auth = await session('edit')
   if (!auth) return invalid('Please sign in before editing a child.', 401)
@@ -129,7 +123,6 @@ export async function PATCH(request: Request) {
   const body = await request.json().catch(() => null) as Record<string, unknown> | null
   const childId = parseId(body?.child_id)
   if (!childId) return invalid('A valid child is required.')
-
   // Build the child-table UPDATE payload. Form state sends every value as a string, so
   // bigint FK columns (barangay_id, household_id, guardian_id) need to be coerced before
   // sending to Supabase — otherwise PostgREST may silently reject the update. Sex is
@@ -156,9 +149,7 @@ export async function PATCH(request: Request) {
       updates[field] = raw === '' ? null : raw
     }
   }
-
   if (updates.date_of_birth && monthsOld(String(updates.date_of_birth)) > 59) return invalid('Child must be between 0 and 59 months old at registration.')
-
   // Only run the UPDATE if there's actually something to change. select() + maybeSingle()
   // after the update confirms a row was returned — if the UPDATE matched zero rows (wrong
   // id, or RLS blocked it silently), we surface a clear error instead of claiming success.
@@ -179,7 +170,6 @@ export async function PATCH(request: Request) {
       return invalid('No child record was updated. The child may have been removed, or your account does not have access to this barangay.', 403)
     }
   }
-
   // Profile fields (child_profile_record). philhealth_id_number was previously missing —
   // added so edits to the PhilHealth ID actually persist.
   const profileFields = ['relationship_to_household_head', 'civil_status', 'educational_attainment', 'religion', 'ethnicity', 'philhealth_id_number', 'philhealth_membership_type', 'philhealth_category', 'water_source_type', 'toilet_facility_type', 'medical_history', 'last_menstrual_period']
