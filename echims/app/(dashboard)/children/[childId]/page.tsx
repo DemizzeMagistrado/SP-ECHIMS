@@ -15,6 +15,7 @@ import { canPerform, type UserRole } from '@/lib/echims-data'
 import { ChildFormModal } from '@/components/children/child-form-modal'
 import { ChangeStatusModal } from '@/components/children/change-status-modal'
 import { VaccinationScheduleSection } from '@/components/children/vaccination-schedule-section'
+import { ImmunizationHistorySection } from '@/components/children/immunization-history-section'
 import { useToast } from '@/components/ui/toast'
 
 type ChildRow = {
@@ -348,36 +349,9 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
           catalog, already-administered doses excluded. BHW/RHM can request, PHN reviews. */}
       <VaccinationScheduleSection childId={child.child_id} />
 
-      {/* Vaccination history */}
-      <SectionCard title="Vaccination History" subtitle={`${vaccinations.length} record${vaccinations.length === 1 ? '' : 's'}`} icon={<Syringe size={18} />}>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-muted/60">
-              <tr>
-                {['Date', 'Vaccine', 'Dose', 'Site', 'Batch', 'Remarks'].map((heading) => (
-                  <th key={heading} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{heading}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {vaccinations.length === 0 ? (
-                <EmptyRow colSpan={6} label="No vaccinations recorded yet." />
-              ) : (
-                vaccinations.map((record) => (
-                  <tr key={record.vaccination_record_id}>
-                    <td className="px-4 py-3 text-sm">{formatDate(record.vaccination_date)}</td>
-                    <td className="px-4 py-3 text-sm font-medium">{record.vaccine?.vaccine_type ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm">{record.dose_number ? `Dose ${record.dose_number}` : '—'}</td>
-                    <td className="px-4 py-3 text-sm">{record.vaccination_site ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm">{record.batch_number ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{record.remarks ?? '—'}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </SectionCard>
+      {/* NIP-USR004 — Immunization History with computed due/overdue status.
+          Replaces the old plain table that showed any vaccination_record row. */}
+      <ImmunizationHistorySection childId={child.child_id} />
 
       {/* Nutritional assessment history */}
       <SectionCard title="Nutritional Assessment History" subtitle={`${assessments.length} assessment${assessments.length === 1 ? '' : 's'}`} icon={<Scale size={18} />}>
