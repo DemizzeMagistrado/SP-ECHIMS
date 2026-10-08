@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
-import { NIP_CATALOG } from '@/lib/nip-schedule'
+import { NIP_CATALOG, GRACE_PERIOD_DAYS } from '@/lib/nip-schedule'
 
 // NIP-USR004 — Immunization history for a single child.
 // GET /api/vaccination/history?child_id=123
@@ -65,7 +65,8 @@ function todayYMD(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-const DUE_GRACE_DAYS = 30  // within this many days of due_date → "DUE", else "OVERDUE"
+// Grace period lives in lib/nip-schedule.ts (GRACE_PERIOD_DAYS) so NIP-USR004 and
+// NIP-USR005 both read the same value. Change it there, both endpoints update.
 
 export async function GET(request: Request) {
   const supabase = await createClient()
@@ -130,7 +131,7 @@ export async function GET(request: Request) {
       else if (dueDate > today) status = 'UPCOMING'
       else {
         const daysPastDue = Math.floor((new Date(today + 'T00:00:00').getTime() - new Date(dueDate + 'T00:00:00').getTime()) / 86400000)
-        status = daysPastDue <= DUE_GRACE_DAYS ? 'DUE' : 'OVERDUE'
+        status = daysPastDue <= GRACE_PERIOD_DAYS ? 'DUE' : 'OVERDUE'
       }
 
       doses.push({

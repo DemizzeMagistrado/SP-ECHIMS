@@ -1,4 +1,3 @@
-
 export type NipVaccine = {
   code: string
   vaccine_type: string // display name — also matches vaccine.vaccine_type when seeded
@@ -8,6 +7,11 @@ export type NipVaccine = {
   route: string
   dose_volume: string
 }
+
+// Grace period in days after a dose's due date before it's considered OVERDUE.
+// Used by /api/vaccination/history (NIP-USR004) and /api/vaccination/defaulters (NIP-USR005).
+// Centralized here so both routes stay in sync. Future ticket may move this to a DB setting.
+export const GRACE_PERIOD_DAYS = 30
 
 export const NIP_CATALOG: NipVaccine[] = [
   {
