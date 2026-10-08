@@ -402,7 +402,8 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
       {/* NIP-USR001 — Vaccination Schedule request + preview. Computed from DOB + NIP
           catalog, already-administered doses excluded. BHW/RHM can request, PHN reviews. */}
       <VaccinationScheduleSection childId={child.child_id} />
-      {/* Immunization history */}
+      {/* NIP-USR004 — Immunization History with computed due/overdue status.
+          Replaces the old plain table that showed any vaccination_record row. */}
       <ImmunizationHistorySection childId={child.child_id} />
       {/* Latest nutritional assessment */}
       <SectionCard
@@ -449,9 +450,6 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
           </p>
         </div>
       </SectionCard>
-      {/* NIP-USR004 — Immunization History with computed due/overdue status.
-          Replaces the old plain table that showed any vaccination_record row. */}
-      <ImmunizationHistorySection childId={child.child_id} />
 
       {/* Nutritional assessment history */}
       <SectionCard title="Nutritional Assessment History" subtitle={`${assessments.length} assessment${assessments.length === 1 ? '' : 's'}`} icon={<Scale size={18} />}>
