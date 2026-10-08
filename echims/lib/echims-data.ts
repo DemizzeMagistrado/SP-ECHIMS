@@ -101,7 +101,7 @@ const rolePermissions: Record<UserRole, Partial<Record<string, Permission[]>>> =
     'Child Profiling': ['view', 'create', 'edit', 'export'],
     Geospatial: ['view', 'export'],
     'Masterlist Upload': ['view', 'create', 'edit'],
-    Vaccination: ['view', 'create', 'edit', 'export'],
+    Vaccination: ['view', 'create', 'edit', 'approve', 'export'],
     'Vaccination Schedule': ['view', 'approve', 'export'],
     'Nutritional Assessment': ['view', 'create', 'edit', 'export'],
     Supplementation: ['view', 'create', 'edit', 'export'],
