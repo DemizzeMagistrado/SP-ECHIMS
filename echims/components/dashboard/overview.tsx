@@ -1,11 +1,21 @@
 'use client'
 
 import { Activity, AlertCircle, Apple, Baby, Clock, Package, Syringe } from 'lucide-react'
+import Link from 'next/link'
+import useSWR from 'swr'
 import { useAuth } from '@/components/auth/auth-provider'
 import { HealthMetrics } from './health-metrics'
 import { RecentAlerts } from './recent-alerts'
 import { StatCard } from './stat-card'
 import type { UserRole } from '@/lib/echims-data'
+
+// Lightweight fetcher for the overdue count tile — returns null on failure so the
+// tile just shows 0 instead of erroring out the whole dashboard.
+const defaultersFetcher = async (url: string) => {
+  const r = await fetch(url)
+  if (!r.ok) return null
+  return r.json()
+}
 
 const dashboardContent: Record<UserRole, { title: string; description: string; cards: [string, string][]; priorities: string[]; activities: string[] }> = {
   Administrator: { title: 'Administrator Dashboard', description: 'Monitor eCHIMS operations, users, inventory, and program performance.', cards: [['Children Registered', '1,245'], ['Active Health Workers', '32'], ['Vaccination Coverage', '87%'], ['Nutritional Cases', '143'], ['Low Stock Items', '8'], ['Pending Requests', '12']], priorities: ['Review pending user and schedule requests', 'Monitor vaccine stock below reorder level', 'Review missed vaccination alerts', 'Review children flagged for nutritional risk'], activities: ['New child profiles', 'Inventory transactions', 'Schedule requests', 'User activities'] },
@@ -25,6 +35,17 @@ export function DashboardOverview() {
   if (!isReady || !user?.role) return <div className="rounded-2xl border border-sky-200 bg-white p-10 text-center text-[#6B7280]">Loading your dashboard...</div>
   const role = user.role
   const content = dashboardContent[role]
+
+  // NIP-USR005 — Overdue vaccinations tile. BNS has no Vaccination permission, skip.
+  const showOverdueTile = role === 'Administrator' || role === 'Public Health Nurse'
+    || role === 'Barangay Health Worker' || role === 'Rural Health Midwife'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: defaultersData } = useSWR<any>(
+    showOverdueTile ? '/api/vaccination/defaulters?status=OVERDUE&limit=1' : null,
+    defaultersFetcher,
+  )
+  const overdueCount = defaultersData?.counts?.overdue ?? 0
+  const childrenAffected = defaultersData?.counts?.unique_children_affected ?? 0
 
   return (
     <div className="space-y-8">
@@ -48,6 +69,29 @@ export function DashboardOverview() {
       </div>
 
       {role === 'Public Health Nurse' && <section aria-labelledby="phn-schedule-approvals" className="rounded-2xl border border-[#E5E7EB] bg-white p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-semibold text-[#0077B6]">Vaccination Schedule</p><h3 id="phn-schedule-approvals" className="mt-1 text-xl font-bold text-[#03045E]">Approval queue</h3></div><a href="/vaccination/schedule" className="text-sm font-semibold text-[#0077B6]">View all</a></div><div className="mt-5 grid gap-3 sm:grid-cols-3"><div className="rounded-xl bg-[#FFF7ED] p-4"><p className="text-sm text-[#9A3412]">Pending</p><p className="mt-1 text-2xl font-bold text-[#9A3412]">5</p></div><div className="rounded-xl bg-[#E8F7EE] p-4"><p className="text-sm text-[#16803C]">Approved</p><p className="mt-1 text-2xl font-bold text-[#16803C]">18</p></div><div className="rounded-xl bg-[#FEECEC] p-4"><p className="text-sm text-[#B42318]">Rejected</p><p className="mt-1 text-2xl font-bold text-[#B42318]">2</p></div></div></section>}
+
+      {/* NIP-USR005 — Overdue vaccinations tile for Admin/PHN/BHW/RHM */}
+      {showOverdueTile && (
+        <section aria-labelledby="overdue-vaccinations" className="rounded-2xl border border-[#E5E7EB] bg-white p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-[#B42318]">Follow-up alert</p>
+              <h3 id="overdue-vaccinations" className="mt-1 text-xl font-bold text-[#03045E]">Overdue vaccinations</h3>
+            </div>
+            <Link href="/vaccination/defaulters" className="text-sm font-semibold text-[#0077B6]">View list</Link>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl bg-[#FEECEC] p-4">
+              <p className="flex items-center gap-1.5 text-sm text-[#B42318]"><AlertCircle size={14} /> Overdue doses</p>
+              <p className="mt-1 text-2xl font-bold text-[#B42318]">{overdueCount}</p>
+            </div>
+            <div className="rounded-xl bg-[#FFF7ED] p-4">
+              <p className="text-sm text-[#9A3412]">Children affected</p>
+              <p className="mt-1 text-2xl font-bold text-[#9A3412]">{childrenAffected}</p>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section aria-labelledby="today-activities" className="rounded-2xl border border-[#E5E7EB] bg-white p-6">
         <div className="flex items-center justify-between"><div><p className="text-sm font-semibold text-[#0077B6]">Today&apos;s Activities</p><h3 id="today-activities" className="mt-1 text-xl font-bold text-[#03045E]">Scheduled work for your role</h3></div><Clock className="text-[#00B4D8]" aria-hidden="true" /></div>

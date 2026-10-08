@@ -9,7 +9,7 @@ export const roleModules: Record<UserRole, string[]> = {
   Administrator: ['Dashboard', 'User Management','Health Activities', 'Child Profiling', 'Vaccination', 'Nutritional Assessment', 'Supplementation', 'Inventory', 'Alerts', 'Reports', 'Settings'],
   'Public Health Nurse': ['Dashboard', 'Health Activities','Child Profiling', 'Vaccination', 'Nutritional Assessment', 'Supplementation', 'Inventory', 'Alerts', 'Reports', 'Settings'],
   'Barangay Health Worker': ['Dashboard', 'Child Profiling', 'Vaccination', 'Health Activities', 'Alerts', 'Reports'],
-  'Rural Health Midwife': ['Dashboard', 'Child Profiling', 'Vaccination', 'Health Activities', 'Alerts', 'Reports', 'Settings'],
+  'Rural Health Midwife': ['Dashboard', 'Child Profiling', 'Vaccination', 'Nutritional Assessment', 'Health Activities', 'Alerts', 'Reports', 'Settings'],
   'Barangay Nutrition Scholar': ['Dashboard', 'Child Profiling', 'Nutritional Assessment', 'Supplementation', 'Health Activities', 'Alerts', 'Reports', 'Settings'],
 }
 
@@ -25,6 +25,7 @@ export const moduleTabs: Record<string, { label: string; href: string; module: s
   ],
   Vaccination: [
     { label: 'Records', href: '/vaccination/records', module: 'Vaccination' },
+    { label: 'Defaulters', href: '/vaccination/defaulters', module: 'Vaccination' },
     { label: 'Schedule', href: '/vaccination/schedule', module: 'Vaccination Schedule' },
     { label: 'Calendar', href: '/vaccination/calendar', module: 'Vaccination' },
   ],
@@ -101,7 +102,7 @@ const rolePermissions: Record<UserRole, Partial<Record<string, Permission[]>>> =
     'Child Profiling': ['view', 'create', 'edit', 'export'],
     Geospatial: ['view', 'export'],
     'Masterlist Upload': ['view', 'create', 'edit'],
-    Vaccination: ['view', 'create', 'edit', 'export'],
+    Vaccination: ['view', 'create', 'edit', 'approve', 'export'],
     'Vaccination Schedule': ['view', 'approve', 'export'],
     'Nutritional Assessment': ['view', 'create', 'edit', 'export'],
     Supplementation: ['view', 'create', 'edit', 'export'],

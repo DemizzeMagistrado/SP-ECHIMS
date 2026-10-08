@@ -13,6 +13,7 @@ import { canPerform, type UserRole } from '@/lib/echims-data'
 import { ChildFormModal } from '@/components/children/child-form-modal'
 import { ChangeStatusModal } from '@/components/children/change-status-modal'
 import { VaccinationScheduleSection } from '@/components/children/vaccination-schedule-section'
+import { ImmunizationHistorySection } from '@/components/children/immunization-history-section'
 import { useToast } from '@/components/ui/toast'
 type ChildRow = {
   child_id: number
@@ -401,64 +402,57 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
       {/* NIP-USR001 — Vaccination Schedule request + preview. Computed from DOB + NIP
           catalog, already-administered doses excluded. BHW/RHM can request, PHN reviews. */}
       <VaccinationScheduleSection childId={child.child_id} />
-      {/* Vaccination history */}
-      <SectionCard title="Vaccination History" subtitle={`${vaccinations.length} record${vaccinations.length === 1 ? '' : 's'}`} icon={<Syringe size={18} />}>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-muted/60">
-              <tr>
-                {['Date', 'Vaccine', 'Dose', 'Site', 'Batch', 'Remarks'].map((heading) => (
-                  <th key={heading} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{heading}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {vaccinations.length === 0 ? (
-                <EmptyRow colSpan={6} label="No vaccinations recorded yet." />
-              ) : (
-                vaccinations.map((record) => (
-                  <tr key={record.vaccination_record_id}>
-                    <td className="px-4 py-3 text-sm">{formatDate(record.vaccination_date)}</td>
-                    <td className="px-4 py-3 text-sm font-medium">{record.vaccine?.vaccine_type ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm">{record.dose_number ? `Dose ${record.dose_number}` : '—'}</td>
-                    <td className="px-4 py-3 text-sm">{record.vaccination_site ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm">{record.batch_number ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{record.remarks ?? '—'}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </SectionCard>
-      {/* Nutritional assessment summary */}
+      {/* Immunization history */}
+      <ImmunizationHistorySection childId={child.child_id} />
+      {/* Latest nutritional assessment */}
       <SectionCard
         title="Latest Nutritional Assessment"
         subtitle={latestNutrition
           ? `Assessment #${latestNutrition.assessment_id} · ${formatDate(latestNutrition.assessment_date)}`
           : 'Saved assessment results'}
         icon={<AlertCircle size={18} />}
-        action={canViewNutrition ? <Link href="/nutritional-assessment/records" className="text-sm font-medium text-primary underline">View assessments</Link> : undefined}>
+        action={canViewNutrition
+          ? <Link href="/nutritional-assessment/records" className="text-sm font-medium text-primary underline">View assessments</Link>
+          : undefined}
+      >
         <div className="space-y-3">
           <Chip tone={nutrition.tone}>{nutrition.label}</Chip>
           <p className="text-sm text-muted-foreground">{nutrition.detail}</p>
-          {nutrition.reasons.length > 0 && <div className="flex flex-wrap gap-2">{nutrition.reasons.map((reason) =>
-            <Chip key={reason} tone={statusTone(reason)}>{reason}</Chip>,
-          )}</div>}
-          {latestNutrition && <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { label: 'Weight-for-age', value: latestNutrition.weight_for_age },
-              { label: 'Height-for-age', value: latestNutrition.height_for_age },
-              { label: 'Weight-for-length/height', value: latestNutrition.weight_for_height },
-              { label: 'Screening status', value: latestNutrition.nutritional_status },
-            ].map((item) => <div key={item.label} className="rounded-lg bg-muted/40 p-3">
-              <dt className="mb-2 text-xs text-muted-foreground">{item.label}</dt>
-              <dd><Chip tone={statusTone(item.value ?? '')}>{classificationLabel(item.value)}</Chip></dd>
-            </div>)}
-          </dl>}
-          <p className="text-xs text-muted-foreground">Based on the stored risk flag for this saved assessment. Latest means the newest assessment date, then the highest assessment ID on that date.</p>
+          {nutrition.reasons.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {nutrition.reasons.map((reason) => (
+                <Chip key={reason} tone={statusTone(reason)}>{reason}</Chip>
+              ))}
+            </div>
+          )}
+          {latestNutrition && (
+            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                { label: 'Weight-for-age', value: latestNutrition.weight_for_age },
+                { label: 'Height-for-age', value: latestNutrition.height_for_age },
+                { label: 'Weight-for-length/height', value: latestNutrition.weight_for_height },
+                { label: 'Screening status', value: latestNutrition.nutritional_status },
+              ].map((item) => (
+                <div key={item.label} className="rounded-lg bg-muted/40 p-3">
+                  <dt className="mb-2 text-xs text-muted-foreground">{item.label}</dt>
+                  <dd>
+                    <Chip tone={statusTone(item.value ?? '')}>
+                      {classificationLabel(item.value)}
+                    </Chip>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Based on the latest saved assessment.
+          </p>
         </div>
       </SectionCard>
+      {/* NIP-USR004 — Immunization History with computed due/overdue status.
+          Replaces the old plain table that showed any vaccination_record row. */}
+      <ImmunizationHistorySection childId={child.child_id} />
+
       {/* Nutritional assessment history */}
       <SectionCard title="Nutritional Assessment History" subtitle={`${assessments.length} assessment${assessments.length === 1 ? '' : 's'}`} icon={<Scale size={18} />}>
         <div className="overflow-x-auto">
