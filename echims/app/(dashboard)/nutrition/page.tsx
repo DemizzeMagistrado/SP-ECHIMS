@@ -1,12 +1,12 @@
 'use client'
-
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import useSWR from 'swr'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import Link from 'next/link'
+import { NutritionRiskMonitor } from '@/components/nutrition/nutrition-risk-monitor'
+import type { RiskMonitoring } from '@/lib/nutrition-risk'
 import { getNutritionBrowserClient, saveSnapshot, loadSnapshot, removeSnapshot, listQueue, putQueuedAssessment, removeQueuedAssessment, validateOfflinePayload, type NutritionPayload, type QueuedAssessment } from '@/lib/nutrition-offline'
 import { AlertCircle, Loader2, Plus, RefreshCw, Printer, X } from 'lucide-react'
-
 type Relation<T> = T | T[] | null
 type Barangay = { barangay_id: number; barangay_name: string; municipality: string; province: string }
 type Guardian = { guardian_id?: number; first_name: string; middle_name: string | null; last_name: string; relationship_to_child: string | null }
@@ -60,6 +60,7 @@ type Assessment = {
   profile?: ChildProfile | null
 }
 type NutritionResponse = {
+  risk_monitoring?: RiskMonitoring
   data: Assessment[]
   children: Child[]
   role: string
@@ -76,11 +77,9 @@ type Draft = {
   edema_grade: string
   remarks: string
 }
-
 const endpoint = '/api/nutrition'
 const inputClass = 'mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 font-normal text-foreground'
 const alertClass = 'rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800'
-
 type SyncReviewRow = {
   draft: QueuedAssessment
   sameDay: Assessment[]
@@ -99,7 +98,6 @@ function sameMeasurements(payload: NutritionPayload, record: {
     && muac(payload.muac) === muac(record.muac)
     && payload.measurement_type === record.measurement_type && payload.edema_grade === record.edema_grade
 }
-
 function one<T>(value: Relation<T>): T | null {
   return Array.isArray(value) ? value[0] ?? null : value
 }
@@ -266,10 +264,9 @@ function AssessmentDetails({ assessment, onClose }: { assessment: Assessment; on
     <p className="mt-4 text-sm"><strong>Remarks:</strong> {item.remarks || 'None recorded'}</p>
   </Modal>
 }
-
 type IndicatorField = 'weight_for_age' | 'height_for_age' | 'weight_for_height'
 type ListCode = 'UW' | 'SUW' | 'St' | 'SSt' | 'W' | 'SW'
-type ReportView = 'Summary' | 'Assessments' | ListCode
+type ReportView = 'Summary' | 'Assessments' | 'Risk' | ListCode
 const listDefinitions: Record<ListCode, { title: string; field: IndicatorField; value: string }> = {
   UW: { title: 'Underweight', field: 'weight_for_age', value: 'UNDERWEIGHT' },
   SUW: { title: 'Severely Underweight', field: 'weight_for_age', value: 'SEVERELY_UNDERWEIGHT' },
@@ -377,7 +374,7 @@ function SummaryReport({ records, year, barangay, onList }: {
     ['IP membership not confirmed', eligible.filter((item) => ipMembership(item.profile?.ethnicity) === 'Not confirmed').length],
   ]
   return <section className="space-y-4 rounded-2xl border border-border bg-white p-5" aria-label="OPT Plus summary">
-    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-bold">OPT Plus {year} — Summary</h2><p className="text-sm text-muted-foreground">{barangay}</p></div><button type="button" onClick={() => window.print()} className="nutrition-no-print flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm"><Printer size={16} />Print summary</button></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-bold">Nutritional Assessment {year} — Summary</h2><p className="text-sm text-muted-foreground">{barangay}</p></div><button type="button" onClick={() => window.print()} className="nutrition-no-print flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm"><Printer size={16} />Print summary</button></div>
     <div className="grid gap-3 sm:grid-cols-3">{(['weight_for_age', 'height_for_age', 'weight_for_height'] as IndicatorField[]).map((field) => <div key={field} className="rounded-lg bg-sky-50 p-3 text-sm"><p>{field === 'weight_for_age' ? 'Total valid WFA' : field === 'height_for_age' ? 'Total valid HFA' : 'Total valid WFL/H'}</p><strong className="text-xl">{denominators(field).length}</strong></div>)}</div>
     <div className="overflow-x-auto"><table className="w-full border-collapse"><caption className="sr-only">Nutrition classifications by age, sex, prevalence and IP membership</caption><thead>
       <tr className="bg-sky-50"><th rowSpan={2} className={cell}>Classification</th>{ageBands.map((band) => <th key={band.label} colSpan={3} className={cell}>{band.label}</th>)}<th colSpan={2} className={cell}>0–59 months</th><th colSpan={2} className={cell}>F1K: 0–23 months</th><th colSpan={3} className={cell}>IP children</th></tr>
@@ -415,7 +412,6 @@ function ClassificationList({ records, code, year, barangay, onScores }: {
     <p className="text-xs text-muted-foreground">This list uses {heightIndicator ? 'height-for-age' : definition.field === 'weight_for_age' ? 'weight-for-age' : 'weight-for-length/height'} classification, independently of SAM/MAM status. It uses each child’s latest assessment in the selected year. Follow-up dates have no dedicated field in the supplied database; the four columns are blank spaces for the printed list.</p>
   </section>
 }
-
 export default function NutritionPage() {
   const [category, setCategory] = useState('All')
   const [history, setHistory] = useState(false)
@@ -448,9 +444,7 @@ export default function NutritionPage() {
   const accessDenied = error instanceof NutritionHttpError && [401, 403].includes(error.status)
   const data = accessDenied ? undefined : liveData?.currentUserId === ownerId ? liveData
     : cachedResponse?.currentUserId === ownerId ? cachedResponse : undefined
-
   const canRecord = data?.role === 'BNS' && data.permissions.create
-
   const savingRef = useRef(false)
   const children = data?.children ?? []
   const scopedRecords = useMemo(() => (data?.data ?? []).filter((item) =>
@@ -475,7 +469,6 @@ export default function NutritionPage() {
   const days = draft && child ? ageDays(child, draft.assessment_date) : null
   const eligibleChildren = draft ? children.filter((item) => (reportBarangay === 'All' || String(item.barangay_id) === reportBarangay) && draft.assessment_date >= item.date_of_birth && draft.assessment_date < addMonths(item.date_of_birth, 60)) : []
   const underSix = !!(draft && child && draft.assessment_date < addMonths(child.date_of_birth, 6))
-
   function change(key: keyof Draft, value: string) {
     setDraft((previous) => {
       if (!previous) return previous
@@ -487,12 +480,10 @@ export default function NutritionPage() {
       return next
     })
   }
-
   async function refreshQueue(id: string) {
     const rows = await listQueue(id)
     if (ownerRef.current === id) setQueued(rows)
   }
-
   async function reviewQueue(requestId?: string) {
     const id = ownerRef.current
     if (!id || !canRecord || !navigator.onLine || syncing || reviewing) return
@@ -520,14 +511,12 @@ export default function NutritionPage() {
     } catch (problem) { if (ownerRef.current === id) setStorageError(problem instanceof Error ? problem.message : 'Unable to check drafts for duplicates.') }
     finally { if (ownerRef.current === id) setReviewing(false) }
   }
-
   async function confirmReview() {
     if (!syncReview || !syncReview.selectedIds.length || syncReview.ownerId !== ownerRef.current || !canRecord) return
     const approval = syncReview
     setSyncReview(null)
     await syncHandler.current(approval)
   }
-
   async function syncQueue(approval?: SyncReview) {
     const id = ownerRef.current
     if (!id || !approval || approval.ownerId !== id || !navigator.onLine || syncBusy.current) return
@@ -626,7 +615,6 @@ export default function NutritionPage() {
     }
   }
   syncHandler.current = syncQueue
-
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!draft || savingRef.current) return
@@ -670,7 +658,6 @@ export default function NutritionPage() {
       if (ownerRef.current === id) setSaving(false)
     }
   }
-
   function editQueued(row: QueuedAssessment) {
     if (row.ownerId !== ownerRef.current || syncing) return
     editingRequest.current = row.requestId
@@ -695,7 +682,6 @@ export default function NutritionPage() {
       await reviewQueue(row.requestId)
     } catch (problem) { setStorageError(problem instanceof Error ? problem.message : 'Unable to retry the draft.') }
   }
-
   useEffect(() => {
     let alive = true
     const applySession = (id: string | null) => {
@@ -727,14 +713,12 @@ export default function NutritionPage() {
       return () => { alive = false }
     }
   }, [])
-
   useEffect(() => {
     const update = () => setOnline(navigator.onLine)
     update()
     window.addEventListener('online', update); window.addEventListener('offline', update)
     return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update) }
   }, [])
-
   useEffect(() => {
     if (!ownerId) return
     let alive = true
@@ -743,20 +727,17 @@ export default function NutritionPage() {
     }).catch((problem) => { if (alive) setStorageError(problem instanceof Error ? problem.message : 'Offline storage is unavailable.') })
     return () => { alive = false }
   }, [ownerId])
-
   useEffect(() => {
     if (!ownerId || liveData?.currentUserId !== ownerId) return
     void saveSnapshot(ownerId, liveData).catch((problem) => {
       if (ownerRef.current === ownerId) setStorageError(problem instanceof Error ? problem.message : 'Unable to cache this account’s child options.')
     })
   }, [ownerId, liveData])
-
   useEffect(() => {
     if (!ownerId || !accessDenied) return
     setCachedResponse(null)
     void removeSnapshot(ownerId).catch(() => {})
   }, [ownerId, accessDenied])
-
   return <div className="nutrition-report-root space-y-6">
     <style>{`@media print {
       body * { visibility: hidden; }
@@ -782,9 +763,9 @@ export default function NutritionPage() {
       </div>}
     </div>
     <nav aria-label="Nutrition views" className="nutrition-no-print flex gap-1 border-b border-sky-200 bg-sky-50 px-2">
-      {(['Assessments', 'Summary'] as const).map((view) => {
-        const active = view === 'Assessments' ? reportView === 'Assessments' : reportView !== 'Assessments'
-        return <button key={view} type="button" aria-pressed={active} onClick={() => setReportView(view)} className={`border-b-2 px-5 py-4 text-sm font-medium transition-colors ${active ? 'border-[#0077B6] text-[#0077B6]' : 'border-transparent text-muted-foreground hover:border-sky-200 hover:text-[#0077B6]'}`}>{view === 'Assessments' ? 'All assessments' : 'Summary'}</button>
+      {(['Assessments', 'Summary', 'Risk'] as const).map((view) => {
+        const active = view === 'Summary' ? reportView !== 'Assessments' && reportView !== 'Risk' : reportView === view
+        return <button key={view} type="button" aria-pressed={active} onClick={() => setReportView(view)} className={`border-b-2 px-5 py-4 text-sm font-medium transition-colors ${active ? 'border-[#0077B6] text-[#0077B6]' : 'border-transparent text-muted-foreground hover:border-sky-200 hover:text-[#0077B6]'}`}>{view === 'Assessments' ? 'All assessments' : view === 'Risk' ? 'Risk monitoring' : 'Summary'}</button>
       })}
     </nav>
     {message && <p role="status" className="rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm text-teal-800">{message}</p>}
@@ -797,17 +778,18 @@ export default function NutritionPage() {
       {storageError && <p role="alert" className={alertClass}>{storageError}</p>}
       {queued.map((row) => <div key={row.requestId} className="rounded-lg border border-border bg-white p-3 text-sm"><div className="flex flex-wrap items-center justify-between gap-3"><div><strong>{row.childName}</strong><p>{row.payload.assessment_date} · {row.status === 'BLOCKED' ? 'Needs correction or permission review' : 'Pending sync'}</p></div><div className="flex gap-3"><button type="button" disabled={syncing || !canRecord} onClick={() => editQueued(row)} className="text-primary underline disabled:opacity-50">Edit draft</button><button type="button" disabled={syncing || !online || !canRecord} onClick={() => void retryQueued(row)} className="text-primary underline disabled:opacity-50">Review & retry</button><button type="button" disabled={syncing} onClick={() => void removeQueued(row)} className="text-red-700 underline disabled:opacity-50">Remove local draft</button></div></div>{row.lastError && <p className="mt-2 text-xs text-red-700">{row.lastError}</p>}</div>)}
     </section>
-    <div className="nutrition-no-print flex flex-wrap items-center gap-3">
+    {reportView !== 'Risk' && <div className="nutrition-no-print flex flex-wrap items-center gap-3">
       <label htmlFor="nutrition-year" className="text-sm font-medium">Year</label>
       <select id="nutrition-year" value={reportYear} onChange={(event) => setReportYear(event.target.value)} className="rounded-lg border border-border bg-white px-3 py-2">{years.map((year) => <option key={year}>{year}</option>)}</select>
       <label htmlFor="nutrition-barangay" className="text-sm font-medium">Barangay</label>
       <select id="nutrition-barangay" value={reportBarangay} onChange={(event) => setReportBarangay(event.target.value)} className="rounded-lg border border-border bg-white px-3 py-2"><option value="All">All accessible barangays</option>{barangays.map((b) => <option key={b.barangay_id} value={b.barangay_id}>{b.barangay_name} — {b.municipality}</option>)}</select>
-    </div>
-    {reportView !== 'Assessments' && <nav aria-label="Summary classifications" className="nutrition-no-print flex flex-wrap gap-2 rounded-xl border border-border bg-white p-3">
-      {(['Summary', ...listCodes] as Exclude<ReportView, 'Assessments'>[]).map((view) => <button key={view} type="button" aria-pressed={reportView === view} onClick={() => setReportView(view)} className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${reportView === view ? 'bg-sky-100 text-[#0077B6]' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>{view === 'Summary' ? 'Overview' : `List ${view} (${listRecords(latest, view).length})`}</button>)}
+    </div>}
+    {reportView === 'Risk' && <NutritionRiskMonitor key={ownerId ?? 'signed-out'} monitoring={data?.risk_monitoring} loading={!authReady || Boolean(ownerId && !data && !error) || isValidating} error={error?.message} offline={!online} onRefresh={() => void mutate()} />}
+    {reportView !== 'Assessments' && reportView !== 'Risk' && <nav aria-label="Summary classifications" className="nutrition-no-print flex flex-wrap gap-2 rounded-xl border border-border bg-white p-3">
+      {(['Summary', ...listCodes] as Exclude<ReportView, 'Assessments' | 'Risk'>[]).map((view) => <button key={view} type="button" aria-pressed={reportView === view} onClick={() => setReportView(view)} className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${reportView === view ? 'bg-sky-100 text-[#0077B6]' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>{view === 'Summary' ? 'Overview' : `List ${view} (${listRecords(latest, view).length})`}</button>)}
     </nav>}
     {reportView === 'Summary' && <SummaryReport records={latest} year={reportYear} barangay={reportBarangay === 'All' ? 'All accessible barangays' : selectedAreas[0]?.barangay_name ?? 'Selected barangay'} onList={setReportView} />}
-    {reportView !== 'Summary' && reportView !== 'Assessments' && <ClassificationList records={latest} code={reportView} year={reportYear} barangay={reportBarangay === 'All' ? 'All accessible barangays' : selectedAreas[0]?.barangay_name ?? 'Selected barangay'} onScores={setSelected} />}
+    {reportView !== 'Summary' && reportView !== 'Assessments' && reportView !== 'Risk' && <ClassificationList records={latest} code={reportView} year={reportYear} barangay={reportBarangay === 'All' ? 'All accessible barangays' : selectedAreas[0]?.barangay_name ?? 'Selected barangay'} onScores={setSelected} />}
     {reportView === 'Assessments' && <>
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
       {countCategories.map((name) => <button key={name} type="button" onClick={() => setCategory(category === name ? 'All' : name)} aria-pressed={category === name} className={`rounded-xl border p-4 text-left ${category === name ? 'border-primary bg-sky-50' : 'border-border bg-white'}`}>
@@ -860,7 +842,6 @@ export default function NutritionPage() {
     </div>
     </>}
     <div className="nutrition-no-print rounded-2xl border border-border bg-white p-5"><h2 className="flex items-center gap-2 font-semibold"><AlertCircle size={19} className="text-orange-500" />Follow-up guidance</h2><p className="mt-2 text-sm text-muted-foreground">SAM and infant urgent-review results require prompt clinical assessment. Other growth concerns require health-staff review. Missing scores and flagged measurements are displayed for verification.</p></div>
-
     {syncReview && <Modal title="Review drafts before upload" busy={syncing} onClose={() => setSyncReview(null)}>
       <p className="mb-4 text-sm text-muted-foreground">Check the measurements and any existing records. Select drafts to upload, or go back and edit them. Classification and alerts are generated only after confirmed server submission.</p>
       <div className="space-y-4">{syncReview.rows.map((item) => {
@@ -881,7 +862,6 @@ export default function NutritionPage() {
       <form onSubmit={save} className="space-y-6">
         {formError && <p role="alert" className={alertClass}>{formError}</p>}
         <fieldset disabled={saving} className="space-y-6 disabled:opacity-70">
-
           <section><h3 className="mb-3 border-b border-border pb-2 text-sm font-bold uppercase tracking-wide text-[#0077B6]">Child and caregiver information</h3>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="text-sm font-medium md:col-span-2">Select child<select autoFocus required value={draft.child_id} onChange={(event) => change('child_id', event.target.value)} className={inputClass}><option value="">Select a child</option>{eligibleChildren.map((item) => <option key={item.child_id} value={item.child_id}>{childName(item)} — {one(item.barangay)?.barangay_name ?? 'Barangay'} — #{item.child_id}</option>)}</select></label>
