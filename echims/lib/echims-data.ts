@@ -28,6 +28,7 @@ export const moduleTabs: Record<string, { label: string; href: string; module: s
     { label: 'Defaulters', href: '/vaccination/defaulters', module: 'Vaccination' },
     { label: 'Schedule', href: '/vaccination/schedule', module: 'Vaccination Schedule' },
     { label: 'Calendar', href: '/vaccination/calendar', module: 'Vaccination' },
+    { label: 'NIP Catalog', href: '/vaccination/catalog', module: 'NIP Catalog' },
   ],
   Inventory: [
     { label: 'Stock Overview', href: '/inventory/stock-overview', module: 'Inventory' },
@@ -104,6 +105,7 @@ const rolePermissions: Record<UserRole, Partial<Record<string, Permission[]>>> =
     'Masterlist Upload': ['view', 'create', 'edit'],
     Vaccination: ['view', 'create', 'edit', 'approve', 'export'],
     'Vaccination Schedule': ['view', 'approve', 'export'],
+    'NIP Catalog': ['view'],
     'Nutritional Assessment': ['view', 'create', 'edit', 'export'],
     Supplementation: ['view', 'create', 'edit', 'export'],
     Inventory: ['view', 'edit', 'export'],
