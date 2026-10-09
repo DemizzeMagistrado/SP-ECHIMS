@@ -7,6 +7,7 @@
 import { use, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
+import { SupplementationHistorySection } from '@/components/children/supplementation-history-section'
 import { NutritionHistorySection } from '@/components/children/nutrition-history-section'
 import type { HistoryAssessment } from '@/lib/nutrition-history'
 import { ArrowLeft, Pencil, Baby, Users, Syringe, Scale, Pill, MapPin, Phone, Home, ArrowRightLeft, History, AlertCircle } from 'lucide-react'
@@ -455,35 +456,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
       {/* Nutritional assessment history */}
       <NutritionHistorySection assessments={assessments ?? []} />
       {/* Supplementation history */}
-      <SectionCard title="Supplementation History" subtitle={`${supplementations.length} record${supplementations.length === 1 ? '' : 's'}`} icon={<Pill size={18} />}>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-muted/60">
-              <tr>
-                {['Date', 'Supplement', 'Dosage', 'Qty', 'Batch', 'Remarks'].map((heading) => (
-                  <th key={heading} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{heading}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {supplementations.length === 0 ? (
-                <EmptyRow colSpan={6} label="No supplementations recorded yet." />
-              ) : (
-                supplementations.map((record) => (
-                  <tr key={record.supplementation_record_id}>
-                    <td className="px-4 py-3 text-sm">{formatDate(record.supplementation_date)}</td>
-                    <td className="px-4 py-3 text-sm font-medium">{record.supplement?.supplement_type ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm">{record.supplement?.dosage ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm">{record.quantity_given ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm">{record.batch_number ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{record.remarks ?? '—'}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </SectionCard>
+      <SupplementationHistorySection childId={child.child_id} />
       {/* Movement history — only renders when at least one movement is on file.
           Shows chronological audit trail of status changes (MOVED/LOST/RETURNED/TRANSFERRED). */}
       {movements && movements.length > 0 && (
