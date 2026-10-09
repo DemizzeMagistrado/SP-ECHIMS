@@ -1,13 +1,15 @@
-        'use client'
+'use client'
 
 export type OfflineForm = {
   childId:string; supplementId:string; protocolId:string; batchId:string; date:string;
+  clinicalIndication?:string; courseReference?:string; clinicalDoseNumber?:string;
+  clinicalDoseValue?:string; clinicalDoseUnit?:string;
   purpose:string; remarks:string; orderReference:string; assessmentId:string; scheduleId:string;
   barangayId:string; batchNumber:string; receivedDate:string; expiryDate:string; quantity:string;
   allocateExisting:boolean; confirmed:boolean; planId:string; startDate:string; endDate:string;
 }
 export type SupplementDraft = {
-  key:string; ownerId:string; requestId:string; action:'RECORD'|'DISPENSE';
+  key:string; ownerId:string; requestId:string; action:'RECORD'|'DISPENSE'|'CLINICAL';
   childName:string; savedAt:string; status:'PENDING'|'BLOCKED'|'UNCERTAIN';
   lastError:string|null; form:OfflineForm;
 }
