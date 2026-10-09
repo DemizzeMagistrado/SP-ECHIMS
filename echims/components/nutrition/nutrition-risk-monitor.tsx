@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { AlertCircle, RefreshCw } from 'lucide-react'
 import { labelClassification } from '@/lib/nutrition-history'
 import type { RiskMonitoring } from '@/lib/nutrition-risk'
+import { formatChildId } from '@/lib/formatters'
 export function NutritionRiskMonitor({ monitoring, error, loading, offline, onRefresh }: { monitoring?: RiskMonitoring; error?: string; loading: boolean; offline: boolean; onRefresh: () => void }) {
   const [barangay, setBarangay] = useState('All')
   const [classification, setClassification] = useState('All')
@@ -30,7 +31,7 @@ export function NutritionRiskMonitor({ monitoring, error, loading, offline, onRe
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={worsenedOnly} onChange={(event) => setWorsenedOnly(event.target.checked)} />Worsened only</label>
       </div>
       <div className="overflow-x-auto rounded-xl border border-border bg-white"><table className="w-full text-sm"><thead className="bg-muted"><tr>{['Child', 'Barangay', 'Latest assessment', 'Recorded risks', 'Priority', 'Change', 'Action'].map((title) => <th key={title} className="px-4 py-3 text-left">{title}</th>)}</tr></thead><tbody className="divide-y divide-border">{visible.map((row) => <tr key={row.child_id} className={row.worsening.length ? 'bg-red-50/40' : ''}>
-        <td className="px-4 py-3 font-medium">{row.child_name}<span className="block text-xs text-muted-foreground">CH-{row.child_id}</span></td><td className="px-4 py-3">{row.barangay_name}</td><td className="whitespace-nowrap px-4 py-3">#{row.assessment_id}<br />{row.assessment_date}</td>
+        <td className="px-4 py-3 font-medium">{row.child_name}<span className="block text-xs text-muted-foreground">{formatChildId(row.child_id)}</span></td><td className="px-4 py-3">{row.barangay_name}</td><td className="whitespace-nowrap px-4 py-3">#{row.assessment_id}<br />{row.assessment_date}</td>
         <td className="min-w-[220px] px-4 py-3">{row.classifications.length ? row.classifications.map((item) => <p key={item.field} className="text-xs">{item.label}: {labelClassification(item.code)}</p>) : 'Stored risk flag requires review'}</td>
         <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${row.severity === 'CRITICAL' ? 'bg-red-100 text-red-800' : row.severity === 'HIGH' ? 'bg-orange-100 text-orange-800' : 'bg-amber-100 text-amber-800'}`}>{row.severity}</span></td>
         <td className="min-w-[230px] px-4 py-3">{row.worsening.length ? <><span className="rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-800">Worsened</span>{row.worsening.map((item) => <p key={item.label} className="mt-1 text-xs">{item.label}: {labelClassification(item.previous)} → {labelClassification(item.current)}</p>)}<p className="mt-1 text-xs text-muted-foreground">Compared with #{row.previous_assessment_id} · {row.previous_date}</p></> : <span className="text-xs text-muted-foreground">{row.previous_assessment_id ? 'No comparable worsening detected' : 'No earlier assessment date'}</span>}</td>

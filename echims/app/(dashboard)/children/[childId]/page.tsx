@@ -7,12 +7,12 @@
 import { use, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
-import { SupplementationHistorySection } from '@/components/children/supplementation-history-section'
 import { NutritionHistorySection } from '@/components/children/nutrition-history-section'
 import type { HistoryAssessment } from '@/lib/nutrition-history'
 import { ArrowLeft, Pencil, Baby, Users, Syringe, Scale, Pill, MapPin, Phone, Home, ArrowRightLeft, History, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
+import { formatChildId } from '@/lib/formatters'
 import { ChildFormModal } from '@/components/children/child-form-modal'
 import { ChangeStatusModal } from '@/components/children/change-status-modal'
 import { VaccinationScheduleSection } from '@/components/children/vaccination-schedule-section'
@@ -332,7 +332,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
               <Baby size={32} />
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Child ID · CH-{child.child_id}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Child ID · {formatChildId(child.child_id, child.registration_date)}</p>
               <h1 className="mt-1 text-3xl font-bold text-foreground">{fullName}</h1>
               <p className="mt-1 text-sm text-muted-foreground">
                 {titleCase(child.sex)} · {ageDescription(child.date_of_birth)} · Born {formatDate(child.date_of_birth)}
@@ -456,7 +456,35 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
       {/* Nutritional assessment history */}
       <NutritionHistorySection assessments={assessments ?? []} />
       {/* Supplementation history */}
-      <SupplementationHistorySection childId={child.child_id} />
+      <SectionCard title="Supplementation History" subtitle={`${supplementations.length} record${supplementations.length === 1 ? '' : 's'}`} icon={<Pill size={18} />}>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-muted/60">
+              <tr>
+                {['Date', 'Supplement', 'Dosage', 'Qty', 'Batch', 'Remarks'].map((heading) => (
+                  <th key={heading} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{heading}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {supplementations.length === 0 ? (
+                <EmptyRow colSpan={6} label="No supplementations recorded yet." />
+              ) : (
+                supplementations.map((record) => (
+                  <tr key={record.supplementation_record_id}>
+                    <td className="px-4 py-3 text-sm">{formatDate(record.supplementation_date)}</td>
+                    <td className="px-4 py-3 text-sm font-medium">{record.supplement?.supplement_type ?? '—'}</td>
+                    <td className="px-4 py-3 text-sm">{record.supplement?.dosage ?? '—'}</td>
+                    <td className="px-4 py-3 text-sm">{record.quantity_given ?? '—'}</td>
+                    <td className="px-4 py-3 text-sm">{record.batch_number ?? '—'}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{record.remarks ?? '—'}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </SectionCard>
       {/* Movement history — only renders when at least one movement is on file.
           Shows chronological audit trail of status changes (MOVED/LOST/RETURNED/TRANSFERRED). */}
       {movements && movements.length > 0 && (

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { NutritionRiskMonitor } from '@/components/nutrition/nutrition-risk-monitor'
 import type { RiskMonitoring } from '@/lib/nutrition-risk'
 import { getNutritionBrowserClient, saveSnapshot, loadSnapshot, removeSnapshot, listQueue, putQueuedAssessment, removeQueuedAssessment, validateOfflinePayload, type NutritionPayload, type QueuedAssessment } from '@/lib/nutrition-offline'
+import { formatChildId } from '@/lib/formatters'
 import { AlertCircle, Loader2, Plus, RefreshCw, Printer, X } from 'lucide-react'
 type Relation<T> = T | T[] | null
 type Barangay = { barangay_id: number; barangay_name: string; municipality: string; province: string }
@@ -406,7 +407,7 @@ function ClassificationList({ records, code, year, barangay, onScores }: {
   return <section className="space-y-4 rounded-2xl border border-border bg-white p-5" aria-label={`List ${code}`}>
     <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-bold">List {code} — {definition.title} children, 0–59 months</h2><p className="text-sm text-muted-foreground">{barangay} · {year} · {items.length} children</p></div><button type="button" onClick={() => window.print()} className="nutrition-no-print flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm"><Printer size={16} />Print list</button></div>
     <div className="overflow-x-auto"><table className="w-full border-collapse"><thead className="bg-muted"><tr>{['Child ID', 'Address / location', 'Mother / caregiver', 'Full name of child', 'Sex', 'Age (months)', 'Classification', 'Weight (kg)', 'Length/height (cm)', 'Date measured'].map((name) => <th key={name} rowSpan={2} className={cell}>{name}</th>)}<th colSpan={4} className={cell}>Date of follow-up</th><th rowSpan={2} className={`${cell} nutrition-no-print`}>Actions</th></tr><tr>{[1, 2, 3, 4].map((n) => <th key={n} className={cell}>{n}</th>)}</tr></thead><tbody>
-      {items.map((item) => <tr key={item.child_id}><td className={cell}>CH-{item.child_id}</td><td className={cell}>{one(item.child) ? residentLocation(one(item.child)!) || 'Not recorded' : 'Not recorded'}</td><td className={cell}>{caregiverName(one(item.child))}</td><td className={cell}>{childName(one(item.child))}</td><td className={cell}>{assessmentSex(item) === 'MALE' ? 'M' : assessmentSex(item) === 'FEMALE' ? 'F' : '—'}</td><td className={cell}>{assessmentMonths(item)}</td><td className={cell}>{code}</td><td className={cell}>{quantity(item.weight)}</td><td className={cell}>{quantity(item.height)}</td><td className={`${cell} whitespace-nowrap`}>{item.assessment_date}</td>{[1, 2, 3, 4].map((n) => <td key={n} aria-label={`Follow-up ${n}: not recorded`} className={`${cell} min-w-24`}>—</td>)}<td className={`${cell} nutrition-no-print`}><Link href={childRecordUrl(item.child_id)} className="block text-primary underline">View child record</Link><button type="button" onClick={() => onScores(item)} className="mt-2 text-primary underline">Scores</button></td></tr>)}
+      {items.map((item) => <tr key={item.child_id}><td className={cell}>{formatChildId(item.child_id, one(item.child)?.date_of_birth)}</td><td className={cell}>{one(item.child) ? residentLocation(one(item.child)!) || 'Not recorded' : 'Not recorded'}</td><td className={cell}>{caregiverName(one(item.child))}</td><td className={cell}>{childName(one(item.child))}</td><td className={cell}>{assessmentSex(item) === 'MALE' ? 'M' : assessmentSex(item) === 'FEMALE' ? 'F' : '—'}</td><td className={cell}>{assessmentMonths(item)}</td><td className={cell}>{code}</td><td className={cell}>{quantity(item.weight)}</td><td className={cell}>{quantity(item.height)}</td><td className={`${cell} whitespace-nowrap`}>{item.assessment_date}</td>{[1, 2, 3, 4].map((n) => <td key={n} aria-label={`Follow-up ${n}: not recorded`} className={`${cell} min-w-24`}>—</td>)}<td className={`${cell} nutrition-no-print`}><Link href={childRecordUrl(item.child_id)} className="block text-primary underline">View child record</Link><button type="button" onClick={() => onScores(item)} className="mt-2 text-primary underline">Scores</button></td></tr>)}
       {items.length === 0 && <tr><td colSpan={15} className={`${cell} py-8 text-center text-muted-foreground`}>No {definition.title.toLowerCase()} children in this scope.</td></tr>}
     </tbody></table></div>
     <p className="text-xs text-muted-foreground">This list uses {heightIndicator ? 'height-for-age' : definition.field === 'weight_for_age' ? 'weight-for-age' : 'weight-for-length/height'} classification, independently of SAM/MAM status. It uses each child’s latest assessment in the selected year. Follow-up dates have no dedicated field in the supplied database; the four columns are blank spaces for the printed list.</p>
@@ -435,7 +436,6 @@ export default function NutritionPage() {
   const ownerRef = useRef<string | null>(null)
   const syncBusy = useRef(false)
   const editingRequest = useRef<string | null>(null)
-  const onlineRequest = useRef<string | null>(null)
   const syncHandler = useRef<(approval?: SyncReview) => Promise<void>>(async () => {})
   const { data: liveData, error, mutate, isValidating } = useSWR<NutritionResponse>(
     authReady && ownerId && online ? [endpoint, ownerId] : null,
@@ -471,7 +471,6 @@ export default function NutritionPage() {
   const eligibleChildren = draft ? children.filter((item) => (reportBarangay === 'All' || String(item.barangay_id) === reportBarangay) && draft.assessment_date >= item.date_of_birth && draft.assessment_date < addMonths(item.date_of_birth, 60)) : []
   const underSix = !!(draft && child && draft.assessment_date < addMonths(child.date_of_birth, 6))
   function change(key: keyof Draft, value: string) {
-    onlineRequest.current = null
     setDraft((previous) => {
       if (!previous) return previous
       const next = { ...previous, [key]: value }
@@ -627,12 +626,7 @@ export default function NutritionPage() {
     }
     if (draft.edema_grade === '') { setFormError('Record the edema examination result.'); return }
     let requestId: string
-    const submitOnline = navigator.onLine
-    const editingLocalDraft = editingRequest.current !== null
-    try {
-      requestId = editingRequest.current ?? onlineRequest.current ?? crypto.randomUUID()
-      if (!editingLocalDraft) onlineRequest.current = requestId
-    }
+    try { requestId = editingRequest.current ?? crypto.randomUUID() }
     catch { setFormError('Unable to create a draft ID. Use this app over HTTPS or localhost.'); return }
     const payload: NutritionPayload = {
       child_id: Number(draft.child_id), assessment_date: draft.assessment_date,
@@ -646,77 +640,6 @@ export default function NutritionPage() {
     if (validation) { setFormError(validation); return }
     savingRef.current = true
     setSaving(true)
-    // Capture connectivity at the click. Reconnection never submits an offline draft.
-    if (submitOnline && !editingLocalDraft) {
-      let postAttempted = false
-      let serverSaved = false
-      try {
-        const fresh = await fetchNutrition(endpoint)
-        if (ownerRef.current !== id) return
-        if (fresh.currentUserId !== id || fresh.role !== 'BNS' || !fresh.permissions.create) {
-          throw new Error('Sign in with an active BNS account authorized to record this assessment.')
-        }
-        const eligible = fresh.children.find((item) => item.child_id === payload.child_id)
-        if (!eligible) throw new Error('This child is no longer available in your assigned scope.')
-        const currentValidation = validateOfflinePayload(payload, eligible.date_of_birth, todayKey())
-        if (currentValidation) throw new Error(currentValidation)
-        const duplicate = fresh.data.find((item) => item.client_request_id !== requestId && sameMeasurements(payload, item))
-        if (duplicate) throw new Error(`Matching measurements already exist as assessment #${duplicate.assessment_id}. Review the child record before submitting again.`)
-        const localDuplicate = (await listQueue(id)).find((item) => item.requestId !== requestId && sameMeasurements(payload, item.payload))
-        if (localDuplicate) throw new Error('Matching measurements exist in your pending drafts. Review that draft instead of submitting another assessment.')
-        if (ownerRef.current !== id) return
-        if (!navigator.onLine) throw new Error('Connection was lost before submission. Save this form as an offline draft.')
-        const controller = new AbortController()
-        const timeout = window.setTimeout(() => controller.abort(), 25000)
-        let result: { data?: Assessment }
-        try {
-          postAttempted = true
-          result = await readJson(await fetch(endpoint, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
-            body: JSON.stringify({ ...payload, request_owner_id: id }),
-          }))
-        } finally { window.clearTimeout(timeout) }
-        if (!result.data?.assessment_id) throw new Error('The server did not confirm this save.')
-        serverSaved = true
-        if (ownerRef.current !== id) return
-        onlineRequest.current = null
-        setDraft(null)
-        setSelected(result.data)
-        setReportYear(payload.assessment_date.slice(0, 4))
-        setReportView('Assessments')
-        setMessage('Assessment saved on the server and classified.')
-        await mutate()
-      } catch (problem) {
-        const detail = problem instanceof Error ? problem.message : 'Unable to save the assessment.'
-        const status = problem instanceof NutritionHttpError ? problem.status : 0
-        const uncertain = postAttempted && !serverSaved && (status === 0 || status < 400 || status >= 500 || status === 408)
-        if (uncertain) {
-          try {
-            await putQueuedAssessment(id, {
-              key: `${id}:${requestId}`, ownerId: id, requestId, childName: childName(child),
-              queuedAt: new Date().toISOString(), status: 'PENDING',
-              lastError: `Submission could not be confirmed. Review and retry this draft with its existing request ID. ${detail}`,
-              payload,
-            })
-            if (ownerRef.current === id) {
-              onlineRequest.current = null
-              setDraft(null)
-              setMessage('Submission could not be confirmed. A recovery draft was retained; review it before retrying. Nothing is uploaded automatically.')
-              await refreshQueue(id)
-            }
-          } catch (storageProblem) {
-            if (ownerRef.current === id) setFormError(`Submission is uncertain and recovery storage failed. Keep this form open and retry without changing its measurements. ${storageProblem instanceof Error ? storageProblem.message : ''}`)
-          }
-        } else if (ownerRef.current === id) {
-          if (serverSaved) setStorageError(`Assessment saved, but the list could not refresh. Use Refresh. ${detail}`)
-          else setFormError(detail)
-        }
-      } finally {
-        savingRef.current = false
-        if (ownerRef.current === id) setSaving(false)
-      }
-      return
-    }
     try {
       const existing = queued.find((item) => item.requestId === requestId)
       await putQueuedAssessment(id, {
@@ -725,7 +648,6 @@ export default function NutritionPage() {
       })
       if (ownerRef.current !== id) return
       editingRequest.current = null
-      onlineRequest.current = null
       setDraft(null)
       setStorageError('')
       setMessage('Draft saved locally. Review or edit it, then confirm upload when online. Nothing is uploaded automatically.')
@@ -739,7 +661,6 @@ export default function NutritionPage() {
   }
   function editQueued(row: QueuedAssessment) {
     if (row.ownerId !== ownerRef.current || syncing) return
-    onlineRequest.current = null
     editingRequest.current = row.requestId
     setFormError('')
     setDraft({ child_id: String(row.payload.child_id), assessment_date: row.payload.assessment_date,
@@ -771,7 +692,6 @@ export default function NutritionPage() {
         setOwnerId(id); setCachedResponse(null); setQueued([]); setDraft(null); setSelected(null)
         setFormError(''); setMessage(''); setStorageError(''); setSyncing(false); setSaving(false)
         editingRequest.current = null
-        onlineRequest.current = null
         setSyncReview(null); setReviewing(false)
       }
       setAuthReady(true)
@@ -838,7 +758,7 @@ export default function NutritionPage() {
       {data?.role === 'BNS' && <div className="flex flex-col items-end gap-1">
         <button type="button" disabled={!canRecord || !ownerId || accessDenied}
           title={!data ? 'Loading account permissions and child options' : !data.permissions.create ? 'This account has view access only' : 'Record anthropometric measurements'}
-          onClick={() => { editingRequest.current = null; onlineRequest.current = null; setFormError(''); setMessage(''); setDraft({ ...initialDraft(), assessment_date: reportYear === todayKey().slice(0, 4) ? todayKey() : `${reportYear}-12-31` }) }}
+          onClick={() => { editingRequest.current = null; setFormError(''); setMessage(''); setDraft({ ...initialDraft(), assessment_date: reportYear === todayKey().slice(0, 4) ? todayKey() : `${reportYear}-12-31` }) }}
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"><Plus size={20} />Record Assessment</button>
         {!canRecord && <span className="text-xs text-muted-foreground">Recording permission is unavailable for this account.</span>}
       </div>}
@@ -854,11 +774,11 @@ export default function NutritionPage() {
     {!authReady && <p role="status" className="text-sm">Checking signed-in account…</p>}
     {authReady && !ownerId && <p role="alert" className={alertClass}>Sign in to access this account’s nutrition records and offline drafts.</p>}
     {ownerId && !data && !error && <p role="status" className="flex items-center gap-2 text-sm">{online ? <><Loader2 className="animate-spin" size={18} />Loading assessments…</> : 'No cached child options are available. Open this page online once before working offline.'}</p>}
-    {storageError && <p role="alert" className={alertClass}>{storageError}</p>}
-    {(queued.length > 0 || !online) && <section className="nutrition-no-print space-y-3 rounded-xl border border-sky-200 bg-sky-50 p-4" aria-label="Offline assessment queue">
+    <section className="nutrition-no-print space-y-3 rounded-xl border border-sky-200 bg-sky-50 p-4" aria-label="Offline assessment queue">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">{online ? 'Online' : 'Offline'} · {queued.length} local draft{queued.length === 1 ? '' : 's'}</h2><p className="text-xs text-muted-foreground">Drafts stay on this device until you review and confirm upload. Reconnecting never uploads automatically.</p></div><button type="button" disabled={!online || !ownerId || !canRecord || syncing || reviewing || queued.length === 0} onClick={() => void reviewQueue()} className="rounded-lg border border-border bg-white px-3 py-2 text-sm disabled:opacity-50">{syncing ? 'Uploading…' : reviewing ? 'Checking drafts…' : 'Review pending drafts'}</button></div>
+      {storageError && <p role="alert" className={alertClass}>{storageError}</p>}
       {queued.map((row) => <div key={row.requestId} className="rounded-lg border border-border bg-white p-3 text-sm"><div className="flex flex-wrap items-center justify-between gap-3"><div><strong>{row.childName}</strong><p>{row.payload.assessment_date} · {row.status === 'BLOCKED' ? 'Needs correction or permission review' : 'Pending sync'}</p></div><div className="flex gap-3"><button type="button" disabled={syncing || !canRecord} onClick={() => editQueued(row)} className="text-primary underline disabled:opacity-50">Edit draft</button><button type="button" disabled={syncing || !online || !canRecord} onClick={() => void retryQueued(row)} className="text-primary underline disabled:opacity-50">Review & retry</button><button type="button" disabled={syncing} onClick={() => void removeQueued(row)} className="text-red-700 underline disabled:opacity-50">Remove local draft</button></div></div>{row.lastError && <p className="mt-2 text-xs text-red-700">{row.lastError}</p>}</div>)}
-    </section>}
+    </section>
     {reportView !== 'Risk' && <div className="nutrition-no-print flex flex-wrap items-center gap-3">
       <label htmlFor="nutrition-year" className="text-sm font-medium">Year</label>
       <select id="nutrition-year" value={reportYear} onChange={(event) => setReportYear(event.target.value)} className="rounded-lg border border-border bg-white px-3 py-2">{years.map((year) => <option key={year}>{year}</option>)}</select>
@@ -981,9 +901,9 @@ export default function NutritionPage() {
             </div>
           </section>
           <label className="block text-sm font-medium">Remarks<textarea rows={3} value={draft.remarks} onChange={(event) => change('remarks', event.target.value)} className={inputClass} /></label>
-          <p className="rounded-lg bg-sky-50 p-3 text-sm">WHO Z-scores, classifications and risk alerts are generated after server validation. Online assessments save directly after validation. Offline drafts stay on this device until you review and confirm upload.</p>
+          <p className="rounded-lg bg-sky-50 p-3 text-sm">WHO Z-scores, classifications and risk alerts are generated after server validation. Drafts remain on this device until you review and confirm upload.</p>
         </fieldset>
-        <div className="flex justify-end gap-3"><button type="button" disabled={saving} onClick={() => setDraft(null)} className="rounded-lg border border-border px-4 py-2 disabled:opacity-50">Cancel</button><button type="submit" disabled={saving || !child || !canRecord || accessDenied || !ownerId} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white disabled:opacity-50">{saving && <Loader2 size={16} className="animate-spin" />}{saving ? 'Saving…' : editingRequest.current ? 'Save draft changes' : online ? 'Save Assessment' : 'Save Offline Draft'}</button></div>
+        <div className="flex justify-end gap-3"><button type="button" disabled={saving} onClick={() => setDraft(null)} className="rounded-lg border border-border px-4 py-2 disabled:opacity-50">Cancel</button><button type="submit" disabled={saving || !child || !canRecord || accessDenied || !ownerId} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white disabled:opacity-50">{saving && <Loader2 size={16} className="animate-spin" />}{saving ? 'Saving…' : 'Save local draft'}</button></div>
       </form>
     </Modal>}
     {selected && <AssessmentDetails assessment={selected} onClose={() => setSelected(null)} />}
