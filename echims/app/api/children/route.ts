@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { withHistoryComparisons } from '@/lib/nutrition-history'
 import { createClient } from '@/lib/supabase/server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
+import { formatChildId, formatHouseholdId } from '@/lib/formatters'
 const roleAliases: Record<string, UserRole> = { administrator: 'Administrator', admin: 'Administrator', 'public health nurse': 'Public Health Nurse', phn: 'Public Health Nurse', 'barangay health worker': 'Barangay Health Worker', bhw: 'Barangay Health Worker', 'rural health midwife': 'Rural Health Midwife', rhm: 'Rural Health Midwife', 'barangay nutrition scholar': 'Barangay Nutrition Scholar', bns: 'Barangay Nutrition Scholar' }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function trustedRole(supabase: any) {
@@ -9,6 +10,9 @@ async function trustedRole(supabase: any) {
   return roleAliases[String(data?.role ?? '').trim().toLowerCase()]
 }
 function parseId(value: unknown) {
+  // Accepts raw numbers ("47"), legacy codes ("CH-47"), and new padded codes
+  // ("CH-2026-00047"). The .split('-').pop() always grabs the final segment,
+  // and padded zeroes parse cleanly as Number("00047") === 47.
   const parsed = Number(String(value ?? '').replace(/^CH-/, '').split('-').pop())
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
 }
@@ -72,7 +76,10 @@ export async function GET(request: Request) {
   if (assessments.error) return invalid('Unable to load nutritional assessment results. Please retry.', 500)
   const latestStatus = new Map<number, string>()
   for (const assessment of assessments.data ?? []) if (!latestStatus.has(assessment.child_id)) latestStatus.set(assessment.child_id, assessment.nutritional_status ?? 'Needs Review')
-  return NextResponse.json(rows.map((child) => ({ id: `CH-${child.child_id}`, householdNumber: child.household_id ? `HH-${child.household_id}` : '', name: [child.first_name, child.middle_name, child.last_name].filter(Boolean).join(' '), barangay: child.barangay_id ? String(child.barangay_id) : '', address: child.address ?? '', dob: child.date_of_birth, age: `${Math.max(0, monthsOld(child.date_of_birth))} mos`, sex: child.sex, status: child.status, monitoringStatus: latestStatus.get(child.child_id) ?? 'Not Yet Assessed', guardianId: child.guardian_id })))
+  // CP-USR001 — Format display IDs with registration-year prefix + zero-padding.
+  // The raw child_id is still available via Number(id.replace(/^CH-/, '').split('-').pop())
+  // for callers that need the integer PK (the children list page, parseId above).
+  return NextResponse.json(rows.map((child) => ({ id: formatChildId(child.child_id, child.registration_date), householdNumber: child.household_id ? formatHouseholdId(child.household_id, null) : '', name: [child.first_name, child.middle_name, child.last_name].filter(Boolean).join(' '), barangay: child.barangay_id ? String(child.barangay_id) : '', address: child.address ?? '', dob: child.date_of_birth, age: `${Math.max(0, monthsOld(child.date_of_birth))} mos`, sex: child.sex, status: child.status, monitoringStatus: latestStatus.get(child.child_id) ?? 'Not Yet Assessed', guardianId: child.guardian_id })))
 }
 export async function POST(request: Request) {
   const auth = await session('create')
