@@ -1,6 +1,8 @@
-eCHIMS
-Early Child Health Information and Monitoring System
-eCHIMS supports child health program management in Rural Health Units (RHUs) and City Health Offices. It brings child profiles, vaccination, nutritional assessment, supplementation, scheduling and alerts into one system for monitoring children aged 0–59 months.
+eCHIMS: A Rule-Based Early Child Health Information 
+and Monitoring System for Child Health Program Management at the City Health Offices 
+and Rural Health U
+
+The system supports child health program management in Rural Health Units (RHUs) and City Health Offices. It brings child profiles, vaccination, nutritional assessment, supplementation, scheduling and alerts into one system for monitoring children aged 0–59 months.
 The system uses rule-based evaluation to identify records requiring follow-up and helps authorized staff coordinate services within their assigned RHU or barangay.
 
 | Layer | Technology |
