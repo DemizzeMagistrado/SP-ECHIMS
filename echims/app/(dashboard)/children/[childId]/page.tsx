@@ -7,9 +7,11 @@
 import { use, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
+import { SupplementationHistorySection } from '@/components/children/supplementation-history-section'
+
 import { NutritionHistorySection } from '@/components/children/nutrition-history-section'
 import type { HistoryAssessment } from '@/lib/nutrition-history'
-import { ArrowLeft, Pencil, Baby, Users, Syringe, Scale, Pill, MapPin, Phone, Home, ArrowRightLeft, History, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Pencil, Baby, Users, MapPin, Phone, Home, ArrowRightLeft, History, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { formatChildId } from '@/lib/formatters'
@@ -239,19 +241,17 @@ function SectionCard({ title, subtitle, icon, children, action }: { title: strin
     </section>
   )
 }
-function EmptyRow({ colSpan, label }: { colSpan: number; label: string }) {
-  return (
-    <tr>
-      <td colSpan={colSpan} className="px-4 py-6 text-center text-sm text-muted-foreground">
-        {label}
-      </td>
-    </tr>
-  )
+// Accept database IDs, formatted display IDs, and links from older child lists.
+function parseChildRouteId(value: string): number {
+  const match = /^(?:CH-)?(?:\d{4}-)?(\d+)$/i.exec(value.trim())
+  if (!match) return Number.NaN
+  const id = Number(match[1])
+  return Number.isSafeInteger(id) && id > 0 ? id : Number.NaN
 }
 export default function ChildProfilePage({ params }: { params: Promise<{ childId: string }> }) {
   // Next 16 app-router: params is a Promise, unwrapped with React.use()
   const { childId } = use(params)
-  const parsedId = Number(String(childId).replace(/^CH-/i, ''))
+  const parsedId = parseChildRouteId(childId)
   const { user, isReady } = useAuth()
   const role = user?.role as UserRole | undefined
   const isApproved = user?.accountStatus === 'APPROVED'
@@ -304,7 +304,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
     }
     return <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Loading child profile...</div>
   }
-  const { child, guardian, profile, monitoringStatus, barangay, household, rhu, vaccinations, assessments, supplementations } = data
+  const { child, guardian, profile, monitoringStatus, barangay, household, rhu, assessments } = data
   const fullName = [child.first_name, child.middle_name, child.last_name].filter(Boolean).join(' ')
   const latestNutrition = latestAssessment(assessments ?? [])
   const nutrition = nutritionSummary(latestNutrition)
@@ -405,86 +405,13 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
       {/* NIP-USR001 — Vaccination Schedule request + preview. Computed from DOB + NIP
           catalog, already-administered doses excluded. BHW/RHM can request, PHN reviews. */}
       <VaccinationScheduleSection childId={child.child_id} />
-      {/* NIP-USR004 — Immunization History with computed due/overdue status.
-          Replaces the old plain table that showed any vaccination_record row. */}
-      <ImmunizationHistorySection childId={child.child_id} />
-      {/* Latest nutritional assessment */}
-      <SectionCard
-        title="Latest Nutritional Assessment"
-        subtitle={latestNutrition
-          ? `Assessment #${latestNutrition.assessment_id} · ${formatDate(latestNutrition.assessment_date)}`
-          : 'Saved assessment results'}
-        icon={<AlertCircle size={18} />}
-        action={canViewNutrition
-          ? <Link href="/nutritional-assessment/records" className="text-sm font-medium text-primary underline">View assessments</Link>
-          : undefined}
-      >
-        <div className="space-y-3">
-          <Chip tone={nutrition.tone}>{nutrition.label}</Chip>
-          <p className="text-sm text-muted-foreground">{nutrition.detail}</p>
-          {nutrition.reasons.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {nutrition.reasons.map((reason) => (
-                <Chip key={reason} tone={statusTone(reason)}>{reason}</Chip>
-              ))}
-            </div>
-          )}
-          {latestNutrition && (
-            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                { label: 'Weight-for-age', value: latestNutrition.weight_for_age },
-                { label: 'Height-for-age', value: latestNutrition.height_for_age },
-                { label: 'Weight-for-length/height', value: latestNutrition.weight_for_height },
-                { label: 'Screening status', value: latestNutrition.nutritional_status },
-              ].map((item) => (
-                <div key={item.label} className="rounded-lg bg-muted/40 p-3">
-                  <dt className="mb-2 text-xs text-muted-foreground">{item.label}</dt>
-                  <dd>
-                    <Chip tone={statusTone(item.value ?? '')}>
-                      {classificationLabel(item.value)}
-                    </Chip>
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          )}
-          <p className="text-xs text-muted-foreground">
-            Based on the latest saved assessment.
-          </p>
-        </div>
-      </SectionCard>
+     
+     
       {/* Nutritional assessment history */}
       <NutritionHistorySection assessments={assessments ?? []} />
-      {/* Supplementation history */}
-      <SectionCard title="Supplementation History" subtitle={`${supplementations.length} record${supplementations.length === 1 ? '' : 's'}`} icon={<Pill size={18} />}>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-muted/60">
-              <tr>
-                {['Date', 'Supplement', 'Dosage', 'Qty', 'Batch', 'Remarks'].map((heading) => (
-                  <th key={heading} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{heading}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {supplementations.length === 0 ? (
-                <EmptyRow colSpan={6} label="No supplementations recorded yet." />
-              ) : (
-                supplementations.map((record) => (
-                  <tr key={record.supplementation_record_id}>
-                    <td className="px-4 py-3 text-sm">{formatDate(record.supplementation_date)}</td>
-                    <td className="px-4 py-3 text-sm font-medium">{record.supplement?.supplement_type ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm">{record.supplement?.dosage ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm">{record.quantity_given ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm">{record.batch_number ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{record.remarks ?? '—'}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </SectionCard>
+      {/* Full saved administration, dispensing, plans and due dates. */}
+      <SupplementationHistorySection childId={child.child_id} />
+
       {/* Movement history — only renders when at least one movement is on file.
           Shows chronological audit trail of status changes (MOVED/LOST/RETURNED/TRANSFERRED). */}
       {movements && movements.length > 0 && (
@@ -548,3 +475,4 @@ export default function ChildProfilePage({ params }: { params: Promise<{ childId
     </div>
   )
 }
+

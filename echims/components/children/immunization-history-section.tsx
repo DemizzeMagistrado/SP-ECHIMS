@@ -1,5 +1,4 @@
 'use client'
-
 // NIP-USR004 — Immunization history section (replaces the inline Vaccination History
 // SectionCard on the child profile page). Shows:
 //   - "Next due" callout (overdue first, then due)
@@ -9,13 +8,10 @@
 //   - Approved records log (sortable, newest first)
 //   - Print button
 //   - Empty / loading / error states
-
 import { useMemo, useState } from 'react'
 import useSWR from 'swr'
 import { Syringe, Printer, AlertCircle, CheckCircle2, Clock, CalendarClock, Filter } from 'lucide-react'
-
 type DoseStatus = 'COMPLETE' | 'DUE' | 'OVERDUE' | 'UPCOMING'
-
 type DoseRow = {
   dose_number: number
   status: DoseStatus
@@ -25,7 +21,6 @@ type DoseRow = {
   vaccination_site: string | null
   vaccination_record_id: number | null
 }
-
 type VaccineStatus = {
   code: string
   vaccine_type: string
@@ -34,42 +29,35 @@ type VaccineStatus = {
   total_doses: number
   doses: DoseRow[]
 }
-
 type Payload = {
   child: { child_id: number; first_name: string; middle_name: string | null; last_name: string; date_of_birth: string }
   vaccine_status: VaccineStatus[]
   next_due: ({ vaccine_code: string; vaccine_type: string } & DoseRow) | null
   counts: { complete: number; due: number; overdue: number; upcoming: number }
 }
-
 const STATUS_META: Record<DoseStatus, { label: string; chip: string; icon: React.ReactNode }> = {
   COMPLETE: { label: 'Complete', chip: 'bg-emerald-100 text-emerald-800', icon: <CheckCircle2 size={12} /> },
   DUE: { label: 'Due', chip: 'bg-amber-100 text-amber-800', icon: <Clock size={12} /> },
   OVERDUE: { label: 'Overdue', chip: 'bg-rose-100 text-rose-800', icon: <AlertCircle size={12} /> },
   UPCOMING: { label: 'Upcoming', chip: 'bg-slate-100 text-slate-700', icon: <CalendarClock size={12} /> },
 }
-
 const fetcher = async (url: string) => {
   const r = await fetch(url)
   const d = await r.json()
   if (!r.ok) throw new Error(d.error || 'Unable to load immunization history.')
   return d
 }
-
 function formatDate(ymd: string | null): string {
   if (!ymd) return '—'
   return new Date(ymd + 'T00:00:00').toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
 }
-
 export function ImmunizationHistorySection({ childId }: { childId: number }) {
   const { data, error, isLoading } = useSWR<Payload>(
     childId ? `/api/vaccination/history?child_id=${childId}` : null,
     fetcher,
   )
-
   const [vaccineFilter, setVaccineFilter] = useState<string>('')
   const [statusFilter, setStatusFilter] = useState<DoseStatus | ''>('')
-
   const rows = useMemo(() => {
     if (!data) return []
     const flat = data.vaccine_status.flatMap((v) =>
@@ -90,13 +78,10 @@ export function ImmunizationHistorySection({ childId }: { childId: number }) {
         return a.dose_number - b.dose_number
       })
   }, [data, vaccineFilter, statusFilter])
-
   function handlePrint() {
     if (typeof window !== 'undefined') window.print()
   }
-
   if (!childId) return null
-
   return (
     <section className="rounded-2xl border border-border bg-white shadow-sm print:shadow-none">
       {/* Header */}
@@ -120,7 +105,6 @@ export function ImmunizationHistorySection({ childId }: { childId: number }) {
           <Printer size={14} /> Print
         </button>
       </div>
-
       {/* Body */}
       <div className="space-y-5 p-6">
         {isLoading && (
@@ -134,7 +118,6 @@ export function ImmunizationHistorySection({ childId }: { childId: number }) {
             <span>{error.message}</span>
           </div>
         )}
-
         {data && (
           <>
             {/* Next due callout */}
@@ -174,7 +157,6 @@ export function ImmunizationHistorySection({ childId }: { childId: number }) {
                 </div>
               </div>
             )}
-
             {/* Summary counts */}
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <SummaryTile label="Complete" value={data.counts.complete} tone="emerald" />
@@ -182,7 +164,6 @@ export function ImmunizationHistorySection({ childId }: { childId: number }) {
               <SummaryTile label="Overdue" value={data.counts.overdue} tone="rose" />
               <SummaryTile label="Upcoming" value={data.counts.upcoming} tone="slate" />
             </div>
-
             {/* Filters */}
             <div className="flex flex-wrap items-center gap-2 print:hidden">
               <Filter size={14} className="text-muted-foreground" />
@@ -207,7 +188,6 @@ export function ImmunizationHistorySection({ childId }: { childId: number }) {
                 ))}
               </select>
             </div>
-
             {/* Table */}
             {rows.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
@@ -259,7 +239,6 @@ export function ImmunizationHistorySection({ childId }: { childId: number }) {
     </section>
   )
 }
-
 function SummaryTile({ label, value, tone }: { label: string; value: number; tone: 'emerald' | 'amber' | 'rose' | 'slate' }) {
   const colors = {
     emerald: 'bg-emerald-50 text-emerald-700 ring-emerald-100',

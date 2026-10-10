@@ -1,17 +1,15 @@
 'use client'
-
 // NIP-USR001 — Vaccination Schedule section for the child profile page.
 // Loads the computed schedule preview + the latest request status. BHW/RHM see a
 // "Request Schedule" button when no PENDING request exists; everyone sees the preview.
 // Status badges mirror the health_activity_schedule lifecycle (PENDING / APPROVED / REJECTED).
-
-import { useState } from 'react'
+import { useId, useState, type KeyboardEvent } from 'react'
+import { ImmunizationHistorySection } from '@/components/children/immunization-history-section'
 import useSWR from 'swr'
 import { Syringe, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { useToast } from '@/components/ui/toast'
-
 type ScheduleEntry = {
   vaccine_code: string
   vaccine_type: string
@@ -20,7 +18,6 @@ type ScheduleEntry = {
   route: string
   dose_volume: string
 }
-
 type LatestRequest = {
   schedule_id: number
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'NEEDS_REVISION' | 'ONGOING' | 'COMPLETED' | 'CANCELLED'
@@ -32,34 +29,29 @@ type LatestRequest = {
   schedule_date: string | null
   remarks: string | null
 } | null
-
 type SchedulePayload = {
   child: { child_id: number; name: string; date_of_birth: string }
   latest_request: LatestRequest
   preview: ScheduleEntry[]
   excluded_count: number
 }
-
 const fetcher = async (url: string) => {
   const r = await fetch(url)
   const d = await r.json()
   if (!r.ok) throw new Error(d.error || 'Unable to load the vaccination schedule.')
   return d
 }
-
 function formatDate(iso: string | null | undefined) {
   if (!iso) return '—'
   const d = new Date(`${iso}T00:00:00Z`)
   if (isNaN(d.getTime())) return iso
   return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
 }
-
 function daysBetween(a: string, b: string) {
   const da = new Date(`${a}T00:00:00Z`)
   const db = new Date(`${b}T00:00:00Z`)
   return Math.round((db.getTime() - da.getTime()) / 86400000)
 }
-
 function StatusBadge({ status }: { status: NonNullable<LatestRequest>['status'] }) {
   const map = {
     PENDING: { label: 'Pending review', icon: Clock, cls: 'bg-amber-50 text-amber-700 ring-amber-200' },
@@ -77,20 +69,17 @@ function StatusBadge({ status }: { status: NonNullable<LatestRequest>['status'] 
     </span>
   )
 }
-
-export function VaccinationScheduleSection({ childId }: { childId: number }) {
+function VaccinationScheduleContent({ childId }: { childId: number }) {
   const { user, isReady } = useAuth()
   const role = user?.role as UserRole | undefined
   const isApproved = user?.accountStatus === 'APPROVED'
   const canView = Boolean(role && isApproved && canPerform(role, 'Child Profiling', 'view'))
   // Only BHW/RHM can request (per the ticket spec); PHN/BNS/Admin see the preview + status only.
   const canRequest = isApproved && (role === 'Barangay Health Worker' || role === 'Rural Health Midwife')
-
   const { data, error, isLoading, mutate } = useSWR<SchedulePayload>(
     isReady && canView ? `/api/children/${childId}/vaccination-schedule` : null,
     fetcher,
   )
-
   const { showToast } = useToast()
   const [submitting, setSubmitting] = useState(false)
   const [remarks, setRemarks] = useState('')
@@ -98,7 +87,6 @@ export function VaccinationScheduleSection({ childId }: { childId: number }) {
   // future) so the BHW/RHM doesn't have to type one from scratch.
   const [proposedDate, setProposedDate] = useState('')
   const [showForm, setShowForm] = useState(false)
-
   // Auto-pick a sensible default date when the preview loads and the form opens.
   function openForm() {
     const today = new Date().toISOString().slice(0, 10)
@@ -107,7 +95,6 @@ export function VaccinationScheduleSection({ childId }: { childId: number }) {
     setProposedDate(defaultDate)
     setShowForm(true)
   }
-
   async function submitRequest() {
     if (!proposedDate) {
       showToast({ type: 'error', message: 'Please pick a target service date.' })
@@ -133,9 +120,7 @@ export function VaccinationScheduleSection({ childId }: { childId: number }) {
       setSubmitting(false)
     }
   }
-
   if (!canView) return null
-
   // Loading state
   if (isLoading || !data) {
     if (error) {
@@ -153,11 +138,9 @@ export function VaccinationScheduleSection({ childId }: { childId: number }) {
       </section>
     )
   }
-
   const today = new Date().toISOString().slice(0, 10)
   const upcomingCount = data.preview.filter((e) => e.recommended_date >= today).length
   const overdueCount = data.preview.filter((e) => e.recommended_date < today).length
-
   return (
     <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -175,7 +158,6 @@ export function VaccinationScheduleSection({ childId }: { childId: number }) {
           {data.latest_request && <StatusBadge status={data.latest_request.status} />}
         </div>
       </div>
-
       {/* Status summary bar */}
       <div className="mb-4 grid grid-cols-3 gap-3 text-sm">
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
@@ -191,7 +173,6 @@ export function VaccinationScheduleSection({ childId }: { childId: number }) {
           <p className="mt-0.5 text-xl font-bold text-emerald-900">{data.excluded_count}</p>
         </div>
       </div>
-
       {/* Request form or button (BHW/RHM only; hidden when a PENDING request already exists) */}
       {canRequest && (!data.latest_request || data.latest_request.status !== 'PENDING') && (
         <div className="mb-4 rounded-xl border border-border bg-muted/40 p-4">
@@ -244,7 +225,6 @@ export function VaccinationScheduleSection({ childId }: { childId: number }) {
           )}
         </div>
       )}
-
       {/* Pending-request banner with review remarks when rejected */}
       {data.latest_request && (data.latest_request.status === 'REJECTED' || data.latest_request.status === 'NEEDS_REVISION') && data.latest_request.review_remarks && (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
@@ -252,7 +232,6 @@ export function VaccinationScheduleSection({ childId }: { childId: number }) {
           <p className="mt-1">{data.latest_request.review_remarks}</p>
         </div>
       )}
-
       {/* Schedule preview table */}
       {data.preview.length === 0 ? (
         <div className="rounded-xl bg-muted/50 p-6 text-center text-sm text-muted-foreground">
@@ -302,6 +281,74 @@ export function VaccinationScheduleSection({ childId }: { childId: number }) {
           </table>
         </div>
       )}
+    </section>
+  )
+}
+
+const nipTabs = [
+  { key: 'HISTORY', label: 'Immunization History' },
+  { key: 'SCHEDULE', label: 'Vaccination Schedule' },
+] as const
+
+// The existing profile call now displays both NIP sections in one tabbed card.
+export function VaccinationScheduleSection({ childId }: { childId: number }) {
+  const [activeTab, setActiveTab] = useState<'HISTORY' | 'SCHEDULE'>('HISTORY')
+  const tabId = useId()
+  const { user, isReady } = useAuth()
+  const role = user?.role as UserRole | undefined
+  const canView = Boolean(isReady && user?.accountStatus === 'APPROVED' && role && canPerform(role, 'Child Profiling', 'view'))
+
+  function navigateTabs(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    let next: number
+    if (event.key === 'ArrowRight') next = (index + 1) % nipTabs.length
+    else if (event.key === 'ArrowLeft') next = (index + nipTabs.length - 1) % nipTabs.length
+    else if (event.key === 'Home') next = 0
+    else if (event.key === 'End') next = nipTabs.length - 1
+    else return
+    event.preventDefault()
+    setActiveTab(nipTabs[next].key)
+    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus()
+  }
+
+  if (!canView) return null
+  if (!Number.isSafeInteger(childId) || childId <= 0) {
+    return <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">A valid child record is required to view NIP records.</p>
+  }
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-border bg-white">
+      <div className="border-b p-5">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-primary"><Syringe size={18} />National Immunization Program</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Saved immunization records, dose status and vaccination schedule requests</p>
+      </div>
+      <div role="tablist" aria-label="NIP record sections" className="flex flex-wrap gap-2 border-b p-3 print:hidden">
+        {nipTabs.map((tab, index) => <button
+          key={tab.key}
+          id={`${tabId}-tab-${tab.key}`}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === tab.key}
+          aria-controls={`${tabId}-panel-${tab.key}`}
+          tabIndex={activeTab === tab.key ? 0 : -1}
+          onClick={() => setActiveTab(tab.key)}
+          onKeyDown={(event) => navigateTabs(event, index)}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === tab.key ? 'bg-primary text-white' : 'bg-muted/40 text-foreground hover:bg-muted'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`}
+        >{tab.label}</button>)}
+      </div>
+      {nipTabs.map((tab) => <div
+        key={tab.key}
+        id={`${tabId}-panel-${tab.key}`}
+        role="tabpanel"
+        aria-labelledby={`${tabId}-tab-${tab.key}`}
+        hidden={activeTab !== tab.key}
+        tabIndex={0}
+        className="[&>section]:rounded-none [&>section]:border-0 [&>section]:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary print:block"
+      >
+        {/* Keep both mounted to preserve history filters and request-form inputs. */}
+        {tab.key === 'HISTORY'
+          ? <ImmunizationHistorySection childId={childId} />
+          : <VaccinationScheduleContent childId={childId} />}
+      </div>)}
     </section>
   )
 }

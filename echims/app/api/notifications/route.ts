@@ -69,7 +69,10 @@ export async function GET() {
           created_at,
           read_at,
           source_module,
-          schedule_id
+          schedule_id,
+          source_module,
+          schedule_id,
+          child_id
         `)
         .eq('recipient_id', userId)
         .order('created_at', { ascending: false })
