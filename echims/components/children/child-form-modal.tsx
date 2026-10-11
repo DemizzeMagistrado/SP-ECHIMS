@@ -269,7 +269,7 @@ export function ChildFormModal({ mode, childId, onClose, onSaved, onError }: { m
           <label className="grid gap-1 text-sm">
             <span className="font-medium">Current barangay *</span>
             <select required value={String(form.barangay_id)} onChange={(e) => { set('barangay_id', e.target.value); set('household_id', ''); setHouseholdQuery('') }} className="h-10 rounded-lg border border-border bg-white px-3">
-              <option value="">Search/select barangay</option>
+              <option value="">Select barangay</option>
               {(barangays ?? []).map((b) => <option key={b.barangay_id} value={b.barangay_id}>{b.barangay_name}</option>)}
             </select>
           </label>
