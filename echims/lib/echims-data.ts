@@ -103,7 +103,11 @@ const rolePermissions: Record<UserRole, Partial<Record<string, Permission[]>>> =
     'Child Profiling': ['view', 'create', 'edit', 'export'],
     Geospatial: ['view', 'export'],
     'Masterlist Upload': ['view', 'create', 'edit'],
-    Vaccination: ['view', 'create', 'edit', 'approve', 'export'],
+    // NIP-USR007 — PHN is viewer-only on recording per ACCTO Client feedback.
+    // 'create' removed intentionally: PHN cannot add new vaccination records.
+    // 'edit' kept so PHN can correct typos (batch, date, remarks) before approving
+    // a pending record submitted by RHM/BHW. 'approve' remains for the review flow.
+    Vaccination: ['view', 'edit', 'approve', 'export'],
     'Vaccination Schedule': ['view', 'approve', 'export'],
     'NIP Catalog': ['view'],
     'Nutritional Assessment': ['view', 'create', 'edit', 'export'],
