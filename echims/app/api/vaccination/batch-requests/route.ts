@@ -2,12 +2,11 @@
 // GET  /api/vaccination/batch-requests  → list requests (role-scoped)
 // POST /api/vaccination/batch-requests  → RHM creates a request (status=PENDING)
 //
-// Role matrix (checked both server-side here AND by Supabase RLS):
-//   Admin : view + create + approve (sees everything)
-//   PHN   : view + approve           (sees everything in their RHU, approves them)
-//   RHM   : view + create            (sees + creates their own requests)
-//   BHW   : no access per ACCTO Client scope (this is specifically an RHM→PHN flow)
-//   BNS   : no access
+// v3: Minimizes PostgREST embeds — multiple joins through FKs that PostgREST's
+// schema cache can't reliably resolve (stock_request ↔ vaccine via shared PK,
+// stock_request ↔ health_worker via requested_by/approved_by). Instead we do
+// a base SELECT with just the item embed, then batch-fetch everything else
+// in parallel and splice client-side. One extra round-trip, but bulletproof.
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
@@ -42,20 +41,16 @@ export async function GET(request: Request) {
     return invalid('You are not authorized to view batch requests.', 403)
   }
 
-  // Optional ?status=PENDING filter for the inbox view.
   const url = new URL(request.url)
   const statusFilter = url.searchParams.get('status')?.toUpperCase()
 
+  // Step 1: Base rows + item (only reliable embed).
   let query = supabase.from('stock_request')
     .select(`
       stock_request_id, request_type, request_date, requested_quantity,
       status, reason, remarks, batch_number, target_barangay_id,
       approved_at, requested_by, approved_by, item_id,
-      item:item(item_id, item_name, unit),
-      vaccine:vaccine!stock_request_item_id_fkey(vaccine_id, vaccine_type, dose_volume, route),
-      target_barangay:barangay!fk_stock_request_target_barangay(barangay_id, barangay_name),
-      requester:health_worker!fk_stock_request_requested_by(user_id, user:users!fk_health_worker_user(email)),
-      approver:health_worker!fk_stock_request_approved_by(user_id, user:users!fk_health_worker_user(email))
+      item:item(item_id, item_name, unit)
     `)
     .eq('request_type', 'VACCINE_BATCH')
     .order('request_date', { ascending: false })
@@ -66,9 +61,53 @@ export async function GET(request: Request) {
 
   const { data, error } = await query
   if (error) return invalid(`Unable to load batch requests. ${error.message ?? ''}`.trim(), 500)
+  const rows = data ?? []
+
+  // Step 2: Batch-fetch vaccine, barangay, and health_worker rows in parallel.
+  const itemIds = Array.from(new Set(rows.map((r) => r.item_id).filter((id): id is number => id != null)))
+  const barangayIds = Array.from(new Set(rows.map((r) => r.target_barangay_id).filter((id): id is number => id != null)))
+  const userIds = Array.from(new Set([
+    ...rows.map((r) => r.requested_by),
+    ...rows.map((r) => r.approved_by),
+  ].filter((id): id is string => !!id)))
+
+  const [vaxRes, brgyRes, hwRes] = await Promise.all([
+    itemIds.length
+      ? supabase.from('vaccine').select('vaccine_id, vaccine_type, dose_volume, route').in('vaccine_id', itemIds)
+      : Promise.resolve({ data: [] as unknown[], error: null }),
+    barangayIds.length
+      ? supabase.from('barangay').select('barangay_id, barangay_name').in('barangay_id', barangayIds)
+      : Promise.resolve({ data: [] as unknown[], error: null }),
+    userIds.length
+      ? supabase.from('users').select('id, email').in('id', userIds)
+      : Promise.resolve({ data: [] as unknown[], error: null }),
+  ])
+
+  // Build lookup maps. Errors on the lookup queries are non-fatal — we still
+  // return the base rows and the UI shows "—" for the missing fields.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const vaccineById = new Map<number, any>()
+  for (const v of (vaxRes.data ?? []) as Array<{ vaccine_id: number }>) vaccineById.set(v.vaccine_id, v)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const barangayById = new Map<number, any>()
+  for (const b of (brgyRes.data ?? []) as Array<{ barangay_id: number }>) barangayById.set(b.barangay_id, b)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const userById = new Map<string, any>()
+  for (const u of (hwRes.data ?? []) as Array<{ id: string }>) userById.set(u.id, u)
+
+  // Step 3: Splice everything back into each row in the shape the UI expects.
+  const requests = rows.map((r) => ({
+    ...r,
+    vaccine: vaccineById.get(r.item_id) ?? null,
+    target_barangay: r.target_barangay_id ? barangayById.get(r.target_barangay_id) ?? null : null,
+    requester: r.requested_by ? { user_id: r.requested_by, user: userById.get(r.requested_by) ?? null } : null,
+    approver: r.approved_by ? { user_id: r.approved_by, user: userById.get(r.approved_by) ?? null } : null,
+  }))
 
   return NextResponse.json({
-    requests: data ?? [],
+    requests,
     role,
     can_create: canPerform(role, 'Vaccine Batch Requests', 'create'),
     can_approve: canPerform(role, 'Vaccine Batch Requests', 'approve'),
@@ -97,7 +136,6 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null) as CreateBody | null
   if (!body) return invalid('Invalid request body.')
 
-  // Validate fields.
   const vaccineId = Number(body.vaccine_id)
   if (!Number.isSafeInteger(vaccineId) || vaccineId <= 0) return invalid('vaccine_id is required.')
 
@@ -112,7 +150,6 @@ export async function POST(request: Request) {
     return invalid('target_barangay_id is required.')
   }
 
-  // Confirm the vaccine exists AND the target barangay is reachable to the requester (RLS).
   const vaccineRow = await supabase.from('vaccine')
     .select('vaccine_id, vaccine_type')
     .eq('vaccine_id', vaccineId)
@@ -127,7 +164,6 @@ export async function POST(request: Request) {
     return invalid('Target barangay not found or outside your scope.', 404)
   }
 
-  // Insert as PENDING. item_id = vaccine_id (vaccines share PK with items).
   const insertRes = await supabase.from('stock_request')
     .insert({
       request_type: 'VACCINE_BATCH',
