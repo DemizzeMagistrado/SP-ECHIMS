@@ -29,6 +29,8 @@ export const moduleTabs: Record<string, { label: string; href: string; module: s
     { label: 'Schedule', href: '/vaccination/schedule', module: 'Vaccination Schedule' },
     { label: 'Calendar', href: '/vaccination/calendar', module: 'Vaccination' },
     { label: 'NIP Catalog', href: '/vaccination/catalog', module: 'NIP Catalog' },
+    // NIP-USR010 — RHM batch requests + PHN approval queue.
+    { label: 'Batch Requests', href: '/vaccination/batch-requests', module: 'Vaccine Batch Requests' },
   ],
   Inventory: [
     { label: 'Stock Overview', href: '/inventory/stock-overview', module: 'Inventory' },
@@ -110,6 +112,8 @@ const rolePermissions: Record<UserRole, Partial<Record<string, Permission[]>>> =
     Vaccination: ['view', 'edit', 'approve', 'export'],
     'Vaccination Schedule': ['view', 'approve', 'export'],
     'NIP Catalog': ['view'],
+    // NIP-USR010 — PHN reviews batch requests from RHM, cannot create them.
+    'Vaccine Batch Requests': ['view', 'approve'],
     'Nutritional Assessment': ['view', 'create', 'edit', 'export'],
     Supplementation: ['view', 'create', 'edit', 'export'],
     Inventory: ['view', 'edit', 'export'],
@@ -143,6 +147,8 @@ const rolePermissions: Record<UserRole, Partial<Record<string, Permission[]>>> =
     Geospatial: ['view'],
     Vaccination: ['view', 'create', 'edit'],
     'Vaccination Schedule': ['view', 'request'],
+    // NIP-USR010 — RHM creates vaccine batch requests. Admin + PHN handle approval.
+    'Vaccine Batch Requests': ['view', 'create'],
     'Nutritional Assessment': ['view', 'create', 'edit'],
     Supplementation: ['view', 'create', 'edit'],
     Inventory: ['view'], // Limited
