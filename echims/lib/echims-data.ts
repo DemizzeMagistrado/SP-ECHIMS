@@ -134,6 +134,9 @@ const rolePermissions: Record<UserRole, Partial<Record<string, Permission[]>>> =
     'Masterlist Upload': ['view', 'create'],
     Vaccination: ['view', 'create', 'edit'],
     'Vaccination Schedule': ['view', 'request'],
+    // NIP-USR011 — BHW can read the catalog so they see DOH guidelines + eligibility
+    // before administering a dose. Edit/create stays admin-only (handled in-page).
+    'NIP Catalog': ['view'],
     Inventory: ['view'], // Limited: view-only
     'Inventory Transactions': ['view'], // Limited: view-only
     'Health Activities': ['view', 'create', 'edit'],
@@ -150,6 +153,9 @@ const rolePermissions: Record<UserRole, Partial<Record<string, Permission[]>>> =
     Geospatial: ['view'],
     Vaccination: ['view', 'create', 'edit'],
     'Vaccination Schedule': ['view', 'request'],
+    // NIP-USR011 — RHM reads the catalog for DOH guidelines + eligibility before
+    // recording a dose. Edit/create stays admin-only (handled in-page).
+    'NIP Catalog': ['view'],
     // NIP-USR010 — RHM creates vaccine batch requests. Admin + PHN handle approval.
     'Vaccine Batch Requests': ['view', 'create'],
     'Nutritional Assessment': ['view', 'create', 'edit'],

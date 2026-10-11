@@ -43,10 +43,14 @@ export async function GET() {
   // write actions below are admin-only. BNS still gets the catalog for context.
   if (!role) return invalid('Unknown role.', 403)
 
+  // NIP-USR011 — eligibility/contraindications/doh_guidelines/source_reference
+  // are now part of the catalog payload so the expandable Guidelines row can
+  // render them without a second round-trip.
   const { data: vaccines, error } = await supabase.from('vaccine')
     .select(`
       vaccine_id, vaccine_type, dose_volume, route, target_age,
       min_age_days, interval_days, total_doses, updated_at,
+      eligibility, contraindications, doh_guidelines, source_reference,
       item:item(item_id, item_name, description, unit, status)
     `)
     .order('vaccine_id', { ascending: true })
@@ -91,6 +95,11 @@ type CreateBody = {
   min_age_days?: number
   interval_days?: number | null
   total_doses?: number
+  // NIP-USR011 — DOH guideline fields (all optional, all free text).
+  eligibility?: string | null
+  contraindications?: string | null
+  doh_guidelines?: string | null
+  source_reference?: string | null
 }
 
 export async function POST(request: Request) {
@@ -147,6 +156,12 @@ export async function POST(request: Request) {
       min_age_days: minAgeDays,
       interval_days: intervalDays,
       total_doses: totalDoses,
+      // NIP-USR011 — guideline fields, trimmed; empty → NULL so the UI can
+      // show the "not configured yet" placeholder consistently.
+      eligibility: body.eligibility?.trim() || null,
+      contraindications: body.contraindications?.trim() || null,
+      doh_guidelines: body.doh_guidelines?.trim() || null,
+      source_reference: body.source_reference?.trim() || null,
     })
     .select('*')
     .maybeSingle()
@@ -221,6 +236,13 @@ export async function PATCH(request: Request) {
     if (!Number.isSafeInteger(n) || n < 1 || n > 10) return invalid('total_doses must be 1-10.')
     vaccinePatch.total_doses = n
   }
+  // NIP-USR011 — guideline fields: trim; empty string → NULL so the "not
+  // configured yet" UI state stays consistent whether a value was cleared
+  // or was never set in the first place.
+  if (body.eligibility !== undefined) vaccinePatch.eligibility = (body.eligibility ?? '').toString().trim() || null
+  if (body.contraindications !== undefined) vaccinePatch.contraindications = (body.contraindications ?? '').toString().trim() || null
+  if (body.doh_guidelines !== undefined) vaccinePatch.doh_guidelines = (body.doh_guidelines ?? '').toString().trim() || null
+  if (body.source_reference !== undefined) vaccinePatch.source_reference = (body.source_reference ?? '').toString().trim() || null
 
   // Cross-field: total_doses > 1 requires interval_days
   const resolvedTotal = (vaccinePatch.total_doses ?? beforeRes.data.total_doses) as number

@@ -3,7 +3,7 @@
 // NIP-USR006 — Add / edit vaccine form modal (admin-only).
 
 import { useEffect, useMemo, useState } from 'react'
-import { X, AlertCircle, Loader2, Syringe, Hash, Droplet, MapPin, Calendar } from 'lucide-react'
+import { X, AlertCircle, Loader2, Syringe, Hash, Droplet, MapPin, Calendar, BookOpen, Shield, Info, Link as LinkIcon } from 'lucide-react'
 import { useToast } from '@/components/ui/toast'
 
 export type VaccineCatalogRow = {
@@ -16,6 +16,11 @@ export type VaccineCatalogRow = {
   interval_days: number | null
   total_doses: number
   updated_at: string
+  // NIP-USR011 — DOH guideline fields (nullable; "" means user cleared it).
+  eligibility: string | null
+  contraindications: string | null
+  doh_guidelines: string | null
+  source_reference: string | null
   item: { item_id: number; item_name: string; description: string | null; unit: string; status: string } |
         { item_id: number; item_name: string; description: string | null; unit: string; status: string }[] | null
 }
@@ -46,6 +51,11 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
   const [minAgeDays, setMinAgeDays] = useState<string>('0')
   const [intervalDays, setIntervalDays] = useState<string>('')
   const [totalDoses, setTotalDoses] = useState<string>('1')
+  // NIP-USR011 — guideline fields (free text, admin edits here).
+  const [eligibility, setEligibility] = useState('')
+  const [contraindications, setContraindications] = useState('')
+  const [dohGuidelines, setDohGuidelines] = useState('')
+  const [sourceReference, setSourceReference] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)   // 2-step confirmation before save
@@ -63,6 +73,10 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
     setMinAgeDays(String(editing?.min_age_days ?? 0))
     setIntervalDays(editing?.interval_days != null ? String(editing.interval_days) : '')
     setTotalDoses(String(editing?.total_doses ?? 1))
+    setEligibility(editing?.eligibility ?? '')
+    setContraindications(editing?.contraindications ?? '')
+    setDohGuidelines(editing?.doh_guidelines ?? '')
+    setSourceReference(editing?.source_reference ?? '')
     setFormError(null)
     setConfirming(false)
   }, [open, editing])
@@ -110,6 +124,11 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
         min_age_days: Number(minAgeDays),
         interval_days: totalDosesNum > 1 ? Number(intervalDays) : null,
         total_doses: Number(totalDoses),
+        // NIP-USR011 — guideline fields (empty string → NULL at the API).
+        eligibility: eligibility.trim() || null,
+        contraindications: contraindications.trim() || null,
+        doh_guidelines: dohGuidelines.trim() || null,
+        source_reference: sourceReference.trim() || null,
       }
       const r = await fetch('/api/vaccines/catalog', {
         method: isEdit ? 'PATCH' : 'POST',
@@ -211,6 +230,28 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
             </div>
           </section>
 
+          {/* NIP-USR011 — DOH Guidelines & Eligibility (optional but recommended)
+              Shown to admin for editing; appears as the expandable "Guidelines"
+              row in the catalog table, visible to Admin / PHN / RHM / BHW. */}
+          <section className="space-y-3 rounded-xl border border-sky-200 bg-sky-50/40 p-4">
+            <SectionTitle tone="sky">DOH Guidelines & Eligibility (reference)</SectionTitle>
+            <p className="-mt-1 text-xs text-muted-foreground">
+              Visible to all vaccination staff from the catalog&rsquo;s expandable Guidelines row.
+            </p>
+            <Field label={<><BookOpen size={11} className="inline" /> Eligibility</>} hint="Who should receive this vaccine (ages, conditions)">
+              <textarea value={eligibility} onChange={(e) => setEligibility(e.target.value)} rows={2} placeholder="e.g. All healthy newborns, given at birth or anytime before 12 months of age." className={`${INPUT} resize-none`} />
+            </Field>
+            <Field label={<><Shield size={11} className="inline" /> Contraindications</>} hint="When NOT to administer">
+              <textarea value={contraindications} onChange={(e) => setContraindications(e.target.value)} rows={2} placeholder="e.g. Known immunodeficiency, high-dose steroids, pregnancy." className={`${INPUT} resize-none`} />
+            </Field>
+            <Field label={<><Info size={11} className="inline" /> DOH guidelines</>} hint="Administration tips, expected reactions, follow-up">
+              <textarea value={dohGuidelines} onChange={(e) => setDohGuidelines(e.target.value)} rows={3} placeholder="e.g. Administer 0.05 mL intradermally on the upper outer right arm..." className={`${INPUT} resize-none`} />
+            </Field>
+            <Field label={<><LinkIcon size={11} className="inline" /> Source URL</>} hint="Link to the DOH source document">
+              <input type="url" value={sourceReference} onChange={(e) => setSourceReference(e.target.value)} placeholder="https://doh.gov.ph/national-immunization-program" className={INPUT} />
+            </Field>
+          </section>
+
           {/* Error */}
           {formError && (
             <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
@@ -252,8 +293,8 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
 // --- Small subcomponents ---
 const INPUT = 'w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed'
 
-function SectionTitle({ children, tone }: { children: React.ReactNode; tone?: 'amber' }) {
-  const color = tone === 'amber' ? 'text-amber-900' : 'text-primary/80'
+function SectionTitle({ children, tone }: { children: React.ReactNode; tone?: 'amber' | 'sky' }) {
+  const color = tone === 'amber' ? 'text-amber-900' : tone === 'sky' ? 'text-sky-900' : 'text-primary/80'
   return <h3 className={`text-[11px] font-bold uppercase tracking-widest ${color}`}>{children}</h3>
 }
 
