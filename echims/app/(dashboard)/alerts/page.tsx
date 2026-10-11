@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 
 type Rule = {
   rule_id: number;
@@ -207,8 +208,8 @@ export default function AlertsPage() {
   const ownerRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const { data: subscription } = client.auth.onAuthStateChange(
-      (_event, session) => {
+   const { data: subscription } = client.auth.onAuthStateChange(
+  (_event: AuthChangeEvent, session: Session | null) => { 
         const next = session?.user.id ?? null;
         if (next !== ownerRef.current) {
           sequence.current++;
