@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
-import { NIP_CATALOG, GRACE_PERIOD_DAYS } from '@/lib/nip-schedule'
-
+import {
+  NIP_CATALOG,
+  GRACE_PERIOD_DAYS,
+  getNipDoseDate,
+  normalizeVaccineCode,
+  manilaTodayYMD,
+  nipDaysBetween,
+} from '@/lib/nip-schedule'
 // NIP-USR005 — Defaulters list.
 // GET /api/vaccination/defaulters?status=OVERDUE&vaccine=BCG&limit=100
 //
@@ -102,18 +108,32 @@ export async function GET(request: Request) {
   const approvedRecords = recRes.data ?? []
 
   // Index approved records by (child_id → vaccine_type → set of done dose_numbers)
-  const doneMap = new Map<number, Map<string, Set<number>>>()
-  for (const rec of approvedRecords) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const v: any = Array.isArray(rec.vaccine) ? rec.vaccine[0] : rec.vaccine
-    if (!v?.vaccine_type) continue
-    if (!doneMap.has(rec.child_id)) doneMap.set(rec.child_id, new Map())
-    const perChild = doneMap.get(rec.child_id)!
-    if (!perChild.has(v.vaccine_type)) perChild.set(v.vaccine_type, new Set())
-    perChild.get(v.vaccine_type)!.add(rec.dose_number)
+const doneMap = new Map<number, Map<string, Set<number>>>()
+
+for (const rec of approvedRecords) {
+  const vaccine = (
+    Array.isArray(rec.vaccine) ? rec.vaccine[0] : rec.vaccine
+  ) as { vaccine_type?: string } | null
+
+  if (!vaccine?.vaccine_type) continue
+
+  const code = normalizeVaccineCode(vaccine.vaccine_type)
+
+  let perChild = doneMap.get(rec.child_id)
+  if (!perChild) {
+    perChild = new Map<string, Set<number>>()
+    doneMap.set(rec.child_id, perChild)
   }
 
-  const today = todayYMD()
+  let doses = perChild.get(code)
+  if (!doses) {
+    doses = new Set<number>()
+    perChild.set(code, doses)
+  }
+
+  doses.add(rec.dose_number)
+}
+  const today = manilaTodayYMD()
 
   // Walk each child × each vaccine × each dose and compute status
   type DefaulterRow = {
@@ -138,7 +158,7 @@ export async function GET(request: Request) {
 
     for (const v of NIP_CATALOG) {
       if (vaccineFilter && v.code !== vaccineFilter) continue
-      const doneForVaccine = doneMap.get(c.child_id)?.get(v.code) ?? new Set<number>()
+      const doneForVaccine = doneMap.get(c.child_id)?.get(v.vaccine_type) ?? new Set<number>()
 
       for (let n = 1; n <= v.total_doses; n++) {
         if (doneForVaccine.has(n)) continue   // already administered — not a defaulter
@@ -148,6 +168,27 @@ export async function GET(request: Request) {
         const daysPast = daysBetween(dueDate, today)
         const status: Status = daysPast > GRACE_PERIOD_DAYS ? 'OVERDUE' : 'DUE'
         if (statusFilter && status !== statusFilter) continue
+        
+      for (const v of NIP_CATALOG) {
+        if (v.routine_enabled === false) continue
+        if (vaccineFilter && v.code !== vaccineFilter) continue
+
+        const doneForVaccine =
+          doneMap.get(c.child_id)?.get(v.code) ?? new Set<number>()
+
+        for (let n = 1; n <= v.total_doses; n++) {
+          if (doneForVaccine.has(n)) continue
+
+          const dueDate = getNipDoseDate(dob, v, n)
+          if (!dueDate || dueDate > today) continue
+
+          const daysPast = nipDaysBetween(dueDate, today)
+          if (!Number.isFinite(daysPast)) continue
+
+          const status: Status =
+            daysPast > GRACE_PERIOD_DAYS ? 'OVERDUE' : 'DUE'
+
+          if (statusFilter && status !== statusFilter) continue
 
         defaulters.push({
           child_id: c.child_id,
@@ -164,6 +205,7 @@ export async function GET(request: Request) {
         })
       }
     }
+  }
   }
 
   // Sort: OVERDUE first, most-overdue first, then by child name
@@ -196,4 +238,4 @@ export async function GET(request: Request) {
     role,
     grace_period_days: GRACE_PERIOD_DAYS,
   })
-}
+}}  

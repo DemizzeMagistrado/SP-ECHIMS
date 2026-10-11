@@ -71,8 +71,21 @@ export async function GET(request: Request) {
             .order("audit_id", { ascending: false })
             .limit(50)
         : Promise.resolve({ data: [], error: null }),
+      ...["VACCINATION", "SUPPLEMENTATION", "INVENTORY"].map((module) =>
+        canConfigure
+          ? supabase
+              .from("alert_evaluation_run")
+              .select(
+                "run_id,module,status,started_at,completed_at,alerts_created,error_code,error_message",
+              )
+              .eq("module", module)
+              .order("started_at", { ascending: false })
+              .order("run_id", { ascending: false })
+              .limit(1)
+          : Promise.resolve({ data: [], error: null }),
+      ),
     ]);
-    const failure = results.find((result) => result.error)?.error;
+    const failure = results.slice(0, 6).find((result) => result.error)?.error;
     if (failure) {
       console.error("Alerts GET:", failure);
       return errorResponse(
@@ -80,6 +93,12 @@ export async function GET(request: Request) {
         500,
       );
     }
+    const monitoringFailure = results
+      .slice(6)
+      .find((result) => result.error)?.error;
+    if (monitoringFailure)
+      console.error("Alert monitoring GET:", monitoringFailure);
+   
     return NextResponse.json(
       {
         currentUserId: userId,
@@ -87,6 +106,16 @@ export async function GET(request: Request) {
         alerts: results[0].data ?? [],
         rules: results[4].data ?? [],
         audit: results[5].data ?? [],
+        monitoring: canConfigure
+          ? {
+              runs: monitoringFailure
+                ? []
+            : results.slice(6).flatMap<unknown>((result) => result.data ?? []),
+              error: monitoringFailure
+                ? "Unable to load evaluation monitoring. Check the run-log migration and access policy."
+                : null,
+            }
+          : null,
         page,
         pageSize: 50,
         summary: {

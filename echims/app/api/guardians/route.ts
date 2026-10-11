@@ -8,8 +8,16 @@ async function authorize() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = user ? await supabase.rpc('get_my_profile').maybeSingle() : { data: null }
-  const role = profile?.role as UserRole | undefined
-  if (!user || !role || !allowedRoles.includes(role) || !canPerform(role, 'Child Profiling', 'create')) return { supabase, response: NextResponse.json({ error: 'You are not authorized to manage guardians.' }, { status: 403 }) }
+const profileData: unknown = profile
+
+const role =
+  profileData &&
+  typeof profileData === 'object' &&
+  'role' in profileData &&
+  typeof profileData.role === 'string'
+    ? (profileData.role as UserRole)
+    : undefined
+      if (!user || !role || !allowedRoles.includes(role) || !canPerform(role, 'Child Profiling', 'create')) return { supabase, response: NextResponse.json({ error: 'You are not authorized to manage guardians.' }, { status: 403 }) }
   return { supabase, response: null }
 }
 

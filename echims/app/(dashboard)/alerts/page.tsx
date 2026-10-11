@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 type Rule = {
   rule_id: number;
@@ -51,12 +51,23 @@ type Audit = {
   old_values: Record<string, unknown> | null;
   new_values: Record<string, unknown>;
 };
+type EvaluationRun = {
+  run_id: number;
+  module: string;
+  status: "RUNNING" | "SUCCEEDED" | "FAILED";
+  started_at: string;
+  completed_at: string | null;
+  alerts_created: number | null;
+  error_code: string | null;
+  error_message: string | null;
+};
 type Data = {
   currentUserId: string;
   canConfigure: boolean;
   alerts: Alert[];
   rules: Rule[];
   audit: Audit[];
+  monitoring: { runs: EvaluationRun[]; error: string | null } | null;
   page: number;
   pageSize: number;
   summary: {
@@ -109,83 +120,194 @@ async function jsonResponse(response: Response) {
 }
 
 function conditionLabel(rule: Rule): string {
-  const parameters = rule.condition_parameters ?? {}
+  const parameters = rule.condition_parameters ?? {};
 
-  if (rule.evaluator_type === 'INVENTORY_LOW_STOCK') {
-    const threshold = parameters.threshold_quantity
+  if (rule.evaluator_type === "INVENTORY_LOW_STOCK") {
+    const threshold = parameters.threshold_quantity;
 
     return threshold == null
-      ? 'Stock threshold has not been configured.'
-      : `Available stock is ${threshold} units or less.`
+      ? "Stock threshold has not been configured."
+      : `Available stock is ${threshold} units or less.`;
   }
 
-  if (rule.evaluator_type === 'INVENTORY_NEAR_EXPIRY') {
-    const days = parameters.days_before_expiry
+  if (rule.evaluator_type === "INVENTORY_NEAR_EXPIRY") {
+    const days = parameters.days_before_expiry;
 
     return days == null
-      ? 'Expiry warning period has not been configured.'
-      : `A batch with remaining stock has expired or will expire within ${days} days.`
+      ? "Expiry warning period has not been configured."
+      : `A batch with remaining stock has expired or will expire within ${days} days.`;
   }
 
-  if (rule.evaluator_type === 'HEALTH_ACTIVITY_REMINDER') {
-    const days = parameters.days_before
+  if (rule.evaluator_type === "HEALTH_ACTIVITY_REMINDER") {
+    const days = parameters.days_before;
 
     return days == null
-      ? 'Reminder period has not been configured.'
+      ? "Reminder period has not been configured."
       : days === 0
-        ? 'An approved health activity is scheduled for today.'
-        : `An approved health activity is scheduled in ${days} day${days === 1 ? '' : 's'}.`
+        ? "An approved health activity is scheduled for today."
+        : `An approved health activity is scheduled in ${days} day${days === 1 ? "" : "s"}.`;
   }
 
   const descriptions: Record<string, string> = {
     HEALTH_ACTIVITY_ACTION_NOTIFICATION:
-      'A health activity request is submitted or updated.',
+      "A health activity request is submitted or updated.",
 
     HEALTH_ACTIVITY_UPCOMING_REMINDER:
-      'An approved health activity is approaching its scheduled date.',
+      "An approved health activity is approaching its scheduled date.",
 
     NUT_MAM_SCREENING:
-      'A child aged 6–59 months has moderate wasting or MUAC from 11.5 to below 12.5 cm, without edema or severe acute malnutrition criteria.',
+      "A child aged 6–59 months has moderate wasting or MUAC from 11.5 to below 12.5 cm, without edema or severe acute malnutrition criteria.",
 
-    NUT_STUNTED:
-      'Height-for-age indicates stunting, but not severe stunting.',
+    NUT_STUNTED: "Height-for-age indicates stunting, but not severe stunting.",
 
     NUT_INFANT_URGENT_REVIEW:
-      'An infant below six months has bilateral pitting edema or severe wasting and requires urgent clinical assessment.',
+      "An infant below six months has bilateral pitting edema or severe wasting and requires urgent clinical assessment.",
 
     NUT_SAM_SCREENING:
-      'A child aged 6–59 months has bilateral pitting edema, severe wasting, or MUAC below 11.5 cm.',
+      "A child aged 6–59 months has bilateral pitting edema, severe wasting, or MUAC below 11.5 cm.",
 
     NUT_OVERWEIGHT:
-      'Weight-for-length/height or BMI-for-age indicates overweight.',
+      "Weight-for-length/height or BMI-for-age indicates overweight.",
 
-    NUT_SEVERELY_UNDERWEIGHT:
-      'Weight-for-age indicates severe underweight.',
+    NUT_SEVERELY_UNDERWEIGHT: "Weight-for-age indicates severe underweight.",
 
-    NUT_SEVERELY_STUNTED:
-      'Height-for-age indicates severe stunting.',
+    NUT_SEVERELY_STUNTED: "Height-for-age indicates severe stunting.",
 
     NUT_UNDERWEIGHT:
-      'Weight-for-age indicates underweight, but not severe underweight.',
+      "Weight-for-age indicates underweight, but not severe underweight.",
 
-    NUT_OBESITY:
-      'Weight-for-length/height or BMI-for-age indicates obesity.',
+    NUT_OBESITY: "Weight-for-length/height or BMI-for-age indicates obesity.",
 
     NUT_STATUS_WORSENED:
-      'A valid nutritional classification has worsened compared with a comparable assessment from an earlier date.',
+      "A valid nutritional classification has worsened compared with a comparable assessment from an earlier date.",
 
     MSP_DOSE_OVERDUE:
-      'An active child has a valid supplementation schedule whose due date has already passed.',
+      "An active child has a valid supplementation schedule whose due date has already passed.",
 
+    NIP_DOSE_OVERDUE:
+      "An active child below five years has a recommended vaccine dose more than 30 days past its date, with no approved administration recorded. Staff must verify history and assess catch-up needs.",
     MSP_DOSE_DUE:
-      'An active child has a valid supplementation schedule due today.',
-  }
+      "An active child has a valid supplementation schedule due today.",
+  };
 
   return (
-    descriptions[rule.rule_name] ??
-    rule.description?.trim() ??
-    'Records are checked using the configured program rule.'
-  )
+    descriptions[rule.rule_name] ||
+    rule.description?.trim() ||
+    "Records are checked using the configured program rule."
+  );
+}
+
+function EvaluationMonitoring({
+  monitoring,
+}: {
+  monitoring: Data["monitoring"];
+}) {
+  const modules = [
+    { code: "VACCINATION", label: "Vaccination" },
+    { code: "SUPPLEMENTATION", label: "Supplementation" },
+    { code: "INVENTORY", label: "Inventory" },
+  ];
+  return (
+    <section
+      aria-label="Evaluation monitoring"
+      className="rounded-2xl border border-border bg-white p-5"
+    >
+      <h2 className="font-semibold text-foreground">Evaluation monitoring</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Latest recorded run for each hourly evaluator. Use Refresh to check for
+        updates.
+      </p>
+      {monitoring?.error ? (
+        <p
+          role="alert"
+          className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800"
+        >
+          {monitoring.error}
+        </p>
+      ) : !monitoring ? (
+        <p className="mt-4 text-sm text-muted-foreground">
+          Monitoring is unavailable. Update the Alerts API.
+        </p>
+      ) : (
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          {modules.map(({ code, label }) => {
+            const run = monitoring.runs.find((item) => item.module === code);
+            const color =
+              run?.status === "FAILED"
+                ? "bg-red-100 text-red-800"
+                : run?.status === "SUCCEEDED"
+                  ? "bg-teal-100 text-teal-800"
+                  : run?.status === "RUNNING"
+                    ? "bg-sky-100 text-sky-800"
+                    : "bg-muted text-muted-foreground";
+            const status =
+              run?.status === "SUCCEEDED"
+                ? "Succeeded"
+                : run?.status === "FAILED"
+                  ? "Failed"
+                  : run?.status === "RUNNING"
+                    ? "Running"
+                    : "Not yet run";
+            return (
+              <div key={code} className="rounded-xl border border-border p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold">{label}</h3>
+                  <span
+                    className={`rounded-full px-2 py-1 text-xs font-medium ${color}`}
+                  >
+                    {status}
+                  </span>
+                </div>
+                {run ? (
+                  <>
+                    <dl className="mt-3 space-y-2 text-sm">
+                      <div>
+                        <dt className="text-xs text-muted-foreground">
+                          Started · Manila time
+                        </dt>
+                        <dd>{formatTime(run.started_at)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">
+                          Completed · Manila time
+                        </dt>
+                        <dd>
+                          {run.completed_at
+                            ? formatTime(run.completed_at)
+                            : "Not recorded"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">
+                          Alerts created
+                        </dt>
+                        <dd>{run.alerts_created ?? "Unavailable"}</dd>
+                      </div>
+                    </dl>
+                    {run.status === "FAILED" && (
+                      <p className="mt-3 break-words rounded-lg bg-red-50 p-3 text-xs text-red-800">
+                        {run.error_message ?? "Evaluation failed."}
+                        {run.error_code ? ` (${run.error_code})` : ""}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    No evaluation log has been recorded.
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <p className="mt-4 text-xs text-muted-foreground">
+        Nutrition is evaluated when assessments are saved; it is not included in
+        these scheduled run logs. A successful run with zero new alerts is
+        valid.
+      </p>
+    </section>
+  );
 }
 
 export default function AlertsPage() {
@@ -196,7 +318,9 @@ export default function AlertsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [tab, setTab] = useState<"ALERTS" | "RULES" | "AUDIT">("ALERTS");
+  const [tab, setTab] = useState<"ALERTS" | "RULES" | "AUDIT" | "MONITORING">(
+    "ALERTS",
+  );
   const [filter, setFilter] = useState("all");
   const [program, setProgram] = useState("ALL");
   const [page, setPage] = useState(1);
@@ -208,8 +332,8 @@ export default function AlertsPage() {
   const ownerRef = useRef<string | null>(null);
 
   useEffect(() => {
-   const { data: subscription } = client.auth.onAuthStateChange(
-  (_event: AuthChangeEvent, session: Session | null) => { 
+    const { data: subscription } = client.auth.onAuthStateChange(
+      (_event: AuthChangeEvent, session: Session | null) => {
         const next = session?.user.id ?? null;
         if (next !== ownerRef.current) {
           sequence.current++;
@@ -408,15 +532,37 @@ export default function AlertsPage() {
 
   return (
     <div className="space-y-6">
-        {data?.canConfigure && (
-          <div
-            className="flex flex-wrap gap-2 border-b border-border pb-3"
-            role="tablist"
-            aria-label="Alert sections"
-          >
-            {/* Keep the existing tab buttons here */}
-          </div>
-        )}
+      {data?.canConfigure && (
+        <div
+          className="flex flex-wrap gap-2 border-b border-border pb-3"
+          role="tablist"
+          aria-label="Alert sections"
+        >
+          {(
+            [
+              { value: "ALERTS", label: "Alerts" },
+              { value: "RULES", label: "Rules" },
+              { value: "AUDIT", label: "Rule change history" },
+              { value: "MONITORING", label: "Evaluation monitoring" },
+            ] as const
+          ).map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              role="tab"
+              aria-selected={tab === item.value}
+              onClick={() => setTab(item.value)}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                tab === item.value
+                  ? "bg-primary text-white"
+                  : "border border-border bg-white text-foreground hover:bg-muted"
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold text-foreground">
@@ -457,6 +603,11 @@ export default function AlertsPage() {
       ) : !owner ? (
         <p>Please sign in to access alerts.</p>
       ) : null}
+      {data?.canConfigure && tab === "MONITORING" && (
+        <div role="tabpanel" aria-label="Evaluation monitoring">
+          <EvaluationMonitoring monitoring={data.monitoring} />
+        </div>
+      )}
       {data && tab === "ALERTS" && (
         <>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
@@ -660,14 +811,7 @@ export default function AlertsPage() {
                       </span>
                     </td>
                     <td className="max-w-md px-4 py-4">
-                      <p className="break-words">
-                        {conditionLabel(rule)}
-                      </p>
-                      {parameterKey(rule.evaluator_type) && (
-                        <p className="mt-1 text-primary">
-                          {JSON.stringify(rule.condition_parameters)}
-                        </p>
-                      )}
+                      <p className="break-words">{conditionLabel(rule)}</p>
                     </td>
                     <td className="px-4 py-4">{rule.severity}</td>
                     <td className="px-4 py-4">{rule.status}</td>
@@ -974,9 +1118,8 @@ export default function AlertsPage() {
                   </label>
                 ) : (
                   <p className="rounded-lg bg-muted p-3 text-sm">
-                    Conditions are fixed by the WHO evaluator or saved
-                    supplementation protocol. No supplementation grace period is
-                    applied.
+                    Conditions are maintained by the corresponding program
+                    evaluator and cannot be edited here.
                   </p>
                 )}
                 {draft.evaluatorType.startsWith("INVENTORY_") && (
