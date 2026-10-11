@@ -18,6 +18,8 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/components/ui/toast'
 import { newClientRequestId, sendOrQueueVaccination, type VaccinationPayload } from '@/lib/vaccination-offline'
+// NIP-USR009 — compact history preview injected under the child picker.
+import { VaccinationHistoryPreview } from '@/components/vaccination/vaccination-history-preview'
 
 type ChildRef = {
   child_id: number
@@ -372,6 +374,12 @@ export function RecordVaccinationModal({ open, onClose, onSaved, ownerId, prefil
                 <p className="text-xs text-amber-700">Pick a match from the suggestions.</p>
               )}
             </div>
+
+            {/* NIP-USR009 — Vaccination history preview (shows last 3 doses,
+                completed vaccines, and next due once a child is picked). */}
+            {childId && typeof childId === 'number' && (
+              <VaccinationHistoryPreview childId={childId} />
+            )}
 
             {/* Vaccine picker */}
             <div className="space-y-1.5">
