@@ -15,6 +15,11 @@
 //     required level is picked. For NCR that's "Barangay, City, Region"
 //     (no province segment). For other regions it's the full 4-level.
 //   - onChange('') fires when the cascade is incomplete.
+//
+// Dep-array safety: the output label is computed as a derived value on
+// each render, then the single useEffect depends ONLY on that computed
+// string — a single, always-defined slot — so React can never see a
+// dep array size change (which Turbopack's HMR has flagged in dev).
 
 import { useEffect, useState } from 'react'
 import useSWR from 'swr'
@@ -59,7 +64,6 @@ export function PhilippineAddressPicker({
   const hasProvinces = (provincesSWR.data?.items.length ?? 0) > 0
   const provincesLoaded = !!provincesSWR.data && !provincesSWR.isLoading
 
-  // Cities: parent is province code for regions with provinces, else region code.
   const cityParent = hasProvinces ? provinceCode : regionCode
   const canFetchCities = hasProvinces ? !!provinceCode : (!!regionCode && provincesLoaded)
   const citiesSWR = useSWR(
@@ -72,43 +76,38 @@ export function PhilippineAddressPicker({
     fetcher,
   )
 
-  // ─── Reset downstream when upstream changes ──────────────────────────
-  useEffect(() => {
-    setProvinceCode('')
-    setCityCode('')
-    setBarangayCode('')
-  }, [regionCode])
-  useEffect(() => {
-    setCityCode('')
-    setBarangayCode('')
-  }, [provinceCode])
-  useEffect(() => {
-    setBarangayCode('')
-  }, [cityCode])
+  // ─── Reset downstream state when upstream changes ────────────────────
+  useEffect(() => { setProvinceCode(''); setCityCode(''); setBarangayCode('') }, [regionCode])
+  useEffect(() => { setCityCode(''); setBarangayCode('') }, [provinceCode])
+  useEffect(() => { setBarangayCode('') }, [cityCode])
 
-  // ─── Emit full label whenever the required levels are picked ─────────
+  // ─── Compute the composed label as a derived value (every render) ────
+  // Single string output; useEffect below only reacts to this string, so
+  // the useEffect dep array is always [outputLabel] — stable size of 1.
+  const outputLabel = (() => {
+    if (!regionCode || !cityCode || !barangayCode) return ''
+    if (hasProvinces && !provinceCode) return ''
+
+    const regionName = regionsSWR.data?.items.find((r) => r.code === regionCode)?.name
+    const provinceName = provincesSWR.data?.items.find((p) => p.code === provinceCode)?.name
+    const cityName = citiesSWR.data?.items.find((c) => c.code === cityCode)?.name
+    const barangayName = barangaysSWR.data?.items.find((b) => b.code === barangayCode)?.name
+
+    if (!regionName || !cityName || !barangayName) return ''
+    if (hasProvinces && !provinceName) return ''
+
+    const parts = hasProvinces
+      ? [barangayName, cityName, provinceName, regionName]
+      : [barangayName, cityName, regionName]
+    return parts.filter(Boolean).join(', ')
+  })()
+
   useEffect(() => {
-    const regionReady = !!regionCode
-    const provinceReady = hasProvinces ? !!provinceCode : true // province skipped for NCR
-    const cityReady = !!cityCode
-    const barangayReady = !!barangayCode
-
-    if (!regionReady || !provinceReady || !cityReady || !barangayReady) {
-      onChange('')
-      return
-    }
-    const regionName = regionsSWR.data?.items.find((r) => r.code === regionCode)?.name ?? ''
-    const provinceName = provincesSWR.data?.items.find((p) => p.code === provinceCode)?.name ?? ''
-    const cityName = citiesSWR.data?.items.find((c) => c.code === cityCode)?.name ?? ''
-    const barangayName = barangaysSWR.data?.items.find((b) => b.code === barangayCode)?.name ?? ''
-
-    if (!barangayName || !cityName || !regionName) return
-    if (hasProvinces && !provinceName) return
-
-    const parts = [barangayName, cityName, ...(hasProvinces ? [provinceName] : []), regionName]
-    onChange(parts.join(', '))
+    onChange(outputLabel)
+    // onChange is a callback prop — intentionally excluded so parent re-renders
+    // don't re-trigger. The outputLabel string is the only meaningful trigger.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [regionCode, provinceCode, cityCode, barangayCode, hasProvinces, regionsSWR.data, provincesSWR.data, citiesSWR.data, barangaysSWR.data])
+  }, [outputLabel])
 
   const hasCurrent = !!currentValue?.trim()
 
