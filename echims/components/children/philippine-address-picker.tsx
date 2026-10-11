@@ -1,19 +1,20 @@
 'use client'
 
-// CP-USR002 v2 — Philippine Address Picker (4-level cascading dropdowns).
+// CP-USR002 — Philippine Address Picker (4-level cascading dropdowns).
 //
-// v2 switch: now reads from our own Supabase table (public.psgc_location)
-// via /api/psgc, instead of the external psgc.gitlab.io API. Same cascade UX,
-// same output format — the data source change is transparent to the parent.
+// Reads from Supabase (public.psgc_location) via /api/psgc. Lazy-loads
+// each level only when its parent is picked.
 //
-// Reusable: currently wired into child-form-modal.tsx for birth place, but
-// can be dropped into any form that needs a structured PH address picker.
+// NCR exception: Metro Manila has no provinces — its cities (Makati,
+// Caloocan, etc.) sit directly under the region. When a region has 0
+// provinces, we auto-hide the province dropdown and query cities with
+// parent = regionCode (the API handles both parent shapes).
 //
-// Storage contract:
-//   - onChange(fullLabel) fires with "Barangay, City, Province, Region"
-//     any time all 4 dropdowns are filled.
-//   - If user hasn't completed the cascade, onChange fires with '' (so the
-//     parent form can require it or keep the existing value).
+// Storage contract (unchanged):
+//   - onChange(fullLabel) fires with the comma-joined label when every
+//     required level is picked. For NCR that's "Barangay, City, Region"
+//     (no province segment). For other regions it's the full 4-level.
+//   - onChange('') fires when the cascade is incomplete.
 
 import { useEffect, useState } from 'react'
 import useSWR from 'swr'
@@ -52,10 +53,20 @@ export function PhilippineAddressPicker({
     regionCode ? `/api/psgc?level=provinces&parent=${encodeURIComponent(regionCode)}` : null,
     fetcher,
   )
+
+  // "Has provinces" flag — determines whether the province dropdown is shown
+  // and whether cities should be queried by province OR region (NCR style).
+  const hasProvinces = (provincesSWR.data?.items.length ?? 0) > 0
+  const provincesLoaded = !!provincesSWR.data && !provincesSWR.isLoading
+
+  // Cities: parent is province code for regions with provinces, else region code.
+  const cityParent = hasProvinces ? provinceCode : regionCode
+  const canFetchCities = hasProvinces ? !!provinceCode : (!!regionCode && provincesLoaded)
   const citiesSWR = useSWR(
-    provinceCode ? `/api/psgc?level=cities&parent=${encodeURIComponent(provinceCode)}` : null,
+    canFetchCities ? `/api/psgc?level=cities&parent=${encodeURIComponent(cityParent)}` : null,
     fetcher,
   )
+
   const barangaysSWR = useSWR(
     cityCode ? `/api/psgc?level=barangays&parent=${encodeURIComponent(cityCode)}` : null,
     fetcher,
@@ -75,9 +86,14 @@ export function PhilippineAddressPicker({
     setBarangayCode('')
   }, [cityCode])
 
-  // ─── Emit full label whenever all 4 are picked ───────────────────────
+  // ─── Emit full label whenever the required levels are picked ─────────
   useEffect(() => {
-    if (!regionCode || !provinceCode || !cityCode || !barangayCode) {
+    const regionReady = !!regionCode
+    const provinceReady = hasProvinces ? !!provinceCode : true // province skipped for NCR
+    const cityReady = !!cityCode
+    const barangayReady = !!barangayCode
+
+    if (!regionReady || !provinceReady || !cityReady || !barangayReady) {
       onChange('')
       return
     }
@@ -85,10 +101,14 @@ export function PhilippineAddressPicker({
     const provinceName = provincesSWR.data?.items.find((p) => p.code === provinceCode)?.name ?? ''
     const cityName = citiesSWR.data?.items.find((c) => c.code === cityCode)?.name ?? ''
     const barangayName = barangaysSWR.data?.items.find((b) => b.code === barangayCode)?.name ?? ''
-    if (!barangayName || !cityName || !provinceName || !regionName) return
-    onChange(`${barangayName}, ${cityName}, ${provinceName}, ${regionName}`)
+
+    if (!barangayName || !cityName || !regionName) return
+    if (hasProvinces && !provinceName) return
+
+    const parts = [barangayName, cityName, ...(hasProvinces ? [provinceName] : []), regionName]
+    onChange(parts.join(', '))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [regionCode, provinceCode, cityCode, barangayCode, regionsSWR.data, provincesSWR.data, citiesSWR.data, barangaysSWR.data])
+  }, [regionCode, provinceCode, cityCode, barangayCode, hasProvinces, regionsSWR.data, provincesSWR.data, citiesSWR.data, barangaysSWR.data])
 
   const hasCurrent = !!currentValue?.trim()
 
@@ -116,22 +136,34 @@ export function PhilippineAddressPicker({
         options={regionsSWR.data?.items ?? []}
       />
 
-      {/* Province */}
-      <CascadeSelect
-        value={provinceCode}
-        onChange={setProvinceCode}
-        placeholder={!regionCode ? 'Pick a region first' : provincesSWR.isLoading ? 'Loading provinces…' : 'Province'}
-        disabled={!regionCode || provincesSWR.isLoading}
-        error={provincesSWR.error?.message}
-        options={provincesSWR.data?.items ?? []}
-      />
+      {/* Province — hidden when region has no provinces (NCR, etc.) */}
+      {regionCode && provincesLoaded && !hasProvinces ? (
+        <div className="rounded-lg border border-sky-100 bg-sky-50/60 px-3 py-2 text-xs text-sky-800">
+          This region has no provinces — pick a City / Municipality below.
+        </div>
+      ) : (
+        <CascadeSelect
+          value={provinceCode}
+          onChange={setProvinceCode}
+          placeholder={!regionCode ? 'Pick a region first' : provincesSWR.isLoading ? 'Loading provinces…' : 'Province'}
+          disabled={!regionCode || provincesSWR.isLoading}
+          error={provincesSWR.error?.message}
+          options={provincesSWR.data?.items ?? []}
+        />
+      )}
 
       {/* City / Municipality */}
       <CascadeSelect
         value={cityCode}
         onChange={setCityCode}
-        placeholder={!provinceCode ? 'Pick a province first' : citiesSWR.isLoading ? 'Loading cities…' : 'City / Municipality'}
-        disabled={!provinceCode || citiesSWR.isLoading}
+        placeholder={
+          !canFetchCities
+            ? (hasProvinces ? 'Pick a province first' : 'Pick a region first')
+            : citiesSWR.isLoading
+              ? 'Loading cities…'
+              : 'City / Municipality'
+        }
+        disabled={!canFetchCities || citiesSWR.isLoading}
         error={citiesSWR.error?.message}
         options={citiesSWR.data?.items ?? []}
       />
