@@ -154,6 +154,16 @@ const STATUS_FILTERS: { value: string; label: string }[] = [
   { value: 'CANCELLED', label: 'Cancelled' },
 ]
 
+// NIP-USR012 — Activity type filter. Vaccination activities now live only here
+// (no separate Vaccination Calendar tab). Default is 'ALL' so the consolidated
+// view is the first thing a user sees.
+const TYPE_FILTERS: { value: string; label: string }[] = [
+  { value: 'ALL', label: 'All types' },
+  { value: 'VACCINATION', label: 'Vaccinations' },
+  { value: 'NUTRITIONAL_ASSESSMENT', label: 'Nutritional assessment' },
+  { value: 'SUPPLEMENTATION', label: 'Supplementation' },
+]
+
 /* =========================================================
    HELPERS
 ========================================================= */
@@ -362,6 +372,9 @@ export default function HealthActivitiesClient() {
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null)
   const [statusActivity, setStatusActivity] = useState<Activity | null>(null)
   const [activeTab, setActiveTab] = useState<'Requests' | 'Calendar'>('Requests')
+  // NIP-USR012 — Type filter persists across Requests ↔ Calendar so switching
+  // tabs never surprises the user with different data.
+  const [typeFilter, setTypeFilter] = useState<string>('ALL')
   const [activities, setActivities] = useState<Activity[]>([])
   const [role, setRole] = useState<Role | null>(null)
   const [loading, setLoading] = useState(true)
@@ -423,6 +436,10 @@ export default function HealthActivitiesClient() {
       const matchesStatus =
         statusFilter === 'ALL' || activity.status === statusFilter
 
+      // NIP-USR012 — Applies to both Requests and Calendar views.
+      const matchesType =
+        typeFilter === 'ALL' || activity.activity_type === typeFilter
+
       const matchesSearch =
         !normalizedSearch ||
         formatActivityType(activity.activity_type)
@@ -432,9 +449,9 @@ export default function HealthActivitiesClient() {
           ?.barangay_name?.toLowerCase()
           .includes(normalizedSearch)
 
-      return matchesStatus && matchesSearch
+      return matchesStatus && matchesType && matchesSearch
     })
-  }, [activities, search, statusFilter])
+  }, [activities, search, statusFilter, typeFilter])
 
   /* COUNTS */
 
@@ -711,14 +728,60 @@ export default function HealthActivitiesClient() {
               {error}
             </div>
           ) : activeTab === 'Calendar' ? (
-            <div className="p-4 sm:p-7">
-              <HealthActivityCalendar
-                activities={filteredActivities}
-                onSelectActivity={(activity) => setSelectedActivity(activity)}
-              />
-            </div>
+            <>
+              {/* NIP-USR012 — Type filter above the Calendar lets staff slice
+                  by activity type. Vaccination events already appear here as
+                  blue tiles (color coded by activity_type in the calendar). */}
+              <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 py-4 sm:px-7">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Type:
+                </span>
+                {TYPE_FILTERS.map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => setTypeFilter(item.value)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      typeFilter === item.value
+                        ? 'bg-[#e0f6fa] text-[#087db9]'
+                        : 'text-slate-500 hover:bg-slate-100'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <div className="p-4 sm:p-7">
+                <HealthActivityCalendar
+                  activities={filteredActivities}
+                  onSelectActivity={(activity) => setSelectedActivity(activity)}
+                />
+              </div>
+            </>
           ) : (
             <>
+              {/* NIP-USR012 — Type filter mirrors the one on Calendar so the
+                  same filter persists when the user switches tabs. */}
+              <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 py-3 sm:px-7">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Type:
+                </span>
+                {TYPE_FILTERS.map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => setTypeFilter(item.value)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      typeFilter === item.value
+                        ? 'bg-[#e0f6fa] text-[#087db9]'
+                        : 'text-slate-500 hover:bg-slate-100'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
               {/* STATUS PILLS */}
 
               <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 py-4 sm:px-7">
@@ -1961,4 +2024,4 @@ function ActionButton({
       {label}
     </button>
   )
-} 
+}

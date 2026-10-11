@@ -27,7 +27,6 @@ export const moduleTabs: Record<string, { label: string; href: string; module: s
     { label: 'Records', href: '/vaccination/records', module: 'Vaccination' },
     { label: 'Defaulters', href: '/vaccination/defaulters', module: 'Vaccination' },
     { label: 'Schedule', href: '/vaccination/schedule', module: 'Vaccination Schedule' },
-    { label: 'Calendar', href: '/vaccination/calendar', module: 'Vaccination' },
     { label: 'NIP Catalog', href: '/vaccination/catalog', module: 'NIP Catalog' },
     // NIP-USR010 — RHM batch requests + PHN approval queue.
     { label: 'Batch Requests', href: '/vaccination/batch-requests', module: 'Vaccine Batch Requests' },

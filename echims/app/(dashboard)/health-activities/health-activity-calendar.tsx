@@ -64,17 +64,39 @@ function activityLabel(value: string) {
     .join(' ')
 }
 
+// NIP-USR012 — Centralized activity type → color mapping. Used by both the
+// per-event tile styles and the legend below the calendar header. Each type
+// gets a distinct hue so staff can scan a dense month view and tell apart
+// vaccinations, nutritional assessments, and supplementation at a glance.
+const ACTIVITY_TYPE_COLORS: Record<string, {
+  label: string
+  tile: string           // tailwind classes for the event tile
+  dot: string            // small dot in the legend
+}> = {
+  VACCINATION: {
+    label: 'Vaccination',
+    tile: 'border-sky-300 bg-sky-50 text-sky-900',
+    dot: 'bg-sky-500',
+  },
+  NUTRITIONAL_ASSESSMENT: {
+    label: 'Nutritional assessment',
+    tile: 'border-emerald-300 bg-emerald-50 text-emerald-900',
+    dot: 'bg-emerald-500',
+  },
+  SUPPLEMENTATION: {
+    label: 'Supplementation',
+    tile: 'border-violet-300 bg-violet-50 text-violet-900',
+    dot: 'bg-violet-500',
+  },
+}
+
+const DEFAULT_ACTIVITY_STYLE = {
+  tile: 'border-slate-200 bg-slate-50 text-slate-900',
+  dot: 'bg-slate-500',
+}
+
 function activityStyle(value: string) {
-  switch (value) {
-    case 'VACCINATION':
-      return 'border-blue-200 bg-blue-50 text-blue-900'
-    case 'NUTRITIONAL_ASSESSMENT':
-      return 'border-green-200 bg-green-50 text-green-900'
-    case 'SUPPLEMENTATION':
-      return 'border-purple-200 bg-purple-50 text-purple-900'
-    default:
-      return 'border-slate-200 bg-slate-50 text-slate-900'
-  }
+  return ACTIVITY_TYPE_COLORS[value]?.tile ?? DEFAULT_ACTIVITY_STYLE.tile
 }
 
 function statusStyle(value: string) {
@@ -273,6 +295,20 @@ export default function HealthActivityCalendar<T extends CalendarActivity>({
             </button>
           ))}
         </div>
+      </div>
+
+      {/* NIP-USR012 — Color legend so staff can tell apart activity types at a
+          glance when a dense month view is on screen. */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b bg-slate-50/40 px-4 py-2.5">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          Legend:
+        </span>
+        {Object.entries(ACTIVITY_TYPE_COLORS).map(([type, meta]) => (
+          <span key={type} className="inline-flex items-center gap-1.5 text-xs text-slate-700">
+            <span className={`inline-block size-2.5 rounded-full ${meta.dot}`} aria-hidden="true" />
+            {meta.label}
+          </span>
+        ))}
       </div>
 
       <div className="overflow-x-auto">
