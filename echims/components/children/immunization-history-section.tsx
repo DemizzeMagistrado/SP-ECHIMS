@@ -5,12 +5,17 @@
 //   - Summary counts
 //   - Vaccine filter dropdown
 //   - Table with every dose + status badge (COMPLETE / DUE / OVERDUE / UPCOMING)
+// *- "Prior" chip on COMPLETE doses that were back-filled (NIP-USR008)
 //   - Approved records log (sortable, newest first)
 //   - Print button
+//   - "Add past vaccination" button (NIP-USR008) — gated per role
 //   - Empty / loading / error states
 import { useMemo, useState } from 'react'
 import useSWR from 'swr'
-import { Syringe, Printer, AlertCircle, CheckCircle2, Clock, CalendarClock, Filter } from 'lucide-react'
+import { Syringe, Printer, AlertCircle, CheckCircle2, Clock, CalendarClock, Filter, Plus, History } from 'lucide-react'
+import { useAuth } from '@/components/auth/auth-provider'
+import { canPerform, type UserRole } from '@/lib/echims-data'
+import { RecordPriorVaccinationModal } from '@/components/vaccination/record-prior-vaccination-modal'
 type DoseStatus = 'COMPLETE' | 'DUE' | 'OVERDUE' | 'UPCOMING'
 type DoseRow = {
   dose_number: number
@@ -20,6 +25,9 @@ type DoseRow = {
   batch_number: string | null
   vaccination_site: string | null
   vaccination_record_id: number | null
+  // NIP-USR008 — flag + source for retrospective records (Baby Book, prior RHU).
+  is_prior?: boolean
+  prior_source?: string | null
 }
 type VaccineStatus = {
   code: string
@@ -51,13 +59,20 @@ function formatDate(ymd: string | null): string {
   if (!ymd) return '—'
   return new Date(ymd + 'T00:00:00').toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
 }
-export function ImmunizationHistorySection({ childId }: { childId: number }) {
-  const { data, error, isLoading } = useSWR<Payload>(
+export function ImmunizationHistorySection({ childId, childName }: { childId: number; childName?: string }) {
+  const { user } = useAuth()
+  const role = user?.role as UserRole | undefined
+  // NIP-USR008 — only roles with Vaccination 'create' can back-fill prior records.
+  // After NIP-USR007, that's Admin / RHM / BHW (not PHN, not BNS).
+  const canAddPrior = role ? canPerform(role, 'Vaccination', 'create') : false
+
+  const { data, error, isLoading, mutate } = useSWR<Payload>(
     childId ? `/api/vaccination/history?child_id=${childId}` : null,
     fetcher,
   )
   const [vaccineFilter, setVaccineFilter] = useState<string>('')
   const [statusFilter, setStatusFilter] = useState<DoseStatus | ''>('')
+  const [priorModalOpen, setPriorModalOpen] = useState(false)
   const rows = useMemo(() => {
     if (!data) return []
     const flat = data.vaccine_status.flatMap((v) =>
@@ -97,13 +112,25 @@ export function ImmunizationHistorySection({ childId }: { childId: number }) {
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={handlePrint}
-          className="inline-flex items-center gap-1.5 self-start rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted print:hidden"
-        >
-          <Printer size={14} /> Print
-        </button>
+        <div className="flex flex-wrap items-center gap-2 print:hidden">
+          {canAddPrior && (
+            <button
+              type="button"
+              onClick={() => setPriorModalOpen(true)}
+              className="inline-flex items-center gap-1.5 self-start rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 transition-colors hover:bg-amber-100"
+              title="Record a vaccination given before eCHIMS enrollment (Baby Book, prior RHU, etc.)"
+            >
+              <Plus size={14} /> Add past vaccination
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="inline-flex items-center gap-1.5 self-start rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+          >
+            <Printer size={14} /> Print
+          </button>
+        </div>
       </div>
       {/* Body */}
       <div className="space-y-5 p-6">
@@ -218,7 +245,17 @@ export function ImmunizationHistorySection({ childId }: { childId: number }) {
                             </td>
                             <td className="px-4 py-3 text-muted-foreground">Dose {r.dose_number}</td>
                             <td className="px-4 py-3 text-muted-foreground">{formatDate(r.due_date)}</td>
-                            <td className="px-4 py-3 text-foreground">{formatDate(r.given_date)}</td>
+                            <td className="px-4 py-3 text-foreground">
+                              {formatDate(r.given_date)}
+                              {r.is_prior && (
+                                <span
+                                  className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800"
+                                  title={r.prior_source ? `Source: ${r.prior_source}` : 'Back-filled from paper record'}
+                                >
+                                  <History size={10} /> Prior
+                                </span>
+                              )}
+                            </td>
                             <td className="px-4 py-3 text-muted-foreground">{r.batch_number ?? '—'}</td>
                             <td className="px-4 py-3">
                               <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${meta.chip}`}>
@@ -236,6 +273,21 @@ export function ImmunizationHistorySection({ childId }: { childId: number }) {
           </>
         )}
       </div>
+      {/* NIP-USR008 — Prior vaccination modal mount */}
+      {canAddPrior && (
+        <RecordPriorVaccinationModal
+          open={priorModalOpen}
+          onClose={() => setPriorModalOpen(false)}
+          onSaved={() => mutate()}
+          childId={childId}
+          childName={
+            childName ??
+            (data?.child
+              ? [data.child.first_name, data.child.last_name].filter(Boolean).join(' ')
+              : 'this child')
+          }
+        />
+      )}
     </section>
   )
 }

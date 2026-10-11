@@ -43,6 +43,9 @@ type DoseRow = {
   batch_number: string | null
   vaccination_site: string | null
   vaccination_record_id: number | null
+  // NIP-USR008 — distinguishes doses that were back-filled from paper records.
+  is_prior: boolean
+  prior_source: string | null
 }
 
 type VaccineStatusRow = {
@@ -94,11 +97,14 @@ export async function GET(request: Request) {
   }
   const dob = String(childRes.data.date_of_birth)
 
-  // Pull APPROVED vaccination records joined with vaccine details
+  // Pull APPROVED vaccination records joined with vaccine details.
+  // NIP-USR008 — is_prior + prior_source now included so the UI
+  // can badge records that were recorded retrospectively (Baby Book, etc.).
   const recRes = await supabase.from('vaccination_record')
     .select(`
       vaccination_record_id, vaccination_date, dose_number, batch_number,
       vaccination_site, remarks, created_at,
+      is_prior, prior_source,
       vaccine:vaccine(vaccine_id, vaccine_type, dose_volume, route, target_age,
         item:item(item_id, item_name))
     `)
@@ -142,6 +148,9 @@ export async function GET(request: Request) {
         batch_number: match?.batch_number ?? null,
         vaccination_site: match?.vaccination_site ?? null,
         vaccination_record_id: match?.vaccination_record_id ?? null,
+        // NIP-USR008 — propagate prior flag so the dose row can be badged
+        is_prior: Boolean(match?.is_prior),
+        prior_source: match?.prior_source ?? null,
       })
     }
     return {
