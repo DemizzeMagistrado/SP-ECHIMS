@@ -1,24 +1,19 @@
 import {
   NextResponse,
 } from 'next/server'
-
 import {
   createClient,
 } from '@/lib/supabase/server'
-
 import {
   getAuthorizationContext,
 } from '@/lib/auth/authorization'
-
 const ALLOWED_STATUSES = [
   'ACTIVE',
   'INACTIVE',
   'SUSPENDED',
 ] as const
-
 type AccountStatus =
   (typeof ALLOWED_STATUSES)[number]
-
 export async function PATCH(
   request: Request
 ) {
@@ -26,10 +21,8 @@ export async function PATCH(
     /* =====================================================
        AUTHORIZATION
     ===================================================== */
-
     const context =
       await getAuthorizationContext()
-
     if (!context) {
       return NextResponse.json(
         {
@@ -41,7 +34,6 @@ export async function PATCH(
         }
       )
     }
-
     if (
       context.role !==
       'Administrator'
@@ -56,55 +48,37 @@ export async function PATCH(
         }
       )
     }
-
     /* =====================================================
        REQUEST BODY
     ===================================================== */
-
-    let body: {
-      userId?: string
-      accountStatus?: string
-    }
-
+    let payload: unknown
     try {
-      body =
-        await request.json()
+      payload = await request.json()
     } catch {
-      return NextResponse.json(
-        {
-          error:
-            'Invalid request body.',
-        },
-        {
-          status: 400,
-        }
-      )
+      return NextResponse.json({ error: 'Request body must be valid JSON.' }, { status: 400 })
     }
-
-    const userId =
-      body.userId?.trim()
-
-    const accountStatus =
-      body.accountStatus
-        ?.trim()
-        .toUpperCase()
-
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
+    }
+    const body = payload as Record<string, unknown>
+    const userId = typeof body.userId === 'string' ? body.userId.trim() : ''
+    const accountStatus = typeof body.accountStatus === 'string'
+      ? body.accountStatus.trim().toUpperCase()
+      : ''
     /* =====================================================
        VALIDATION
     ===================================================== */
-
-    if (!userId) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
       return NextResponse.json(
         {
           error:
-            'User ID is required.',
+            'A valid user ID is required.',
         },
         {
           status: 400,
         }
       )
     }
-
     if (
       !accountStatus ||
       !ALLOWED_STATUSES.includes(
@@ -121,7 +95,6 @@ export async function PATCH(
         }
       )
     }
-
     /*
      * Prevent the logged-in administrator
      * from disabling their own account.
@@ -140,14 +113,11 @@ export async function PATCH(
         }
       )
     }
-
     const supabase =
       await createClient()
-
     /* =====================================================
        TARGET USER
     ===================================================== */
-
     const {
       data: targetUser,
       error: targetUserError,
@@ -164,13 +134,11 @@ export async function PATCH(
         userId
       )
       .maybeSingle()
-
     if (targetUserError) {
       console.error(
         'USER LOOKUP ERROR:',
         targetUserError.message
       )
-
       return NextResponse.json(
         {
           error:
@@ -181,7 +149,6 @@ export async function PATCH(
         }
       )
     }
-
     if (!targetUser) {
       return NextResponse.json(
         {
@@ -193,11 +160,9 @@ export async function PATCH(
         }
       )
     }
-
     /* =====================================================
        DETERMINE ROLE / WORKPLACE TYPE
     ===================================================== */
-
     const {
       data: administrator,
       error: administratorError,
@@ -209,13 +174,11 @@ export async function PATCH(
         userId
       )
       .maybeSingle()
-
     if (administratorError) {
       console.error(
         'ADMIN ROLE LOOKUP ERROR:',
         administratorError.message
       )
-
       return NextResponse.json(
         {
           error:
@@ -226,7 +189,6 @@ export async function PATCH(
         }
       )
     }
-
     const {
       data: phn,
       error: phnError,
@@ -242,13 +204,11 @@ export async function PATCH(
         userId
       )
       .maybeSingle()
-
     if (phnError) {
       console.error(
         'PHN ROLE LOOKUP ERROR:',
         phnError.message
       )
-
       return NextResponse.json(
         {
           error:
@@ -259,17 +219,13 @@ export async function PATCH(
         }
       )
     }
-
     const isAdministrator =
       Boolean(administrator)
-
     const isPhn =
       Boolean(phn)
-
     /* =====================================================
        VALIDATE WORKPLACE BEFORE ACTIVATION
     ===================================================== */
-
     if (
       accountStatus ===
       'ACTIVE'
@@ -281,7 +237,6 @@ export async function PATCH(
       if (isAdministrator) {
         // Valid.
       }
-
       /*
        * PHN must have one RHU.
        */
@@ -290,11 +245,34 @@ export async function PATCH(
           return NextResponse.json(
             {
               error:
-                'This Public Health Nurse does not have an RHU assignment.',
+                'This Public Health Nurse has no RHU assignment. Assign an available RHU before activating the account.',
             },
             {
               status: 400,
             }
+          )
+        }
+        // Check all assignments, including pending/inactive accounts.
+        // The unique index on public_health_nurse.rhu_id enforces this
+        // globally for every RHU and protects concurrent assignment writes.
+        const { data: otherPhn, error: otherPhnError } = await supabase
+          .from('public_health_nurse')
+          .select('user_id')
+          .eq('rhu_id', phn.rhu_id)
+          .neq('user_id', userId)
+          .limit(1)
+
+        if (otherPhnError) {
+          console.error('PHN ASSIGNMENT CONFLICT LOOKUP ERROR:', otherPhnError)
+          return NextResponse.json(
+            { error: 'Unable to verify whether the RHU already has an assigned PHN.' },
+            { status: 500 },
+          )
+        }
+        if (otherPhn && otherPhn.length > 0) {
+          return NextResponse.json(
+            { error: 'This RHU already has an assigned PHN. Only one PHN may be assigned per RHU.' },
+            { status: 409 },
           )
         }
 
@@ -311,13 +289,11 @@ export async function PATCH(
             phn.rhu_id
           )
           .maybeSingle()
-
         if (rhuError) {
           console.error(
             'PHN RHU LOOKUP ERROR:',
             rhuError.message
           )
-
           return NextResponse.json(
             {
               error:
@@ -328,7 +304,6 @@ export async function PATCH(
             }
           )
         }
-
         if (!rhu) {
           return NextResponse.json(
             {
@@ -340,7 +315,6 @@ export async function PATCH(
             }
           )
         }
-
         if (
           rhu.account_status !==
           'ACTIVE'
@@ -356,7 +330,6 @@ export async function PATCH(
           )
         }
       }
-
       /*
        * RHM / BHW / BNS require
        * at least one geographic
@@ -381,7 +354,6 @@ export async function PATCH(
             'user_id',
             userId
           )
-
         if (
           existingAssignmentError
         ) {
@@ -390,7 +362,6 @@ export async function PATCH(
             existingAssignmentError
               .message
           )
-
           return NextResponse.json(
             {
               error:
@@ -401,7 +372,6 @@ export async function PATCH(
             }
           )
         }
-
         if (
           !existingAssignments ||
           existingAssignments.length ===
@@ -419,11 +389,9 @@ export async function PATCH(
         }
       }
     }
-
     /* =====================================================
        UPDATE USER ACCOUNT
     ===================================================== */
-
     const {
       data: updatedUser,
       error: userUpdateError,
@@ -444,13 +412,11 @@ export async function PATCH(
         account_status
       `)
       .single()
-
     if (userUpdateError) {
       console.error(
         'USER STATUS UPDATE ERROR:',
         userUpdateError.message
       )
-
       return NextResponse.json(
         {
           error:
@@ -461,22 +427,17 @@ export async function PATCH(
         }
       )
     }
-
     /* =====================================================
        SYNCHRONIZE WORKER ASSIGNMENTS
-
        PHN:
        - no health_worker_assignment rows
        - public_health_nurse.rhu_id defines scope
-
        Administrator:
        - no geographic assignment
-
        RHM/BHW/BNS:
        - assignment rows follow account
          activation/deactivation.
     ===================================================== */
-
     if (
       !isAdministrator &&
       !isPhn &&
@@ -492,7 +453,6 @@ export async function PATCH(
         'ACTIVE'
           ? 'ACTIVE'
           : 'INACTIVE'
-
       const {
         data: assignments,
         error: assignmentError,
@@ -508,7 +468,6 @@ export async function PATCH(
           'user_id',
           userId
         )
-
         /*
          * Include INACTIVE.
          *
@@ -530,13 +489,11 @@ export async function PATCH(
           barangay_id,
           status
         `)
-
       if (assignmentError) {
         console.error(
           'ASSIGNMENT STATUS UPDATE ERROR:',
           assignmentError.message
         )
-
         /*
          * Best-effort rollback.
          */
@@ -550,7 +507,6 @@ export async function PATCH(
             'user_id',
             userId
           )
-
         return NextResponse.json(
           {
             error:
@@ -561,45 +517,34 @@ export async function PATCH(
           }
         )
       }
-
       return NextResponse.json({
         success: true,
-
         userId:
           updatedUser.user_id,
-
         accountStatus:
           updatedUser.account_status,
-
         workplaceType:
           'BARANGAY_ASSIGNMENT',
-
         assignmentsUpdated:
           assignments?.length ??
           0,
       })
     }
-
     /* =====================================================
        PHN / ADMIN / SUSPENSION
     ===================================================== */
-
     return NextResponse.json({
       success: true,
-
       userId:
         updatedUser.user_id,
-
       accountStatus:
         updatedUser.account_status,
-
       workplaceType:
         isAdministrator
           ? 'SYSTEM'
           : isPhn
             ? 'RHU'
             : 'BARANGAY_ASSIGNMENT',
-
       assignmentsUpdated: 0,
     })
   } catch (error) {
@@ -607,7 +552,6 @@ export async function PATCH(
       'USER MANAGEMENT PATCH ERROR:',
       error
     )
-
     return NextResponse.json(
       {
         error:
