@@ -9,6 +9,8 @@
 import { FormEvent, useEffect, useState } from 'react'
 import useSWR from 'swr'
 import { X } from 'lucide-react'
+// CP-USR002 — Structured 4-level dropdown for Birth place (region → brgy).
+import { PhilippineAddressPicker } from '@/components/children/philippine-address-picker'
 
 type Mode = 'create' | 'edit'
 type Barangay = { barangay_id: number; barangay_name: string }
@@ -251,7 +253,18 @@ export function ChildFormModal({ mode, childId, onClose, onSaved, onError }: { m
           <Field label="Last name" value={String(form.last_name)} onChange={(v) => set('last_name', v)} required />
           <Field label="Date of birth" type="date" value={String(form.date_of_birth)} onChange={(v) => set('date_of_birth', v)} required />
           <SelectField label="Sex" value={String(form.sex)} onChange={(v) => set('sex', v)} values={['Male', 'Female']} required />
-          <Field label="Birth place" value={String(form.birth_place)} onChange={(v) => set('birth_place', v)} />
+          {/* CP-USR002 — Birth place is now a 4-level cascading PH address picker.
+              Spans the full row because the 4 stacked dropdowns need the width. */}
+          <div className="sm:col-span-2 lg:col-span-3">
+            <PhilippineAddressPicker
+              currentValue={String(form.birth_place)}
+              onChange={(fullLabel) => {
+                // Empty string means the cascade is incomplete — keep whatever was there
+                // (either prior free text in edit mode, or '' in create mode).
+                if (fullLabel) set('birth_place', fullLabel)
+              }}
+            />
+          </div>
           <Field label="Address" wide value={String(form.address)} onChange={(v) => set('address', v)} />
           <label className="grid gap-1 text-sm">
             <span className="font-medium">Barangay *</span>
