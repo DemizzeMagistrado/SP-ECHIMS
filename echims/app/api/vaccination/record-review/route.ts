@@ -67,34 +67,16 @@ export async function POST(request: Request) {
     return invalid(`This record is already ${existing.data.status.toLowerCase()}.`)
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const child: any = Array.isArray(existing.data.child) ? existing.data.child[0] : existing.data.child
-  const barangayId = child?.barangay_id as number | undefined
-
   const newStatus = action === 'APPROVE' ? 'APPROVED' : 'REJECTED'
-  let finalRemarks = reviewRemarks
 
-  // Stock deduction on APPROVE (soft fail — never blocks approval)
-  if (action === 'APPROVE' && barangayId) {
-    const stockResult = await deductStock(supabase, {
-      barangayId,
-      vaccineId: existing.data.vaccine_id,
-      recordId,
-      performedBy: user.id,
-    })
-    if (stockResult.note) {
-      finalRemarks = finalRemarks
-        ? `${finalRemarks}\n\n[Stock] ${stockResult.note}`
-        : `[Stock] ${stockResult.note}`
-    }
-  }
-
+  // Flip the record first so the atomic consume RPC can trust the APPROVED
+  // state when it runs. For REJECT we just save the review remarks and exit.
   const updateRes = await supabase.from('vaccination_record')
     .update({
       status: newStatus,
       approved_by: user.id,
       approved_at: new Date().toISOString(),
-      review_remarks: finalRemarks,
+      review_remarks: reviewRemarks,
     })
     .eq('vaccination_record_id', recordId)
     .select('vaccination_record_id, status, review_remarks')
@@ -107,49 +89,49 @@ export async function POST(request: Request) {
   }
   if (!updateRes.data) return invalid('Record was not updated.', 403)
 
+  // NIP-USR013 — Stock movement is now a single atomic DB call that handles
+  // batch balance, aggregate inventory, inventory_transaction logging, and
+  // the alert evaluator (low-stock + near-expiry) in one transaction. The
+  // RPC is a no-op for prior/historical records and short-circuits with a
+  // human-readable note when inventory is missing or empty.
+  let stockNote: string | null = null
+  if (action === 'APPROVE') {
+    const consume = await supabase.rpc('nip_consume_vaccine_dose', {
+      p_record_id: recordId,
+      p_performed_by: user.id,
+    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const payload: any = consume.data ?? null
+    if (consume.error) {
+      stockNote = `Stock update skipped: ${consume.error.message ?? 'unknown error'}`
+    } else if (payload?.ok === false) {
+      stockNote = `Stock update skipped: ${payload.error ?? 'unknown error'}`
+    } else if (payload?.note) {
+      stockNote = String(payload.note)
+    }
+  }
+
+  // Append the stock note into review_remarks only when there's something
+  // meaningful to tell the reviewer — keeps clean approvals noise-free.
+  let finalRemarks = updateRes.data.review_remarks
+  if (stockNote) {
+    const combined = finalRemarks
+      ? `${finalRemarks}\n\n[Stock] ${stockNote}`
+      : `[Stock] ${stockNote}`
+    const noteUpdate = await supabase.from('vaccination_record')
+      .update({ review_remarks: combined })
+      .eq('vaccination_record_id', recordId)
+      .select('review_remarks')
+      .maybeSingle()
+    if (!noteUpdate.error && noteUpdate.data) {
+      finalRemarks = noteUpdate.data.review_remarks
+    }
+  }
+
   return NextResponse.json({
     vaccination_record_id: updateRes.data.vaccination_record_id,
     status: updateRes.data.status,
-    review_remarks: updateRes.data.review_remarks,
+    review_remarks: finalRemarks,
+    stock_note: stockNote,
   })
-}
-
-// --- Helper: deduct stock for the given barangay + vaccine ---
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function deductStock(
-  supabase: any,
-  args: { barangayId: number; vaccineId: number; recordId: number; performedBy: string },
-): Promise<{ note: string | null }> {
-  const invRes = await supabase.from('inventory')
-    .select('inventory_id, quantity_on_hand')
-    .eq('barangay_id', args.barangayId)
-    .eq('item_id', args.vaccineId)
-    .maybeSingle()
-
-  if (invRes.error || !invRes.data) {
-    return { note: 'No inventory configured for this barangay + vaccine. Approval went through; please seed inventory to track stock going forward.' }
-  }
-  const onHand = Number(invRes.data.quantity_on_hand ?? 0)
-  if (onHand <= 0) {
-    return { note: 'Inventory shows 0 doses on hand for this barangay + vaccine. Approval went through; refill stock to resume tracking.' }
-  }
-
-  const updateInv = await supabase.from('inventory')
-    .update({ quantity_on_hand: onHand - 1, updated_at: new Date().toISOString() })
-    .eq('inventory_id', invRes.data.inventory_id)
-  if (updateInv.error) {
-    return { note: `Stock deduction skipped: ${updateInv.error.message ?? 'unknown error'}` }
-  }
-
-  await supabase.from('inventory_transaction').insert({
-    inventory_id: invRes.data.inventory_id,
-    transaction_type: 'STOCK_OUT',
-    quantity: 1,
-    reference_number: `vaccination_record:${args.recordId}`,
-    remarks: `Dose administered — approved vaccination record ${args.recordId}`,
-    performed_by: args.performedBy,
-    transaction_date: new Date().toISOString(),
-  })
-
-  return { note: null }
 }
