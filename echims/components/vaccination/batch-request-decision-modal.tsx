@@ -1,6 +1,6 @@
 'use client'
 
-// NIP-USR010 — PHN/Admin review modal for a single batch request.
+// NIP-USR010 — PHN review modal for a single batch request.
 // Shows the full request detail and gives Approve / Reject buttons.
 // Reject prompts for a reason inline before confirming.
 

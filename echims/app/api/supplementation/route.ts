@@ -133,7 +133,7 @@ async function auth() {
     role,
     scope,
     permissions: {
-      record: role === 'BHW' || role === 'BNS',
+      record: role === 'RHM' || role === 'BHW' || role === 'BNS',
       stock: role === 'PHN' || role === 'RHM',
       clinical: role === 'RHM',
       monitor: role === 'PHN' || role === 'Administrator',

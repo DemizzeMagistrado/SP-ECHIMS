@@ -37,25 +37,25 @@ export async function GET(request: Request) {
     // The session client applies all existing restrictive scope/recipient policies.
     const results = await Promise.all([
       supabase
-        .from("alert")
+        .from("alert_notification_feed")
         .select(
-          "alert_id,alert_type,alert_message,severity,status,created_at,read_at,source_module,child_id,inventory_id,schedule_id,recipient_id,rule_id",
+          "alert_id,alert_type,alert_message,severity,status,created_at,read_at,source_module,child_id,inventory_id,schedule_id,recipient_id,rule_id,resolved_by,resolved_at",
           { count: "exact" },
         )
         .order("created_at", { ascending: false })
         .order("alert_id", { ascending: false })
         .range((page - 1) * 50, page * 50 - 1),
       supabase
-        .from("alert")
+        .from("alert_notification_feed")
         .select("alert_id", { count: "exact", head: true })
         .eq("status", "RESOLVED"),
       supabase
-        .from("alert")
+        .from("alert_notification_feed")
         .select("alert_id", { count: "exact", head: true })
         .in("status", ["UNREAD", "READ"])
         .eq("severity", "CRITICAL"),
       supabase
-        .from("alert")
+        .from("alert_notification_feed")
         .select("alert_id", { count: "exact", head: true })
         .in("status", ["UNREAD", "READ"])
         .in("severity", ["HIGH", "MEDIUM"]),
@@ -98,7 +98,6 @@ export async function GET(request: Request) {
       .find((result) => result.error)?.error;
     if (monitoringFailure)
       console.error("Alert monitoring GET:", monitoringFailure);
-   
     return NextResponse.json(
       {
         currentUserId: userId,
@@ -110,7 +109,9 @@ export async function GET(request: Request) {
           ? {
               runs: monitoringFailure
                 ? []
-            : results.slice(6).flatMap<unknown>((result) => result.data ?? []),
+                : results
+                    .slice(6)
+                    .flatMap<unknown>((result) => result.data ?? []),
               error: monitoringFailure
                 ? "Unable to load evaluation monitoring. Check the run-log migration and access policy."
                 : null,

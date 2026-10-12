@@ -34,9 +34,6 @@ const roleLabels: Record<Role, UserRole> = {
   BNS: 'Barangay Nutrition Scholar',
 }
 
-// Flat top-level menu. matchPrefixes keeps the parent highlighted when the user is on
-// any of its sub-routes (e.g. /child-profiling/children/2 still highlights Child Profiling,
-// /vaccination/schedule still highlights Vaccination).
 type MenuItem = {
   icon: typeof Home
   label: string
