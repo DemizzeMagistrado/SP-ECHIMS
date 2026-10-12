@@ -1,13 +1,13 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Plus, Package, X, AlertTriangle } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Plus, Package, X, AlertTriangle } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import {
   latestNutrition,
   nutritionReview,
   type NutritionBasis,
-} from '@/lib/supplementation-nutrition'
+} from "@/lib/supplementation-nutrition";
 import {
   cacheSupplementData,
   loadSupplementCache,
@@ -16,156 +16,158 @@ import {
   deleteSupplementDraft,
   type SupplementDraft,
   type OfflineForm,
-} from '@/lib/supplementation-offline'
-import { SupplementationMonitoringPanel } from '@/components/supplementation/supplementation-monitoring-panel'
-import type { Session, User } from '@supabase/supabase-js'
+} from "@/lib/supplementation-offline";
+import { SupplementationMonitoringPanel } from "@/components/supplementation/supplementation-monitoring-panel";
+import { SupplementStockRequestsPanel } from "@/components/supplementation/supplement-stock-requests-panel";
+import { SupplementationSmsPanel } from "@/components/supplementation/supplementation-sms-panel";
+import type { Session, User } from "@supabase/supabase-js";
 
 type Child = {
-  child_id: number
-  first_name: string
-  middle_name: string | null
-  last_name: string
-  date_of_birth: string
-  sex: string
-  barangay_id: number
-  status: string
-}
+  child_id: number;
+  first_name: string;
+  middle_name: string | null;
+  last_name: string;
+  date_of_birth: string;
+  sex: string;
+  barangay_id: number;
+  status: string;
+};
 
 type Product = {
-  supplement_id: number
-  supplement_type: string
-  formulation: string
-  dose_strength: number | null
-  dose_unit: string
-  catalog_code: string | null
-  dispensing_only: boolean
-  child_min_months: number
-  child_max_months: number
-  item: { item_name: string; unit: string; status: string } | null
-}
+  supplement_id: number;
+  supplement_type: string;
+  formulation: string;
+  dose_strength: number | null;
+  dose_unit: string;
+  catalog_code: string | null;
+  dispensing_only: boolean;
+  child_min_months: number;
+  child_max_months: number;
+  item: { item_name: string; unit: string; status: string } | null;
+};
 
 type Protocol = {
-  clinical_indication?: string | null
-  clinical_dose_offsets_days?: number[] | null
-  tier?: 'ROUTINE' | 'TARGETED' | 'CLINICAL'
-  protocol_id: number
-  protocol_code: string
-  supplement_type: string
-  purpose: string
-  age_min_months: number
-  age_max_months: number
-  dose_value: number
-  dose_unit: string
-  formulation: string
-  stock_unit: string
-  stock_quantity_per_dose: number
-  requires_order: boolean
-  interval_months: number | null
-  source_reference: string
-}
+  clinical_indication?: string | null;
+  clinical_dose_offsets_days?: number[] | null;
+  tier?: "ROUTINE" | "TARGETED" | "CLINICAL";
+  protocol_id: number;
+  protocol_code: string;
+  supplement_type: string;
+  purpose: string;
+  age_min_months: number;
+  age_max_months: number;
+  dose_value: number;
+  dose_unit: string;
+  formulation: string;
+  stock_unit: string;
+  stock_quantity_per_dose: number;
+  requires_order: boolean;
+  interval_months: number | null;
+  source_reference: string;
+};
 
 type Stock = {
-  inventory_id: number
-  item_id: number
-  barangay_id: number
-  quantity_on_hand: number
-}
+  inventory_id: number;
+  item_id: number;
+  barangay_id: number;
+  quantity_on_hand: number;
+};
 
 type Batch = {
-  batch_id: number
-  inventory_id: number
-  batch_number: string
-  expiry_date: string
-  received_date: string
-  quantity_on_hand: number
-}
+  batch_id: number;
+  inventory_id: number;
+  batch_number: string;
+  expiry_date: string;
+  received_date: string;
+  quantity_on_hand: number;
+};
 
 type RecordRow = {
-  clinical_indication?: string | null
-  course_reference?: string | null
-  clinical_dose_number?: number | null
-  course_start_date?: string | null
-  tier?: string | null
-  purpose?: string | null
-  order_reference?: string | null
-  supplementation_record_id: number
-  child_id: number
-  supplement_id: number
-  supplementation_date: string
-  quantity_given: number
-  dose_value: number | null
-  dose_unit: string | null
-  batch_number: string | null
-  remarks: string | null
-  record_type: string | null
-  plan_id: number | null
-  source_assessment_id: number | null
-}
+  clinical_indication?: string | null;
+  course_reference?: string | null;
+  clinical_dose_number?: number | null;
+  course_start_date?: string | null;
+  tier?: string | null;
+  purpose?: string | null;
+  order_reference?: string | null;
+  supplementation_record_id: number;
+  child_id: number;
+  supplement_id: number;
+  supplementation_date: string;
+  quantity_given: number;
+  dose_value: number | null;
+  dose_unit: string | null;
+  batch_number: string | null;
+  remarks: string | null;
+  record_type: string | null;
+  plan_id: number | null;
+  source_assessment_id: number | null;
+};
 
 type Plan = {
-  plan_id: number
-  child_id: number
-  supplement_id: number
-  start_date: string
-  end_date: string
-  authorized_quantity: number
-  directions: string | null
-  authorization_reference: string | null
-  indication: string | null
-  product_label: string
-  source_assessment_id: number | null
-  remarks: string | null
-}
+  plan_id: number;
+  child_id: number;
+  supplement_id: number;
+  start_date: string;
+  end_date: string;
+  authorized_quantity: number;
+  directions: string | null;
+  authorization_reference: string | null;
+  indication: string | null;
+  product_label: string;
+  source_assessment_id: number | null;
+  remarks: string | null;
+};
 
 type Data = {
-  currentUserId: string
-  role: string
+  currentUserId: string;
+  role: string;
   permissions: {
-    record: boolean
-    stock: boolean
-    clinical?: boolean
-    monitor?: boolean
-  }
-  children: Child[]
-  products: Product[]
-  protocols: Protocol[]
-  barangays: { barangay_id: number; barangay_name: string }[]
-  inventory: Stock[]
-  batches: Batch[]
-  records: RecordRow[]
-  plans: Plan[]
-  assessments: NutritionBasis[]
-}
+    record: boolean;
+    stock: boolean;
+    clinical?: boolean;
+    monitor?: boolean;
+  };
+  children: Child[];
+  products: Product[];
+  protocols: Protocol[];
+  barangays: { barangay_id: number; barangay_name: string }[];
+  inventory: Stock[];
+  batches: Batch[];
+  records: RecordRow[];
+  plans: Plan[];
+  assessments: NutritionBasis[];
+};
 
-type Form = OfflineForm
+type Form = OfflineForm;
 
 function commodityDisplayName(value: string) {
   return value
-    .replace(/\bfor\s+children\b/gi, '')
-    .replace(/[ \t]{2,}/g, ' ')
-    .trim()
+    .replace(/\bfor\s+children\b/gi, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
 }
 
 function catalogDetails(product: Product | undefined) {
-  if (!product) return null
+  if (!product) return null;
   const strength =
     product.dose_strength == null ||
     !Number.isFinite(Number(product.dose_strength)) ||
     Number(product.dose_strength) <= 0 ||
     !product.dose_unit
-      ? 'Not stored in catalog — verify the actual label'
-      : `${product.dose_strength} ${product.dose_unit}`
+      ? "Not stored in catalog — verify the actual label"
+      : `${product.dose_strength} ${product.dose_unit}`;
 
   return {
-    name: product.item?.item_name || 'Product name unavailable',
+    name: product.item?.item_name || "Product name unavailable",
 
     formulation:
-      product.formulation?.replaceAll('_', ' ') || 'Not stored in catalog',
+      product.formulation?.replaceAll("_", " ") || "Not stored in catalog",
 
-    unit: product.item?.unit || 'Unit unavailable',
+    unit: product.item?.unit || "Unit unavailable",
 
     strength,
-  }
+  };
 }
 
 function matchingProductProtocols(product: Product, protocols: Protocol[]) {
@@ -177,12 +179,12 @@ function matchingProductProtocols(product: Product, protocols: Protocol[]) {
       r.stock_unit === product.item?.unit &&
       Number(r.dose_value) ===
         Number(product.dose_strength) * Number(r.stock_quantity_per_dose),
-  )
+  );
 }
 
 function productAgeLabel(product: Product, protocols: Protocol[]) {
   if (product.dispensing_only)
-    return `${product.child_min_months}–${product.child_max_months} completed months`
+    return `${product.child_min_months}–${product.child_max_months} completed months`;
 
   const ranges = [
     ...new Set(
@@ -190,93 +192,93 @@ function productAgeLabel(product: Product, protocols: Protocol[]) {
         (r) => `${r.age_min_months}–${r.age_max_months}`,
       ),
     ),
-  ]
+  ];
 
   return ranges.length
-    ? ranges.join(', ') + ' completed months'
-    : 'No matching administration protocol'
+    ? ranges.join(", ") + " completed months"
+    : "No matching administration protocol";
 }
 
 function validClinicalCourse(protocol: Protocol) {
-  const days = protocol.clinical_dose_offsets_days
+  const days = protocol.clinical_dose_offsets_days;
 
   return Boolean(
     protocol.clinical_indication?.trim() &&
-    protocol.clinical_indication ===
-      protocol.clinical_indication.trim().toUpperCase() &&
-    protocol.requires_order &&
-    protocol.interval_months == null &&
-    Array.isArray(days) &&
-    days.length &&
-    days[0] === 0 &&
-    days.every(
-      (day, index) =>
-        Number.isInteger(day) &&
-        day >= 0 &&
-        (index === 0 || day > days[index - 1]),
-    ),
-  )
+      protocol.clinical_indication ===
+        protocol.clinical_indication.trim().toUpperCase() &&
+      protocol.requires_order &&
+      protocol.interval_months == null &&
+      Array.isArray(days) &&
+      days.length &&
+      days[0] === 0 &&
+      days.every(
+        (day, index) =>
+          Number.isInteger(day) &&
+          day >= 0 &&
+          (index === 0 || day > days[index - 1]),
+      ),
+  );
 }
 
 function addDays(value: string, days: number) {
-  const date = new Date(value + 'T00:00:00Z')
-  if (!Number.isFinite(date.getTime()) || !Number.isInteger(days)) return null
-  date.setUTCDate(date.getUTCDate() + days)
-  return date.toISOString().slice(0, 10)
+  const date = new Date(value + "T00:00:00Z");
+  if (!Number.isFinite(date.getTime()) || !Number.isInteger(days)) return null;
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
 function today() {
-  const p = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Manila',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date())
-  return ['year', 'month', 'day']
+  const p = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  return ["year", "month", "day"]
     .map((k) => p.find((x) => x.type === k)?.value)
-    .join('-')
+    .join("-");
 }
 
 const initial = (): Form => ({
-  childId: '',
-  supplementId: '',
-  protocolId: '',
-  batchId: '',
+  childId: "",
+  supplementId: "",
+  protocolId: "",
+  batchId: "",
   date: today(),
-  purpose: 'ROUTINE',
-  remarks: '',
-  orderReference: '',
-  assessmentId: '',
-  scheduleId: '',
-  barangayId: '',
-  batchNumber: '',
+  purpose: "ROUTINE",
+  remarks: "",
+  orderReference: "",
+  assessmentId: "",
+  scheduleId: "",
+  barangayId: "",
+  batchNumber: "",
   receivedDate: today(),
-  expiryDate: '',
-  quantity: '',
+  expiryDate: "",
+  quantity: "",
   allocateExisting: false,
   confirmed: false,
-  planId: '',
+  planId: "",
   startDate: today(),
-  endDate: '',
-  clinicalDoseValue: '',
-  clinicalDoseUnit: '',
-  clinicalIndication: '',
-  courseReference: '',
-  clinicalDoseNumber: '1',
-})
+  endDate: "",
+  clinicalDoseValue: "",
+  clinicalDoseUnit: "",
+  clinicalIndication: "",
+  courseReference: "",
+  clinicalDoseNumber: "1",
+});
 
 const name = (c: Child) =>
-  [c.first_name, c.middle_name, c.last_name].filter(Boolean).join(' ')
+  [c.first_name, c.middle_name, c.last_name].filter(Boolean).join(" ");
 
 function months(birth: string, date: string) {
-  const b = new Date(birth + 'T00:00:00Z'),
-    d = new Date(date + 'T00:00:00Z')
+  const b = new Date(birth + "T00:00:00Z"),
+    d = new Date(date + "T00:00:00Z");
   return (
     (d.getUTCFullYear() - b.getUTCFullYear()) * 12 +
     d.getUTCMonth() -
     b.getUTCMonth() -
     (d.getUTCDate() < b.getUTCDate() ? 1 : 0)
-  )
+  );
 }
 
 function commodityAgeEligibility(
@@ -286,53 +288,53 @@ function commodityAgeEligibility(
   product: Product,
 ) {
   const parse = (value: string) => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
-    const d = new Date(value + 'T00:00:00Z')
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+    const d = new Date(value + "T00:00:00Z");
     return Number.isFinite(d.getTime()) &&
       d.toISOString().slice(0, 10) === value
       ? d
-      : null
-  }
+      : null;
+  };
 
   const b = parse(birth),
     a = parse(start),
-    z = parse(end)
+    z = parse(end);
 
   if (!b || !a || !z)
     return {
       eligible: null,
-      detail: 'Choose both plan dates to check the entire age range.',
-    }
+      detail: "Choose both plan dates to check the entire age range.",
+    };
 
   if (z < a)
     return {
       eligible: false,
-      detail: 'Plan end must be on or after plan start.',
-    }
+      detail: "Plan end must be on or after plan start.",
+    };
 
-  const totalMonths = b.getUTCMonth() + product.child_max_months + 1
+  const totalMonths = b.getUTCMonth() + product.child_max_months + 1;
 
   const y = b.getUTCFullYear() + Math.floor(totalMonths / 12),
-    m = totalMonths % 12
+    m = totalMonths % 12;
 
-  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
 
-  const cutoff = new Date(Date.UTC(y, m, Math.min(b.getUTCDate(), lastDay)))
+  const cutoff = new Date(Date.UTC(y, m, Math.min(b.getUTCDate(), lastDay)));
 
-  const age = months(birth, start)
+  const age = months(birth, start);
 
   const eligible =
     a >= b &&
     age >= product.child_min_months &&
     age <= product.child_max_months &&
-    z < cutoff
+    z < cutoff;
 
   return {
     eligible,
     detail: eligible
       ? `Eligible by age: ${age} completed months at plan start. The entire period is within ${product.child_min_months}–${product.child_max_months} months.`
       : `Outside configured age range: ${age} completed months at plan start; this commodity allows ${product.child_min_months}–${product.child_max_months} months. Plan end must be before ${cutoff.toISOString().slice(0, 10)}.`,
-  }
+  };
 }
 
 class ApiError extends Error {
@@ -340,107 +342,113 @@ class ApiError extends Error {
     message: string,
     public status: number,
   ) {
-    super(message)
+    super(message);
   }
 }
 
 async function read(response: Response) {
-  const text = await response.text()
-  let data
+  const text = await response.text();
+  let data;
   try {
-    data = JSON.parse(text)
+    data = JSON.parse(text);
   } catch {
     throw new Error(
       `Supplementation API returned HTML or invalid JSON (HTTP ${response.status}). Check app/api/supplementation/route.ts.`,
-    )
+    );
   }
   if (!response.ok)
-    throw new ApiError(data.error || 'Request failed.', response.status)
-  return data
+    throw new ApiError(data.error || "Request failed.", response.status);
+  return data;
 }
 
 const input =
-  'mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm'
+  "mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm";
 
 const button =
-  'inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50'
+  "inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50";
 
 export default function SupplementsPage() {
-  const [client] = useState(() => createClient())
-  const [owner, setOwner] = useState<string | null>(null)
-  const ownerRef = useRef<string | null>(null)
-  const generation = useRef(0)
+  const [client] = useState(() => createClient());
+  const [owner, setOwner] = useState<string | null>(null);
+  const ownerRef = useRef<string | null>(null);
+  const generation = useRef(0);
 
-  const [data, setData] = useState<Data | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
-  const [online, setOnline] = useState(true)
+  const [data, setData] = useState<Data | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [online, setOnline] = useState(true);
 
   const [tab, setTab] = useState<
-    'records' | 'clinical' | 'stock' | 'plans' | 'guidelines' | 'monitoring'
-  >('records')
+    | "records"
+    | "clinical"
+    | "stock"
+    | "plans"
+    | "guidelines"
+    | "monitoring"
+    | "sms"
+  >("records");
   const [modal, setModal] = useState<
-    'RECORD' | 'RECEIVE' | 'PLAN' | 'DISPENSE' | 'CLINICAL' | null
-  >(null)
-  const [form, setForm] = useState<Form>(initial)
-  const [saving, setSaving] = useState(false)
-  const requestId = useRef('')
-  const [filter, setFilter] = useState('')
+    "RECORD" | "RECEIVE" | "PLAN" | "DISPENSE" | "CLINICAL" | null
+  >(null);
+  const [form, setForm] = useState<Form>(initial);
+  const [saving, setSaving] = useState(false);
+  const requestId = useRef("");
+  const [filter, setFilter] = useState("");
 
-  const [drafts, setDrafts] = useState<SupplementDraft[]>([])
-  const [editingDraft, setEditingDraft] = useState<string | null>(null)
-  const [draftConfirmed, setDraftConfirmed] = useState(false)
-  const [cacheDate, setCacheDate] = useState<string | null>(null)
+  const [drafts, setDrafts] = useState<SupplementDraft[]>([]);
+  const [editingDraft, setEditingDraft] = useState<string | null>(null);
+  const [draftConfirmed, setDraftConfirmed] = useState(false);
+  const [cacheDate, setCacheDate] = useState<string | null>(null);
 
   const refreshDrafts = useCallback(async () => {
-    const user = ownerRef.current
-    if (!user) return
+    const user = ownerRef.current;
+    if (!user) return;
     try {
-      const rows = await listSupplementDrafts(user)
-      if (ownerRef.current === user) setDrafts(rows)
+      const rows = await listSupplementDrafts(user);
+      if (ownerRef.current === user) setDrafts(rows);
     } catch (e) {
       if (ownerRef.current === user)
-        setError(e instanceof Error ? e.message : 'Unable to read drafts.')
+        setError(e instanceof Error ? e.message : "Unable to read drafts.");
     }
-  }, [])
+  }, []);
 
   const load = useCallback(async () => {
-    const user = ownerRef.current
-    if (!user) return
-    const run = ++generation.current
-    setLoading(true)
+    const user = ownerRef.current;
+    if (!user) return;
+    const run = ++generation.current;
+    setLoading(true);
 
     try {
       if (!navigator.onLine) {
-        const cache = await loadSupplementCache<Data>(user)
+        const cache = await loadSupplementCache<Data>(user);
 
-        if (run !== generation.current || ownerRef.current !== user) return
+        if (run !== generation.current || ownerRef.current !== user) return;
 
         if (!cache)
           throw new Error(
-            'Open supplementation online once with this account to prepare offline recording.',
-          )
+            "Open supplementation online once with this account to prepare offline recording.",
+          );
 
-        setData(cache.data)
-        setCacheDate(cache.savedAt)
-        setError('')
-        return cache.data
+        setData(cache.data);
+        setCacheDate(cache.savedAt);
+        setError("");
+        return cache.data;
       }
 
       const result: Data = await read(
-        await fetch('/api/supplementation', { cache: 'no-store' }),
-      )
+        await fetch("/api/supplementation", { cache: "no-store" }),
+      );
 
-      if (run !== generation.current || ownerRef.current !== user) return
+      if (run !== generation.current || ownerRef.current !== user) return;
 
       if (!Array.isArray(result.assessments))
         throw new Error(
-          'Replace the supplementation API with the matching updated route.',
-        )
+          "Replace the supplementation API with the matching updated route.",
+        );
 
       if (result.currentUserId !== user)
-        throw new Error('Account changed. Refresh the page.')
+        throw new Error("Account changed. Refresh the page.");
 
       const prepared = {
         ...result,
@@ -465,69 +473,69 @@ export default function SupplementsPage() {
           : [],
 
         assessments: result.assessments,
-      }
+      };
 
-      setData(prepared)
-      setCacheDate(null)
-      setError('')
+      setData(prepared);
+      setCacheDate(null);
+      setError("");
 
       try {
-        await cacheSupplementData(user, prepared)
+        await cacheSupplementData(user, prepared);
       } catch (e) {
         if (ownerRef.current === user)
           setNotice(
-            'Online data loaded, but offline storage could not be prepared.',
-          )
+            "Online data loaded, but offline storage could not be prepared.",
+          );
       }
 
-      return prepared
+      return prepared;
     } catch (e) {
       if (run === generation.current && ownerRef.current === user) {
         if (e instanceof ApiError) {
-          setData(null)
-          setCacheDate(null)
+          setData(null);
+          setCacheDate(null);
         }
-        setError(e instanceof Error ? e.message : 'Unable to load.')
+        setError(e instanceof Error ? e.message : "Unable to load.");
       }
     } finally {
-      if (run === generation.current) setLoading(false)
+      if (run === generation.current) setLoading(false);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    let active = true
+    let active = true;
 
     const apply = (id: string | null) => {
-      if (!active || ownerRef.current === id) return
+      if (!active || ownerRef.current === id) return;
 
-      ownerRef.current = id
+      ownerRef.current = id;
 
-      generation.current++
+      generation.current++;
 
-      setOwner(id)
+      setOwner(id);
 
-      setData(null)
+      setData(null);
 
-      setDrafts([])
+      setDrafts([]);
 
-      setEditingDraft(null)
+      setEditingDraft(null);
 
-      setDraftConfirmed(false)
+      setDraftConfirmed(false);
 
-      setCacheDate(null)
+      setCacheDate(null);
 
-      setModal(null)
+      setModal(null);
 
-      setNotice('')
+      setNotice("");
 
-      setError('')
+      setError("");
 
-      setLoading(Boolean(id))
+      setLoading(Boolean(id));
 
       if (!id) {
-        setError('Please sign in to access supplementation.')
+        setError("Please sign in to access supplementation.");
       }
-    }
+    };
 
     const sessionUser = () =>
       client.auth
@@ -535,177 +543,177 @@ export default function SupplementsPage() {
         .then((r: { data: { session: Session | null }; error: unknown }) => ({
           data: { user: r.data.session?.user ?? null },
           error: r.error,
-        }))
+        }));
 
     void (navigator.onLine ? client.auth.getUser() : sessionUser())
 
       .then(
         (result: {
-          data: { user: User | null }
+          data: { user: User | null };
 
-          error: unknown
+          error: unknown;
         }) => {
-          if (!active) return
+          if (!active) return;
 
-          const user = result.data.user
+          const user = result.data.user;
 
-          apply(user?.id ?? null)
+          apply(user?.id ?? null);
 
           if (result.error || !user) {
-            setLoading(false)
+            setLoading(false);
 
-            setError('Please sign in to access supplementation.')
+            setError("Please sign in to access supplementation.");
           }
         },
       )
 
       .catch(() => {
-        if (!active) return
+        if (!active) return;
 
-        apply(null)
+        apply(null);
 
-        setLoading(false)
+        setLoading(false);
 
-        setError('Unable to verify your session. Please sign in again.')
-      })
+        setError("Unable to verify your session. Please sign in again.");
+      });
 
     const { data: authListener } = client.auth.onAuthStateChange(
       (_event: string, session: Session | null) => {
-        apply(session?.user.id ?? null)
+        apply(session?.user.id ?? null);
       },
-    )
+    );
 
     return () => {
-      active = false
+      active = false;
 
-      generation.current++
+      generation.current++;
 
-      authListener.subscription.unsubscribe()
-    }
-  }, [client])
+      authListener.subscription.unsubscribe();
+    };
+  }, [client]);
 
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get('childId')
+    const id = new URLSearchParams(window.location.search).get("childId");
     if (id && /^\d+$/.test(id)) {
-      setForm((f) => ({ ...f, childId: id }))
-      setFilter(id)
+      setForm((f) => ({ ...f, childId: id }));
+      setFilter(id);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
     if (owner) {
-      void load()
-      void refreshDrafts()
+      void load();
+      void refreshDrafts();
     }
-  }, [owner, online, load, refreshDrafts])
+  }, [owner, online, load, refreshDrafts]);
 
   useEffect(() => {
-    const update = () => setOnline(navigator.onLine)
-    update()
-    window.addEventListener('online', update)
-    window.addEventListener('offline', update)
+    const update = () => setOnline(navigator.onLine);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
     return () => {
-      window.removeEventListener('online', update)
-      window.removeEventListener('offline', update)
-    }
-  }, [])
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
 
   function change<K extends keyof Form>(key: K, value: Form[K]) {
-    if (key !== 'confirmed') {
-      requestId.current = crypto.randomUUID()
-      setDraftConfirmed(false)
+    if (key !== "confirmed") {
+      requestId.current = crypto.randomUUID();
+      setDraftConfirmed(false);
     }
     setForm((f) => ({
       ...f,
       [key]: value,
-      ...(key === 'childId'
-        ? { courseReference: '', clinicalDoseNumber: '1' }
+      ...(key === "childId"
+        ? { courseReference: "", clinicalDoseNumber: "1" }
         : {}),
-      ...(key === 'protocolId' && modal === 'CLINICAL'
+      ...(key === "protocolId" && modal === "CLINICAL"
         ? {
             clinicalDoseValue: String(
               data?.protocols.find((p) => String(p.protocol_id) === value)
-                ?.dose_value ?? '',
+                ?.dose_value ?? "",
             ),
             clinicalDoseUnit:
               data?.protocols.find((p) => String(p.protocol_id) === value)
-                ?.dose_unit ?? '',
+                ?.dose_unit ?? "",
             clinicalIndication:
               data?.protocols.find((p) => String(p.protocol_id) === value)
-                ?.clinical_indication ?? '',
+                ?.clinical_indication ?? "",
             confirmed: false,
           }
         : {}),
-      ...(['childId', 'supplementId', 'date', 'purpose', 'planId'].includes(key)
+      ...(["childId", "supplementId", "date", "purpose", "planId"].includes(key)
         ? {
-            protocolId: '',
-            batchId: '',
-            assessmentId: '',
+            protocolId: "",
+            batchId: "",
+            assessmentId: "",
             confirmed: false,
-            clinicalDoseValue: '',
-            clinicalDoseUnit: '',
-            clinicalIndication: '',
+            clinicalDoseValue: "",
+            clinicalDoseUnit: "",
+            clinicalIndication: "",
           }
         : {}),
-    }))
+    }));
   }
 
-  function open(kind: 'RECORD' | 'RECEIVE' | 'PLAN' | 'DISPENSE' | 'CLINICAL') {
-    setEditingDraft(null)
-    setDraftConfirmed(false)
-    const id = new URLSearchParams(window.location.search).get('childId')
+  function open(kind: "RECORD" | "RECEIVE" | "PLAN" | "DISPENSE" | "CLINICAL") {
+    setEditingDraft(null);
+    setDraftConfirmed(false);
+    const id = new URLSearchParams(window.location.search).get("childId");
     setForm({
       ...initial(),
-      ...(kind === 'CLINICAL'
+      ...(kind === "CLINICAL"
         ? {
             purpose:
               data?.protocols.find(
-                (p) => p.tier === 'CLINICAL' && validClinicalCourse(p),
-              )?.purpose ?? 'CLINICAL',
+                (p) => p.tier === "CLINICAL" && validClinicalCourse(p),
+              )?.purpose ?? "CLINICAL",
           }
         : {}),
-      childId: id && /^\d+$/.test(id) ? id : '',
-    })
-    requestId.current = crypto.randomUUID()
-    setModal(kind)
-    setError('')
-    setNotice('')
+      childId: id && /^\d+$/.test(id) ? id : "",
+    });
+    requestId.current = crypto.randomUUID();
+    setModal(kind);
+    setError("");
+    setNotice("");
   }
 
   const selectedPlan = data?.plans?.find(
     (p) => String(p.plan_id) === form.planId,
-  )
+  );
   const child = data?.children.find(
     (c) =>
       String(c.child_id) === form.childId ||
-      (modal === 'DISPENSE' && c.child_id === selectedPlan?.child_id),
-  )
+      (modal === "DISPENSE" && c.child_id === selectedPlan?.child_id),
+  );
   const product = data?.products.find(
     (p) =>
       String(p.supplement_id) === form.supplementId ||
-      (modal === 'DISPENSE' && p.supplement_id === selectedPlan?.supplement_id),
-  )
+      (modal === "DISPENSE" && p.supplement_id === selectedPlan?.supplement_id),
+  );
 
-  const administration = modal === 'RECORD' || modal === 'CLINICAL'
+  const administration = modal === "RECORD" || modal === "CLINICAL";
 
   const clinicalAllowed =
-    data?.role === 'RHM' && data.permissions.clinical === true
+    data?.role === "RHM" && data.permissions.clinical === true;
 
   const clinicalProtocols = (data?.protocols ?? []).filter(
-    (p) => p.tier === 'CLINICAL' && validClinicalCourse(p),
-  )
+    (p) => p.tier === "CLINICAL" && validClinicalCourse(p),
+  );
 
-  const catalog = catalogDetails(product)
+  const catalog = catalogDetails(product);
 
   const concurrentPlans =
-    administration && child && product?.supplement_type === 'VITAMIN_A'
+    administration && child && product?.supplement_type === "VITAMIN_A"
       ? (data?.plans ?? []).filter(
           (p) =>
             p.child_id === child.child_id &&
             p.start_date <= form.date &&
             p.end_date >= form.date,
         )
-      : []
+      : [];
 
   const concurrentPlanReminder =
     concurrentPlans.length > 0 ? (
@@ -723,9 +731,9 @@ export default function SupplementsPage() {
         <ul className="mt-2 list-disc pl-5">
           {concurrentPlans.map((p) => (
             <li key={p.plan_id}>
-              Plan #{p.plan_id} ·{' '}
+              Plan #{p.plan_id} ·{" "}
               {data?.products.find((x) => x.supplement_id === p.supplement_id)
-                ?.item?.item_name ?? p.product_label}{' '}
+                ?.item?.item_name ?? p.product_label}{" "}
               · {p.start_date} to {p.end_date}
             </li>
           ))}
@@ -735,17 +743,17 @@ export default function SupplementsPage() {
           details in Remarks.
         </p>
       </div>
-    ) : null
+    ) : null;
 
   const ageEligibility =
-    modal === 'PLAN' && child && product
+    modal === "PLAN" && child && product
       ? commodityAgeEligibility(
           child.date_of_birth,
           form.startDate,
           form.endDate,
           product,
         )
-      : null
+      : null;
 
   const productPanel =
     product && catalog ? (
@@ -753,10 +761,10 @@ export default function SupplementsPage() {
         <h3 className="text-sm font-semibold">Selected product</h3>
         <dl className="mt-3 grid gap-3 sm:grid-cols-2">
           {[
-            ['Product name', catalog.name],
-            ['Formulation', catalog.formulation],
-            ['Stock unit', catalog.unit],
-            ['Catalog strength / concentration', catalog.strength],
+            ["Product name", catalog.name],
+            ["Formulation", catalog.formulation],
+            ["Stock unit", catalog.unit],
+            ["Catalog strength / concentration", catalog.strength],
           ].map(([label, value]) => (
             <div key={label}>
               <dt className="text-xs text-muted-foreground">{label}</dt>
@@ -765,13 +773,13 @@ export default function SupplementsPage() {
           ))}
         </dl>
         <p className="mt-3 text-sm font-medium">
-          Configured age range:{' '}
+          Configured age range:{" "}
           {productAgeLabel(product, data?.protocols ?? [])}
         </p>
         {ageEligibility && (
           <p
             role="status"
-            className={`mt-2 rounded-lg p-3 text-sm ${ageEligibility.eligible === false ? 'bg-red-50 text-red-800' : ageEligibility.eligible ? 'bg-teal-50 text-teal-800' : 'bg-amber-50 text-amber-800'}`}
+            className={`mt-2 rounded-lg p-3 text-sm ${ageEligibility.eligible === false ? "bg-red-50 text-red-800" : ageEligibility.eligible ? "bg-teal-50 text-teal-800" : "bg-amber-50 text-amber-800"}`}
           >
             {ageEligibility.detail}
           </p>
@@ -782,9 +790,9 @@ export default function SupplementsPage() {
           inferred from the catalog.
         </p>
       </div>
-    ) : null
+    ) : null;
 
-  const basisDate = modal === 'PLAN' ? form.startDate : form.date
+  const basisDate = modal === "PLAN" ? form.startDate : form.date;
 
   const availableAssessments = (data?.assessments ?? [])
     .filter(
@@ -794,41 +802,41 @@ export default function SupplementsPage() {
       (a, b) =>
         b.assessment_date.localeCompare(a.assessment_date) ||
         b.assessment_id - a.assessment_id,
-    )
+    );
 
   const latest = child
     ? latestNutrition(data?.assessments ?? [], child.child_id, basisDate)
-    : null
+    : null;
 
   const basis =
     availableAssessments.find(
       (a) => String(a.assessment_id) === form.assessmentId,
-    ) ?? latest
+    ) ?? latest;
 
-  const review = nutritionReview(basis)
+  const review = nutritionReview(basis);
 
   const nutritionPanel =
-    child && modal !== 'RECEIVE' ? (
+    child && modal !== "RECEIVE" ? (
       <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm sm:col-span-2">
         <h3 className="font-semibold">Nutrition basis · {review.title}</h3>
         <p className="mt-1">{review.detail}</p>
         <p className="mt-2 text-xs text-muted-foreground">
-          {review.rule} ·{' '}
+          {review.rule} ·{" "}
           {basis
-            ? `Assessment #${basis.assessment_id} · ${basis.assessment_date} · ${basis.nutritional_status ?? 'Not evaluated'}`
-            : 'No saved assessment for this date'}
+            ? `Assessment #${basis.assessment_id} · ${basis.assessment_date} · ${basis.nutritional_status ?? "Not evaluated"}`
+            : "No saved assessment for this date"}
         </p>
         {basis && (
           <dl className="mt-3 grid gap-2 sm:grid-cols-2">
             {[
-              ['Weight-for-age', basis.weight_for_age],
-              ['Height-for-age', basis.height_for_age],
-              ['Length/height', basis.weight_for_height],
-              ['BMI-for-age', basis.bmi_for_age],
+              ["Weight-for-age", basis.weight_for_age],
+              ["Height-for-age", basis.height_for_age],
+              ["Length/height", basis.weight_for_height],
+              ["BMI-for-age", basis.bmi_for_age],
             ].map(([label, value]) => (
               <div key={label}>
                 <dt className="text-xs text-muted-foreground">{label}</dt>
-                <dd>{value?.replaceAll('_', ' ') ?? 'Unavailable'}</dd>
+                <dd>{value?.replaceAll("_", " ") ?? "Unavailable"}</dd>
               </div>
             ))}
           </dl>
@@ -841,17 +849,17 @@ export default function SupplementsPage() {
         >
           Review child history
         </a>
-        {modal === 'DISPENSE' && selectedPlan && (
+        {modal === "DISPENSE" && selectedPlan && (
           <p className="mt-2">
-            Plan source:{' '}
+            Plan source:{" "}
             {selectedPlan.source_assessment_id
               ? `Assessment #${selectedPlan.source_assessment_id}`
-              : 'No linked assessment'}
+              : "No linked assessment"}
             . The results above are the latest available before the issue date.
           </p>
         )}
       </div>
-    ) : null
+    ) : null;
 
   const assessmentSelector = (
     <label className="text-sm font-medium">
@@ -859,31 +867,31 @@ export default function SupplementsPage() {
       <select
         className={input}
         value={form.assessmentId}
-        onChange={(e) => change('assessmentId', e.target.value)}
+        onChange={(e) => change("assessmentId", e.target.value)}
       >
         <option value="">
           {latest
             ? `Latest: #${latest.assessment_id} · ${latest.assessment_date}`
-            : 'No saved assessment'}
+            : "No saved assessment"}
         </option>
         {availableAssessments.map((a) => (
           <option key={a.assessment_id} value={a.assessment_id}>
-            #{a.assessment_id} · {a.assessment_date} ·{' '}
-            {a.nutritional_status ?? 'Not evaluated'}
+            #{a.assessment_id} · {a.assessment_date} ·{" "}
+            {a.nutritional_status ?? "Not evaluated"}
           </option>
         ))}
       </select>
     </label>
-  )
+  );
 
   const protocols =
     data?.protocols.filter(
       (p) =>
         child &&
         product &&
-        (modal === 'CLINICAL'
-          ? p.tier === 'CLINICAL' && validClinicalCourse(p)
-          : p.tier !== 'CLINICAL') &&
+        (modal === "CLINICAL"
+          ? p.tier === "CLINICAL" && validClinicalCourse(p)
+          : p.tier !== "CLINICAL") &&
         p.purpose === form.purpose &&
         p.supplement_type === product.supplement_type &&
         p.formulation === product.formulation &&
@@ -893,39 +901,39 @@ export default function SupplementsPage() {
         p.stock_unit === product.item?.unit &&
         months(child.date_of_birth, form.date) >= p.age_min_months &&
         months(child.date_of_birth, form.date) <= p.age_max_months,
-    ) ?? []
+    ) ?? [];
 
   const protocol = protocols.find(
     (p) => String(p.protocol_id) === form.protocolId,
-  )
+  );
 
   const courseFirst = (data?.records ?? []).find(
     (r) =>
-      r.tier === 'CLINICAL' &&
+      r.tier === "CLINICAL" &&
       r.child_id === child?.child_id &&
       r.course_reference === form.courseReference?.trim() &&
       r.clinical_dose_number === 1,
-  )
+  );
 
   const courseOffset =
-    protocol?.clinical_dose_offsets_days?.[Number(form.clinicalDoseNumber) - 1]
+    protocol?.clinical_dose_offsets_days?.[Number(form.clinicalDoseNumber) - 1];
 
   const courseExpectedDate =
     courseFirst?.course_start_date && courseOffset !== undefined
       ? addDays(courseFirst.course_start_date, courseOffset)
-      : null
+      : null;
 
   const clinicalCourses = (data?.records ?? []).filter(
     (r) =>
-      r.tier === 'CLINICAL' &&
+      r.tier === "CLINICAL" &&
       r.child_id === child?.child_id &&
       r.clinical_dose_number === 1 &&
       r.course_reference,
-  )
+  );
 
   const batches =
     data?.batches.filter((b) => {
-      const i = data.inventory.find((i) => i.inventory_id === b.inventory_id)
+      const i = data.inventory.find((i) => i.inventory_id === b.inventory_id);
       return (
         child &&
         product &&
@@ -933,108 +941,109 @@ export default function SupplementsPage() {
         i.item_id === product.supplement_id &&
         b.received_date <= form.date &&
         b.expiry_date >=
-          (modal === 'DISPENSE'
+          (modal === "DISPENSE"
             ? (selectedPlan?.end_date ?? form.date)
             : form.date) &&
         Number(b.quantity_on_hand) >=
           Number(protocol?.stock_quantity_per_dose ?? 1)
-      )
-    }) ?? []
+      );
+    }) ?? [];
 
   async function reviewDraft(draft: SupplementDraft) {
-    const user = ownerRef.current
-    if (user !== draft.ownerId || saving) return
+    const user = ownerRef.current;
+    if (user !== draft.ownerId || saving) return;
 
-    const fresh = await load()
+    const fresh = await load();
 
-    if (ownerRef.current !== user || !fresh) return
+    if (ownerRef.current !== user || !fresh) return;
 
     if (
-      draft.action === 'CLINICAL'
-        ? !(fresh.role === 'RHM' && fresh.permissions.clinical)
+      draft.action === "CLINICAL"
+        ? !(fresh.role === "RHM" && fresh.permissions.clinical)
         : !fresh.permissions.record
     ) {
       setError(
-        draft.action === 'CLINICAL'
-          ? 'Only the active assigned RHM can submit this clinical draft.'
-          : 'Only assigned BHW/BNS can submit this draft.',
-      )
-      return
+        draft.action === "CLINICAL"
+          ? "Only the active assigned RHM can submit this clinical draft."
+          : "Only assigned BHW/BNS can submit this draft.",
+      );
+      return;
     }
 
-    setForm({ ...initial(), ...draft.form, confirmed: false })
-    requestId.current = draft.requestId
-    setEditingDraft(draft.requestId)
+    setForm({ ...initial(), ...draft.form, confirmed: false });
+    requestId.current = draft.requestId;
+    setEditingDraft(draft.requestId);
 
-    setDraftConfirmed(false)
-    setModal(draft.action)
-    setError('')
-    setNotice('')
+    setDraftConfirmed(false);
+    setModal(draft.action);
+    setError("");
+    setNotice("");
   }
 
   async function discardDraft(draft: SupplementDraft) {
-    const user = ownerRef.current
-    if (user !== draft.ownerId || saving) return
+    const user = ownerRef.current;
+    if (user !== draft.ownerId || saving) return;
 
     if (
       !window.confirm(
-        'Discard this local draft? This does not delete any saved server record.',
+        "Discard this local draft? This does not delete any saved server record.",
       )
     )
-      return
+      return;
 
     try {
-      await deleteSupplementDraft(user, draft.requestId)
-      await refreshDrafts()
+      await deleteSupplementDraft(user, draft.requestId);
+      await refreshDrafts();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unable to discard draft.')
+      setError(e instanceof Error ? e.message : "Unable to discard draft.");
     }
   }
 
   async function save(event: React.FormEvent) {
-    event.preventDefault()
-    if (!modal || saving) return
+    event.preventDefault();
+    if (!modal || saving) return;
 
-    const user = ownerRef.current
-    if (!user || data?.currentUserId !== user) return
+    const user = ownerRef.current;
+    if (!user || data?.currentUserId !== user) return;
 
-    const submitOnline = navigator.onLine
+    const submitOnline = navigator.onLine;
 
     const retryUncertain = Boolean(
       editingDraft &&
-      requestId.current === editingDraft &&
-      drafts.find((d) => d.requestId === editingDraft)?.status === 'UNCERTAIN',
-    )
+        requestId.current === editingDraft &&
+        drafts.find((d) => d.requestId === editingDraft)?.status ===
+          "UNCERTAIN",
+    );
 
-    const staffAction = administration || modal === 'DISPENSE'
+    const staffAction = administration || modal === "DISPENSE";
 
     if (!submitOnline && !staffAction) {
-      setError('Plan registration and batch receipt require a connection.')
-      return
+      setError("Plan registration and batch receipt require a connection.");
+      return;
     }
 
     if (
       staffAction &&
-      (modal === 'CLINICAL' ? !clinicalAllowed : !data.permissions.record)
+      (modal === "CLINICAL" ? !clinicalAllowed : !data.permissions.record)
     ) {
       setError(
-        modal === 'CLINICAL'
-          ? 'Only assigned active RHM can record clinical supplementation.'
-          : 'Only assigned BHW/BNS can record supplementation.',
-      )
-      return
+        modal === "CLINICAL"
+          ? "Only assigned active RHM can record clinical supplementation."
+          : "Only assigned BHW/BNS can record supplementation.",
+      );
+      return;
     }
 
     if (editingDraft && submitOnline && !draftConfirmed) {
-      setError('Review and confirm this draft before submission.')
-      return
+      setError("Review and confirm this draft before submission.");
+      return;
     }
 
-    setSaving(true)
-    setError('')
-    let queued: SupplementDraft | null = null
-    let accepted = false
-    let attempted = false
+    setSaving(true);
+    setError("");
+    let queued: SupplementDraft | null = null;
+    let accepted = false;
+    let attempted = false;
 
     try {
       if (
@@ -1045,11 +1054,11 @@ export default function SupplementsPage() {
               !batches.some((b) => String(b.batch_id) === form.batchId))))
       )
         throw new Error(
-          'Select an eligible protocol and batch, then confirm history review and actual administration.',
-        )
+          "Select an eligible protocol and batch, then confirm history review and actual administration.",
+        );
 
       if (
-        modal === 'CLINICAL' &&
+        modal === "CLINICAL" &&
         (!form.clinicalIndication?.trim() ||
           !form.courseReference?.trim() ||
           !Number.isInteger(Number(form.clinicalDoseNumber)) ||
@@ -1060,11 +1069,11 @@ export default function SupplementsPage() {
                 Number(protocol?.clinical_dose_offsets_days?.length))))
       )
         throw new Error(
-          'Choose the clinical indication and a valid course dose number, and provide the treatment-course reference.',
-        )
+          "Choose the clinical indication and a valid course dose number, and provide the treatment-course reference.",
+        );
 
       if (
-        modal === 'CLINICAL' &&
+        modal === "CLINICAL" &&
         (!form.orderReference.trim() ||
           !Number.isFinite(Number(form.clinicalDoseValue)) ||
           Number(form.clinicalDoseValue) <= 0 ||
@@ -1075,11 +1084,11 @@ export default function SupplementsPage() {
                 protocol?.dose_unit)))
       )
         throw new Error(
-          'Provide the documented clinical order and a dose/unit matching the verified clinical protocol.',
-        )
+          "Provide the documented clinical order and a dose/unit matching the verified clinical protocol.",
+        );
 
       if (
-        modal === 'DISPENSE' &&
+        modal === "DISPENSE" &&
         ((!retryUncertain &&
           (!selectedPlan ||
             !batches.some((b) => String(b.batch_id) === form.batchId))) ||
@@ -1088,11 +1097,11 @@ export default function SupplementsPage() {
           !Number.isInteger(Number(form.quantity)))
       )
         throw new Error(
-          'Select a plan, eligible batch and positive whole quantity.',
-        )
+          "Select a plan, eligible batch and positive whole quantity.",
+        );
 
       const payload =
-        modal === 'PLAN'
+        modal === "PLAN"
           ? {
               action: modal,
               childId: form.childId,
@@ -1106,7 +1115,7 @@ export default function SupplementsPage() {
                 : (basis?.assessment_id ?? null),
               requestId: requestId.current,
             }
-          : modal === 'DISPENSE'
+          : modal === "DISPENSE"
             ? {
                 action: modal,
                 planId: form.planId,
@@ -1116,7 +1125,7 @@ export default function SupplementsPage() {
                 remarks: form.remarks,
                 requestId: requestId.current,
               }
-            : modal === 'RECEIVE'
+            : modal === "RECEIVE"
               ? {
                   action: modal,
                   supplementId: form.supplementId,
@@ -1142,7 +1151,7 @@ export default function SupplementsPage() {
                     : (basis?.assessment_id ?? null),
                   scheduleId: form.scheduleId,
                   requestId: requestId.current,
-                  ...(modal === 'CLINICAL'
+                  ...(modal === "CLINICAL"
                     ? {
                         clinicalDoseValue: form.clinicalDoseValue,
                         clinicalDoseUnit: form.clinicalDoseUnit,
@@ -1152,72 +1161,72 @@ export default function SupplementsPage() {
                         clinicalDoseNumber: form.clinicalDoseNumber,
                       }
                     : {}),
-                }
+                };
 
       if (staffAction) {
         queued = {
-          key: user + ':' + requestId.current,
+          key: user + ":" + requestId.current,
           ownerId: user,
           requestId: requestId.current,
-          action: modal as 'RECORD' | 'DISPENSE' | 'CLINICAL',
+          action: modal as "RECORD" | "DISPENSE" | "CLINICAL",
 
-          childName: child ? name(child) : 'Child',
+          childName: child ? name(child) : "Child",
           savedAt: new Date().toISOString(),
-          status: 'PENDING',
+          status: "PENDING",
           lastError: null,
 
           form: {
             ...form,
             assessmentId: administration
-              ? form.assessmentId || String(basis?.assessment_id ?? '')
+              ? form.assessmentId || String(basis?.assessment_id ?? "")
               : form.assessmentId,
           },
-        }
+        };
 
-        await saveSupplementDraft(user, queued, editingDraft ?? undefined)
+        await saveSupplementDraft(user, queued, editingDraft ?? undefined);
 
-        if (ownerRef.current !== user) return
+        if (ownerRef.current !== user) return;
 
-        setEditingDraft(queued.requestId)
-        await refreshDrafts()
+        setEditingDraft(queued.requestId);
+        await refreshDrafts();
 
         if (!submitOnline) {
-          setModal(null)
+          setModal(null);
           setNotice(
-            'Draft saved on this device. Review and confirm it after reconnecting. No server record or stock deduction was created.',
-          )
-          return
+            "Draft saved on this device. Review and confirm it after reconnecting. No server record or stock deduction was created.",
+          );
+          return;
         }
       }
 
-      if (ownerRef.current !== user) return
+      if (ownerRef.current !== user) return;
 
-      attempted = true
+      attempted = true;
 
-      const response = await fetch('/api/supplementation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/supplementation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...payload,
           expectedUserId: user,
           ...(editingDraft ? { offlineSubmission: true } : {}),
         }),
-      })
+      });
 
-      const result = await read(response)
-      accepted = true
+      const result = await read(response);
+      accepted = true;
 
-      if (queued) await deleteSupplementDraft(user, queued.requestId)
+      if (queued) await deleteSupplementDraft(user, queued.requestId);
 
-      if (ownerRef.current !== user) return
+      if (ownerRef.current !== user) return;
 
-      setNotice(result.message)
-      setModal(null)
-      setEditingDraft(null)
-      await refreshDrafts()
-      await load()
+      setNotice(result.message);
+      setModal(null);
+      setEditingDraft(null);
+      await refreshDrafts();
+      await load();
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Unable to save.'
+      const message = e instanceof Error ? e.message : "Unable to save.";
 
       if (queued && !accepted) {
         try {
@@ -1225,34 +1234,34 @@ export default function SupplementsPage() {
             ...queued,
             status:
               attempted && (!(e instanceof ApiError) || e.status >= 500)
-                ? 'UNCERTAIN'
-                : 'BLOCKED',
+                ? "UNCERTAIN"
+                : "BLOCKED",
             lastError: message,
-          })
+          });
         } catch {}
       }
 
       if (ownerRef.current === user) {
         setError(
           accepted
-            ? 'Saved on the server, but local draft removal failed. Retry unchanged to reconcile; do not create another entry.'
+            ? "Saved on the server, but local draft removal failed. Retry unchanged to reconcile; do not create another entry."
             : message,
-        )
-        await refreshDrafts()
+        );
+        await refreshDrafts();
       }
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
   function retryClinicalProtocol() {
     return Boolean(
       protocol ||
-      (editingDraft &&
-        requestId.current === editingDraft &&
-        drafts.find((d) => d.requestId === editingDraft)?.status ===
-          'UNCERTAIN'),
-    )
+        (editingDraft &&
+          requestId.current === editingDraft &&
+          drafts.find((d) => d.requestId === editingDraft)?.status ===
+            "UNCERTAIN"),
+    );
   }
 
   const select = (
@@ -1283,12 +1292,12 @@ export default function SupplementsPage() {
         ))}
       </select>
     </label>
-  )
+  );
 
   const field = (
     label: string,
     key: keyof Form,
-    type = 'text',
+    type = "text",
     required = true,
   ) => (
     <label className="text-sm font-medium">
@@ -1296,22 +1305,22 @@ export default function SupplementsPage() {
       <input
         required={required}
         type={type}
-        step={type === 'number' ? 'any' : undefined}
-        min={type === 'number' ? '0.000001' : undefined}
+        step={type === "number" ? "any" : undefined}
+        min={type === "number" ? "0.000001" : undefined}
         className={input}
         value={String(form[key])}
         onChange={(e) => change(key, e.target.value as never)}
       />
     </label>
-  )
+  );
 
   const productOptions =
     data?.products
-      .filter((p) => p.catalog_code && p.item?.status === 'ACTIVE')
+      .filter((p) => p.catalog_code && p.item?.status === "ACTIVE")
       .map((p) => ({
         value: String(p.supplement_id),
-        label: `${p.item?.item_name} ${p.dose_strength == null ? '' : `(${p.dose_strength} ${p.dose_unit})`}`,
-      })) ?? []
+        label: `${p.item?.item_name} ${p.dose_strength == null ? "" : `(${p.dose_strength} ${p.dose_unit})`}`,
+      })) ?? [];
   const guidelinesPanel = (
     <div className="space-y-5">
       <div className="rounded-2xl border border-border bg-white p-5">
@@ -1326,10 +1335,10 @@ export default function SupplementsPage() {
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         {data?.products
-          .filter((p) => p.catalog_code && p.item?.status === 'ACTIVE')
+          .filter((p) => p.catalog_code && p.item?.status === "ACTIVE")
           .map((p) => {
-            const details = catalogDetails(p)!
-            const matching = matchingProductProtocols(p, data.protocols)
+            const details = catalogDetails(p)!;
+            const matching = matchingProductProtocols(p, data.protocols);
             return (
               <article
                 key={p.supplement_id}
@@ -1340,32 +1349,32 @@ export default function SupplementsPage() {
                   {productAgeLabel(p, data.protocols)}
                 </span>
                 <p className="mt-3 text-sm">
-                  Formulation: {details.formulation} · Stock unit:{' '}
+                  Formulation: {details.formulation} · Stock unit:{" "}
                   {details.unit}
                 </p>
                 <p className="mt-1 text-sm">
                   {p.dispensing_only
-                    ? 'Supply plan and dispensing'
-                    : 'Actual administration under an eligible protocol'}
+                    ? "Supply plan and dispensing"
+                    : "Actual administration under an eligible protocol"}
                 </p>
                 {p.dispensing_only ? (
                   <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
                     <li>Both plan dates must stay within this age range.</li>
                     <li>
-                      Planned and issued quantities use whole {details.unit}{' '}
+                      Planned and issued quantities use whole {details.unit}{" "}
                       units.
                     </li>
                     <li>
                       Issuing supplies is not an administered dose or completed
                       course.
                     </li>
-                    {['MNP', 'LNS_SQ'].includes(p.supplement_type) && (
+                    {["MNP", "LNS_SQ"].includes(p.supplement_type) && (
                       <li>
                         SAM, MAM or infant urgent-review screening requires
                         clinical review; this routine pathway rejects the plan.
                       </li>
                     )}
-                    {p.supplement_type === 'IRON' && (
+                    {p.supplement_type === "IRON" && (
                       <li>
                         The system does not calculate an iron dose or infer a
                         missing concentration.
@@ -1387,25 +1396,25 @@ export default function SupplementsPage() {
                           Configured dose: {r.dose_value} {r.dose_unit} · Stock
                           used: {r.stock_quantity_per_dose} {r.stock_unit}
                         </p>
-                        {r.tier === 'CLINICAL' && (
+                        {r.tier === "CLINICAL" && (
                           <p>
-                            Indication:{' '}
-                            {r.clinical_indication?.replaceAll('_', ' ') ??
-                              'Not configured'}{' '}
-                            · Course days:{' '}
-                            {r.clinical_dose_offsets_days?.join(', ') ??
-                              'Not configured'}
+                            Indication:{" "}
+                            {r.clinical_indication?.replaceAll("_", " ") ??
+                              "Not configured"}{" "}
+                            · Course days:{" "}
+                            {r.clinical_dose_offsets_days?.join(", ") ??
+                              "Not configured"}
                           </p>
                         )}
                         <p>
                           {r.interval_months
                             ? `Minimum configured interval: ${r.interval_months} months.`
-                            : 'No interval stored in this protocol.'}
+                            : "No interval stored in this protocol."}
                         </p>
                         <p>
                           {r.requires_order
-                            ? 'Clinical/program order reference required.'
-                            : 'Review administration history before recording.'}
+                            ? "Clinical/program order reference required."
+                            : "Review administration history before recording."}
                         </p>
                         {r.source_reference.match(/https:\/\/\S+/)?.[0] && (
                           <a
@@ -1429,7 +1438,7 @@ export default function SupplementsPage() {
                   </p>
                 )}
               </article>
-            )
+            );
           })}
       </div>
       <div className="rounded-2xl border border-border bg-white p-5">
@@ -1465,21 +1474,21 @@ export default function SupplementsPage() {
         </ul>
       </div>
     </div>
-  )
+  );
 
   const records =
     data?.records.filter(
       (r) =>
-        (tab === 'clinical' ? r.tier === 'CLINICAL' : r.tier !== 'CLINICAL') &&
+        (tab === "clinical" ? r.tier === "CLINICAL" : r.tier !== "CLINICAL") &&
         (!filter ||
           String(r.child_id) === filter ||
           (data.children.find((c) => c.child_id === r.child_id)
             ? name(data.children.find((c) => c.child_id === r.child_id)!)
-            : ''
+            : ""
           )
             .toLowerCase()
             .includes(filter.toLowerCase())),
-    ) ?? []
+    ) ?? [];
 
   return (
     <div className="space-y-6">
@@ -1489,14 +1498,15 @@ export default function SupplementsPage() {
       >
         {(
           [
-            'records',
-            'clinical',
-            'stock',
-            'plans',
-            'guidelines',
+            "records",
+            "clinical",
+            "stock",
+            "plans",
+            "guidelines",
+            "sms",
             ...(data?.permissions.monitor &&
-            (data.role === 'PHN' || data.role === 'Administrator')
-              ? ['monitoring' as const]
+            (data.role === "PHN" || data.role === "Administrator")
+              ? ["monitoring" as const]
               : []),
           ] as const
         ).map((t) => (
@@ -1504,19 +1514,21 @@ export default function SupplementsPage() {
             key={t}
             aria-pressed={tab === t}
             onClick={() => setTab(t)}
-            className={`px-4 py-3 text-sm font-medium ${tab === t ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground'}`}
+            className={`px-4 py-3 text-sm font-medium ${tab === t ? "border-b-2 border-primary text-primary" : "text-muted-foreground"}`}
           >
-            {t === 'records'
-              ? 'Administration & Dispensing'
-              : t === 'clinical'
-                ? 'Clinical Records'
-                : t === 'stock'
-                  ? 'Stock & Batches'
-                  : t === 'plans'
-                    ? 'Supply Plans'
-                    : t === 'monitoring'
-                      ? 'Compliance Monitoring'
-                      : 'Guidelines & Eligibility'}
+            {t === "records"
+              ? "Administration & Dispensing"
+              : t === "clinical"
+                ? "Clinical Records"
+                : t === "stock"
+                  ? "Stock & Batches"
+                  : t === "plans"
+                    ? "Supply Plans"
+                    : t === "sms"
+                      ? "SMS Reminders"
+                      : t === "monitoring"
+                        ? "Compliance Monitoring"
+                        : "Guidelines & Eligibility"}
           </button>
         ))}
       </nav>
@@ -1530,32 +1542,28 @@ export default function SupplementsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {clinicalAllowed && (
-            <button className={button} onClick={() => open('CLINICAL')}>
+          {tab === "clinical" && clinicalAllowed && (
+            <button className={button} onClick={() => open("CLINICAL")}>
               <Plus size={18} />
               Record Clinical Supplementation
             </button>
           )}
-          {data?.permissions.record && (
-            <button className={button} onClick={() => open('RECORD')}>
-              <Plus size={18} />
-              Record Administration
-            </button>
-          )}
-          {data?.permissions.record && (
-            <button className={button} onClick={() => open('DISPENSE')}>
-              <Plus size={18} />
-              Record Dispensing
-            </button>
-          )}
-          {data?.permissions.stock && (
-            <button className={button} onClick={() => open('RECEIVE')}>
-              <Plus size={18} />
-              Receive Batch
-            </button>
-          )}
-          {data?.permissions.stock && (
-            <button className={button} onClick={() => open('PLAN')}>
+          {tab === "records" &&
+            (data?.permissions.record || data?.role === "RHM") && (
+              <button className={button} onClick={() => open("RECORD")}>
+                <Plus size={18} />
+                Record Administration
+              </button>
+            )}
+          {tab === "records" &&
+            (data?.permissions.record || data?.role === "RHM") && (
+              <button className={button} onClick={() => open("DISPENSE")}>
+                <Plus size={18} />
+                Record Dispensing
+              </button>
+            )}
+          {tab === "plans" && data?.permissions.stock && (
+            <button className={button} onClick={() => open("PLAN")}>
               <Plus size={18} />
               Register Supply Plan
             </button>
@@ -1587,12 +1595,12 @@ export default function SupplementsPage() {
             >
               <div>
                 <p className="font-medium">
-                  {d.childName} ·{' '}
-                  {d.action === 'CLINICAL'
-                    ? 'Clinical administration'
-                    : d.action === 'RECORD'
-                      ? 'Administration'
-                      : 'Dispensing'}{' '}
+                  {d.childName} ·{" "}
+                  {d.action === "CLINICAL"
+                    ? "Clinical administration"
+                    : d.action === "RECORD"
+                      ? "Administration"
+                      : "Dispensing"}{" "}
                   · {d.form.date}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -1650,31 +1658,55 @@ export default function SupplementsPage() {
         </p>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        {[
-          [
-            'Supplement Products',
-            data?.products.filter((p) => p.catalog_code).length ?? 0,
-          ],
-          ['Saved Administration / Supply Entries', data?.records.length ?? 0],
-          [
-            'Expired Batches with Stock',
-            data?.batches.filter(
-              (b) => b.expiry_date < today() && Number(b.quantity_on_hand) > 0,
-            ).length ?? 0,
-          ],
-        ].map(([label, count]) => (
-          <div
-            key={label}
-            className="rounded-2xl border border-border bg-white p-6"
-          >
-            <p className="text-sm text-muted-foreground">{label}</p>
-            <p className="mt-2 text-3xl font-bold">{count}</p>
-          </div>
-        ))}
-      </div>
+      {tab === "records" && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          {[
+            [
+              "Supplement Products",
+              data?.products.filter((p) => p.catalog_code).length ?? 0,
+            ],
+            [
+              "Saved Administration / Supply Entries",
+              data?.records.length ?? 0,
+            ],
+            [
+              "Expired Batches with Stock",
+              data?.batches.filter(
+                (b) =>
+                  b.expiry_date < today() && Number(b.quantity_on_hand) > 0,
+              ).length ?? 0,
+            ],
+          ].map(([label, count]) => (
+            <div
+              key={label}
+              className="rounded-2xl border border-border bg-white p-6"
+            >
+              <p className="text-sm text-muted-foreground">{label}</p>
+              <p className="mt-2 text-3xl font-bold">{count}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
-      {tab === 'monitoring' ? (
+      {tab === "stock" && owner && (
+        <SupplementStockRequestsPanel
+          key={owner}
+          ownerId={owner}
+          online={online}
+        />
+      )}
+
+      {tab === "sms" ? (
+        owner ? (
+          <SupplementationSmsPanel
+            key={owner}
+            ownerId={owner}
+            online={online}
+          />
+        ) : (
+          <p>Please sign in to view SMS reminders.</p>
+        )
+      ) : tab === "monitoring" ? (
         data?.permissions.monitor && owner ? (
           <SupplementationMonitoringPanel
             key={owner}
@@ -1689,13 +1721,13 @@ export default function SupplementsPage() {
         )
       ) : loading ? (
         <p>Loading supplementation data…</p>
-      ) : data && (tab === 'records' || tab === 'clinical') ? (
+      ) : data && (tab === "records" || tab === "clinical") ? (
         <div className="overflow-hidden rounded-2xl border border-border bg-white">
           <div className="flex flex-wrap justify-between gap-3 border-b border-border p-5">
             <h2 className="font-semibold">
-              {tab === 'clinical'
-                ? 'Clinical-Tier Administrations'
-                : 'Recorded Administrations & Supply Issues'}
+              {tab === "clinical"
+                ? "Clinical-Tier Administrations"
+                : "Recorded Administrations & Supply Issues"}
             </h2>
             <input
               aria-label="Search child"
@@ -1710,15 +1742,15 @@ export default function SupplementsPage() {
               <thead className="bg-muted">
                 <tr>
                   {[
-                    'Child',
-                    'Date',
-                    'Entry Type',
-                    'Supplement',
-                    'Dose',
-                    'Stock Used',
-                    'Batch',
-                    'Nutrition Basis',
-                    'Tier / Order',
+                    "Child",
+                    "Date",
+                    "Entry Type",
+                    "Supplement",
+                    "Dose",
+                    "Stock Used",
+                    "Batch",
+                    "Nutrition Basis",
+                    "Tier / Order",
                   ].map((h) => (
                     <th key={h} className="px-5 py-4 text-left text-sm">
                       {h}
@@ -1743,7 +1775,7 @@ export default function SupplementsPage() {
                       ),
                       p = data.products.find(
                         (p) => p.supplement_id === r.supplement_id,
-                      )
+                      );
                     return (
                       <tr key={r.supplementation_record_id}>
                         <td className="px-5 py-4 text-sm">
@@ -1758,27 +1790,27 @@ export default function SupplementsPage() {
                           {r.supplementation_date}
                         </td>
                         <td className="px-5 py-4 text-sm">
-                          {r.record_type === 'DISPENSED'
-                            ? 'Dispensed'
-                            : r.record_type === 'ADMINISTERED'
-                              ? 'Administered'
-                              : 'Legacy entry'}
+                          {r.record_type === "DISPENSED"
+                            ? "Dispensed"
+                            : r.record_type === "ADMINISTERED"
+                              ? "Administered"
+                              : "Legacy entry"}
                         </td>
                         <td className="px-5 py-4 text-sm">
                           {p?.item?.item_name ?? `Product ${r.supplement_id}`}
                         </td>
                         <td className="px-5 py-4 text-sm">
-                          {r.record_type === 'DISPENSED'
-                            ? 'Not an administered dose'
+                          {r.record_type === "DISPENSED"
+                            ? "Not an administered dose"
                             : r.dose_value == null
-                              ? 'Not recorded'
-                              : `${r.dose_value} ${r.dose_unit ?? ''}`}
+                              ? "Not recorded"
+                              : `${r.dose_value} ${r.dose_unit ?? ""}`}
                         </td>
                         <td className="px-5 py-4 text-sm">
                           {r.quantity_given} {p?.item?.unit}
                         </td>
                         <td className="px-5 py-4 text-sm">
-                          {r.batch_number ?? '—'}
+                          {r.batch_number ?? "—"}
                         </td>
                         <td className="px-5 py-4 text-sm">
                           {r.source_assessment_id
@@ -1787,36 +1819,36 @@ export default function SupplementsPage() {
                                 data.plans.find((p) => p.plan_id === r.plan_id)
                                   ?.source_assessment_id
                               ? `Plan assessment #${data.plans.find((p) => p.plan_id === r.plan_id)?.source_assessment_id}`
-                              : 'No linked assessment'}
+                              : "No linked assessment"}
                         </td>
                         <td className="px-5 py-4 text-sm">
                           {r.tier ??
-                            (r.record_type === 'DISPENSED'
-                              ? 'Supply issue'
-                              : 'Legacy — tier not recorded')}
+                            (r.record_type === "DISPENSED"
+                              ? "Supply issue"
+                              : "Legacy — tier not recorded")}
                           {r.order_reference && (
                             <p className="mt-1 text-xs text-muted-foreground">
                               Order: {r.order_reference}
                             </p>
                           )}
-                          {r.tier === 'CLINICAL' && (
+                          {r.tier === "CLINICAL" && (
                             <p className="mt-1 text-xs text-muted-foreground">
-                              {r.clinical_indication?.replaceAll('_', ' ') ??
-                                'Indication not recorded'}{' '}
-                              · Course {r.course_reference ?? 'not recorded'} ·
-                              Dose {r.clinical_dose_number ?? 'not recorded'}
+                              {r.clinical_indication?.replaceAll("_", " ") ??
+                                "Indication not recorded"}{" "}
+                              · Course {r.course_reference ?? "not recorded"} ·
+                              Dose {r.clinical_dose_number ?? "not recorded"}
                             </p>
                           )}
                         </td>
                       </tr>
-                    )
+                    );
                   })
                 )}
               </tbody>
             </table>
           </div>
         </div>
-      ) : data && tab === 'plans' ? (
+      ) : data && tab === "plans" ? (
         <div className="rounded-2xl border border-border bg-white p-5">
           <h2 className="font-semibold">Supply Plans</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -1832,36 +1864,36 @@ export default function SupplementsPage() {
               const used = data.records
                 .filter(
                   (r) =>
-                    r.plan_id === p.plan_id && r.record_type === 'DISPENSED',
+                    r.plan_id === p.plan_id && r.record_type === "DISPENSED",
                 )
-                .reduce((n, r) => n + Number(r.quantity_given), 0)
-              const c = data.children.find((c) => c.child_id === p.child_id)
+                .reduce((n, r) => n + Number(r.quantity_given), 0);
+              const c = data.children.find((c) => c.child_id === p.child_id);
               const product = data.products.find(
                 (x) => x.supplement_id === p.supplement_id,
-              )
+              );
               return (
                 <div
                   key={p.plan_id}
                   className="mt-4 rounded-lg border p-4 text-sm"
                 >
                   <p className="font-semibold">
-                    Plan #{p.plan_id} · {c ? name(c) : `Child ${p.child_id}`} ·{' '}
+                    Plan #{p.plan_id} · {c ? name(c) : `Child ${p.child_id}`} ·{" "}
                     {product?.item?.item_name}
                   </p>
                   <p>
-                    {p.start_date} to {p.end_date} · {used} of{' '}
+                    {p.start_date} to {p.end_date} · {used} of{" "}
                     {p.authorized_quantity} {product?.item?.unit} issued
                   </p>
-                  <p className="mt-2">Remarks: {p.remarks ?? '—'}</p>
+                  <p className="mt-2">Remarks: {p.remarks ?? "—"}</p>
                   <p className="text-muted-foreground">
                     Product: {p.product_label}
                   </p>
                 </div>
-              )
+              );
             })
           )}
         </div>
-      ) : data && tab === 'guidelines' ? (
+      ) : data && tab === "guidelines" ? (
         guidelinesPanel
       ) : (
         data && (
@@ -1875,12 +1907,12 @@ export default function SupplementsPage() {
                 <thead className="bg-muted">
                   <tr>
                     {[
-                      'Product / Barangay',
-                      'Aggregate Stock',
-                      'Batch',
-                      'Batch Stock',
-                      'Expiry',
-                      'Status',
+                      "Product / Barangay",
+                      "Aggregate Stock",
+                      "Batch",
+                      "Batch Stock",
+                      "Expiry",
+                      "Status",
                     ].map((h) => (
                       <th key={h} className="px-5 py-4 text-left text-sm">
                         {h}
@@ -1895,8 +1927,9 @@ export default function SupplementsPage() {
                         colSpan={6}
                         className="p-8 text-center text-muted-foreground"
                       >
-                        No stock yet. The catalog is predefined. The assigned
-                        RHM or supervising PHN receives actual batches.
+                        No stock yet. RHM can request stock above. Available
+                        batches will be supplied through PHN-approved Inventory
+                        allocation.
                       </td>
                     </tr>
                   ) : (
@@ -1910,9 +1943,9 @@ export default function SupplementsPage() {
                         sum = bs.reduce(
                           (n, b) => n + Number(b.quantity_on_hand),
                           0,
-                        )
+                        );
                       return (bs.length ? bs : [null]).map((b) => (
-                        <tr key={`${i.inventory_id}:${b?.batch_id ?? 'none'}`}>
+                        <tr key={`${i.inventory_id}:${b?.batch_id ?? "none"}`}>
                           <td className="px-5 py-4 text-sm">
                             {p?.item?.item_name}
                             <p className="text-xs text-muted-foreground">
@@ -1932,25 +1965,25 @@ export default function SupplementsPage() {
                             )}
                           </td>
                           <td className="px-5 py-4 text-sm">
-                            {b?.batch_number ?? 'Unallocated'}
+                            {b?.batch_number ?? "Unallocated"}
                           </td>
                           <td className="px-5 py-4 text-sm">
-                            {b?.quantity_on_hand ?? '—'}
+                            {b?.quantity_on_hand ?? "—"}
                           </td>
                           <td className="px-5 py-4 text-sm">
-                            {b?.expiry_date ?? '—'}
+                            {b?.expiry_date ?? "—"}
                           </td>
                           <td className="px-5 py-4 text-sm">
                             {!b
-                              ? 'Needs batch allocation'
+                              ? "Needs batch allocation"
                               : b.expiry_date < today()
-                                ? 'Expired'
+                                ? "Expired"
                                 : Number(b.quantity_on_hand) === 0
-                                  ? 'Out of stock'
-                                  : 'Available'}
+                                  ? "Out of stock"
+                                  : "Available"}
                           </td>
                         </tr>
-                      ))
+                      ));
                     })
                   )}
                 </tbody>
@@ -1986,15 +2019,15 @@ export default function SupplementsPage() {
           >
             <div className="mb-5 flex justify-between">
               <h2 id="supplement-dialog" className="text-xl font-bold">
-                {modal === 'CLINICAL'
-                  ? 'Record Clinical-Tier Supplementation'
-                  : modal === 'RECORD'
-                    ? 'Record Actual Administration'
-                    : modal === 'PLAN'
-                      ? 'Register Supply Plan'
-                      : modal === 'DISPENSE'
-                        ? 'Record Supply Dispensing'
-                        : 'Receive / Allocate Batch'}
+                {modal === "CLINICAL"
+                  ? "Record Clinical-Tier Supplementation"
+                  : modal === "RECORD"
+                    ? "Record Actual Administration"
+                    : modal === "PLAN"
+                      ? "Register Supply Plan"
+                      : modal === "DISPENSE"
+                        ? "Record Supply Dispensing"
+                        : "Receive / Allocate Batch"}
               </h2>
               <button
                 type="button"
@@ -2012,7 +2045,7 @@ export default function SupplementsPage() {
             )}
             <div className="grid gap-4 sm:grid-cols-2">
               {nutritionPanel}
-              {modal === 'CLINICAL' && (
+              {modal === "CLINICAL" && (
                 <div
                   role="status"
                   className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm sm:col-span-2"
@@ -2034,21 +2067,21 @@ export default function SupplementsPage() {
                 </div>
               )}
 
-              {modal === 'PLAN' ? (
+              {modal === "PLAN" ? (
                 <>
                   {select(
-                    'Child',
-                    'childId',
+                    "Child",
+                    "childId",
                     data?.children
-                      .filter((c) => c.status === 'ACTIVE')
+                      .filter((c) => c.status === "ACTIVE")
                       .map((c) => ({
                         value: String(c.child_id),
                         label: name(c),
                       })) ?? [],
                   )}
                   {select(
-                    'Child Commodity',
-                    'supplementId',
+                    "Child Commodity",
+                    "supplementId",
                     productOptions.filter(
                       (o) =>
                         data?.products.find(
@@ -2058,12 +2091,12 @@ export default function SupplementsPage() {
                   )}
                   {productPanel}
                   {assessmentSelector}
-                  {field('Plan Start', 'startDate', 'date')}
-                  {field('Plan End', 'endDate', 'date')}
+                  {field("Plan Start", "startDate", "date")}
+                  {field("Plan End", "endDate", "date")}
                   {field(
-                    `Planned Total (${catalog?.unit ?? 'select a commodity'})`,
-                    'quantity',
-                    'number',
+                    `Planned Total (${catalog?.unit ?? "select a commodity"})`,
+                    "quantity",
+                    "number",
                   )}
                   <label className="text-sm font-medium sm:col-span-2">
                     Remarks (optional)
@@ -2071,7 +2104,7 @@ export default function SupplementsPage() {
                       rows={3}
                       className={input}
                       value={form.remarks}
-                      onChange={(e) => change('remarks', e.target.value)}
+                      onChange={(e) => change("remarks", e.target.value)}
                       placeholder="Notes about this supply plan"
                     />
                   </label>
@@ -2081,37 +2114,37 @@ export default function SupplementsPage() {
                     completion.
                   </p>
                 </>
-              ) : modal === 'DISPENSE' ? (
+              ) : modal === "DISPENSE" ? (
                 <>
                   {select(
-                    'Registered Plan',
-                    'planId',
+                    "Registered Plan",
+                    "planId",
                     data?.plans.map((p) => ({
                       value: String(p.plan_id),
                       label: `Plan #${p.plan_id} · ${data.children.find((c) => c.child_id === p.child_id) ? name(data.children.find((c) => c.child_id === p.child_id)!) : p.child_id} · ${data.products.find((x) => x.supplement_id === p.supplement_id)?.item?.item_name}`,
                     })) ?? [],
                   )}
-                  {field('Actual Issue Date', 'date', 'date')}
+                  {field("Actual Issue Date", "date", "date")}
                   {productPanel}
                   {field(
-                    `Quantity Issued (${catalog?.unit ?? 'stock units'})`,
-                    'quantity',
-                    'number',
+                    `Quantity Issued (${catalog?.unit ?? "stock units"})`,
+                    "quantity",
+                    "number",
                   )}
                   {select(
-                    'Available Batch',
-                    'batchId',
+                    "Available Batch",
+                    "batchId",
                     batches.map((b) => ({
                       value: String(b.batch_id),
                       label: `${b.batch_number} · ${b.quantity_on_hand} available · expires ${b.expiry_date}`,
                     })),
                   )}
-                  {field('Remarks', 'remarks', 'text', false)}
+                  {field("Remarks", "remarks", "text", false)}
                   {selectedPlan && (
                     <p className="rounded-lg bg-muted p-3 text-sm sm:col-span-2">
                       Product: {selectedPlan.product_label}
                       <br />
-                      Remarks: {selectedPlan.remarks ?? '—'}
+                      Remarks: {selectedPlan.remarks ?? "—"}
                       <br />
                       Plan ends {selectedPlan.end_date}. The selected batch must
                       remain valid through that date.
@@ -2122,34 +2155,34 @@ export default function SupplementsPage() {
                     not save an administered dose or mark the course completed.
                   </p>
                 </>
-              ) : modal === 'RECEIVE' ? (
+              ) : modal === "RECEIVE" ? (
                 <>
-                  {select('Product', 'supplementId', productOptions)}
+                  {select("Product", "supplementId", productOptions)}
                   {productPanel}
                   {select(
-                    'Barangay',
-                    'barangayId',
+                    "Barangay",
+                    "barangayId",
                     data?.barangays.map((b) => ({
                       value: String(b.barangay_id),
                       label: b.barangay_name,
                     })) ?? [],
                   )}
-                  {field('Batch Number', 'batchNumber')}
+                  {field("Batch Number", "batchNumber")}
                   {field(
-                    `Quantity Received (${catalog?.unit ?? 'stock units'})`,
-                    'quantity',
-                    'number',
+                    `Quantity Received (${catalog?.unit ?? "stock units"})`,
+                    "quantity",
+                    "number",
                   )}
-                  {field('Receipt Date', 'receivedDate', 'date')}
-                  {field('Expiry Date', 'expiryDate', 'date')}
+                  {field("Receipt Date", "receivedDate", "date")}
+                  {field("Expiry Date", "expiryDate", "date")}
                   <label className="text-sm sm:col-span-2">
                     <input
                       type="checkbox"
                       checked={form.allocateExisting}
                       onChange={(e) =>
-                        change('allocateExisting', e.target.checked)
+                        change("allocateExisting", e.target.checked)
                       }
-                    />{' '}
+                    />{" "}
                     Allocate existing unbatched stock instead of adding new
                     stock
                   </label>
@@ -2157,44 +2190,44 @@ export default function SupplementsPage() {
               ) : (
                 <>
                   {select(
-                    'Child',
-                    'childId',
+                    "Child",
+                    "childId",
                     data?.children
-                      .filter((c) => c.status === 'ACTIVE')
+                      .filter((c) => c.status === "ACTIVE")
                       .map((c) => ({
                         value: String(c.child_id),
                         label: name(c),
                       })) ?? [],
                   )}
-                  {field('Actual Administration Date', 'date', 'date')}
+                  {field("Actual Administration Date", "date", "date")}
                   {child && (
                     <p className="rounded-lg bg-muted p-3 text-sm sm:col-span-2">
-                      Born {child.date_of_birth} · {child.sex} ·{' '}
+                      Born {child.date_of_birth} · {child.sex} ·{" "}
                       {months(child.date_of_birth, form.date)} completed months.
                       Personal information comes from the child profile.
                     </p>
                   )}
-                  {modal === 'CLINICAL'
+                  {modal === "CLINICAL"
                     ? select(
-                        'Clinical protocol purpose',
-                        'purpose',
+                        "Clinical protocol purpose",
+                        "purpose",
                         [
                           ...new Set(clinicalProtocols.map((p) => p.purpose)),
                         ].map((value) => ({
                           value,
-                          label: value.replaceAll('_', ' '),
+                          label: value.replaceAll("_", " "),
                         })),
                       )
-                    : select('Purpose', 'purpose', [
-                        { value: 'ROUTINE', label: 'Routine' },
+                    : select("Purpose", "purpose", [
+                        { value: "ROUTINE", label: "Routine" },
                         {
-                          value: 'TARGETED',
-                          label: 'Targeted / program order',
+                          value: "TARGETED",
+                          label: "Targeted / program order",
                         },
                       ])}
                   {select(
-                    'Product',
-                    'supplementId',
+                    "Product",
+                    "supplementId",
                     productOptions.filter(
                       (o) =>
                         !data?.products.find(
@@ -2205,16 +2238,16 @@ export default function SupplementsPage() {
                   {productPanel}
                   {concurrentPlanReminder}
                   {select(
-                    'Eligible Protocol',
-                    'protocolId',
+                    "Eligible Protocol",
+                    "protocolId",
                     protocols.map((p) => ({
                       value: String(p.protocol_id),
                       label: p.protocol_code,
                     })),
                   )}
                   {select(
-                    'Available Batch',
-                    'batchId',
+                    "Available Batch",
+                    "batchId",
                     batches.map((b) => ({
                       value: String(b.batch_id),
                       label: `${b.batch_number} · ${b.quantity_on_hand} available · expires ${b.expiry_date}`,
@@ -2230,13 +2263,13 @@ export default function SupplementsPage() {
                   {protocol && (
                     <p className="rounded-lg bg-teal-50 p-3 text-sm sm:col-span-2">
                       Recorded dose: {protocol.dose_value} {protocol.dose_unit}.
-                      Stock deducted: {protocol.stock_quantity_per_dose}{' '}
-                      {protocol.stock_unit}.{' '}
+                      Stock deducted: {protocol.stock_quantity_per_dose}{" "}
+                      {protocol.stock_unit}.{" "}
                       <a
                         href={
                           protocol.source_reference.match(
                             /https:\/\/\S+/,
-                          )?.[0] ?? '#'
+                          )?.[0] ?? "#"
                         }
                         target="_blank"
                         rel="noreferrer"
@@ -2246,7 +2279,7 @@ export default function SupplementsPage() {
                       </a>
                     </p>
                   )}
-                  {modal === 'CLINICAL' && (
+                  {modal === "CLINICAL" && (
                     <>
                       <label className="text-sm font-medium">
                         Clinical indication
@@ -2255,14 +2288,14 @@ export default function SupplementsPage() {
                           required
                           className={input}
                           value={
-                            form.clinicalIndication?.replaceAll('_', ' ') ?? ''
+                            form.clinicalIndication?.replaceAll("_", " ") ?? ""
                           }
                         />
                       </label>
-                      {field('Treatment-course reference', 'courseReference')}
+                      {field("Treatment-course reference", "courseReference")}
                       {select(
-                        'Course dose number',
-                        'clinicalDoseNumber',
+                        "Course dose number",
+                        "clinicalDoseNumber",
                         (protocol?.clinical_dose_offsets_days ?? []).map(
                           (day, index) => ({
                             value: String(index + 1),
@@ -2298,22 +2331,22 @@ export default function SupplementsPage() {
                               key={r.supplementation_record_id}
                               className="mt-1"
                             >
-                              {r.course_reference} ·{' '}
-                              {r.clinical_indication?.replaceAll('_', ' ')} ·
-                              started{' '}
+                              {r.course_reference} ·{" "}
+                              {r.clinical_indication?.replaceAll("_", " ")} ·
+                              started{" "}
                               {r.course_start_date ?? r.supplementation_date}
                             </p>
                           ))}
                         </div>
                       )}
-                      {field('Actual dose', 'clinicalDoseValue', 'number')}
+                      {field("Actual dose", "clinicalDoseValue", "number")}
                       <label className="text-sm font-medium">
                         Dose unit
                         <input
                           readOnly
                           required
                           className={input}
-                          value={form.clinicalDoseUnit ?? ''}
+                          value={form.clinicalDoseUnit ?? ""}
                         />
                       </label>
                       <p className="text-xs text-muted-foreground sm:col-span-2">
@@ -2324,40 +2357,40 @@ export default function SupplementsPage() {
                     </>
                   )}
                   {field(
-                    'Clinical Order Reference',
-                    'orderReference',
-                    'text',
-                    modal === 'CLINICAL' || Boolean(protocol?.requires_order),
+                    "Clinical Order Reference",
+                    "orderReference",
+                    "text",
+                    modal === "CLINICAL" || Boolean(protocol?.requires_order),
                   )}
                   {assessmentSelector}
                   {field(
-                    'Approved Activity ID (optional)',
-                    'scheduleId',
-                    'number',
+                    "Approved Activity ID (optional)",
+                    "scheduleId",
+                    "number",
                     false,
                   )}
-                  {field('Remarks', 'remarks', 'text', false)}
+                  {field("Remarks", "remarks", "text", false)}
                   <label className="text-sm sm:col-span-2">
                     <input
                       required
                       type="checkbox"
                       checked={form.confirmed}
-                      onChange={(e) => change('confirmed', e.target.checked)}
-                    />{' '}
+                      onChange={(e) => change("confirmed", e.target.checked)}
+                    />{" "}
                     I reviewed existing doses, external records and concurrent
                     nutrition treatment, and confirm this supplement was
                     actually administered under the applicable protocol.
                   </label>
                 </>
               )}
-            </div>{' '}
+            </div>{" "}
             {editingDraft && (
               <label className="mt-5 block rounded-lg bg-amber-50 p-3 text-sm">
                 <input
                   type="checkbox"
                   checked={draftConfirmed}
                   onChange={(e) => setDraftConfirmed(e.target.checked)}
-                />{' '}
+                />{" "}
                 I cross-checked this draft with the child history and current
                 stock, and confirm submission. Server duplicate and eligibility
                 checks still apply.
@@ -2377,27 +2410,27 @@ export default function SupplementsPage() {
                   saving ||
                   loading ||
                   (!online &&
-                    modal !== 'RECORD' &&
-                    modal !== 'DISPENSE' &&
-                    modal !== 'CLINICAL') ||
+                    modal !== "RECORD" &&
+                    modal !== "DISPENSE" &&
+                    modal !== "CLINICAL") ||
                   (editingDraft !== null && online && !draftConfirmed) ||
-                  (modal === 'PLAN' && ageEligibility?.eligible === false) ||
-                  (modal === 'CLINICAL' && !retryClinicalProtocol())
+                  (modal === "PLAN" && ageEligibility?.eligible === false) ||
+                  (modal === "CLINICAL" && !retryClinicalProtocol())
                 }
                 className={button}
               >
                 {saving
-                  ? 'Saving…'
+                  ? "Saving…"
                   : !online
-                    ? 'Save Offline Draft'
+                    ? "Save Offline Draft"
                     : editingDraft
-                      ? 'Confirm & Submit'
-                      : 'Save'}
+                      ? "Confirm & Submit"
+                      : "Save"}
               </button>
             </div>
           </form>
         </div>
       )}
     </div>
-  )
+  );
 }

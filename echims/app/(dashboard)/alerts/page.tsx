@@ -12,6 +12,7 @@ import {
   Settings,
 } from "lucide-react";
 import Link from "next/link";
+import { SmsSimulationPanel } from "@/components/alerts/sms-simulation-panel";
 import { createClient } from "@/lib/supabase/client";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
@@ -41,6 +42,8 @@ type Alert = {
   inventory_id: number | null;
   schedule_id: number | null;
   recipient_id: string | null;
+  resolved_by: string | null;
+  resolved_at: string | null;
 };
 type Audit = {
   audit_id: number;
@@ -318,16 +321,19 @@ export default function AlertsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [tab, setTab] = useState<"ALERTS" | "RULES" | "AUDIT" | "MONITORING">(
-    "ALERTS",
-  );
-  const [filter, setFilter] = useState("all");
+  const [tab, setTab] = useState<
+    "ALERTS" | "RULES" | "AUDIT" | "MONITORING" | "SMS"
+  >("ALERTS");
+  const [filter, setFilter] = useState("unresolved");
   const [program, setProgram] = useState("ALL");
   const [page, setPage] = useState(1);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [review, setReview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [reading, setReading] = useState<number | null>(null);
+  const [resolveTarget, setResolveTarget] = useState<Alert | null>(null);
+  const [resolutionReviewed, setResolutionReviewed] = useState(false);
+  const [resolving, setResolving] = useState(false);
   const sequence = useRef(0);
   const ownerRef = useRef<string | null>(null);
 
@@ -340,6 +346,8 @@ export default function AlertsPage() {
           ownerRef.current = next;
           setData(null);
           setDraft(null);
+          setResolveTarget(null);
+          setResolutionReviewed(false);
           setTab("ALERTS");
           setPage(1);
           setError("");
@@ -504,6 +512,40 @@ export default function AlertsPage() {
       setReading(null);
     }
   }
+  async function resolveAlert() {
+    if (!owner || !resolveTarget || !resolutionReviewed || resolving) return;
+    const requestOwner = owner;
+    setResolving(true);
+    setError("");
+    try {
+      await jsonResponse(
+        await fetch("/api/notifications", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "RESOLVE",
+            alertId: resolveTarget.alert_id,
+            reviewed: true,
+          }),
+        }),
+      );
+      if (ownerRef.current === requestOwner) {
+        setResolveTarget(null);
+        setResolutionReviewed(false);
+        setNotice(
+          "Alert resolved. Handler and time recorded; other recipients are unchanged.",
+        );
+        await load();
+      }
+    } catch (cause) {
+      if (ownerRef.current === requestOwner)
+        setError(
+          cause instanceof Error ? cause.message : "Unable to resolve alert.",
+        );
+    } finally {
+      setResolving(false);
+    }
+  }
   const alerts = (data?.alerts ?? []).filter(
     (alert) =>
       (program === "ALL" ||
@@ -544,6 +586,7 @@ export default function AlertsPage() {
               { value: "RULES", label: "Rules" },
               { value: "AUDIT", label: "Rule change history" },
               { value: "MONITORING", label: "Evaluation monitoring" },
+              { value: "SMS", label: "SMS Overview" },
             ] as const
           ).map((item) => (
             <button
@@ -606,6 +649,14 @@ export default function AlertsPage() {
       {data?.canConfigure && tab === "MONITORING" && (
         <div role="tabpanel" aria-label="Evaluation monitoring">
           <EvaluationMonitoring monitoring={data.monitoring} />
+        </div>
+      )}
+      {data?.canConfigure && tab === "SMS" && (
+        <div role="tabpanel" aria-label="SMS Overview">
+          <SmsSimulationPanel
+            key={data.currentUserId}
+            ownerId={data.currentUserId}
+          />
         </div>
       )}
       {data && tab === "ALERTS" && (
@@ -728,6 +779,28 @@ export default function AlertsPage() {
                                 Mark as read
                               </button>
                             )}
+                          {alert.recipient_id === owner &&
+                            alert.status !== "RESOLVED" && (
+                              <button
+                                type="button"
+                                disabled={resolving || reading !== null}
+                                onClick={() => {
+                                  setResolveTarget(alert);
+                                  setResolutionReviewed(false);
+                                }}
+                                className="rounded-lg bg-primary px-3 py-1.5 text-white disabled:opacity-50"
+                              >
+                                Mark as Resolved
+                              </button>
+                            )}
+                          {alert.status === "RESOLVED" && alert.resolved_at && (
+                            <span className="text-muted-foreground">
+                              Resolved {formatTime(alert.resolved_at)} ·{" "}
+                              {alert.resolved_by === owner
+                                ? "by you"
+                                : "handler recorded"}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -901,6 +974,61 @@ export default function AlertsPage() {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+      {resolveTarget && resolveTarget.recipient_id === owner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="resolve-alert-title"
+            className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-xl"
+          >
+            <h2 id="resolve-alert-title" className="font-semibold">
+              Resolve assigned alert
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {resolveTarget.alert_message}
+            </p>
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={resolutionReviewed}
+                disabled={resolving}
+                onChange={(event) =>
+                  setResolutionReviewed(event.target.checked)
+                }
+                className="mt-1"
+              />
+              <span>
+                I reviewed the linked record and completed the required
+                follow-up. My account and the resolution time will be recorded.
+              </span>
+            </label>
+            {error && (
+              <p role="alert" className="text-sm text-red-600">
+                {error}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={resolving}
+                onClick={() => setResolveTarget(null)}
+                className="rounded-lg border px-3 py-2 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!resolutionReviewed || resolving}
+                onClick={() => void resolveAlert()}
+                className="rounded-lg bg-primary px-3 py-2 text-sm text-white disabled:opacity-50"
+              >
+                {resolving ? "Resolving…" : "Confirm Resolution"}
+              </button>
+            </div>
+          </section>
         </div>
       )}
       {draft && data?.canConfigure && (
