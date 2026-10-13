@@ -1,4 +1,4 @@
-'use client'
+"use client";
 import {
   useEffect,
   useMemo,
@@ -6,12 +6,13 @@ import {
   useState,
   type FormEvent,
   type ReactNode,
-} from 'react'
-import useSWR from 'swr'
-import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
-import Link from 'next/link'
-import { NutritionRiskMonitor } from '@/components/nutrition/nutrition-risk-monitor'
-import type { RiskMonitoring } from '@/lib/nutrition-risk'
+} from "react";
+import useSWR from "swr";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import Link from "next/link";
+import { NutritionAdmissionPanel } from "@/components/nutrition/nutrition-admission-panel";
+import { NutritionRiskMonitor } from "@/components/nutrition/nutrition-risk-monitor";
+import type { RiskMonitoring } from "@/lib/nutrition-risk";
 import {
   getNutritionBrowserClient,
   saveSnapshot,
@@ -23,121 +24,126 @@ import {
   validateOfflinePayload,
   type NutritionPayload,
   type QueuedAssessment,
-} from '@/lib/nutrition-offline'
-import { AlertCircle, Loader2, Plus, RefreshCw, Printer, X } from 'lucide-react'
-
-type Relation<T> = T | T[] | null
+} from "@/lib/nutrition-offline";
+import {
+  AlertCircle,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Printer,
+  X,
+} from "lucide-react";
+type Relation<T> = T | T[] | null;
 type Barangay = {
-  barangay_id: number
-  barangay_name: string
-  municipality: string
-  province: string
-}
+  barangay_id: number;
+  barangay_name: string;
+  municipality: string;
+  province: string;
+};
 type Guardian = {
-  guardian_id?: number
-  first_name: string
-  middle_name: string | null
-  last_name: string
-  relationship_to_child: string | null
-}
-type Household = { household_address: string; purok: string | null }
-type ChildProfile = { ethnicity: string | null }
+  guardian_id?: number;
+  first_name: string;
+  middle_name: string | null;
+  last_name: string;
+  relationship_to_child: string | null;
+};
+type Household = { household_address: string; purok: string | null };
+type ChildProfile = { ethnicity: string | null };
 type Child = {
-  profile?: ChildProfile | null
-  child_id: number
-  first_name: string
-  middle_name: string | null
-  last_name: string
-  date_of_birth: string
-  sex: 'MALE' | 'FEMALE'
-  barangay_id: number
-  barangay: Relation<Barangay>
-  address?: string | null
-  guardian?: Relation<Guardian>
-  household?: Relation<Household>
-}
-type NumberValue = number | string | null
+  profile?: ChildProfile | null;
+  child_id: number;
+  first_name: string;
+  middle_name: string | null;
+  last_name: string;
+  date_of_birth: string;
+  sex: "MALE" | "FEMALE";
+  barangay_id: number;
+  barangay: Relation<Barangay>;
+  address?: string | null;
+  guardian?: Relation<Guardian>;
+  household?: Relation<Household>;
+};
+type NumberValue = number | string | null;
 type Assessment = {
-  assessment_id: number
-  client_request_id?: string | null
-  child_id: number
-  assessed_by: string
-  assessment_date: string
-  weight: NumberValue
-  height: NumberValue
-  muac: NumberValue
-  measurement_type: 'LENGTH' | 'HEIGHT' | null
-  edema_grade: number | null
-  age_days: number | null
-  sex_at_assessment: string | null
-  normalized_height_cm: NumberValue
-  waz: NumberValue
-  haz: NumberValue
-  whz: NumberValue
-  baz: NumberValue
-  bmi: NumberValue
-  weight_for_age: string | null
-  height_for_age: string | null
-  weight_for_height: string | null
-  bmi_for_age: string | null
-  muac_status: string | null
-  nutritional_status: string
-  evaluation_status: string
-  engine_version: string | null
-  evaluated_at: string | null
-  remarks: string | null
-  child: Relation<Child>
-  profile?: ChildProfile | null
-}
+  assessment_id: number;
+  client_request_id?: string | null;
+  child_id: number;
+  assessed_by: string;
+  assessment_date: string;
+  weight: NumberValue;
+  height: NumberValue;
+  muac: NumberValue;
+  measurement_type: "LENGTH" | "HEIGHT" | null;
+  edema_grade: number | null;
+  age_days: number | null;
+  sex_at_assessment: string | null;
+  normalized_height_cm: NumberValue;
+  waz: NumberValue;
+  haz: NumberValue;
+  whz: NumberValue;
+  baz: NumberValue;
+  bmi: NumberValue;
+  weight_for_age: string | null;
+  height_for_age: string | null;
+  weight_for_height: string | null;
+  bmi_for_age: string | null;
+  muac_status: string | null;
+  nutritional_status: string;
+  evaluation_status: string;
+  engine_version: string | null;
+  evaluated_at: string | null;
+  remarks: string | null;
+  child: Relation<Child>;
+  profile?: ChildProfile | null;
+};
 type NutritionResponse = {
-  risk_monitoring?: RiskMonitoring
-  data: Assessment[]
-  children: Child[]
-  role: string
-  currentUserId: string
-  permissions: { create: boolean }
-}
+  risk_monitoring?: RiskMonitoring;
+  data: Assessment[];
+  children: Child[];
+  role: string;
+  currentUserId: string;
+  permissions: { create: boolean };
+};
 type Draft = {
-  child_id: string
-  assessment_date: string
-  weight: string
-  height: string
-  muac: string
-  measurement_type: '' | 'LENGTH' | 'HEIGHT'
-  edema_grade: string
-  remarks: string
-}
-
-const endpoint = '/api/nutrition'
+  child_id: string;
+  assessment_date: string;
+  weight: string;
+  height: string;
+  muac: string;
+  measurement_type: "" | "LENGTH" | "HEIGHT";
+  edema_grade: string;
+  remarks: string;
+};
+const endpoint = "/api/nutrition";
 const inputClass =
-  'mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 font-normal text-foreground'
+  "mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 font-normal text-foreground";
 const alertClass =
-  'rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800'
+  "rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800";
 type SyncReviewRow = {
-  draft: QueuedAssessment
-  sameDay: Assessment[]
-  exactDuplicates: Assessment[]
-  localDuplicateIds: string[]
-}
+  draft: QueuedAssessment;
+  sameDay: Assessment[];
+  exactDuplicates: Assessment[];
+  localDuplicateIds: string[];
+};
 type SyncReview = {
-  ownerId: string
-  rows: SyncReviewRow[]
-  selectedIds: string[]
-}
+  ownerId: string;
+  rows: SyncReviewRow[];
+  selectedIds: string[];
+};
 function sameMeasurements(
   payload: NutritionPayload,
   record: {
-    child_id: number
-    assessment_date: string
-    weight: NumberValue
-    height: NumberValue
-    muac: NumberValue
-    measurement_type: string | null
-    edema_grade: number | null
+    child_id: number;
+    assessment_date: string;
+    weight: NumberValue;
+    height: NumberValue;
+    muac: NumberValue;
+    measurement_type: string | null;
+    edema_grade: number | null;
   },
 ) {
   const muac = (value: NumberValue) =>
-    value === null || value === '' ? null : Number(value)
+    value === null || value === "" ? null : Number(value);
   return (
     Number(payload.child_id) === Number(record.child_id) &&
     payload.assessment_date === record.assessment_date &&
@@ -146,216 +152,218 @@ function sameMeasurements(
     muac(payload.muac) === muac(record.muac) &&
     payload.measurement_type === record.measurement_type &&
     payload.edema_grade === record.edema_grade
-  )
+  );
 }
-
 function one<T>(value: Relation<T>): T | null {
-  return Array.isArray(value) ? (value[0] ?? null) : value
+  return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 function childName(child: Child | null) {
   return child
-    ? `${child.last_name}, ${[child.first_name, child.middle_name].filter(Boolean).join(' ')}`
-    : 'Child name unavailable'
+    ? `${child.last_name}, ${[child.first_name, child.middle_name].filter(Boolean).join(" ")}`
+    : "Child name unavailable";
 }
 function label(value: string | null | undefined) {
   const names: Record<string, string> = {
-    SAM: 'SAM',
-    MAM: 'MAM',
-    NO_FLAGGED_INDICATORS: 'No flagged indicators',
-    NOT_UNDERWEIGHT: 'Not underweight',
-    NOT_STUNTED: 'Not stunted',
-    NOT_INTERPRETABLE_EDEMA: 'Not interpretable — edema',
-    INFANT_URGENT_REVIEW: 'Infant urgent review',
-    NOT_EVALUATED: 'Not evaluated',
-    NEEDS_VERIFICATION: 'Needs verification',
-    NORMAL: 'Normal',
-    NO_LOW_MUAC: 'No low MUAC',
-    AT_RISK: 'At risk',
-    NOT_APPLICABLE: 'Not applicable',
-  }
-  if (!value) return 'Not recorded'
+    SAM: "SAM",
+    MAM: "MAM",
+    NO_FLAGGED_INDICATORS: "No flagged indicators",
+    NOT_UNDERWEIGHT: "Not underweight",
+    NOT_STUNTED: "Not stunted",
+    NOT_INTERPRETABLE_EDEMA: "Not interpretable — edema",
+    INFANT_URGENT_REVIEW: "Infant urgent review",
+    NOT_EVALUATED: "Not evaluated",
+    NEEDS_VERIFICATION: "Needs verification",
+    NORMAL: "Normal",
+    NO_LOW_MUAC: "No low MUAC",
+    AT_RISK: "At risk",
+    NOT_APPLICABLE: "Not applicable",
+  };
+  if (!value) return "Not recorded";
   return (
     names[value] ??
     value
       .toLowerCase()
-      .replaceAll('_', ' ')
+      .replaceAll("_", " ")
       .replace(/^./, (first) => first.toUpperCase())
-  )
+  );
 }
 function ipMembership(ethnicity: string | null | undefined) {
   switch (ethnicity?.trim().toUpperCase()) {
-    case 'IP':
-      return 'Yes'
-    case 'NON-IP':
-      return 'No'
+    case "IP":
+      return "Yes";
+    case "NON-IP":
+      return "No";
     default:
-      return 'Not confirmed'
+      return "Not confirmed";
   }
 }
-function quantity(value: NumberValue, unit = '', decimals?: number) {
-  if (value === null || value === '' || !Number.isFinite(Number(value)))
-    return '—'
-  const number = Number(value)
-  return `${decimals === undefined ? number : number.toFixed(decimals)}${unit ? ` ${unit}` : ''}`
+function quantity(value: NumberValue, unit = "", decimals?: number) {
+  if (value === null || value === "" || !Number.isFinite(Number(value)))
+    return "—";
+  const number = Number(value);
+  return `${decimals === undefined ? number : number.toFixed(decimals)}${unit ? ` ${unit}` : ""}`;
 }
 function todayKey() {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Manila',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date())
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
   const get = (type: string) =>
-    parts.find((part) => part.type === type)?.value ?? ''
-  return `${get('year')}-${get('month')}-${get('day')}`
+    parts.find((part) => part.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
 }
 function addMonths(date: string, months: number) {
-  const [year, month, day] = date.split('-').map(Number)
-  const target = new Date(Date.UTC(year, month - 1 + months, 1))
+  const [year, month, day] = date.split("-").map(Number);
+  const target = new Date(Date.UTC(year, month - 1 + months, 1));
   const lastDay = new Date(
     Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0),
-  ).getUTCDate()
-  target.setUTCDate(Math.min(day, lastDay))
-  return target.toISOString().slice(0, 10)
+  ).getUTCDate();
+  target.setUTCDate(Math.min(day, lastDay));
+  return target.toISOString().slice(0, 10);
 }
 function ageDays(child: Child, date: string) {
   return Math.floor(
     (Date.parse(`${date}T00:00:00Z`) -
       Date.parse(`${child.date_of_birth}T00:00:00Z`)) /
       86400000,
-  )
+  );
 }
 function initialDraft(): Draft {
   return {
-    child_id: '',
+    child_id: "",
     assessment_date: todayKey(),
-    weight: '',
-    height: '',
-    muac: '',
-    measurement_type: '',
-    edema_grade: '',
-    remarks: '',
-  }
+    weight: "",
+    height: "",
+    muac: "",
+    measurement_type: "",
+    edema_grade: "",
+    remarks: "",
+  };
 }
 function birthAtAssessment(item: Assessment) {
-  if (item.age_days == null) return one(item.child)?.date_of_birth ?? null
-  const date = new Date(`${item.assessment_date}T00:00:00Z`)
-  date.setUTCDate(date.getUTCDate() - item.age_days)
-  return date.toISOString().slice(0, 10)
+  if (item.age_days == null) return one(item.child)?.date_of_birth ?? null;
+  const date = new Date(`${item.assessment_date}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() - item.age_days);
+  return date.toISOString().slice(0, 10);
 }
 function completedMonths(birth: string | null, date: string) {
-  if (!birth) return null
-  const b = new Date(`${birth}T00:00:00Z`)
-  const d = new Date(`${date}T00:00:00Z`)
+  if (!birth) return null;
+  const b = new Date(`${birth}T00:00:00Z`);
+  const d = new Date(`${date}T00:00:00Z`);
   let months =
     (d.getUTCFullYear() - b.getUTCFullYear()) * 12 +
     d.getUTCMonth() -
-    b.getUTCMonth()
-  if (date < addMonths(birth, months)) months--
-  return months
+    b.getUTCMonth();
+  if (date < addMonths(birth, months)) months--;
+  return months;
 }
 function residentLocation(child: Child) {
-  const household = one(child.household ?? null)
+  const household = one(child.household ?? null);
   const address =
-    child.address?.trim() || household?.household_address?.trim() || ''
-  const purok = household?.purok?.trim() || ''
+    child.address?.trim() || household?.household_address?.trim() || "";
+  const purok = household?.purok?.trim() || "";
   return purok && !address.toLowerCase().includes(purok.toLowerCase())
-    ? [purok, address].filter(Boolean).join(', ')
-    : address
+    ? [purok, address].filter(Boolean).join(", ")
+    : address;
 }
 function caregiverName(child: Child | null) {
-  const guardian = one(child?.guardian ?? null)
+  const guardian = one(child?.guardian ?? null);
   return guardian
-    ? `${guardian.last_name}, ${[guardian.first_name, guardian.middle_name].filter(Boolean).join(' ')}`
-    : 'Not recorded'
+    ? `${guardian.last_name}, ${[guardian.first_name, guardian.middle_name].filter(Boolean).join(" ")}`
+    : "Not recorded";
 }
 function childRecordUrl(childId: number) {
-  return `/child-profiling/children/${childId}`
+  return `/child-profiling/children/${childId}`;
 }
 class NutritionHttpError extends Error {
   constructor(
     message: string,
     readonly status: number,
   ) {
-    super(message)
-    this.name = 'NutritionHttpError'
+    super(message);
+    this.name = "NutritionHttpError";
   }
 }
 async function readJson(response: Response) {
-  if (!response.headers.get('content-type')?.includes('application/json')) {
+  if (!response.headers.get("content-type")?.includes("application/json")) {
     throw new NutritionHttpError(
       `The nutrition endpoint returned a non-JSON response (HTTP ${response.status}). Check app/api/nutrition/route.ts.`,
       response.status,
-    )
+    );
   }
-  const body = await response.json()
+  const body = await response.json();
   if (!response.ok)
     throw new NutritionHttpError(
-      typeof body?.error === 'string' ? body.error : 'Request failed.',
+      typeof body?.error === "string" ? body.error : "Request failed.",
       response.status,
-    )
-  return body
+    );
+  return body;
 }
 async function fetchNutrition(url: string): Promise<NutritionResponse> {
-  return readJson(await fetch(url, { cache: 'no-store' }))
+  return readJson(await fetch(url, { cache: "no-store" }));
 }
 function matches(item: Assessment, category: string) {
   if (
     !item.engine_version &&
-    category !== 'All' &&
-    category !== 'Not evaluated'
+    category !== "All" &&
+    category !== "Not evaluated"
   )
-    return false
+    return false;
   switch (category) {
-    case 'MAM':
-      return item.nutritional_status === 'MAM'
-    case 'SAM':
-      return item.nutritional_status === 'SAM'
-    case 'Stunted':
-      return ['STUNTED', 'SEVERELY_STUNTED'].includes(item.height_for_age ?? '')
-    case 'Wasted':
-      return ['WASTED', 'SEVERELY_WASTED'].includes(
-        item.weight_for_height ?? '',
-      )
-    case 'Overweight / obesity':
+    case "MAM":
+      return item.nutritional_status === "MAM";
+    case "SAM":
+      return item.nutritional_status === "SAM";
+    case "Stunted":
+      return ["STUNTED", "SEVERELY_STUNTED"].includes(
+        item.height_for_age ?? "",
+      );
+    case "Wasted":
+      return ["WASTED", "SEVERELY_WASTED"].includes(
+        item.weight_for_height ?? "",
+      );
+    case "Overweight / obesity":
       return [item.weight_for_height, item.bmi_for_age].some(
-        (value) => value === 'OVERWEIGHT' || value === 'OBESE',
-      )
-    case 'Underweight':
-      return ['UNDERWEIGHT', 'SEVERELY_UNDERWEIGHT'].includes(
-        item.weight_for_age ?? '',
-      )
-    case 'Possible risk of overweight':
+        (value) => value === "OVERWEIGHT" || value === "OBESE",
+      );
+    case "Underweight":
+      return ["UNDERWEIGHT", "SEVERELY_UNDERWEIGHT"].includes(
+        item.weight_for_age ?? "",
+      );
+    case "Possible risk of overweight":
       return [item.weight_for_height, item.bmi_for_age].includes(
-        'POSSIBLE_RISK_OF_OVERWEIGHT',
-      )
-    case 'Infant urgent review':
-      return item.nutritional_status === 'INFANT_URGENT_REVIEW'
-    case 'Needs verification':
-      return item.evaluation_status === 'NEEDS_VERIFICATION'
-    case 'Not evaluated':
-      return !item.engine_version || item.evaluation_status === 'NOT_EVALUATED'
+        "POSSIBLE_RISK_OF_OVERWEIGHT",
+      );
+    case "Infant urgent review":
+      return item.nutritional_status === "INFANT_URGENT_REVIEW";
+    case "Needs verification":
+      return item.evaluation_status === "NEEDS_VERIFICATION";
+    case "Not evaluated":
+      return !item.engine_version || item.evaluation_status === "NOT_EVALUATED";
     default:
-      return true
+      return true;
   }
 }
 function followUp(item: Assessment) {
-  if (!item.engine_version) return 'Legacy classification — not engine verified'
+  if (!item.engine_version)
+    return "Legacy classification — not engine verified";
   if (
-    item.nutritional_status === 'SAM' ||
-    item.nutritional_status === 'INFANT_URGENT_REVIEW'
+    item.nutritional_status === "SAM" ||
+    item.nutritional_status === "INFANT_URGENT_REVIEW"
   )
-    return 'Urgent clinical assessment'
-  if (item.evaluation_status === 'NEEDS_VERIFICATION')
-    return 'Verify measurements and review'
+    return "Urgent clinical assessment";
+  if (item.evaluation_status === "NEEDS_VERIFICATION")
+    return "Verify measurements and review";
   if (
-    item.nutritional_status === 'MAM' ||
-    item.nutritional_status === 'AT_RISK'
+    item.nutritional_status === "MAM" ||
+    item.nutritional_status === "AT_RISK"
   )
-    return 'Clinical follow-up'
-  if (item.evaluation_status !== 'EVALUATED')
-    return 'Complete or verify assessment'
-  return 'Routine growth monitoring'
+    return "Clinical follow-up";
+  if (item.evaluation_status !== "EVALUATED")
+    return "Complete or verify assessment";
+  return "Routine growth monitoring";
 }
 function Modal({
   title,
@@ -363,26 +371,26 @@ function Modal({
   onClose,
   busy = false,
 }: {
-  title: string
-  children: ReactNode
-  onClose: () => void
-  busy?: boolean
+  title: string;
+  children: ReactNode;
+  onClose: () => void;
+  busy?: boolean;
 }) {
-  const ref = useRef<HTMLDialogElement>(null)
+  const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
-    const dialog = ref.current
-    if (dialog && !dialog.open) dialog.showModal()
+    const dialog = ref.current;
+    if (dialog && !dialog.open) dialog.showModal();
     return () => {
-      if (dialog?.open) dialog.close()
-    }
-  }, [])
+      if (dialog?.open) dialog.close();
+    };
+  }, []);
   return (
     <dialog
       ref={ref}
       aria-label={title}
       onCancel={(event) => {
-        event.preventDefault()
-        if (!busy) onClose()
+        event.preventDefault();
+        if (!busy) onClose();
       }}
       className="fixed inset-0 m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-4xl overflow-y-auto rounded-2xl bg-white p-0 text-foreground shadow-xl backdrop:bg-slate-950/50"
     >
@@ -402,75 +410,75 @@ function Modal({
         {children}
       </div>
     </dialog>
-  )
+  );
 }
 function AssessmentDetails({
   assessment,
   onClose,
 }: {
-  assessment: Assessment
-  onClose: () => void
+  assessment: Assessment;
+  onClose: () => void;
 }) {
-  const item = assessment
+  const item = assessment;
   const rows = [
-    ['Assessment', `#${item.assessment_id}`],
-    ['Child', childName(one(item.child))],
-    ['Date measured', item.assessment_date],
+    ["Assessment", `#${item.assessment_id}`],
+    ["Child", childName(one(item.child))],
+    ["Date measured", item.assessment_date],
     [
-      'Birth date used for calculation',
-      birthAtAssessment(item) ?? 'Not recorded',
+      "Birth date used for calculation",
+      birthAtAssessment(item) ?? "Not recorded",
     ],
-    ['Sex used for calculation', label(item.sex_at_assessment)],
+    ["Sex used for calculation", label(item.sex_at_assessment)],
     [
-      'Residence location (current profile)',
+      "Residence location (current profile)",
       one(item.child)
-        ? residentLocation(one(item.child)!) || 'Not recorded'
-        : 'Not recorded',
+        ? residentLocation(one(item.child)!) || "Not recorded"
+        : "Not recorded",
     ],
-    ['Mother/caregiver (current profile)', caregiverName(one(item.child))],
-    ['Ethnicity (current profile)', item.profile?.ethnicity || 'Not recorded'],
+    ["Mother/caregiver (current profile)", caregiverName(one(item.child))],
+    ["Ethnicity (current profile)", item.profile?.ethnicity || "Not recorded"],
     [
-      'Belongs to IP group? (current profile)',
+      "Belongs to IP group? (current profile)",
       ipMembership(item.profile?.ethnicity),
     ],
     [
-      'Age in completed months',
+      "Age in completed months",
       String(
         completedMonths(birthAtAssessment(item), item.assessment_date) ??
-          'Not recorded',
+          "Not recorded",
       ),
     ],
-    ['Summary', label(item.nutritional_status)],
-    ['Evaluation', label(item.evaluation_status)],
+    ["Summary", label(item.nutritional_status)],
+    ["Evaluation", label(item.evaluation_status)],
     [
-      'Age at assessment',
-      item.age_days == null ? 'Not recorded' : `${item.age_days} days`,
+      "Age at assessment",
+      item.age_days == null ? "Not recorded" : `${item.age_days} days`,
     ],
-    ['Weight', quantity(item.weight, 'kg')],
-    ['Measured length/height', quantity(item.height, 'cm')],
-    ['Measurement position', label(item.measurement_type)],
-    ['Corrected length/height', quantity(item.normalized_height_cm, 'cm')],
-    ['MUAC', quantity(item.muac, 'cm')],
-    ['MUAC classification', label(item.muac_status)],
+    ["Weight", quantity(item.weight, "kg")],
+    ["Measured length/height", quantity(item.height, "cm")],
+    ["Measurement position", label(item.measurement_type)],
+    ["Corrected length/height", quantity(item.normalized_height_cm, "cm")],
+    ["MUAC", quantity(item.muac, "cm")],
+    ["MUAC classification", label(item.muac_status)],
     [
-      'Bilateral pitting edema',
+      "Bilateral pitting edema",
       item.edema_grade == null
-        ? 'Not recorded'
+        ? "Not recorded"
         : item.edema_grade === 0
-          ? 'Absent'
+          ? "Absent"
           : `+${item.edema_grade}`,
     ],
-    ['WAZ', quantity(item.waz, '', 2)],
-    ['Weight-for-age', label(item.weight_for_age)],
-    ['HAZ', quantity(item.haz, '', 2)],
-    ['Length/height-for-age', label(item.height_for_age)],
-    ['WLZ/WHZ', quantity(item.whz, '', 2)],
-    ['Weight-for-length/height', label(item.weight_for_height)],
-    ['BAZ', quantity(item.baz, '', 2)],
-    ['BMI-for-age', label(item.bmi_for_age)],
-    ['BMI', quantity(item.bmi, 'kg/m²', 2)],
-    ['Engine', item.engine_version ?? 'Not engine evaluated'],
-  ]
+    ["WAZ", quantity(item.waz, "", 2)],
+    ["Weight-for-age", label(item.weight_for_age)],
+    ["HAZ", quantity(item.haz, "", 2)],
+    ["Length/height-for-age", label(item.height_for_age)],
+    ["WLZ/WHZ", quantity(item.whz, "", 2)],
+    ["Weight-for-length/height", label(item.weight_for_height)],
+    ["BAZ", quantity(item.baz, "", 2)],
+    ["BMI-for-age", label(item.bmi_for_age)],
+    ["BMI", quantity(item.bmi, "kg/m²", 2)],
+    ["Engine", item.engine_version ?? "Not engine evaluated"],
+  ];
   return (
     <Modal title="Assessment details" onClose={onClose}>
       <p className="mb-4 rounded-lg bg-sky-50 p-3 text-sm">
@@ -485,144 +493,144 @@ function AssessmentDetails({
         ))}
       </dl>
       <p className="mt-4 text-sm">
-        <strong>Remarks:</strong> {item.remarks || 'None recorded'}
+        <strong>Remarks:</strong> {item.remarks || "None recorded"}
       </p>
     </Modal>
-  )
+  );
 }
-type IndicatorField = 'weight_for_age' | 'height_for_age' | 'weight_for_height'
-type ListCode = 'UW' | 'SUW' | 'St' | 'SSt' | 'W' | 'SW'
-type ReportView = 'Summary' | 'Assessments' | 'Risk' | ListCode
+type IndicatorField = "weight_for_age" | "height_for_age" | "weight_for_height";
+type ListCode = "UW" | "SUW" | "St" | "SSt" | "W" | "SW";
+type ReportView = "Summary" | "Assessments" | "Risk" | "Admissions" | ListCode;
 const listDefinitions: Record<
   ListCode,
   { title: string; field: IndicatorField; value: string }
 > = {
-  UW: { title: 'Underweight', field: 'weight_for_age', value: 'UNDERWEIGHT' },
+  UW: { title: "Underweight", field: "weight_for_age", value: "UNDERWEIGHT" },
   SUW: {
-    title: 'Severely Underweight',
-    field: 'weight_for_age',
-    value: 'SEVERELY_UNDERWEIGHT',
+    title: "Severely Underweight",
+    field: "weight_for_age",
+    value: "SEVERELY_UNDERWEIGHT",
   },
-  St: { title: 'Stunted', field: 'height_for_age', value: 'STUNTED' },
+  St: { title: "Stunted", field: "height_for_age", value: "STUNTED" },
   SSt: {
-    title: 'Severely Stunted',
-    field: 'height_for_age',
-    value: 'SEVERELY_STUNTED',
+    title: "Severely Stunted",
+    field: "height_for_age",
+    value: "SEVERELY_STUNTED",
   },
-  W: { title: 'Wasted', field: 'weight_for_height', value: 'WASTED' },
+  W: { title: "Wasted", field: "weight_for_height", value: "WASTED" },
   SW: {
-    title: 'Severely Wasted',
-    field: 'weight_for_height',
-    value: 'SEVERELY_WASTED',
+    title: "Severely Wasted",
+    field: "weight_for_height",
+    value: "SEVERELY_WASTED",
   },
-}
-const listCodes: ListCode[] = ['UW', 'SUW', 'St', 'SSt', 'W', 'SW']
+};
+const listCodes: ListCode[] = ["UW", "SUW", "St", "SSt", "W", "SW"];
 const ageBands = [
-  { label: '0–5 months', min: 0, max: 5 },
-  { label: '6–11 months', min: 6, max: 11 },
-  { label: '12–23 months', min: 12, max: 23 },
-  { label: '24–35 months', min: 24, max: 35 },
-  { label: '36–47 months', min: 36, max: 47 },
-  { label: '48–59 months', min: 48, max: 59 },
-]
+  { label: "0–5 months", min: 0, max: 5 },
+  { label: "6–11 months", min: 6, max: 11 },
+  { label: "12–23 months", min: 12, max: 23 },
+  { label: "24–35 months", min: 24, max: 35 },
+  { label: "36–47 months", min: 36, max: 47 },
+  { label: "48–59 months", min: 48, max: 59 },
+];
 const indicatorValues: Record<IndicatorField, string[]> = {
-  weight_for_age: ['NOT_UNDERWEIGHT', 'UNDERWEIGHT', 'SEVERELY_UNDERWEIGHT'],
-  height_for_age: ['NOT_STUNTED', 'STUNTED', 'SEVERELY_STUNTED'],
+  weight_for_age: ["NOT_UNDERWEIGHT", "UNDERWEIGHT", "SEVERELY_UNDERWEIGHT"],
+  height_for_age: ["NOT_STUNTED", "STUNTED", "SEVERELY_STUNTED"],
   weight_for_height: [
-    'NORMAL',
-    'POSSIBLE_RISK_OF_OVERWEIGHT',
-    'WASTED',
-    'SEVERELY_WASTED',
-    'OVERWEIGHT',
-    'OBESE',
+    "NORMAL",
+    "POSSIBLE_RISK_OF_OVERWEIGHT",
+    "WASTED",
+    "SEVERELY_WASTED",
+    "OVERWEIGHT",
+    "OBESE",
   ],
-}
+};
 const summaryRows: {
-  title: string
-  field: IndicatorField
-  value: string
-  list?: ListCode
+  title: string;
+  field: IndicatorField;
+  value: string;
+  list?: ListCode;
 }[] = [
   {
-    title: 'WFA — Not underweight',
-    field: 'weight_for_age',
-    value: 'NOT_UNDERWEIGHT',
+    title: "WFA — Not underweight",
+    field: "weight_for_age",
+    value: "NOT_UNDERWEIGHT",
   },
   {
-    title: 'WFA — UW',
-    field: 'weight_for_age',
-    value: 'UNDERWEIGHT',
-    list: 'UW',
+    title: "WFA — UW",
+    field: "weight_for_age",
+    value: "UNDERWEIGHT",
+    list: "UW",
   },
   {
-    title: 'WFA — SUW',
-    field: 'weight_for_age',
-    value: 'SEVERELY_UNDERWEIGHT',
-    list: 'SUW',
+    title: "WFA — SUW",
+    field: "weight_for_age",
+    value: "SEVERELY_UNDERWEIGHT",
+    list: "SUW",
   },
-  { title: 'HFA — Not stunted', field: 'height_for_age', value: 'NOT_STUNTED' },
-  { title: 'HFA — St', field: 'height_for_age', value: 'STUNTED', list: 'St' },
+  { title: "HFA — Not stunted", field: "height_for_age", value: "NOT_STUNTED" },
+  { title: "HFA — St", field: "height_for_age", value: "STUNTED", list: "St" },
   {
-    title: 'HFA — SSt',
-    field: 'height_for_age',
-    value: 'SEVERELY_STUNTED',
-    list: 'SSt',
+    title: "HFA — SSt",
+    field: "height_for_age",
+    value: "SEVERELY_STUNTED",
+    list: "SSt",
   },
-  { title: 'WFL/H — Normal', field: 'weight_for_height', value: 'NORMAL' },
+  { title: "WFL/H — Normal", field: "weight_for_height", value: "NORMAL" },
   {
-    title: 'WFL/H — Possible overweight risk',
-    field: 'weight_for_height',
-    value: 'POSSIBLE_RISK_OF_OVERWEIGHT',
-  },
-  {
-    title: 'WFL/H — W',
-    field: 'weight_for_height',
-    value: 'WASTED',
-    list: 'W',
+    title: "WFL/H — Possible overweight risk",
+    field: "weight_for_height",
+    value: "POSSIBLE_RISK_OF_OVERWEIGHT",
   },
   {
-    title: 'WFL/H — SW',
-    field: 'weight_for_height',
-    value: 'SEVERELY_WASTED',
-    list: 'SW',
+    title: "WFL/H — W",
+    field: "weight_for_height",
+    value: "WASTED",
+    list: "W",
   },
   {
-    title: 'WFL/H — Overweight',
-    field: 'weight_for_height',
-    value: 'OVERWEIGHT',
+    title: "WFL/H — SW",
+    field: "weight_for_height",
+    value: "SEVERELY_WASTED",
+    list: "SW",
   },
-  { title: 'WFL/H — Obese', field: 'weight_for_height', value: 'OBESE' },
-]
+  {
+    title: "WFL/H — Overweight",
+    field: "weight_for_height",
+    value: "OVERWEIGHT",
+  },
+  { title: "WFL/H — Obese", field: "weight_for_height", value: "OBESE" },
+];
 function assessmentMonths(item: Assessment) {
-  return completedMonths(birthAtAssessment(item), item.assessment_date)
+  return completedMonths(birthAtAssessment(item), item.assessment_date);
 }
 function assessmentSex(item: Assessment) {
-  return item.sex_at_assessment ?? one(item.child)?.sex ?? null
+  return item.sex_at_assessment ?? one(item.child)?.sex ?? null;
 }
 function eligibleForReport(item: Assessment) {
-  const months = assessmentMonths(item)
+  const months = assessmentMonths(item);
   return (
     months !== null && Number.isFinite(months) && months >= 0 && months < 60
-  )
+  );
 }
 function validIndicator(item: Assessment, field: IndicatorField) {
   return Boolean(
-    item.engine_version && indicatorValues[field].includes(item[field] ?? ''),
-  )
+    item.engine_version && indicatorValues[field].includes(item[field] ?? ""),
+  );
 }
 function latestPerChild(records: Assessment[]) {
   const sorted = [...records].sort(
     (a, b) =>
       b.assessment_date.localeCompare(a.assessment_date) ||
       b.assessment_id - a.assessment_id,
-  )
-  const map = new Map<number, Assessment>()
+  );
+  const map = new Map<number, Assessment>();
   for (const item of sorted)
-    if (!map.has(item.child_id)) map.set(item.child_id, item)
-  return [...map.values()]
+    if (!map.has(item.child_id)) map.set(item.child_id, item);
+  return [...map.values()];
 }
 function listRecords(records: Assessment[], code: ListCode) {
-  const rule = listDefinitions[code]
+  const rule = listDefinitions[code];
   return records
     .filter(
       (item) =>
@@ -632,47 +640,47 @@ function listRecords(records: Assessment[], code: ListCode) {
     )
     .sort((a, b) =>
       childName(one(a.child)).localeCompare(childName(one(b.child))),
-    )
+    );
 }
 function sexCounts(records: Assessment[]) {
   return {
-    boys: records.filter((item) => assessmentSex(item) === 'MALE').length,
-    girls: records.filter((item) => assessmentSex(item) === 'FEMALE').length,
+    boys: records.filter((item) => assessmentSex(item) === "MALE").length,
+    girls: records.filter((item) => assessmentSex(item) === "FEMALE").length,
     total: records.length,
-  }
+  };
 }
 function inAgeBand(records: Assessment[], min: number, max: number) {
   return records.filter((item) => {
-    const months = assessmentMonths(item)
-    return months !== null && months >= min && months <= max
-  })
+    const months = assessmentMonths(item);
+    return months !== null && months >= min && months <= max;
+  });
 }
 function prevalence(count: number, denominator: number) {
-  return denominator ? `${((count / denominator) * 100).toFixed(1)}%` : '—'
+  return denominator ? `${((count / denominator) * 100).toFixed(1)}%` : "—";
 }
 function undernourished(item: Assessment) {
   return (
-    (validIndicator(item, 'weight_for_age') &&
-      ['UNDERWEIGHT', 'SEVERELY_UNDERWEIGHT'].includes(item.weight_for_age!)) ||
-    (validIndicator(item, 'height_for_age') &&
-      ['STUNTED', 'SEVERELY_STUNTED'].includes(item.height_for_age!)) ||
-    (validIndicator(item, 'weight_for_height') &&
-      ['WASTED', 'SEVERELY_WASTED'].includes(item.weight_for_height!))
-  )
+    (validIndicator(item, "weight_for_age") &&
+      ["UNDERWEIGHT", "SEVERELY_UNDERWEIGHT"].includes(item.weight_for_age!)) ||
+    (validIndicator(item, "height_for_age") &&
+      ["STUNTED", "SEVERELY_STUNTED"].includes(item.height_for_age!)) ||
+    (validIndicator(item, "weight_for_height") &&
+      ["WASTED", "SEVERELY_WASTED"].includes(item.weight_for_height!))
+  );
 }
 function overnourished(item: Assessment) {
   return (
-    validIndicator(item, 'weight_for_height') &&
-    ['OVERWEIGHT', 'OBESE'].includes(item.weight_for_height!)
-  )
+    validIndicator(item, "weight_for_height") &&
+    ["OVERWEIGHT", "OBESE"].includes(item.weight_for_height!)
+  );
 }
 function caregiverCount(records: Assessment[]) {
-  const ids = new Set<number>()
+  const ids = new Set<number>();
   for (const item of records) {
-    const id = one(one(item.child)?.guardian ?? null)?.guardian_id
-    if (id != null) ids.add(id)
+    const id = one(one(item.child)?.guardian ?? null)?.guardian_id;
+    if (id != null) ids.add(id);
   }
-  return ids.size
+  return ids.size;
 }
 function SummaryReport({
   records,
@@ -680,87 +688,87 @@ function SummaryReport({
   barangay,
   onList,
 }: {
-  records: Assessment[]
-  year: string
-  barangay: string
-  onList: (code: ListCode) => void
+  records: Assessment[];
+  year: string;
+  barangay: string;
+  onList: (code: ListCode) => void;
 }) {
-  const eligible = records.filter(eligibleForReport)
-  const underTwo = inAgeBand(eligible, 0, 23)
+  const eligible = records.filter(eligibleForReport);
+  const underTwo = inAgeBand(eligible, 0, 23);
   const denominators = (field: IndicatorField) =>
-    eligible.filter((item) => validIndicator(item, field))
-  const cell = 'border border-border px-3 py-2 text-center text-xs'
+    eligible.filter((item) => validIndicator(item, field));
+  const cell = "border border-border px-3 py-2 text-center text-xs";
   const summary = [
-    ['Children assessed, 0–59 months', eligible.length],
+    ["Children assessed, 0–59 months", eligible.length],
     [
-      'Children with UW/SUW, St/SSt or W/SW (unique children)',
+      "Children with UW/SUW, St/SSt or W/SW (unique children)",
       eligible.filter(undernourished).length,
     ],
     [
-      'Children with overweight/obesity (WFL/H)',
+      "Children with overweight/obesity (WFL/H)",
       eligible.filter(overnourished).length,
     ],
-    ['Children assessed, 0–23 months', underTwo.length],
+    ["Children assessed, 0–23 months", underTwo.length],
     [
-      'Children 0–23 months with UW/St/W classifications',
+      "Children 0–23 months with UW/St/W classifications",
       underTwo.filter(undernourished).length,
     ],
     [
-      'Linked mothers/caregivers of assessed children',
+      "Linked mothers/caregivers of assessed children",
       caregiverCount(eligible),
     ],
     [
-      'Linked mothers/caregivers of children with UW/St/W classifications',
+      "Linked mothers/caregivers of children with UW/St/W classifications",
       caregiverCount(eligible.filter(undernourished)),
     ],
     [
-      'Linked mothers/caregivers of children with overweight/obesity',
+      "Linked mothers/caregivers of children with overweight/obesity",
       caregiverCount(eligible.filter(overnourished)),
     ],
     [
-      'Linked mothers/caregivers of children 0–23 months',
+      "Linked mothers/caregivers of children 0–23 months",
       caregiverCount(underTwo),
     ],
     [
-      'Children without a linked caregiver ID',
+      "Children without a linked caregiver ID",
       eligible.filter(
         (item) => one(one(item.child)?.guardian ?? null)?.guardian_id == null,
       ).length,
     ],
     [
-      'WFA unavailable / not verified',
-      eligible.length - denominators('weight_for_age').length,
+      "WFA unavailable / not verified",
+      eligible.length - denominators("weight_for_age").length,
     ],
     [
-      'HFA unavailable / not verified',
-      eligible.length - denominators('height_for_age').length,
+      "HFA unavailable / not verified",
+      eligible.length - denominators("height_for_age").length,
     ],
     [
-      'WFL/H unavailable / not verified',
-      eligible.length - denominators('weight_for_height').length,
+      "WFL/H unavailable / not verified",
+      eligible.length - denominators("weight_for_height").length,
     ],
     [
-      'Excluded: age unavailable or outside 0–59 months',
+      "Excluded: age unavailable or outside 0–59 months",
       records.length - eligible.length,
     ],
     [
-      'Sex unavailable (included in totals only)',
+      "Sex unavailable (included in totals only)",
       eligible.filter(
-        (item) => !['MALE', 'FEMALE'].includes(assessmentSex(item) ?? ''),
+        (item) => !["MALE", "FEMALE"].includes(assessmentSex(item) ?? ""),
       ).length,
     ],
     [
-      'IP children (current profile)',
-      eligible.filter((item) => ipMembership(item.profile?.ethnicity) === 'Yes')
+      "IP children (current profile)",
+      eligible.filter((item) => ipMembership(item.profile?.ethnicity) === "Yes")
         .length,
     ],
     [
-      'IP membership not confirmed',
+      "IP membership not confirmed",
       eligible.filter(
-        (item) => ipMembership(item.profile?.ethnicity) === 'Not confirmed',
+        (item) => ipMembership(item.profile?.ethnicity) === "Not confirmed",
       ).length,
     ],
-  ]
+  ];
   return (
     <section
       className="space-y-4 rounded-2xl border border-border bg-white p-5"
@@ -785,18 +793,18 @@ function SummaryReport({
       <div className="grid gap-3 sm:grid-cols-3">
         {(
           [
-            'weight_for_age',
-            'height_for_age',
-            'weight_for_height',
+            "weight_for_age",
+            "height_for_age",
+            "weight_for_height",
           ] as IndicatorField[]
         ).map((field) => (
           <div key={field} className="rounded-lg bg-sky-50 p-3 text-sm">
             <p>
-              {field === 'weight_for_age'
-                ? 'Total valid WFA'
-                : field === 'height_for_age'
-                  ? 'Total valid HFA'
-                  : 'Total valid WFL/H'}
+              {field === "weight_for_age"
+                ? "Total valid WFA"
+                : field === "height_for_age"
+                  ? "Total valid HFA"
+                  : "Total valid WFL/H"}
             </p>
             <strong className="text-xl">{denominators(field).length}</strong>
           </div>
@@ -829,20 +837,20 @@ function SummaryReport({
             </tr>
             <tr className="bg-muted">
               {ageBands.flatMap((band) =>
-                ['Boys', 'Girls', 'Total'].map((heading) => (
+                ["Boys", "Girls", "Total"].map((heading) => (
                   <th key={`${band.label}-${heading}`} className={cell}>
                     {heading}
                   </th>
                 )),
               )}
               {[
-                'Total',
-                'Prevalence',
-                'F1K total',
-                'F1K prevalence',
-                'IP boys',
-                'IP girls',
-                'IP total',
+                "Total",
+                "Prevalence",
+                "F1K total",
+                "F1K prevalence",
+                "IP boys",
+                "IP girls",
+                "IP total",
               ].map((heading) => (
                 <th key={heading} className={cell}>
                   {heading}
@@ -856,13 +864,13 @@ function SummaryReport({
                 (item) =>
                   validIndicator(item, row.field) &&
                   item[row.field] === row.value,
-              )
-              const f1k = inAgeBand(matching, 0, 23)
+              );
+              const f1k = inAgeBand(matching, 0, 23);
               const ip = sexCounts(
                 matching.filter(
-                  (item) => ipMembership(item.profile?.ethnicity) === 'Yes',
+                  (item) => ipMembership(item.profile?.ethnicity) === "Yes",
                 ),
-              )
+              );
               return (
                 <tr key={row.title}>
                   <th
@@ -884,14 +892,14 @@ function SummaryReport({
                   {ageBands.flatMap((band) => {
                     const count = sexCounts(
                       inAgeBand(matching, band.min, band.max),
-                    )
+                    );
                     return [count.boys, count.girls, count.total].map(
                       (n, index) => (
                         <td key={`${band.label}-${index}`} className={cell}>
                           {n}
                         </td>
                       ),
-                    )
+                    );
                   })}
                   <td className={cell}>{matching.length}</td>
                   <td className={cell}>
@@ -911,19 +919,19 @@ function SummaryReport({
                   <td className={cell}>{ip.girls}</td>
                   <td className={cell}>{ip.total}</td>
                 </tr>
-              )
+              );
             })}
             <tr className="bg-slate-800 font-bold text-white">
               <th scope="row" className={`${cell} text-left`}>
                 Children assessed
               </th>
               {ageBands.flatMap((band) => {
-                const c = sexCounts(inAgeBand(eligible, band.min, band.max))
+                const c = sexCounts(inAgeBand(eligible, band.min, band.max));
                 return [c.boys, c.girls, c.total].map((n, index) => (
                   <td key={`${band.label}-${index}`} className={cell}>
                     {n}
                   </td>
-                ))
+                ));
               })}
               <td className={cell}>{eligible.length}</td>
               <td className={cell}>—</td>
@@ -932,14 +940,14 @@ function SummaryReport({
               {(() => {
                 const c = sexCounts(
                   eligible.filter(
-                    (item) => ipMembership(item.profile?.ethnicity) === 'Yes',
+                    (item) => ipMembership(item.profile?.ethnicity) === "Yes",
                   ),
-                )
+                );
                 return [c.boys, c.girls, c.total].map((n, index) => (
                   <td key={index} className={cell}>
                     {n}
                   </td>
-                ))
+                ));
               })()}
             </tr>
           </tbody>
@@ -971,7 +979,7 @@ function SummaryReport({
         fabricated.
       </p>
     </section>
-  )
+  );
 }
 function ClassificationList({
   records,
@@ -980,16 +988,16 @@ function ClassificationList({
   barangay,
   onScores,
 }: {
-  records: Assessment[]
-  code: ListCode
-  year: string
-  barangay: string
-  onScores: (item: Assessment) => void
+  records: Assessment[];
+  code: ListCode;
+  year: string;
+  barangay: string;
+  onScores: (item: Assessment) => void;
 }) {
-  const definition = listDefinitions[code]
-  const items = listRecords(records, code)
-  const heightIndicator = definition.field === 'height_for_age'
-  const cell = 'border border-border px-4 py-3 text-left text-sm'
+  const definition = listDefinitions[code];
+  const items = listRecords(records, code);
+  const heightIndicator = definition.field === "height_for_age";
+  const cell = "border border-border px-4 py-3 text-left text-sm";
   return (
     <section
       className="space-y-4 rounded-2xl border border-border bg-white p-5"
@@ -1018,16 +1026,16 @@ function ClassificationList({
           <thead className="bg-muted">
             <tr>
               {[
-                'Child ID',
-                'Address / location',
-                'Mother / caregiver',
-                'Full name of child',
-                'Sex',
-                'Age (months)',
-                'Classification',
-                'Weight (kg)',
-                'Length/height (cm)',
-                'Date measured',
+                "Child ID",
+                "Address / location",
+                "Mother / caregiver",
+                "Full name of child",
+                "Sex",
+                "Age (months)",
+                "Classification",
+                "Weight (kg)",
+                "Length/height (cm)",
+                "Date measured",
               ].map((name) => (
                 <th key={name} rowSpan={2} className={cell}>
                   {name}
@@ -1054,17 +1062,17 @@ function ClassificationList({
                 <td className={cell}>CH-{item.child_id}</td>
                 <td className={cell}>
                   {one(item.child)
-                    ? residentLocation(one(item.child)!) || 'Not recorded'
-                    : 'Not recorded'}
+                    ? residentLocation(one(item.child)!) || "Not recorded"
+                    : "Not recorded"}
                 </td>
                 <td className={cell}>{caregiverName(one(item.child))}</td>
                 <td className={cell}>{childName(one(item.child))}</td>
                 <td className={cell}>
-                  {assessmentSex(item) === 'MALE'
-                    ? 'M'
-                    : assessmentSex(item) === 'FEMALE'
-                      ? 'F'
-                      : '—'}
+                  {assessmentSex(item) === "MALE"
+                    ? "M"
+                    : assessmentSex(item) === "FEMALE"
+                      ? "F"
+                      : "—"}
                 </td>
                 <td className={cell}>{assessmentMonths(item)}</td>
                 <td className={cell}>{code}</td>
@@ -1113,48 +1121,48 @@ function ClassificationList({
         </table>
       </div>
       <p className="text-xs text-muted-foreground">
-        This list uses{' '}
+        This list uses{" "}
         {heightIndicator
-          ? 'height-for-age'
-          : definition.field === 'weight_for_age'
-            ? 'weight-for-age'
-            : 'weight-for-length/height'}{' '}
+          ? "height-for-age"
+          : definition.field === "weight_for_age"
+            ? "weight-for-age"
+            : "weight-for-length/height"}{" "}
         classification, independently of SAM/MAM status. It uses each child’s
         latest assessment in the selected year. Follow-up dates have no
         dedicated field in the supplied database; the four columns are blank
         spaces for the printed list.
       </p>
     </section>
-  )
+  );
 }
 export default function NutritionPage() {
-  const [category, setCategory] = useState('All')
-  const [history, setHistory] = useState(false)
-  const [draft, setDraft] = useState<Draft | null>(null)
-  const [selected, setSelected] = useState<Assessment | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [formError, setFormError] = useState('')
-  const [message, setMessage] = useState('')
-  const [reportYear, setReportYear] = useState(todayKey().slice(0, 4))
-  const [reportBarangay, setReportBarangay] = useState('All')
-  const [reportView, setReportView] = useState<ReportView>('Assessments')
-  const [ownerId, setOwnerId] = useState<string | null>(null)
-  const [authReady, setAuthReady] = useState(false)
-  const [online, setOnline] = useState(true)
+  const [category, setCategory] = useState("All");
+  const [history, setHistory] = useState(false);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [selected, setSelected] = useState<Assessment | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [message, setMessage] = useState("");
+  const [reportYear, setReportYear] = useState(todayKey().slice(0, 4));
+  const [reportBarangay, setReportBarangay] = useState("All");
+  const [reportView, setReportView] = useState<ReportView>("Assessments");
+  const [ownerId, setOwnerId] = useState<string | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [online, setOnline] = useState(true);
   const [cachedResponse, setCachedResponse] =
-    useState<NutritionResponse | null>(null)
-  const [queued, setQueued] = useState<QueuedAssessment[]>([])
-  const [syncing, setSyncing] = useState(false)
-  const [storageError, setStorageError] = useState('')
-  const [syncReview, setSyncReview] = useState<SyncReview | null>(null)
-  const [reviewing, setReviewing] = useState(false)
-  const ownerRef = useRef<string | null>(null)
-  const syncBusy = useRef(false)
-  const editingRequest = useRef<string | null>(null)
-  const onlineRequest = useRef<string | null>(null)
+    useState<NutritionResponse | null>(null);
+  const [queued, setQueued] = useState<QueuedAssessment[]>([]);
+  const [syncing, setSyncing] = useState(false);
+  const [storageError, setStorageError] = useState("");
+  const [syncReview, setSyncReview] = useState<SyncReview | null>(null);
+  const [reviewing, setReviewing] = useState(false);
+  const ownerRef = useRef<string | null>(null);
+  const syncBusy = useRef(false);
+  const editingRequest = useRef<string | null>(null);
+  const onlineRequest = useRef<string | null>(null);
   const syncHandler = useRef<(approval?: SyncReview) => Promise<void>>(
     async () => {},
-  )
+  );
   const {
     data: liveData,
     error,
@@ -1164,48 +1172,48 @@ export default function NutritionPage() {
     authReady && ownerId && online ? [endpoint, ownerId] : null,
     ([url]: [string, string]) => fetchNutrition(url),
     { shouldRetryOnError: false, revalidateOnFocus: true },
-  )
+  );
   const accessDenied =
-    error instanceof NutritionHttpError && [401, 403].includes(error.status)
+    error instanceof NutritionHttpError && [401, 403].includes(error.status);
   const data = accessDenied
     ? undefined
     : liveData?.currentUserId === ownerId
       ? liveData
       : cachedResponse?.currentUserId === ownerId
         ? cachedResponse
-        : undefined
-  const canRecord = data?.role === 'BNS' && data.permissions.create
-  const savingRef = useRef(false)
-  const children = data?.children ?? []
+        : undefined;
+  const canRecord = data?.role === "BNS" && data.permissions.create;
+  const savingRef = useRef(false);
+  const children = data?.children ?? [];
   const scopedRecords = useMemo(
     () =>
       (data?.data ?? []).filter(
         (item) =>
           item.assessment_date.startsWith(`${reportYear}-`) &&
-          (reportBarangay === 'All' ||
+          (reportBarangay === "All" ||
             String(one(item.child)?.barangay_id) === reportBarangay),
       ),
     [data, reportYear, reportBarangay],
-  )
+  );
   const barangays = useMemo(() => {
-    const map = new Map<number, Barangay>()
+    const map = new Map<number, Barangay>();
     for (const c of [
       ...(data?.children ?? []),
       ...(data?.data ?? [])
         .map((item) => one(item.child))
         .filter((c): c is Child => c !== null),
     ]) {
-      const b = one(c.barangay)
-      if (b) map.set(b.barangay_id, b)
+      const b = one(c.barangay);
+      if (b) map.set(b.barangay_id, b);
     }
     return [...map.values()].sort((a, b) =>
       a.barangay_name.localeCompare(b.barangay_name),
-    )
-  }, [data])
+    );
+  }, [data]);
   const selectedAreas =
-    reportBarangay === 'All'
+    reportBarangay === "All"
       ? barangays
-      : barangays.filter((b) => String(b.barangay_id) === reportBarangay)
+      : barangays.filter((b) => String(b.barangay_id) === reportBarangay);
   const years = [
     ...new Set([
       todayKey().slice(0, 4),
@@ -1213,104 +1221,104 @@ export default function NutritionPage() {
     ]),
   ]
     .sort()
-    .reverse()
-  const latest = useMemo(() => latestPerChild(scopedRecords), [scopedRecords])
+    .reverse();
+  const latest = useMemo(() => latestPerChild(scopedRecords), [scopedRecords]);
   const visible = (history ? scopedRecords : latest).filter((item) =>
     matches(item, category),
-  )
+  );
   const countCategories = [
-    'MAM',
-    'SAM',
-    'Stunted',
-    'Wasted',
-    'Overweight / obesity',
-  ]
+    "MAM",
+    "SAM",
+    "Stunted",
+    "Wasted",
+    "Overweight / obesity",
+  ];
   const allCategories = [
-    'All',
+    "All",
     ...countCategories,
-    'Underweight',
-    'Possible risk of overweight',
-    'Infant urgent review',
-    'Needs verification',
-    'Not evaluated',
-  ]
+    "Underweight",
+    "Possible risk of overweight",
+    "Infant urgent review",
+    "Needs verification",
+    "Not evaluated",
+  ];
   const child =
-    children.find((item) => String(item.child_id) === draft?.child_id) ?? null
-  const days = draft && child ? ageDays(child, draft.assessment_date) : null
+    children.find((item) => String(item.child_id) === draft?.child_id) ?? null;
+  const days = draft && child ? ageDays(child, draft.assessment_date) : null;
   const eligibleChildren = draft
     ? children.filter(
         (item) =>
-          (reportBarangay === 'All' ||
+          (reportBarangay === "All" ||
             String(item.barangay_id) === reportBarangay) &&
           draft.assessment_date >= item.date_of_birth &&
           draft.assessment_date < addMonths(item.date_of_birth, 60),
       )
-    : []
+    : [];
   const underSix = !!(
     draft &&
     child &&
     draft.assessment_date < addMonths(child.date_of_birth, 6)
-  )
+  );
   function change(key: keyof Draft, value: string) {
-    onlineRequest.current = null
+    onlineRequest.current = null;
     setDraft((previous) => {
-      if (!previous) return previous
-      const next = { ...previous, [key]: value }
-      if (key === 'child_id' || key === 'assessment_date') {
+      if (!previous) return previous;
+      const next = { ...previous, [key]: value };
+      if (key === "child_id" || key === "assessment_date") {
         const selectedChild = children.find(
           (item) => String(item.child_id) === next.child_id,
-        )
+        );
         next.measurement_type =
           selectedChild && next.assessment_date
             ? ageDays(selectedChild, next.assessment_date) < 731
-              ? 'LENGTH'
-              : 'HEIGHT'
-            : ''
+              ? "LENGTH"
+              : "HEIGHT"
+            : "";
       }
-      return next
-    })
+      return next;
+    });
   }
   async function refreshQueue(id: string) {
-    const rows = await listQueue(id)
-    if (ownerRef.current === id) setQueued(rows)
+    const rows = await listQueue(id);
+    if (ownerRef.current === id) setQueued(rows);
   }
   async function reviewQueue(requestId?: string) {
-    const id = ownerRef.current
-    if (!id || !canRecord || !navigator.onLine || syncing || reviewing) return
-    setReviewing(true)
-    setStorageError('')
+    const id = ownerRef.current;
+    if (!id || !canRecord || !navigator.onLine || syncing || reviewing) return;
+    setReviewing(true);
+    setStorageError("");
     try {
-      const allRows = await listQueue(id)
+      const allRows = await listQueue(id);
       const rows = allRows.filter((row) =>
-        requestId ? row.requestId === requestId : row.status === 'PENDING',
-      )
+        requestId ? row.requestId === requestId : row.status === "PENDING",
+      );
       if (!rows.length) {
         setStorageError(
-          'No pending drafts to review. Use Review & retry on a blocked draft.',
-        )
-        return
+          "No pending drafts to review. Use Review & retry on a blocked draft.",
+        );
+        return;
       }
-      const fresh = await fetchNutrition(endpoint)
-      if (ownerRef.current !== id) return
+      const fresh = await fetchNutrition(endpoint);
+      if (ownerRef.current !== id) return;
       if (
         fresh.currentUserId !== id ||
-        fresh.role !== 'BNS' ||
+        fresh.role !== "BNS" ||
         !fresh.permissions.create
       )
         throw new Error(
-          'Sign in with the BNS account that recorded these drafts.',
-        )
-      await saveSnapshot(id, fresh)
-      if (ownerRef.current !== id) return
-      setCachedResponse(fresh)
-      await mutate(fresh, { revalidate: false })
+          "Sign in with the BNS account that recorded these drafts.",
+        );
+      await saveSnapshot(id, fresh);
+      if (ownerRef.current !== id) return;
+      setCachedResponse(fresh);
+      await mutate(fresh, { revalidate: false });
       const reviewRows = rows.map((row): SyncReviewRow => {
         const sameDay = fresh.data.filter(
           (record) =>
             record.client_request_id !== row.requestId &&
             Number(record.child_id) === Number(row.payload.child_id) &&
             record.assessment_date === row.payload.assessment_date,
-        )
+        );
         return {
           draft: row,
           sameDay,
@@ -1324,24 +1332,24 @@ export default function NutritionPage() {
             )
             .filter((other) => sameMeasurements(row.payload, other.payload))
             .map((other) => other.requestId),
-        }
-      })
+        };
+      });
       setSyncReview({
         ownerId: id,
         rows: reviewRows,
         selectedIds: reviewRows
           .filter((row) => !row.sameDay.length && !row.localDuplicateIds.length)
           .map((row) => row.draft.requestId),
-      })
+      });
     } catch (problem) {
       if (ownerRef.current === id)
         setStorageError(
           problem instanceof Error
             ? problem.message
-            : 'Unable to check drafts for duplicates.',
-        )
+            : "Unable to check drafts for duplicates.",
+        );
     } finally {
-      if (ownerRef.current === id) setReviewing(false)
+      if (ownerRef.current === id) setReviewing(false);
     }
   }
   async function confirmReview() {
@@ -1351,13 +1359,13 @@ export default function NutritionPage() {
       syncReview.ownerId !== ownerRef.current ||
       !canRecord
     )
-      return
-    const approval = syncReview
-    setSyncReview(null)
-    await syncHandler.current(approval)
+      return;
+    const approval = syncReview;
+    setSyncReview(null);
+    await syncHandler.current(approval);
   }
   async function syncQueue(approval?: SyncReview) {
-    const id = ownerRef.current
+    const id = ownerRef.current;
     if (
       !id ||
       !approval ||
@@ -1365,75 +1373,75 @@ export default function NutritionPage() {
       !navigator.onLine ||
       syncBusy.current
     )
-      return
-    syncBusy.current = true
-    setSyncing(true)
-    let syncId: number | null = null
-    const confirmedRequestIds: string[] = []
-    const failures: string[] = []
+      return;
+    syncBusy.current = true;
+    setSyncing(true);
+    let syncId: number | null = null;
+    const confirmedRequestIds: string[] = [];
+    const failures: string[] = [];
     try {
       const pending = (await listQueue(id)).filter((row) =>
         approval.selectedIds.includes(row.requestId),
-      )
-      if (pending.length === 0 || ownerRef.current !== id) return
+      );
+      if (pending.length === 0 || ownerRef.current !== id) return;
       const started = await readJson(
-        await fetch('/api/nutrition/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        await fetch("/api/nutrition/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ request_owner_id: id }),
         }),
-      )
-      syncId = Number(started.sync_id)
+      );
+      syncId = Number(started.sync_id);
       if (!Number.isSafeInteger(syncId) || syncId <= 0) {
-        syncId = null
+        syncId = null;
         throw new Error(
-          'The server did not confirm the sync log. Drafts were retained.',
-        )
+          "The server did not confirm the sync log. Drafts were retained.",
+        );
       }
       // Recheck active account, role and scope before uploading local drafts.
-      const fresh = await fetchNutrition(endpoint)
+      const fresh = await fetchNutrition(endpoint);
       if (ownerRef.current !== id) {
-        failures.push('The signed-in account changed during sync.')
-        return
+        failures.push("The signed-in account changed during sync.");
+        return;
       }
       if (fresh.currentUserId !== id)
         throw new Error(
-          'Sign back into the account that recorded these drafts.',
-        )
-      if (fresh.role !== 'BNS' || !fresh.permissions.create)
+          "Sign back into the account that recorded these drafts.",
+        );
+      if (fresh.role !== "BNS" || !fresh.permissions.create)
         throw new Error(
-          'This account cannot record assessments. Local drafts were retained.',
-        )
-      await saveSnapshot(id, fresh)
+          "This account cannot record assessments. Local drafts were retained.",
+        );
+      await saveSnapshot(id, fresh);
       if (ownerRef.current !== id) {
-        failures.push('The signed-in account changed during sync.')
-        return
+        failures.push("The signed-in account changed during sync.");
+        return;
       }
-      setCachedResponse(fresh)
-      await mutate(fresh, { revalidate: false })
+      setCachedResponse(fresh);
+      await mutate(fresh, { revalidate: false });
       const rows = (await listQueue(id)).filter((row) =>
         approval.selectedIds.includes(row.requestId),
-      )
-      let saved = 0
+      );
+      let saved = 0;
       for (const row of rows) {
         const reviewed = approval.rows.find(
           (item) => item.draft.requestId === row.requestId,
-        )
+        );
         if (
           !reviewed ||
           JSON.stringify(reviewed.draft.payload) !== JSON.stringify(row.payload)
         ) {
           failures.push(
-            'A draft changed after review. Review it again before uploading.',
-          )
-          continue
+            "A draft changed after review. Review it again before uploading.",
+          );
+          continue;
         }
         const currentSameDay = fresh.data.filter(
           (record) =>
             record.client_request_id !== row.requestId &&
             Number(record.child_id) === Number(row.payload.child_id) &&
             record.assessment_date === row.payload.assessment_date,
-        )
+        );
         if (
           currentSameDay.some((record) =>
             sameMeasurements(row.payload, record),
@@ -1446,53 +1454,53 @@ export default function NutritionPage() {
           )
         ) {
           const detail =
-            'A matching or new same-day assessment exists. Review the existing record before uploading.'
+            "A matching or new same-day assessment exists. Review the existing record before uploading.";
           await putQueuedAssessment(id, {
             ...row,
-            status: 'BLOCKED',
+            status: "BLOCKED",
             lastError: detail,
-          })
-          failures.push(detail)
-          continue
+          });
+          failures.push(detail);
+          continue;
         }
         if (!navigator.onLine || ownerRef.current !== id) {
           failures.push(
-            'Connection lost or signed-in account changed during sync.',
-          )
-          break
+            "Connection lost or signed-in account changed during sync.",
+          );
+          break;
         }
-        const controller = new AbortController()
-        const timeout = window.setTimeout(() => controller.abort(), 25000)
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 25000);
         try {
           const result = await readJson(
             await fetch(endpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
               signal: controller.signal,
               body: JSON.stringify({ ...row.payload, request_owner_id: id }),
             }),
-          )
+          );
           if (!result.data?.assessment_id)
             throw new Error(
-              'The server did not confirm this save. The draft remains queued.',
-            )
-          confirmedRequestIds.push(row.requestId)
-          await removeQueuedAssessment(id, row.requestId)
-          saved++
-          fresh.data.push(result.data)
+              "The server did not confirm this save. The draft remains queued.",
+            );
+          confirmedRequestIds.push(row.requestId);
+          await removeQueuedAssessment(id, row.requestId);
+          saved++;
+          fresh.data.push(result.data);
           if (ownerRef.current === id && approval.selectedIds.length === 1) {
-            setSelected(result.data)
-            setReportYear(row.payload.assessment_date.slice(0, 4))
-            setReportView('Assessments')
+            setSelected(result.data);
+            setReportYear(row.payload.assessment_date.slice(0, 4));
+            setReportView("Assessments");
           }
         } catch (syncError) {
           const detail =
             syncError instanceof Error
               ? syncError.message
-              : 'Unable to sync this assessment.'
-          failures.push(detail)
+              : "Unable to sync this assessment.";
+          failures.push(detail);
           const status =
-            syncError instanceof NutritionHttpError ? syncError.status : 0
+            syncError instanceof NutritionHttpError ? syncError.status : 0;
           await putQueuedAssessment(id, {
             ...row,
             status:
@@ -1501,10 +1509,10 @@ export default function NutritionPage() {
               status !== 401 &&
               status !== 408 &&
               status !== 429
-                ? 'BLOCKED'
-                : 'PENDING',
+                ? "BLOCKED"
+                : "PENDING",
             lastError: detail,
-          })
+          });
           if (
             status === 401 ||
             status === 403 ||
@@ -1513,86 +1521,86 @@ export default function NutritionPage() {
             status === 408 ||
             status === 429
           )
-            break
+            break;
         } finally {
-          window.clearTimeout(timeout)
+          window.clearTimeout(timeout);
         }
       }
       if (ownerRef.current === id) {
-        await refreshQueue(id)
+        await refreshQueue(id);
         if (saved > 0) {
           setMessage(
-            `${saved} assessment${saved === 1 ? '' : 's'} saved on the server and classified.`,
-          )
-          await mutate()
+            `${saved} assessment${saved === 1 ? "" : "s"} saved on the server and classified.`,
+          );
+          await mutate();
         }
       }
     } catch (syncError) {
       failures.push(
-        syncError instanceof Error ? syncError.message : 'Sync did not finish.',
-      )
+        syncError instanceof Error ? syncError.message : "Sync did not finish.",
+      );
       if (ownerRef.current === id)
         setStorageError(
           syncError instanceof Error
             ? syncError.message
-            : 'Unable to sync. Local drafts were retained.',
-        )
+            : "Unable to sync. Local drafts were retained.",
+        );
     } finally {
       if (syncId !== null) {
         try {
           await readJson(
-            await fetch('/api/nutrition/sync', {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
+            await fetch("/api/nutrition/sync", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 sync_id: syncId,
                 request_owner_id: id,
                 confirmed_request_ids: confirmedRequestIds,
                 error_message: failures.length
-                  ? failures.slice(0, 3).join(' | ')
+                  ? failures.slice(0, 3).join(" | ")
                   : null,
               }),
             }),
-          )
+          );
         } catch (logError) {
           if (ownerRef.current === id)
             setStorageError(
-              `Assessment drafts are retained or already saved. Sync-log finalization failed: ${logError instanceof Error ? logError.message : 'Unknown error'}. The run may remain STARTED.`,
-            )
+              `Assessment drafts are retained or already saved. Sync-log finalization failed: ${logError instanceof Error ? logError.message : "Unknown error"}. The run may remain STARTED.`,
+            );
         }
       }
-      syncBusy.current = false
-      if (ownerRef.current === id) setSyncing(false)
+      syncBusy.current = false;
+      if (ownerRef.current === id) setSyncing(false);
     }
   }
-  syncHandler.current = syncQueue
+  syncHandler.current = syncQueue;
   async function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!draft || savingRef.current) return
-    setFormError('')
-    const id = ownerRef.current
+    event.preventDefault();
+    if (!draft || savingRef.current) return;
+    setFormError("");
+    const id = ownerRef.current;
     if (!id || !data || !canRecord || data.currentUserId !== id || !child) {
       setFormError(
-        'Select an eligible child from your account’s saved barangay scope. Open this page online once before working offline.',
-      )
-      return
+        "Select an eligible child from your account’s saved barangay scope. Open this page online once before working offline.",
+      );
+      return;
     }
-    if (draft.edema_grade === '') {
-      setFormError('Record the edema examination result.')
-      return
+    if (draft.edema_grade === "") {
+      setFormError("Record the edema examination result.");
+      return;
     }
-    let requestId: string
-    const submitOnline = navigator.onLine
-    const editingLocalDraft = editingRequest.current !== null
+    let requestId: string;
+    const submitOnline = navigator.onLine;
+    const editingLocalDraft = editingRequest.current !== null;
     try {
       requestId =
-        editingRequest.current ?? onlineRequest.current ?? crypto.randomUUID()
-      if (!editingLocalDraft) onlineRequest.current = requestId
+        editingRequest.current ?? onlineRequest.current ?? crypto.randomUUID();
+      if (!editingLocalDraft) onlineRequest.current = requestId;
     } catch {
       setFormError(
-        'Unable to create a draft ID. Use this app over HTTPS or localhost.',
-      )
-      return
+        "Unable to create a draft ID. Use this app over HTTPS or localhost.",
+      );
+      return;
     }
     const payload: NutritionPayload = {
       child_id: Number(draft.child_id),
@@ -1601,112 +1609,112 @@ export default function NutritionPage() {
       height: Number(draft.height),
       muac: draft.muac.trim() ? Number(draft.muac) : null,
       measurement_type:
-        draft.measurement_type as NutritionPayload['measurement_type'],
+        draft.measurement_type as NutritionPayload["measurement_type"],
       edema_grade: Number(draft.edema_grade),
       remarks: draft.remarks,
       client_request_id: requestId,
-    }
+    };
     const validation = validateOfflinePayload(
       payload,
       child.date_of_birth,
       todayKey(),
-    )
+    );
     if (validation) {
-      setFormError(validation)
-      return
+      setFormError(validation);
+      return;
     }
-    savingRef.current = true
-    setSaving(true)
+    savingRef.current = true;
+    setSaving(true);
     // Capture connectivity at the click. Reconnection never submits an offline draft.
     if (submitOnline && !editingLocalDraft) {
-      let postAttempted = false
-      let serverSaved = false
+      let postAttempted = false;
+      let serverSaved = false;
       try {
-        const fresh = await fetchNutrition(endpoint)
-        if (ownerRef.current !== id) return
+        const fresh = await fetchNutrition(endpoint);
+        if (ownerRef.current !== id) return;
         if (
           fresh.currentUserId !== id ||
-          fresh.role !== 'BNS' ||
+          fresh.role !== "BNS" ||
           !fresh.permissions.create
         ) {
           throw new Error(
-            'Sign in with an active BNS account authorized to record this assessment.',
-          )
+            "Sign in with an active BNS account authorized to record this assessment.",
+          );
         }
         const eligible = fresh.children.find(
           (item) => item.child_id === payload.child_id,
-        )
+        );
         if (!eligible)
           throw new Error(
-            'This child is no longer available in your assigned scope.',
-          )
+            "This child is no longer available in your assigned scope.",
+          );
         const currentValidation = validateOfflinePayload(
           payload,
           eligible.date_of_birth,
           todayKey(),
-        )
-        if (currentValidation) throw new Error(currentValidation)
+        );
+        if (currentValidation) throw new Error(currentValidation);
         const duplicate = fresh.data.find(
           (item) =>
             item.client_request_id !== requestId &&
             sameMeasurements(payload, item),
-        )
+        );
         if (duplicate)
           throw new Error(
             `Matching measurements already exist as assessment #${duplicate.assessment_id}. Review the child record before submitting again.`,
-          )
+          );
         const localDuplicate = (await listQueue(id)).find(
           (item) =>
             item.requestId !== requestId &&
             sameMeasurements(payload, item.payload),
-        )
+        );
         if (localDuplicate)
           throw new Error(
-            'Matching measurements exist in your pending drafts. Review that draft instead of submitting another assessment.',
-          )
-        if (ownerRef.current !== id) return
+            "Matching measurements exist in your pending drafts. Review that draft instead of submitting another assessment.",
+          );
+        if (ownerRef.current !== id) return;
         if (!navigator.onLine)
           throw new Error(
-            'Connection was lost before submission. Save this form as an offline draft.',
-          )
-        const controller = new AbortController()
-        const timeout = window.setTimeout(() => controller.abort(), 25000)
-        let result: { data?: Assessment }
+            "Connection was lost before submission. Save this form as an offline draft.",
+          );
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 25000);
+        let result: { data?: Assessment };
         try {
-          postAttempted = true
+          postAttempted = true;
           result = await readJson(
             await fetch(endpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
               signal: controller.signal,
               body: JSON.stringify({ ...payload, request_owner_id: id }),
             }),
-          )
+          );
         } finally {
-          window.clearTimeout(timeout)
+          window.clearTimeout(timeout);
         }
         if (!result.data?.assessment_id)
-          throw new Error('The server did not confirm this save.')
-        serverSaved = true
-        if (ownerRef.current !== id) return
-        onlineRequest.current = null
-        setDraft(null)
-        setSelected(result.data)
-        setReportYear(payload.assessment_date.slice(0, 4))
-        setReportView('Assessments')
-        setMessage('Assessment saved on the server and classified.')
-        await mutate()
+          throw new Error("The server did not confirm this save.");
+        serverSaved = true;
+        if (ownerRef.current !== id) return;
+        onlineRequest.current = null;
+        setDraft(null);
+        setSelected(result.data);
+        setReportYear(payload.assessment_date.slice(0, 4));
+        setReportView("Assessments");
+        setMessage("Assessment saved on the server and classified.");
+        await mutate();
       } catch (problem) {
         const detail =
           problem instanceof Error
             ? problem.message
-            : 'Unable to save the assessment.'
+            : "Unable to save the assessment.";
         const status =
-          problem instanceof NutritionHttpError ? problem.status : 0
+          problem instanceof NutritionHttpError ? problem.status : 0;
         const uncertain =
           postAttempted &&
           !serverSaved &&
-          (status === 0 || status < 400 || status >= 500 || status === 408)
+          (status === 0 || status < 400 || status >= 500 || status === 408);
         if (uncertain) {
           try {
             await putQueuedAssessment(id, {
@@ -1715,201 +1723,201 @@ export default function NutritionPage() {
               requestId,
               childName: childName(child),
               queuedAt: new Date().toISOString(),
-              status: 'PENDING',
+              status: "PENDING",
               lastError: `Submission could not be confirmed. Review and retry this draft with its existing request ID. ${detail}`,
               payload,
-            })
+            });
             if (ownerRef.current === id) {
-              onlineRequest.current = null
-              setDraft(null)
+              onlineRequest.current = null;
+              setDraft(null);
               setMessage(
-                'Submission could not be confirmed. A recovery draft was retained; review it before retrying. Nothing is uploaded automatically.',
-              )
-              await refreshQueue(id)
+                "Submission could not be confirmed. A recovery draft was retained; review it before retrying. Nothing is uploaded automatically.",
+              );
+              await refreshQueue(id);
             }
           } catch (storageProblem) {
             if (ownerRef.current === id)
               setFormError(
-                `Submission is uncertain and recovery storage failed. Keep this form open and retry without changing its measurements. ${storageProblem instanceof Error ? storageProblem.message : ''}`,
-              )
+                `Submission is uncertain and recovery storage failed. Keep this form open and retry without changing its measurements. ${storageProblem instanceof Error ? storageProblem.message : ""}`,
+              );
           }
         } else if (ownerRef.current === id) {
           if (serverSaved)
             setStorageError(
               `Assessment saved, but the list could not refresh. Use Refresh. ${detail}`,
-            )
-          else setFormError(detail)
+            );
+          else setFormError(detail);
         }
       } finally {
-        savingRef.current = false
-        if (ownerRef.current === id) setSaving(false)
+        savingRef.current = false;
+        if (ownerRef.current === id) setSaving(false);
       }
-      return
+      return;
     }
     try {
-      const existing = queued.find((item) => item.requestId === requestId)
+      const existing = queued.find((item) => item.requestId === requestId);
       await putQueuedAssessment(id, {
         key: `${id}:${requestId}`,
         ownerId: id,
         requestId,
         childName: childName(child),
         queuedAt: existing?.queuedAt ?? new Date().toISOString(),
-        status: 'PENDING',
+        status: "PENDING",
         lastError: null,
         payload,
-      })
-      if (ownerRef.current !== id) return
-      editingRequest.current = null
-      onlineRequest.current = null
-      setDraft(null)
-      setStorageError('')
+      });
+      if (ownerRef.current !== id) return;
+      editingRequest.current = null;
+      onlineRequest.current = null;
+      setDraft(null);
+      setStorageError("");
       setMessage(
-        'Draft saved locally. Review or edit it, then confirm upload when online. Nothing is uploaded automatically.',
-      )
-      await refreshQueue(id)
+        "Draft saved locally. Review or edit it, then confirm upload when online. Nothing is uploaded automatically.",
+      );
+      await refreshQueue(id);
     } catch (saveError) {
       setFormError(
         saveError instanceof Error
           ? saveError.message
-          : 'Unable to save the local draft.',
-      )
+          : "Unable to save the local draft.",
+      );
     } finally {
-      savingRef.current = false
-      if (ownerRef.current === id) setSaving(false)
+      savingRef.current = false;
+      if (ownerRef.current === id) setSaving(false);
     }
   }
   function editQueued(row: QueuedAssessment) {
-    if (row.ownerId !== ownerRef.current || syncing) return
-    onlineRequest.current = null
-    editingRequest.current = row.requestId
-    setFormError('')
+    if (row.ownerId !== ownerRef.current || syncing) return;
+    onlineRequest.current = null;
+    editingRequest.current = row.requestId;
+    setFormError("");
     setDraft({
       child_id: String(row.payload.child_id),
       assessment_date: row.payload.assessment_date,
       weight: String(row.payload.weight),
       height: String(row.payload.height),
-      muac: row.payload.muac == null ? '' : String(row.payload.muac),
+      muac: row.payload.muac == null ? "" : String(row.payload.muac),
       measurement_type: row.payload.measurement_type,
       edema_grade: String(row.payload.edema_grade),
       remarks: row.payload.remarks,
-    })
+    });
   }
   async function removeQueued(row: QueuedAssessment) {
-    const id = ownerRef.current
-    if (!id || row.ownerId !== id || syncing) return
+    const id = ownerRef.current;
+    if (!id || row.ownerId !== id || syncing) return;
     try {
-      await removeQueuedAssessment(id, row.requestId)
-      await refreshQueue(id)
+      await removeQueuedAssessment(id, row.requestId);
+      await refreshQueue(id);
     } catch (problem) {
       setStorageError(
         problem instanceof Error
           ? problem.message
-          : 'Unable to remove the local draft.',
-      )
+          : "Unable to remove the local draft.",
+      );
     }
   }
   async function retryQueued(row: QueuedAssessment) {
-    const id = ownerRef.current
-    if (!id || row.ownerId !== id || syncing) return
+    const id = ownerRef.current;
+    if (!id || row.ownerId !== id || syncing) return;
     try {
       await putQueuedAssessment(id, {
         ...row,
-        status: 'PENDING',
+        status: "PENDING",
         lastError: null,
-      })
-      await refreshQueue(id)
-      await reviewQueue(row.requestId)
+      });
+      await refreshQueue(id);
+      await reviewQueue(row.requestId);
     } catch (problem) {
       setStorageError(
         problem instanceof Error
           ? problem.message
-          : 'Unable to retry the draft.',
-      )
+          : "Unable to retry the draft.",
+      );
     }
   }
   useEffect(() => {
-    let alive = true
+    let alive = true;
     const applySession = (id: string | null) => {
-      if (!alive) return
+      if (!alive) return;
       if (ownerRef.current !== id) {
-        ownerRef.current = id
-        setOwnerId(id)
-        setCachedResponse(null)
-        setQueued([])
-        setDraft(null)
-        setSelected(null)
-        setFormError('')
-        setMessage('')
-        setStorageError('')
-        setSyncing(false)
-        setSaving(false)
-        editingRequest.current = null
-        onlineRequest.current = null
-        setSyncReview(null)
-        setReviewing(false)
+        ownerRef.current = id;
+        setOwnerId(id);
+        setCachedResponse(null);
+        setQueued([]);
+        setDraft(null);
+        setSelected(null);
+        setFormError("");
+        setMessage("");
+        setStorageError("");
+        setSyncing(false);
+        setSaving(false);
+        editingRequest.current = null;
+        onlineRequest.current = null;
+        setSyncReview(null);
+        setReviewing(false);
       }
-      setAuthReady(true)
-    }
+      setAuthReady(true);
+    };
     try {
-      const client = getNutritionBrowserClient()
-      let authEventReceived = false
+      const client = getNutritionBrowserClient();
+      let authEventReceived = false;
       const { data: subscription } = client.auth.onAuthStateChange(
         (_event: AuthChangeEvent, session: Session | null) => {
-          authEventReceived = true
-          applySession(session?.user.id ?? null)
+          authEventReceived = true;
+          applySession(session?.user.id ?? null);
         },
-      )
+      );
       void client.auth
         .getSession()
         .then(
           ({ data: sessionData }: { data: { session: Session | null } }) => {
             if (!authEventReceived)
-              applySession(sessionData.session?.user.id ?? null)
+              applySession(sessionData.session?.user.id ?? null);
           },
         )
         .catch(() => {
           if (alive) {
-            setAuthReady(true)
-            setStorageError('Unable to load the signed-in session.')
+            setAuthReady(true);
+            setStorageError("Unable to load the signed-in session.");
           }
-        })
+        });
       return () => {
-        alive = false
-        subscription.subscription.unsubscribe()
-      }
+        alive = false;
+        subscription.subscription.unsubscribe();
+      };
     } catch (problem) {
-      setAuthReady(true)
+      setAuthReady(true);
       setStorageError(
         problem instanceof Error
           ? problem.message
-          : 'Unable to initialize the session.',
-      )
+          : "Unable to initialize the session.",
+      );
       return () => {
-        alive = false
-      }
+        alive = false;
+      };
     }
-  }, [])
+  }, []);
   useEffect(() => {
-    const update = () => setOnline(navigator.onLine)
-    update()
-    window.addEventListener('online', update)
-    window.addEventListener('offline', update)
+    const update = () => setOnline(navigator.onLine);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
     return () => {
-      window.removeEventListener('online', update)
-      window.removeEventListener('offline', update)
-    }
-  }, [])
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
   useEffect(() => {
-    if (!ownerId) return
-    let alive = true
+    if (!ownerId) return;
+    let alive = true;
     void Promise.all([
       loadSnapshot<NutritionResponse>(ownerId),
       listQueue(ownerId),
     ])
       .then(([snapshot, rows]) => {
         if (alive && ownerRef.current === ownerId) {
-          setCachedResponse(snapshot)
-          setQueued(rows)
+          setCachedResponse(snapshot);
+          setQueued(rows);
         }
       })
       .catch((problem) => {
@@ -1917,29 +1925,29 @@ export default function NutritionPage() {
           setStorageError(
             problem instanceof Error
               ? problem.message
-              : 'Offline storage is unavailable.',
-          )
-      })
+              : "Offline storage is unavailable.",
+          );
+      });
     return () => {
-      alive = false
-    }
-  }, [ownerId])
+      alive = false;
+    };
+  }, [ownerId]);
   useEffect(() => {
-    if (!ownerId || liveData?.currentUserId !== ownerId) return
+    if (!ownerId || liveData?.currentUserId !== ownerId) return;
     void saveSnapshot(ownerId, liveData).catch((problem) => {
       if (ownerRef.current === ownerId)
         setStorageError(
           problem instanceof Error
             ? problem.message
-            : 'Unable to cache this account’s child options.',
-        )
-    })
-  }, [ownerId, liveData])
+            : "Unable to cache this account’s child options.",
+        );
+    });
+  }, [ownerId, liveData]);
   useEffect(() => {
-    if (!ownerId || !accessDenied) return
-    setCachedResponse(null)
-    void removeSnapshot(ownerId).catch(() => {})
-  }, [ownerId, accessDenied])
+    if (!ownerId || !accessDenied) return;
+    setCachedResponse(null);
+    void removeSnapshot(ownerId).catch(() => {});
+  }, [ownerId, accessDenied]);
   return (
     <div className="nutrition-report-root space-y-6">
       <style>{`@media print {
@@ -1959,27 +1967,33 @@ export default function NutritionPage() {
         aria-label="Nutrition views"
         className="nutrition-no-print flex flex-wrap gap-1 border-b border-border"
       >
-        {(['Assessments', 'Summary', 'Risk'] as const).map((view) => {
-          const active =
-            view === 'Summary'
-              ? reportView !== 'Assessments' && reportView !== 'Risk'
-              : reportView === view
-          return (
-            <button
-              key={view}
-              type="button"
-              aria-pressed={active}
-              onClick={() => setReportView(view)}
-              className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors ${active ? 'border-[#0077B6] text-[#0077B6]' : 'border-transparent text-muted-foreground hover:border-sky-200 hover:text-[#0077B6]'}`}
-            >
-              {view === 'Assessments'
-                ? 'All assessments'
-                : view === 'Risk'
-                  ? 'Risk monitoring'
-                  : 'Summary'}
-            </button>
-          )
-        })}
+        {(["Assessments", "Summary", "Risk", "Admissions"] as const).map(
+          (view) => {
+            const active =
+              view === "Summary"
+                ? reportView !== "Assessments" &&
+                  reportView !== "Risk" &&
+                  reportView !== "Admissions"
+                : reportView === view;
+            return (
+              <button
+                key={view}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setReportView(view)}
+                className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors ${active ? "border-[#0077B6] text-[#0077B6]" : "border-transparent text-muted-foreground hover:border-sky-200 hover:text-[#0077B6]"}`}
+              >
+                {view === "Assessments"
+                  ? "All assessments"
+                  : view === "Risk"
+                    ? "Risk monitoring"
+                    : view === "Admissions"
+                      ? "Admission tracking"
+                      : "Summary"}
+              </button>
+            );
+          },
+        )}
       </nav>
       <div className="nutrition-no-print flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -1990,30 +2004,30 @@ export default function NutritionPage() {
             OPT Plus measurements, WHO classifications, and follow-up monitoring
           </p>
         </div>
-        {data?.role === 'BNS' && (
+        {data?.role === "BNS" && (
           <div className="flex flex-col items-end gap-1">
             <button
               type="button"
               disabled={!canRecord || !ownerId || accessDenied}
               title={
                 !data
-                  ? 'Loading account permissions and child options'
+                  ? "Loading account permissions and child options"
                   : !data.permissions.create
-                    ? 'This account has view access only'
-                    : 'Record anthropometric measurements'
+                    ? "This account has view access only"
+                    : "Record anthropometric measurements"
               }
               onClick={() => {
-                editingRequest.current = null
-                onlineRequest.current = null
-                setFormError('')
-                setMessage('')
+                editingRequest.current = null;
+                onlineRequest.current = null;
+                setFormError("");
+                setMessage("");
                 setDraft({
                   ...initialDraft(),
                   assessment_date:
                     reportYear === todayKey().slice(0, 4)
                       ? todayKey()
                       : `${reportYear}-12-31`,
-                })
+                });
               }}
               className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -2067,7 +2081,7 @@ export default function NutritionPage() {
               Loading assessments…
             </>
           ) : (
-            'No cached child options are available. Open this page online once before working offline.'
+            "No cached child options are available. Open this page online once before working offline."
           )}
         </p>
       )}
@@ -2084,8 +2098,8 @@ export default function NutritionPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-semibold">
-                {online ? 'Pending offline drafts' : 'Offline'} ·{' '}
-                {queued.length} local draft{queued.length === 1 ? '' : 's'}
+                {online ? "Pending offline drafts" : "Offline"} ·{" "}
+                {queued.length} local draft{queued.length === 1 ? "" : "s"}
               </h2>
               <p className="text-xs text-muted-foreground">
                 Drafts stay on this device until you review and confirm upload.
@@ -2106,10 +2120,10 @@ export default function NutritionPage() {
               className="rounded-lg border border-border bg-white px-3 py-2 text-sm disabled:opacity-50"
             >
               {syncing
-                ? 'Uploading…'
+                ? "Uploading…"
                 : reviewing
-                  ? 'Checking drafts…'
-                  : 'Review pending drafts'}
+                  ? "Checking drafts…"
+                  : "Review pending drafts"}
             </button>
           </div>
           {queued.map((row) => (
@@ -2121,10 +2135,10 @@ export default function NutritionPage() {
                 <div>
                   <strong>{row.childName}</strong>
                   <p>
-                    {row.payload.assessment_date} ·{' '}
-                    {row.status === 'BLOCKED'
-                      ? 'Needs correction or permission review'
-                      : 'Pending sync'}
+                    {row.payload.assessment_date} ·{" "}
+                    {row.status === "BLOCKED"
+                      ? "Needs correction or permission review"
+                      : "Pending sync"}
                   </p>
                 </div>
                 <div className="flex gap-3">
@@ -2161,7 +2175,7 @@ export default function NutritionPage() {
           ))}
         </section>
       )}
-      {reportView !== 'Risk' && (
+      {reportView !== "Risk" && reportView !== "Admissions" && (
         <div className="nutrition-no-print flex flex-wrap items-center gap-3">
           <label htmlFor="nutrition-year" className="text-sm font-medium">
             Year
@@ -2194,9 +2208,17 @@ export default function NutritionPage() {
           </select>
         </div>
       )}
-      {reportView === 'Risk' && (
+      {reportView === "Admissions" && ownerId && (
+        <NutritionAdmissionPanel
+          key={ownerId}
+          ownerId={ownerId}
+          online={online}
+        />
+      )}
+
+      {reportView === "Risk" && (
         <NutritionRiskMonitor
-          key={ownerId ?? 'signed-out'}
+          key={ownerId ?? "signed-out"}
           monitoring={data?.risk_monitoring}
           loading={
             !authReady || Boolean(ownerId && !data && !error) || isValidating
@@ -2206,68 +2228,68 @@ export default function NutritionPage() {
           onRefresh={() => void mutate()}
         />
       )}
-      {reportView !== 'Assessments' && reportView !== 'Risk' && (
-        <nav
-          aria-label="Summary classifications"
-          className="nutrition-no-print flex flex-wrap gap-2 rounded-xl border border-border bg-white p-3"
-        >
-          {(
-            ['Summary', ...listCodes] as Exclude<
-              ReportView,
-              'Assessments' | 'Risk'
-            >[]
-          ).map((view) => (
-            <button
-              key={view}
-              type="button"
-              aria-pressed={reportView === view}
-              onClick={() => setReportView(view)}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${reportView === view ? 'bg-sky-100 text-[#0077B6]' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
-            >
-              {view === 'Summary'
-                ? 'Overview'
-                : `List ${view} (${listRecords(latest, view).length})`}
-            </button>
-          ))}
-        </nav>
-      )}
-      {reportView === 'Summary' && (
+      {reportView !== "Assessments" &&
+        reportView !== "Risk" &&
+        reportView !== "Admissions" && (
+          <nav
+            aria-label="Summary classifications"
+            className="nutrition-no-print flex flex-wrap gap-2 rounded-xl border border-border bg-white p-3"
+          >
+            {(
+              ["Summary", ...listCodes] as Array<"Summary" | ListCode>
+            ).map((view) => (
+              <button
+                key={view}
+                type="button"
+                aria-pressed={reportView === view}
+                onClick={() => setReportView(view)}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${reportView === view ? "bg-sky-100 text-[#0077B6]" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+              >
+                {view === "Summary"
+                  ? "Overview"
+                  : `List ${view} (${listRecords(latest, view).length})`}
+              </button>
+            ))}
+          </nav>
+        )}
+      {reportView === "Summary" && (
         <SummaryReport
           records={latest}
           year={reportYear}
           barangay={
-            reportBarangay === 'All'
-              ? 'All accessible barangays'
-              : (selectedAreas[0]?.barangay_name ?? 'Selected barangay')
+            reportBarangay === "All"
+              ? "All accessible barangays"
+              : (selectedAreas[0]?.barangay_name ?? "Selected barangay")
           }
           onList={setReportView}
         />
       )}
-      {reportView !== 'Summary' &&
-        reportView !== 'Assessments' &&
-        reportView !== 'Risk' && (
+      {reportView !== "Summary" &&
+        reportView !== "Assessments" &&
+        reportView !== "Risk" &&
+        reportView !== "Admissions" && (
           <ClassificationList
             records={latest}
             code={reportView}
             year={reportYear}
             barangay={
-              reportBarangay === 'All'
-                ? 'All accessible barangays'
-                : (selectedAreas[0]?.barangay_name ?? 'Selected barangay')
+              reportBarangay === "All"
+                ? "All accessible barangays"
+                : (selectedAreas[0]?.barangay_name ?? "Selected barangay")
             }
             onScores={setSelected}
           />
         )}
-      {reportView === 'Assessments' && (
+      {reportView === "Assessments" && (
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {countCategories.map((name) => (
               <button
                 key={name}
                 type="button"
-                onClick={() => setCategory(category === name ? 'All' : name)}
+                onClick={() => setCategory(category === name ? "All" : name)}
                 aria-pressed={category === name}
-                className={`rounded-xl border p-4 text-left ${category === name ? 'border-primary bg-sky-50' : 'border-border bg-white'}`}
+                className={`rounded-xl border p-4 text-left ${category === name ? "border-primary bg-sky-50" : "border-border bg-white"}`}
               >
                 <p className="text-sm text-muted-foreground">{name}</p>
                 <p className="mt-1 text-2xl font-bold text-foreground">
@@ -2310,7 +2332,7 @@ export default function NutritionPage() {
             >
               <RefreshCw
                 size={16}
-                className={isValidating ? 'animate-spin' : ''}
+                className={isValidating ? "animate-spin" : ""}
               />
               Refresh
             </button>
@@ -2318,7 +2340,7 @@ export default function NutritionPage() {
           <div className="overflow-hidden rounded-2xl border border-border bg-white">
             <div className="border-b border-border p-5">
               <h2 className="font-semibold">
-                {history ? 'Assessment history' : 'Latest assessments'}
+                {history ? "Assessment history" : "Latest assessments"}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 Profile information comes from the linked child record. View
@@ -2331,26 +2353,26 @@ export default function NutritionPage() {
                 <thead className="bg-muted">
                   <tr>
                     {[
-                      'Child seq.',
-                      'Address / location of residence',
-                      'Name of mother or caregiver',
-                      'Full name of child',
-                      'Belongs to IP group?',
-                      'Sex',
-                      'Date of birth',
-                      'Date measured',
-                      'Weight (kg)',
-                      'Length / height (cm)',
-                      'Age in months',
-                      'Age in days',
-                      'Weight-for-age status',
-                      'Length/height-for-age status',
-                      'Weight-for-length/height status',
-                      'Bilateral pitting edema',
-                      'Disability',
-                      'MUAC (cm)',
-                      'MUAC status',
-                      'Actions',
+                      "Child seq.",
+                      "Address / location of residence",
+                      "Name of mother or caregiver",
+                      "Full name of child",
+                      "Belongs to IP group?",
+                      "Sex",
+                      "Date of birth",
+                      "Date measured",
+                      "Weight (kg)",
+                      "Length / height (cm)",
+                      "Age in months",
+                      "Age in days",
+                      "Weight-for-age status",
+                      "Length/height-for-age status",
+                      "Weight-for-length/height status",
+                      "Bilateral pitting edema",
+                      "Disability",
+                      "MUAC (cm)",
+                      "MUAC status",
+                      "Actions",
                     ].map((heading) => (
                       <th
                         key={heading}
@@ -2368,8 +2390,8 @@ export default function NutritionPage() {
                       <td className="px-4 py-4 text-sm">{index + 1}</td>
                       <td className="min-w-40 px-4 py-4 text-sm">
                         {one(item.child)
-                          ? residentLocation(one(item.child)!) || 'Not recorded'
-                          : 'Not recorded'}
+                          ? residentLocation(one(item.child)!) || "Not recorded"
+                          : "Not recorded"}
                       </td>
                       <td className="min-w-44 px-4 py-4 text-sm">
                         {caregiverName(one(item.child))}
@@ -2378,21 +2400,21 @@ export default function NutritionPage() {
                         {childName(one(item.child))}
                         <span className="mt-1 block text-xs text-muted-foreground">
                           {one(one(item.child)?.barangay ?? null)
-                            ?.barangay_name ?? 'Barangay unavailable'}
+                            ?.barangay_name ?? "Barangay unavailable"}
                         </span>
                       </td>
                       <td className="px-4 py-4 text-sm">
                         {ipMembership(item.profile?.ethnicity)}
                       </td>
                       <td className="px-4 py-4 text-sm">
-                        {one(item.child)?.sex === 'MALE'
-                          ? 'M'
-                          : one(item.child)?.sex === 'FEMALE'
-                            ? 'F'
-                            : 'Not recorded'}
+                        {one(item.child)?.sex === "MALE"
+                          ? "M"
+                          : one(item.child)?.sex === "FEMALE"
+                            ? "F"
+                            : "Not recorded"}
                       </td>
                       <td className="whitespace-nowrap px-4 py-4 text-sm">
-                        {one(item.child)?.date_of_birth ?? 'Not recorded'}
+                        {one(item.child)?.date_of_birth ?? "Not recorded"}
                       </td>
                       <td className="whitespace-nowrap px-4 py-4 text-sm">
                         {item.assessment_date}
@@ -2408,14 +2430,14 @@ export default function NutritionPage() {
                       </td>
                       <td className="px-4 py-4 text-sm">
                         {item.age_days == null
-                          ? 'Not recorded'
+                          ? "Not recorded"
                           : completedMonths(
                               birthAtAssessment(item),
                               item.assessment_date,
                             )}
                       </td>
                       <td className="px-4 py-4 text-sm">
-                        {item.age_days ?? 'Not recorded'}
+                        {item.age_days ?? "Not recorded"}
                       </td>
                       <td className="min-w-40 px-4 py-4 text-sm">
                         {label(item.weight_for_age)}
@@ -2428,9 +2450,9 @@ export default function NutritionPage() {
                       </td>
                       <td className="px-4 py-4 text-sm">
                         {item.edema_grade == null
-                          ? 'Not recorded'
+                          ? "Not recorded"
                           : item.edema_grade === 0
-                            ? 'Absent'
+                            ? "Absent"
                             : `+${item.edema_grade}`}
                       </td>
                       <td className="px-4 py-4 text-sm">
@@ -2445,7 +2467,7 @@ export default function NutritionPage() {
                       <td className="min-w-44 px-4 py-4 text-sm">
                         <span className="block text-xs">
                           {!item.engine_version
-                            ? 'Legacy — not verified'
+                            ? "Legacy — not verified"
                             : label(item.nutritional_status)}
                         </span>
                         <span className="my-1 block text-xs text-muted-foreground">
@@ -2464,7 +2486,7 @@ export default function NutritionPage() {
                         >
                           Scores
                           <span className="sr-only">
-                            {' '}
+                            {" "}
                             for assessment {item.assessment_id}
                           </span>
                         </button>
@@ -2518,10 +2540,10 @@ export default function NutritionPage() {
           </p>
           <div className="space-y-4">
             {syncReview.rows.map((item) => {
-              const row = item.draft
+              const row = item.draft;
               const blocked =
                 item.exactDuplicates.length > 0 ||
-                item.localDuplicateIds.length > 0
+                item.localDuplicateIds.length > 0;
               return (
                 <section
                   key={row.requestId}
@@ -2550,16 +2572,16 @@ export default function NutritionPage() {
                     {row.childName} · {row.payload.assessment_date}
                   </label>
                   <p className="mt-2 text-sm">
-                    Weight: {row.payload.weight} kg · Length/height:{' '}
-                    {row.payload.height} cm · Position:{' '}
-                    {label(row.payload.measurement_type)} · MUAC:{' '}
-                    {row.payload.muac ?? 'Not measured'} · Edema:{' '}
+                    Weight: {row.payload.weight} kg · Length/height:{" "}
+                    {row.payload.height} cm · Position:{" "}
+                    {label(row.payload.measurement_type)} · MUAC:{" "}
+                    {row.payload.muac ?? "Not measured"} · Edema:{" "}
                     {row.payload.edema_grade === 0
-                      ? 'Absent'
+                      ? "Absent"
                       : `+${row.payload.edema_grade}`}
                   </p>
                   <p className="mt-1 text-sm">
-                    Remarks: {row.payload.remarks || 'None'}
+                    Remarks: {row.payload.remarks || "None"}
                   </p>
                   {item.localDuplicateIds.length > 0 && (
                     <p className="mt-2 text-sm text-red-700">
@@ -2572,17 +2594,17 @@ export default function NutritionPage() {
                     <div className="mt-3 rounded-lg bg-amber-50 p-3 text-sm">
                       <p className="font-semibold">
                         {item.exactDuplicates.length
-                          ? 'Matching measurements already recorded — upload blocked.'
-                          : 'Existing assessment on this date. Select this draft only if it is a separate measurement.'}
+                          ? "Matching measurements already recorded — upload blocked."
+                          : "Existing assessment on this date. Select this draft only if it is a separate measurement."}
                       </p>
                       {item.sameDay.map((record) => (
                         <p key={record.assessment_id} className="mt-1">
-                          Assessment #{record.assessment_id}:{' '}
-                          {quantity(record.weight, 'kg')} ·{' '}
-                          {quantity(record.height, 'cm')} · MUAC{' '}
-                          {quantity(record.muac, 'cm')} ·{' '}
-                          {label(record.measurement_type)} · Edema{' '}
-                          {record.edema_grade ?? 'Not recorded'}
+                          Assessment #{record.assessment_id}:{" "}
+                          {quantity(record.weight, "kg")} ·{" "}
+                          {quantity(record.height, "cm")} · MUAC{" "}
+                          {quantity(record.muac, "cm")} ·{" "}
+                          {label(record.measurement_type)} · Edema{" "}
+                          {record.edema_grade ?? "Not recorded"}
                         </p>
                       ))}
                       <Link
@@ -2596,15 +2618,15 @@ export default function NutritionPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setSyncReview(null)
-                      editQueued(row)
+                      setSyncReview(null);
+                      editQueued(row);
                     }}
                     className="mt-3 text-sm text-primary underline"
                   >
                     Edit this draft
                   </button>
                 </section>
-              )
+              );
             })}
           </div>
           <div className="mt-6 flex justify-end gap-3">
@@ -2659,15 +2681,15 @@ export default function NutritionPage() {
                       required
                       value={draft.child_id}
                       onChange={(event) =>
-                        change('child_id', event.target.value)
+                        change("child_id", event.target.value)
                       }
                       className={inputClass}
                     >
                       <option value="">Select a child</option>
                       {eligibleChildren.map((item) => (
                         <option key={item.child_id} value={item.child_id}>
-                          {childName(item)} —{' '}
-                          {one(item.barangay)?.barangay_name ?? 'Barangay'} — #
+                          {childName(item)} —{" "}
+                          {one(item.barangay)?.barangay_name ?? "Barangay"} — #
                           {item.child_id}
                         </option>
                       ))}
@@ -2678,7 +2700,7 @@ export default function NutritionPage() {
                     <input
                       readOnly
                       value={
-                        child ? residentLocation(child) || 'Not recorded' : ''
+                        child ? residentLocation(child) || "Not recorded" : ""
                       }
                       className={inputClass}
                     />
@@ -2687,7 +2709,7 @@ export default function NutritionPage() {
                     Name of mother or caregiver
                     <input
                       readOnly
-                      value={child ? caregiverName(child) : ''}
+                      value={child ? caregiverName(child) : ""}
                       className={inputClass}
                     />
                   </label>
@@ -2695,7 +2717,7 @@ export default function NutritionPage() {
                     Full name of child
                     <input
                       readOnly
-                      value={child ? childName(child) : ''}
+                      value={child ? childName(child) : ""}
                       className={inputClass}
                     />
                   </label>
@@ -2703,7 +2725,7 @@ export default function NutritionPage() {
                     Ethnicity
                     <input
                       readOnly
-                      value={child?.profile?.ethnicity ?? ''}
+                      value={child?.profile?.ethnicity ?? ""}
                       className={inputClass}
                     />
                   </label>
@@ -2712,7 +2734,7 @@ export default function NutritionPage() {
                     <input
                       readOnly
                       value={
-                        child ? ipMembership(child.profile?.ethnicity) : ''
+                        child ? ipMembership(child.profile?.ethnicity) : ""
                       }
                       className={inputClass}
                     />
@@ -2722,11 +2744,11 @@ export default function NutritionPage() {
                     <input
                       readOnly
                       value={
-                        child?.sex === 'MALE'
-                          ? 'M'
-                          : child?.sex === 'FEMALE'
-                            ? 'F'
-                            : ''
+                        child?.sex === "MALE"
+                          ? "M"
+                          : child?.sex === "FEMALE"
+                            ? "F"
+                            : ""
                       }
                       className={inputClass}
                     />
@@ -2736,14 +2758,14 @@ export default function NutritionPage() {
                     <input
                       readOnly
                       type="date"
-                      value={child?.date_of_birth ?? ''}
+                      value={child?.date_of_birth ?? ""}
                       className={inputClass}
                     />
                   </label>
                 </div>
                 {child && (
                   <p className="mt-3 text-sm">
-                    These fields come from the child profile.{' '}
+                    These fields come from the child profile.{" "}
                     <Link
                       href={childRecordUrl(child.child_id)}
                       className="font-medium text-primary underline"
@@ -2773,7 +2795,7 @@ export default function NutritionPage() {
                       min={child?.date_of_birth}
                       max={todayKey()}
                       onChange={(event) =>
-                        change('assessment_date', event.target.value)
+                        change("assessment_date", event.target.value)
                       }
                       className={inputClass}
                     />
@@ -2786,7 +2808,7 @@ export default function NutritionPage() {
                       min="0.01"
                       step="0.01"
                       value={draft.weight}
-                      onChange={(event) => change('weight', event.target.value)}
+                      onChange={(event) => change("weight", event.target.value)}
                       className={inputClass}
                     />
                   </label>
@@ -2798,7 +2820,7 @@ export default function NutritionPage() {
                       min="0.1"
                       step="0.1"
                       value={draft.height}
-                      onChange={(event) => change('height', event.target.value)}
+                      onChange={(event) => change("height", event.target.value)}
                       className={inputClass}
                     />
                   </label>
@@ -2808,7 +2830,7 @@ export default function NutritionPage() {
                       required
                       value={draft.measurement_type}
                       onChange={(event) =>
-                        change('measurement_type', event.target.value)
+                        change("measurement_type", event.target.value)
                       }
                       className={inputClass}
                     >
@@ -2821,12 +2843,12 @@ export default function NutritionPage() {
                   </label>
                 </div>
                 <p className="mt-3 text-xs text-muted-foreground">
-                  Recommended position:{' '}
+                  Recommended position:{" "}
                   {days === null
-                    ? 'select a child first'
+                    ? "select a child first"
                     : days < 731
-                      ? 'recumbent length'
-                      : 'standing height'}
+                      ? "recumbent length"
+                      : "standing height"}
                   . Enter the original measured value; the server applies any
                   position correction.
                 </p>
@@ -2845,20 +2867,20 @@ export default function NutritionPage() {
                           ? (completedMonths(
                               child.date_of_birth,
                               draft.assessment_date,
-                            ) ?? '')
-                          : ''
+                            ) ?? "")
+                          : ""
                       }
                       className={inputClass}
                     />
                   </label>
                   <label className="text-sm font-medium">
                     Age in days
-                    <input readOnly value={days ?? ''} className={inputClass} />
+                    <input readOnly value={days ?? ""} className={inputClass} />
                   </label>
                   {[
-                    'Weight-for-age status',
-                    'Length/height-for-age status',
-                    'Weight-for-length/height status',
+                    "Weight-for-age status",
+                    "Length/height-for-age status",
+                    "Weight-for-length/height status",
                   ].map((name) => (
                     <label key={name} className="text-sm font-medium">
                       {name}
@@ -2882,7 +2904,7 @@ export default function NutritionPage() {
                       required
                       value={draft.edema_grade}
                       onChange={(event) =>
-                        change('edema_grade', event.target.value)
+                        change("edema_grade", event.target.value)
                       }
                       className={inputClass}
                     >
@@ -2900,13 +2922,13 @@ export default function NutritionPage() {
                       min="0.1"
                       step="0.1"
                       value={draft.muac}
-                      onChange={(event) => change('muac', event.target.value)}
+                      onChange={(event) => change("muac", event.target.value)}
                       className={inputClass}
                     />
                     <span className="mt-1 block text-xs font-normal text-muted-foreground">
                       {underSix
-                        ? '6–59-month MUAC cutoffs are not applied to this infant.'
-                        : 'Leave blank if not measured.'}
+                        ? "6–59-month MUAC cutoffs are not applied to this infant."
+                        : "Leave blank if not measured."}
                     </span>
                   </label>
                   <label className="text-sm font-medium">
@@ -2924,7 +2946,7 @@ export default function NutritionPage() {
                 <textarea
                   rows={3}
                   value={draft.remarks}
-                  onChange={(event) => change('remarks', event.target.value)}
+                  onChange={(event) => change("remarks", event.target.value)}
                   className={inputClass}
                 />
               </label>
@@ -2953,12 +2975,12 @@ export default function NutritionPage() {
               >
                 {saving && <Loader2 size={16} className="animate-spin" />}
                 {saving
-                  ? 'Saving…'
+                  ? "Saving…"
                   : editingRequest.current
-                    ? 'Save draft changes'
+                    ? "Save draft changes"
                     : online
-                      ? 'Save Assessment'
-                      : 'Save Offline Draft'}
+                      ? "Save Assessment"
+                      : "Save Offline Draft"}
               </button>
             </div>
           </form>
@@ -2971,5 +2993,5 @@ export default function NutritionPage() {
         />
       )}
     </div>
-  )
+  );
 }

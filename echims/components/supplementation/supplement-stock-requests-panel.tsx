@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Package, X } from "lucide-react";
-
 type Product = { supplement_id: number; name: string; unit: string };
 type Barangay = {
   barangay_id: number;
@@ -20,6 +19,8 @@ type StockRequest = {
   barangay_name: string;
   rhu_name: string;
   requester_name: string;
+  batch_number?: string | null;
+  supplement_approval_mode?: string | null;
 };
 type Data = {
   currentUserId: string;
@@ -32,15 +33,28 @@ type Data = {
   barangays: Barangay[];
   requests: StockRequest[];
 };
+function manilaToday() {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const part = (name: string) =>
+    parts.find((p) => p.type === name)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
 const endpoint = "/api/supplementation/stock-requests";
 const button =
   "rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50";
 export function SupplementStockRequestsPanel({
   ownerId,
   online = true,
+  onStockChanged,
 }: {
   ownerId: string;
   online?: boolean;
+  onStockChanged?: () => void;
 }) {
   const [data, setData] = useState<Data | null>(null);
   const [reload, setReload] = useState(0);
@@ -57,6 +71,14 @@ export function SupplementStockRequestsPanel({
     remarks: "",
   });
   const [reject, setReject] = useState<StockRequest | null>(null);
+  const [approve, setApprove] = useState<StockRequest | null>(null);
+  const [batch, setBatch] = useState({
+    batchNumber: "",
+    expiryDate: "",
+    receivedDate: "",
+  });
+  const owner = useRef(ownerId);
+  owner.current = ownerId;
   const [reason, setReason] = useState("");
   const intent = useRef<{ signature: string; id: string } | null>(null);
   const saving = useRef(false);
@@ -76,6 +98,10 @@ export function SupplementStockRequestsPanel({
       setLoading(false);
       return () => controller.abort();
     }
+    setData(null);
+    setOpen(false);
+    setReject(null);
+    setApprove(null);
     setLoading(true);
     void (async () => {
       try {
@@ -116,11 +142,12 @@ export function SupplementStockRequestsPanel({
     setForm((f) => ({ ...f, [key]: value }));
     intent.current = null;
   }
-  async function submit(action: "REQUEST" | "REJECT") {
+  async function submit(action: "REQUEST" | "REJECT" | "APPROVE") {
     if (saving.current || !online || !data) return;
     if (
       (action === "REQUEST" && !data.canRequest) ||
-      (action === "REJECT" && !data.canReject)
+      (action === "REJECT" && !data.canReject) ||
+      (action === "APPROVE" && !data.canApprove)
     )
       return;
     if (
@@ -140,6 +167,17 @@ export function SupplementStockRequestsPanel({
       setError("Enter a rejection reason.");
       return;
     }
+    if (
+      action === "APPROVE" &&
+      (!approve ||
+        !batch.batchNumber.trim() ||
+        !batch.expiryDate ||
+        !batch.receivedDate)
+    ) {
+      setError("Enter the approved batch number, expiry and allocation date.");
+      return;
+    }
+    const submittingOwner = ownerId;
     const values =
       action === "REQUEST"
         ? {
@@ -149,11 +187,19 @@ export function SupplementStockRequestsPanel({
             quantity: Number(form.quantity),
             remarks: form.remarks.trim(),
           }
-        : {
-            action,
-            stockRequestId: reject!.stock_request_id,
-            reason: reason.trim(),
-          };
+        : action === "APPROVE"
+          ? {
+              action,
+              stockRequestId: approve!.stock_request_id,
+              batchNumber: batch.batchNumber.trim(),
+              expiryDate: batch.expiryDate,
+              receivedDate: batch.receivedDate,
+            }
+          : {
+              action,
+              stockRequestId: reject!.stock_request_id,
+              reason: reason.trim(),
+            };
     const signature = JSON.stringify(values);
     if (!intent.current || intent.current.signature !== signature)
       intent.current = { signature, id: crypto.randomUUID() };
@@ -172,15 +218,21 @@ export function SupplementStockRequestsPanel({
       });
       const body = await r.json();
       if (!r.ok) throw new Error(body.error || "Unable to save request.");
-      if (active.current) {
+      if (active.current && owner.current === submittingOwner) {
         setNotice(body.message);
+        if (action === "APPROVE") onStockChanged?.();
         setOpen(false);
         setReject(null);
+        setApprove(null);
         intent.current = null;
         setReload((v) => v + 1);
       }
     } catch (e) {
-      if (active.current && !controller.signal.aborted)
+      if (
+        active.current &&
+        owner.current === submittingOwner &&
+        !controller.signal.aborted
+      )
         setError(
           e instanceof Error
             ? e.message
@@ -189,7 +241,7 @@ export function SupplementStockRequestsPanel({
     } finally {
       saving.current = false;
       pending.current = null;
-      if (active.current) setBusy(false);
+      if (active.current && owner.current === submittingOwner) setBusy(false);
     }
   }
   return (
@@ -235,9 +287,9 @@ export function SupplementStockRequestsPanel({
         </div>
       </div>
       <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-        Requests can be submitted and reviewed. Approval and batch allocation
-        will become available when RHU inventory is connected. A pending request
-        does not reserve or increase stock.
+        Temporary stock test: PHN approval records a batch receipt directly into
+        the barangay. RHU source stock is not deducted yet. Pending requests do
+        not reserve stock.
       </p>
       {!online && (
         <p className="text-sm text-amber-800">
@@ -327,6 +379,15 @@ export function SupplementStockRequestsPanel({
                           <td className="p-3">{r.status}</td>
                           <td className="p-3">
                             {r.remarks || "—"}
+                            {r.batch_number && (
+                              <p className="text-xs">Batch: {r.batch_number}</p>
+                            )}
+                            {r.supplement_approval_mode ===
+                              "TEMPORARY_RECEIPT" && (
+                              <p className="text-xs text-amber-800">
+                                Temporary barangay receipt
+                              </p>
+                            )}
                             {r.reason && (
                               <p className="mt-1 text-red-700">
                                 Reason: {r.reason}
@@ -338,11 +399,20 @@ export function SupplementStockRequestsPanel({
                               <div className="space-y-2">
                                 <button
                                   type="button"
-                                  disabled
-                                  className="rounded-lg border px-3 py-1.5 text-xs opacity-50"
-                                  title="Waiting for RHU inventory integration"
+                                  disabled={busy || !online || !data.canApprove}
+                                  className="rounded-lg border px-3 py-1.5 text-xs disabled:opacity-50"
+                                  onClick={() => {
+                                    setApprove(r);
+                                    setError("");
+                                    setNotice("");
+                                    setBatch({
+                                      batchNumber: "",
+                                      expiryDate: "",
+                                      receivedDate: manilaToday(),
+                                    });
+                                  }}
                                 >
-                                  Approve — pending integration
+                                  Approve Batch
                                 </button>
                                 <button
                                   type="button"
@@ -490,6 +560,113 @@ export function SupplementStockRequestsPanel({
                 disabled={busy}
                 className="rounded-lg border px-4 py-2 text-sm"
                 onClick={() => setOpen(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {approve && data?.canApprove && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="stock-approve-heading"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void submit("APPROVE");
+            }}
+            className="max-h-[90vh] w-full max-w-2xl space-y-5 overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl"
+          >
+            <header className="flex items-start justify-between gap-3 border-b pb-4">
+              <div>
+                <h3
+                  id="stock-approve-heading"
+                  className="text-lg font-semibold"
+                >
+                  Approve Request #{approve.stock_request_id}
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {approve.item_name} · {approve.barangay_name} ·{" "}
+                  {approve.requested_quantity} {approve.unit}
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={busy}
+                aria-label="Close approval"
+                onClick={() => setApprove(null)}
+              >
+                <X size={20} />
+              </button>
+            </header>
+            <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+              Temporary barangay receipt. Approving adds the full requested
+              quantity immediately. RHU source stock is not deducted.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-sm">
+                Batch number
+                <input
+                  required
+                  maxLength={100}
+                  disabled={busy}
+                  className="mt-1 w-full rounded-2xl border p-2.5"
+                  value={batch.batchNumber}
+                  onChange={(e) =>
+                    setBatch((f) => ({ ...f, batchNumber: e.target.value }))
+                  }
+                />
+              </label>
+              <label className="text-sm">
+                Expiry date
+                <input
+                  type="date"
+                  required
+                  disabled={busy}
+                  className="mt-1 w-full rounded-2xl border p-2.5"
+                  value={batch.expiryDate}
+                  onChange={(e) =>
+                    setBatch((f) => ({ ...f, expiryDate: e.target.value }))
+                  }
+                />
+              </label>
+              <label className="text-sm">
+                Allocation date
+                <input
+                  type="date"
+                  required
+                  max={manilaToday()}
+                  min={approve.request_date}
+                  disabled={busy}
+                  className="mt-1 w-full rounded-2xl border p-2.5"
+                  value={batch.receivedDate}
+                  onChange={(e) =>
+                    setBatch((f) => ({ ...f, receivedDate: e.target.value }))
+                  }
+                />
+              </label>
+            </div>
+            {error && (
+              <p role="alert" className="text-sm text-red-700">
+                {error}
+              </p>
+            )}
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={busy || !online}
+                className={button}
+              >
+                {busy ? "Saving…" : "Approve and Add Batch Stock"}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                className="rounded-lg border px-4 py-2 text-sm"
+                onClick={() => setApprove(null)}
               >
                 Cancel
               </button>
