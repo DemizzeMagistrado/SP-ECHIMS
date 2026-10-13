@@ -1,5 +1,4 @@
 "use client";
-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -12,10 +11,10 @@ import {
   Settings,
 } from "lucide-react";
 import Link from "next/link";
+import { alertDestination } from "@/lib/alerts/alert-destination";
 import { SmsSimulationPanel } from "@/components/alerts/sms-simulation-panel";
 import { createClient } from "@/lib/supabase/client";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
-
 type Rule = {
   rule_id: number;
   rule_name: string;
@@ -121,85 +120,62 @@ async function jsonResponse(response: Response) {
   if (!response.ok) throw new Error(body.error ?? "Request failed.");
   return body;
 }
-
 function conditionLabel(rule: Rule): string {
   const parameters = rule.condition_parameters ?? {};
-
   if (rule.evaluator_type === "INVENTORY_LOW_STOCK") {
     const threshold = parameters.threshold_quantity;
-
     return threshold == null
       ? "Stock threshold has not been configured."
       : `Available stock is ${threshold} units or less.`;
   }
-
   if (rule.evaluator_type === "INVENTORY_NEAR_EXPIRY") {
     const days = parameters.days_before_expiry;
-
     return days == null
       ? "Expiry warning period has not been configured."
       : `A batch with remaining stock has expired or will expire within ${days} days.`;
   }
-
   if (rule.evaluator_type === "HEALTH_ACTIVITY_REMINDER") {
     const days = parameters.days_before;
-
     return days == null
       ? "Reminder period has not been configured."
       : days === 0
         ? "An approved health activity is scheduled for today."
         : `An approved health activity is scheduled in ${days} day${days === 1 ? "" : "s"}.`;
   }
-
   const descriptions: Record<string, string> = {
     HEALTH_ACTIVITY_ACTION_NOTIFICATION:
       "A health activity request is submitted or updated.",
-
     HEALTH_ACTIVITY_UPCOMING_REMINDER:
       "An approved health activity is approaching its scheduled date.",
-
     NUT_MAM_SCREENING:
       "A child aged 6–59 months has moderate wasting or MUAC from 11.5 to below 12.5 cm, without edema or severe acute malnutrition criteria.",
-
     NUT_STUNTED: "Height-for-age indicates stunting, but not severe stunting.",
-
     NUT_INFANT_URGENT_REVIEW:
       "An infant below six months has bilateral pitting edema or severe wasting and requires urgent clinical assessment.",
-
     NUT_SAM_SCREENING:
       "A child aged 6–59 months has bilateral pitting edema, severe wasting, or MUAC below 11.5 cm.",
-
     NUT_OVERWEIGHT:
       "Weight-for-length/height or BMI-for-age indicates overweight.",
-
     NUT_SEVERELY_UNDERWEIGHT: "Weight-for-age indicates severe underweight.",
-
     NUT_SEVERELY_STUNTED: "Height-for-age indicates severe stunting.",
-
     NUT_UNDERWEIGHT:
       "Weight-for-age indicates underweight, but not severe underweight.",
-
     NUT_OBESITY: "Weight-for-length/height or BMI-for-age indicates obesity.",
-
     NUT_STATUS_WORSENED:
       "A valid nutritional classification has worsened compared with a comparable assessment from an earlier date.",
-
     MSP_DOSE_OVERDUE:
       "An active child has a valid supplementation schedule whose due date has already passed.",
-
     NIP_DOSE_OVERDUE:
       "An active child below five years has a recommended vaccine dose more than 30 days past its date, with no approved administration recorded. Staff must verify history and assess catch-up needs.",
     MSP_DOSE_DUE:
       "An active child has a valid supplementation schedule due today.",
   };
-
   return (
     descriptions[rule.rule_name] ||
     rule.description?.trim() ||
     "Records are checked using the configured program rule."
   );
 }
-
 function EvaluationMonitoring({
   monitoring,
 }: {
@@ -312,7 +288,6 @@ function EvaluationMonitoring({
     </section>
   );
 }
-
 export default function AlertsPage() {
   const client = useMemo(() => createClient(), []);
   const [owner, setOwner] = useState<string | null>(null);
@@ -336,7 +311,6 @@ export default function AlertsPage() {
   const [resolving, setResolving] = useState(false);
   const sequence = useRef(0);
   const ownerRef = useRef<string | null>(null);
-
   useEffect(() => {
     const { data: subscription } = client.auth.onAuthStateChange(
       (_event: AuthChangeEvent, session: Session | null) => {
@@ -362,7 +336,6 @@ export default function AlertsPage() {
       subscription.subscription.unsubscribe();
     };
   }, [client]);
-
   const load = useCallback(async () => {
     if (!owner) return;
     const token = ++sequence.current;
@@ -398,7 +371,6 @@ export default function AlertsPage() {
       sequence.current++;
     };
   }, [load]);
-
   function editRule(rule: Rule) {
     const key = parameterKey(rule.evaluator_type);
     setDraft({
@@ -571,7 +543,6 @@ export default function AlertsPage() {
   const summary = data?.summary;
   const inputClass =
     "mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm";
-
   return (
     <div className="space-y-6">
       {data?.canConfigure && (
@@ -723,6 +694,7 @@ export default function AlertsPage() {
               </div>
             ) : (
               alerts.map((alert) => {
+                const destination = alertDestination(alert);
                 const resolved = alert.status === "RESOLVED";
                 const critical = alert.severity === "CRITICAL";
                 const warning = ["HIGH", "MEDIUM"].includes(alert.severity);
@@ -746,7 +718,17 @@ export default function AlertsPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap justify-between gap-2">
                           <h3 className="font-semibold">
-                            {alert.alert_type.replace(/_/g, " ")}
+                            {destination.primaryHref ? (
+                              <Link
+                                href={destination.primaryHref}
+                                className="rounded hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                                aria-label={`Open related record for ${alert.alert_type.replace(/_/g, " ")}`}
+                              >
+                                {alert.alert_type.replace(/_/g, " ")}
+                              </Link>
+                            ) : (
+                              alert.alert_type.replace(/_/g, " ")
+                            )}
                           </h3>
                           <span className="text-xs text-muted-foreground">
                             {formatTime(alert.created_at)}
@@ -768,6 +750,16 @@ export default function AlertsPage() {
                               View child record
                             </Link>
                           )}
+                          {destination.moduleHref &&
+                            destination.moduleHref !==
+                              destination.childHref && (
+                              <Link
+                                href={destination.moduleHref}
+                                className="font-medium text-primary underline"
+                              >
+                                {destination.moduleLabel}
+                              </Link>
+                            )}
                           {alert.recipient_id === owner &&
                             alert.status === "UNREAD" && (
                               <button
