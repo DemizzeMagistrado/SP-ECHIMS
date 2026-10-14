@@ -70,11 +70,11 @@ export async function GET(request: Request) {
   }
   // Admin: scopeBarangayIds stays null (see all)
 
-  // Helper: apply the barangay scope to a child query via .in() or no-op.
-  function scopeFilter<T extends { in: (col: string, vals: number[]) => T }>(q: T, col: string): T {
-    if (scopeBarangayIds === null) return q
-    return q.in(col, scopeBarangayIds.length > 0 ? scopeBarangayIds : [-1])
-  }
+  // RPT-USR001 polish fix — the previous `scopeFilter<T extends ...>` generic
+  // helper tripped TS error 2589 ("Type instantiation is excessively deep") when
+  // combined with the Supabase query builder's own recursive generics. The
+  // helper was only used once (the children count below); inlining the .in()
+  // call avoids the generic chain entirely.
 
   // ─── Parallel aggregations ──────────────────────────────────────────
   // All queries are small count/select operations; .select('*', { count: 'exact', head: true })
@@ -84,9 +84,16 @@ export async function GET(request: Request) {
     atRiskRes, supplementRes, lowStockRes, pendingRes, alertsRes,
     vacByMonthRes, suppByMonthRes, nutritionBreakdownRes,
   ] = await Promise.all([
-    // Total registered ACTIVE children in scope
-    scopeFilter(supabase.from('child').select('child_id', { count: 'exact', head: true })
-      .eq('status', 'ACTIVE'), 'barangay_id'),
+    // Total registered ACTIVE children in scope (inlined; was scopeFilter(...))
+    (async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let q: any = supabase.from('child').select('child_id', { count: 'exact', head: true }).eq('status', 'ACTIVE')
+      if (scopeBarangayIds !== null) {
+        q = q.in('barangay_id', scopeBarangayIds.length > 0 ? scopeBarangayIds : [-1])
+      }
+      const r = await q
+      return { count: r.count ?? 0 }
+    })(),
     // Overdue vaccinations in scope (uses existing vaccination_record approach)
     (async () => {
       const q = supabase.from('vaccination_record')
