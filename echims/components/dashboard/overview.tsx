@@ -38,6 +38,8 @@ type Payload = {
   }
   charts: {
     vaccinations_by_month: { month: string; count: number }[]
+    supplementation_by_month: { month: string; count: number }[]
+    nutrition_breakdown: { normal: number; at_risk: number; total: number }
   }
 }
 
@@ -140,8 +142,9 @@ export function DashboardOverview() {
             <StatCard icon={<Package size={18} />} tone="slate" label="Low stock items" value={m.low_stock_items.toLocaleString()} sub="≤ 10 on hand" />
           </div>
 
-          {/* Charts row */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          {/* Charts row — 2 x 2 grid: vaccination coverage + vaccinations/mo,
+              then nutrition status + supplementation/mo. All backed by live data. */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-2xl border border-border bg-white p-5">
               <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <CheckCircle2 size={14} className="text-emerald-600" /> Vaccination coverage
@@ -160,17 +163,61 @@ export function DashboardOverview() {
                 <MiniBars data={data!.charts.vaccinations_by_month} />
               </div>
             </div>
+            {/* RPT-USR001 polish — nutrition status donut */}
             <div className="rounded-2xl border border-border bg-white p-5">
               <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <Activity size={14} className="text-violet-600" /> Program activity
+                <Apple size={14} className="text-rose-600" /> Nutritional status
               </h3>
-              <p className="mt-0.5 text-xs text-muted-foreground">Records in range</p>
-              <ul className="mt-4 space-y-2 text-sm">
-                <li className="flex items-center justify-between"><span>Nutritional assessments</span><strong>{m.nutrition_assessments.toLocaleString()}</strong></li>
-                <li className="flex items-center justify-between"><span>Supplementation records</span><strong>{m.supplementation_records.toLocaleString()}</strong></li>
-                <li className="flex items-center justify-between"><span>Pending approvals</span><strong>{m.pending_approvals.toLocaleString()}</strong></li>
-                <li className="flex items-center justify-between"><span>Open alerts</span><strong>{m.open_alerts.toLocaleString()}</strong></li>
-              </ul>
+              <p className="mt-0.5 text-xs text-muted-foreground">Latest assessment per child</p>
+              <div className="mt-4 flex justify-center">
+                {data!.charts.nutrition_breakdown.total > 0 ? (
+                  <Donut
+                    percentage={Math.round(
+                      (data!.charts.nutrition_breakdown.at_risk / data!.charts.nutrition_breakdown.total) * 100
+                    )}
+                    label={`at risk (${data!.charts.nutrition_breakdown.at_risk}/${data!.charts.nutrition_breakdown.total})`}
+                    color="#dc2626"
+                  />
+                ) : (
+                  <p className="py-10 text-xs italic text-muted-foreground">No assessments yet.</p>
+                )}
+              </div>
+            </div>
+            {/* RPT-USR001 polish — supplementation per month */}
+            <div className="rounded-2xl border border-border bg-white p-5">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Activity size={14} className="text-violet-600" /> Supplementation per month
+              </h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">Doses given by month</p>
+              <div className="mt-4">
+                <MiniBars data={data!.charts.supplementation_by_month} color="#7c3aed" />
+              </div>
+            </div>
+          </div>
+
+          {/* Program activity summary (kept — complements the charts) */}
+          <div className="rounded-2xl border border-border bg-white p-5">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Activity size={14} className="text-primary" /> Program activity
+            </h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">Records in range</p>
+            <div className="mt-4 grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
+              <div className="rounded-lg border border-border bg-muted/30 p-3">
+                <p className="text-xs text-muted-foreground">Nutritional assessments</p>
+                <p className="text-xl font-bold">{m.nutrition_assessments.toLocaleString()}</p>
+              </div>
+              <div className="rounded-lg border border-border bg-muted/30 p-3">
+                <p className="text-xs text-muted-foreground">Supplementation records</p>
+                <p className="text-xl font-bold">{m.supplementation_records.toLocaleString()}</p>
+              </div>
+              <div className="rounded-lg border border-border bg-muted/30 p-3">
+                <p className="text-xs text-muted-foreground">Pending approvals</p>
+                <p className="text-xl font-bold">{m.pending_approvals.toLocaleString()}</p>
+              </div>
+              <div className="rounded-lg border border-border bg-muted/30 p-3">
+                <p className="text-xs text-muted-foreground">Open alerts</p>
+                <p className="text-xl font-bold">{m.open_alerts.toLocaleString()}</p>
+              </div>
             </div>
           </div>
 

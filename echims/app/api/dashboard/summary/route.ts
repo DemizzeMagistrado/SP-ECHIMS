@@ -82,7 +82,7 @@ export async function GET(request: Request) {
   const [
     childrenRes, overdueRes, dueSoonRes, approvedVacRes, nutritionRes,
     atRiskRes, supplementRes, lowStockRes, pendingRes, alertsRes,
-    vacByMonthRes,
+    vacByMonthRes, suppByMonthRes, nutritionBreakdownRes,
   ] = await Promise.all([
     // Total registered ACTIVE children in scope
     scopeFilter(supabase.from('child').select('child_id', { count: 'exact', head: true })
@@ -230,6 +230,54 @@ export async function GET(request: Request) {
       }
       return Object.entries(buckets).sort(([a], [b]) => a.localeCompare(b)).map(([month, count]) => ({ month, count }))
     })(),
+    // RPT-USR001 polish — Supplementation records per month (chart)
+    (async () => {
+      const r = await supabase.from('supplementation_record')
+        .select('supplementation_date, child:child(barangay_id)')
+        .gte('supplementation_date', from)
+        .lte('supplementation_date', to)
+      const buckets: Record<string, number> = {}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const s of (r.data ?? []) as any[]) {
+        if (scopeBarangayIds !== null) {
+          const brgy = Array.isArray(s.child) ? s.child[0]?.barangay_id : s.child?.barangay_id
+          if (!scopeBarangayIds.includes(brgy)) continue
+        }
+        const month = String(s.supplementation_date).slice(0, 7)
+        buckets[month] = (buckets[month] ?? 0) + 1
+      }
+      return Object.entries(buckets).sort(([a], [b]) => a.localeCompare(b)).map(([month, count]) => ({ month, count }))
+    })(),
+    // RPT-USR001 polish — Nutritional status breakdown of latest assessments
+    // in scope (donut data: Normal vs At-risk count).
+    (async () => {
+      const r = await supabase.from('nutritional_assessment')
+        .select('child_id, nutritional_status, weight_for_age, weight_for_height, assessment_date, child:child(barangay_id)')
+        .order('assessment_date', { ascending: false })
+      const seen = new Set<number>()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const latest: any[] = []
+      for (const a of (r.data ?? [])) {
+        if (seen.has(a.child_id)) continue
+        seen.add(a.child_id)
+        latest.push(a)
+      }
+      const atRiskSet = new Set(['SAM', 'MAM', 'STUNTED', 'SEVERELY STUNTED', 'UNDERWEIGHT', 'SEVERELY UNDERWEIGHT', 'WASTED', 'SEVERELY WASTED'])
+      let atRisk = 0, normal = 0
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const a of latest as any[]) {
+        if (scopeBarangayIds !== null) {
+          const brgy = Array.isArray(a.child) ? a.child[0]?.barangay_id : a.child?.barangay_id
+          if (!scopeBarangayIds.includes(brgy)) continue
+        }
+        const ns = String(a.nutritional_status ?? '').toUpperCase()
+        const wfa = String(a.weight_for_age ?? '').toUpperCase()
+        const wfh = String(a.weight_for_height ?? '').toUpperCase()
+        if (atRiskSet.has(ns) || atRiskSet.has(wfa) || atRiskSet.has(wfh)) atRisk++
+        else normal++
+      }
+      return { normal, at_risk: atRisk, total: normal + atRisk }
+    })(),
   ])
 
   return NextResponse.json({
@@ -251,6 +299,8 @@ export async function GET(request: Request) {
     },
     charts: {
       vaccinations_by_month: vacByMonthRes,
+      supplementation_by_month: suppByMonthRes,
+      nutrition_breakdown: nutritionBreakdownRes,
     },
   }, { headers: { 'Cache-Control': 'private, max-age=60' } })
 }
