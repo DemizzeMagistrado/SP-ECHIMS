@@ -9,7 +9,9 @@ export const roleModules: Record<UserRole, string[]> = {
   Administrator: ['Dashboard', 'User Management','Health Activities', 'Child Profiling', 'Vaccination', 'Nutritional Assessment', 'Supplementation', 'Inventory', 'Alerts', 'Reports', 'Settings'],
   'Public Health Nurse': ['Dashboard', 'Health Activities','Child Profiling', 'Vaccination', 'Nutritional Assessment', 'Supplementation', 'Inventory', 'Alerts', 'Reports', 'Settings'],
   'Barangay Health Worker': ['Dashboard', 'Child Profiling', 'Vaccination', 'Health Activities', 'Alerts', 'Reports'],
-  'Rural Health Midwife': ['Dashboard', 'Child Profiling', 'Vaccination', 'Nutritional Assessment', 'Supplementation', 'Health Activities', 'Alerts', 'Reports', 'Settings'],
+  // INV-USR002 — RHM needs to view stock levels for their assigned barangay.
+  // Edit/create still gated server-side by inv_receive_stock (PHN-only).
+  'Rural Health Midwife': ['Dashboard', 'Child Profiling', 'Vaccination', 'Nutritional Assessment', 'Supplementation', 'Health Activities', 'Inventory', 'Alerts', 'Reports', 'Settings'],
   'Barangay Nutrition Scholar': ['Dashboard', 'Child Profiling', 'Nutritional Assessment', 'Supplementation', 'Health Activities', 'Alerts', 'Reports', 'Settings'],
 }
 
@@ -206,7 +208,10 @@ export function canAccess(role: UserRole, path: string) {
     '/vaccinations': 'Vaccination',
     '/nutrition': 'Nutritional Assessment', '/nutritional-assessment': 'Nutritional Assessment',
     '/supplementation': 'Supplementation', '/supplements': 'Supplementation',
+    // INV-USR001/002 — sidebar lands on Stock Overview directly (no bare
+    // /inventory page; it falls through to [...slug] otherwise).
     '/inventory': 'Inventory',
+    '/inventory/stock-overview': 'Inventory',
     '/health-activities': 'Health Activities',
     '/alerts': 'Alerts', '/reports': 'Reports',
     '/settings': 'Settings',
