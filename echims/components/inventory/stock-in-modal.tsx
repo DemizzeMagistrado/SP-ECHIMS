@@ -117,7 +117,7 @@ export function StockInModal({ open, onClose, onSaved }: Props) {
       <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
         <div className="flex items-start justify-between gap-4 border-b border-border p-6">
           <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
               <Package size={18} />
             </div>
             <div>
@@ -214,7 +214,7 @@ export function StockInModal({ open, onClose, onSaved }: Props) {
               Cancel
             </button>
             <button type="submit" disabled={saving}
-              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
               {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
               {saving ? 'Saving…' : 'Record stock-in'}
             </button>

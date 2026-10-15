@@ -127,7 +127,7 @@ export default function StockOverviewPage() {
         </div>
         {isPhn && (
           <button type="button" onClick={() => setStockInOpen(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90">
             <Plus size={17} /> Record stock-in
           </button>
         )}
@@ -201,7 +201,7 @@ export default function StockOverviewPage() {
                         <AlertCircle size={11} /> Batch/agg drift
                       </span>
                     )}
-                    <span className="rounded-xl bg-emerald-50 px-3 py-1 text-lg font-bold text-emerald-800">
+                    <span className="rounded-xl bg-primary/10 px-3 py-1 text-lg font-bold text-primary">
                       {Number(inv.quantity_on_hand).toLocaleString()}
                     </span>
                   </div>
