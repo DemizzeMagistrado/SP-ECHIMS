@@ -1,8 +1,11 @@
 'use client'
+import { UserActions } from '@/components/user-management/user-actions'
+import { useAuth } from '@/components/auth/auth-provider'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import {
   useMemo,
+  useEffect,
   useState,
 } from 'react'
 
@@ -57,8 +60,19 @@ type UserManagementClientProps = {
 
 export default function UserManagementClient({
   users,
-  readOnly = false,
+  readOnly: savedReadOnly = false,
 }: UserManagementClientProps) {
+  const { user: currentUser } = useAuth()
+  const [online, setOnline] = useState(true)
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine)
+    update()
+    window.addEventListener('online', update)
+    window.addEventListener('offline', update)
+    return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update) }
+  }, [])
+  const readOnly = savedReadOnly || !online
+
   const [
     selectedUser,
     setSelectedUser,
@@ -361,6 +375,7 @@ export default function UserManagementClient({
       | 'INACTIVE'
       | 'SUSPENDED'
   ) {
+    if (readOnly) return
     setProcessingUserId(
       user.user_id
     )
@@ -896,6 +911,7 @@ export default function UserManagementClient({
 
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white shadow-2xl">
 
+            {!readOnly && currentUser && <UserActions user={selectedUser} currentUserId={currentUser.id} onChanged={() => window.location.reload()} />}
             {/* MODAL HEADER */}
 
             <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5">
@@ -918,7 +934,7 @@ export default function UserManagementClient({
                 }
                 className="rounded-lg px-3 py-1 text-2xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
               >
-                ×
+                ├ù
               </button>
 
             </div>
