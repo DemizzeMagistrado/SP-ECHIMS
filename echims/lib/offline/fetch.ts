@@ -70,6 +70,9 @@ export async function offlineFetch(input: RequestInfo | URL, init?: RequestInit)
     } catch (error) {
       if (error instanceof AccessChanged) return unavailable(error.message, 403)
       if (init?.signal?.aborted || request?.signal.aborted) throw error
+      // Online but something non-fatal failed → fall back to native fetch
+      // so the user still gets fresh data instead of a stale/missing cache.
+      return fetch(input, init)
     }
   }
   if (!await sameOwner()) return unavailable('Account changed. Reopen this page.', 401)

@@ -38,6 +38,12 @@ type SchedulePayload = {
 }
 const fetcher = async (url: string) => {
   const r = await fetch(url)
+  // If the server returns HTML (404/500 page), treat it as "no schedule yet"
+  // instead of throwing a JSON parse error.
+  const contentType = r.headers.get('content-type') ?? ''
+  if (!contentType.includes('application/json')) {
+    return { child: { child_id: 0, name: '', date_of_birth: '' }, latest_request: null, preview: [], excluded_count: 0 }
+  }
   const d = await r.json()
   if (!r.ok) throw new Error(d.error || 'Unable to load the vaccination schedule.')
   return d
