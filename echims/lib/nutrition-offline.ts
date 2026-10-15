@@ -1,6 +1,8 @@
 'use client'
 
-import { createBrowserClient } from '@supabase/ssr'
+import { loadIdentity } from '@/lib/offline/store'
+import { offlineScope } from '@/lib/offline/fetch'
+import { createClient } from '@/lib/supabase/client'
 
 export type NutritionPayload = {
   child_id: number
@@ -13,7 +15,6 @@ export type NutritionPayload = {
   remarks: string
   client_request_id: string
 }
-
 export type QueuedAssessment = {
   key: string
   ownerId: string
@@ -26,284 +27,100 @@ export type QueuedAssessment = {
 }
 
 const DB_NAME = 'echims-nutrition-offline-v1'
-
 let database: Promise<IDBDatabase> | null = null
-
-let browserClient:
-  | ReturnType<typeof createBrowserClient>
-  | null = null
-
-export function getNutritionBrowserClient() {
-  if (!browserClient) {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-
-    const key =
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY
-
-    if (!url || !key) {
-      throw new Error(
-        'Supabase browser configuration is missing.',
-      )
-    }
-
-    browserClient = createBrowserClient(url, key)
-  }
-
-  return browserClient
-}
+export function getNutritionBrowserClient() { return createClient() }
 
 function openDatabase(): Promise<IDBDatabase> {
   if (!database) {
     database = new Promise<IDBDatabase>((resolve, reject) => {
       if (typeof indexedDB === 'undefined') {
-        reject(
-          new Error(
-            'This browser does not support offline assessment storage.',
-          ),
-        )
+        reject(new Error('This browser does not support offline assessment storage.'))
         return
       }
-
       const request = indexedDB.open(DB_NAME, 1)
-
       request.onupgradeneeded = () => {
         const db = request.result
-
-        db.createObjectStore('snapshots', {
-          keyPath: 'ownerId',
-        })
-
-        const queue = db.createObjectStore('queue', {
-          keyPath: 'key',
-        })
-
-        queue.createIndex('ownerId', 'ownerId', {
-          unique: false,
-        })
+        db.createObjectStore('snapshots', { keyPath: 'ownerId' })
+        const queue = db.createObjectStore('queue', { keyPath: 'key' })
+        queue.createIndex('ownerId', 'ownerId', { unique: false })
       }
-
-      request.onerror = () => {
-        reject(
-          request.error ??
-            new Error('Unable to open offline storage.'),
-        )
-      }
-
-      request.onblocked = () => {
-        reject(
-          new Error(
-            'Close other eCHIMS tabs and retry offline storage.',
-          ),
-        )
-      }
-
+      request.onerror = () => reject(request.error ?? new Error('Unable to open offline storage.'))
+      request.onblocked = () => reject(new Error('Close other eCHIMS tabs and retry offline storage.'))
       request.onsuccess = () => {
         const db = request.result
-
-        db.onversionchange = () => {
-          db.close()
-          database = null
-        }
-
+        db.onversionchange = () => { db.close(); database = null }
         resolve(db)
       }
-    }).catch((error) => {
-      database = null
-      throw error
-    })
+    }).catch((error) => { database = null; throw error })
   }
-
   return database
 }
 
-async function transact<T>(
-  store: 'snapshots' | 'queue',
-  mode: IDBTransactionMode,
-  operation: (store: IDBObjectStore) => IDBRequest<T>,
-): Promise<T> {
+async function transact<T>(store: 'snapshots' | 'queue', mode: IDBTransactionMode,
+  operation: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   const db = await openDatabase()
-
   return new Promise<T>((resolve, reject) => {
     const tx = db.transaction(store, mode)
     const request = operation(tx.objectStore(store))
-
     let value!: T
-
-    request.onsuccess = () => {
-      value = request.result
-    }
-
-    // Resolve only after the transaction has committed.
-    tx.oncomplete = () => {
-      resolve(value)
-    }
-
-    tx.onerror = () => {
-      reject(
-        tx.error ??
-          request.error ??
-          new Error('Offline storage failed.'),
-      )
-    }
-
-    tx.onabort = () => {
-      reject(
-        tx.error ??
-          new Error('Offline storage was not saved.'),
-      )
-    }
+    request.onsuccess = () => { value = request.result }
+    tx.oncomplete = () => resolve(value)
+    tx.onerror = () => reject(tx.error ?? request.error ?? new Error('Offline storage failed.'))
+    tx.onabort = () => reject(tx.error ?? new Error('Offline storage was not saved.'))
   })
 }
 
-export async function saveSnapshot<
-  T extends { currentUserId: string },
->(ownerId: string, data: T) {
-  if (data.currentUserId !== ownerId) {
-    throw new Error(
-      'The snapshot belongs to a different account.',
-    )
-  }
-
-  await transact('snapshots', 'readwrite', (store) =>
-    store.put({
-      ownerId,
-      savedAt: new Date().toISOString(),
-      data,
-    }),
-  )
+export async function saveSnapshot<T extends { currentUserId: string }>(ownerId: string, data: T) {
+  if (data.currentUserId !== ownerId) throw new Error('The snapshot belongs to a different account.')
+  const identity = await loadIdentity(ownerId)
+  if (!identity) throw new Error('Prepare this account online before caching nutrition records.')
+  await transact('snapshots', 'readwrite', (store) => store.put({ ownerId, scope: offlineScope(identity.user), savedAt: new Date().toISOString(), data }))
 }
-
-export async function loadSnapshot<T>(
-  ownerId: string,
-): Promise<T | null> {
-  const row = await transact<
-    { ownerId: string; data: T } | undefined
-  >('snapshots', 'readonly', (store) =>
-    store.get(ownerId),
-  )
-
-  return row?.ownerId === ownerId ? row.data : null
+export async function loadSnapshot<T>(ownerId: string): Promise<T | null> {
+  const identity = await loadIdentity(ownerId)
+  if (!identity) return null
+  const row = await transact<{ ownerId: string; scope?: string; data: T } | undefined>('snapshots', 'readonly', (store) => store.get(ownerId))
+  return row?.ownerId === ownerId && row.scope === offlineScope(identity.user) ? row.data : null
 }
-
 export async function removeSnapshot(ownerId: string) {
-  await transact('snapshots', 'readwrite', (store) =>
-    store.delete(ownerId),
-  )
+  await transact('snapshots', 'readwrite', (store) => store.delete(ownerId))
 }
-
-export async function listQueue(
-  ownerId: string,
-): Promise<QueuedAssessment[]> {
-  const rows = await transact<QueuedAssessment[]>(
-    'queue',
-    'readonly',
-    (store) => store.index('ownerId').getAll(ownerId),
-  )
-
-  return rows
-    .filter((row) => row.ownerId === ownerId)
-    .sort((a, b) => a.queuedAt.localeCompare(b.queuedAt))
+export async function listQueue(ownerId: string): Promise<QueuedAssessment[]> {
+  const rows = await transact<QueuedAssessment[]>('queue', 'readonly', (store) => store.index('ownerId').getAll(ownerId))
+  return rows.filter((row) => row.ownerId === ownerId).sort((a, b) => a.queuedAt.localeCompare(b.queuedAt))
 }
-
-export async function putQueuedAssessment(
-  ownerId: string,
-  item: QueuedAssessment,
-) {
-  if (
-    item.ownerId !== ownerId ||
-    item.key !== `${ownerId}:${item.requestId}` ||
-    item.payload.client_request_id !== item.requestId
-  ) {
-    throw new Error(
-      'The queued assessment belongs to a different account or request.',
-    )
+export async function putQueuedAssessment(ownerId: string, item: QueuedAssessment) {
+  if (item.ownerId !== ownerId || item.key !== `${ownerId}:${item.requestId}`
+      || item.payload.client_request_id !== item.requestId) {
+    throw new Error('The queued assessment belongs to a different account or request.')
   }
-
-  await transact('queue', 'readwrite', (store) =>
-    store.put(item),
-  )
+  await transact('queue', 'readwrite', (store) => store.put(item))
+}
+export async function removeQueuedAssessment(ownerId: string, requestId: string) {
+  await transact('queue', 'readwrite', (store) => store.delete(`${ownerId}:${requestId}`))
 }
 
-export async function removeQueuedAssessment(
-  ownerId: string,
-  requestId: string,
-) {
-  await transact('queue', 'readwrite', (store) =>
-    store.delete(`${ownerId}:${requestId}`),
-  )
-}
-
-export function validateOfflinePayload(
-  payload: NutritionPayload,
-  birthDate: string,
-  today: string,
-): string | null {
-  const parsed = new Date(
-    `${payload.assessment_date}T00:00:00.000Z`,
-  )
-
-  if (
-    !/^\d{4}-\d{2}-\d{2}$/.test(payload.assessment_date) ||
-    !Number.isFinite(parsed.getTime()) ||
-    parsed.toISOString().slice(0, 10) !==
-      payload.assessment_date
-  ) {
+export function validateOfflinePayload(payload: NutritionPayload, birthDate: string, today: string) {
+  const parsed = new Date(`${payload.assessment_date}T00:00:00.000Z`)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(payload.assessment_date)
+      || !Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== payload.assessment_date) {
     return 'Provide a valid assessment date.'
   }
-
   const birth = new Date(`${birthDate}T00:00:00.000Z`)
-
   const targetYear = birth.getUTCFullYear() + 5
-
-  const lastDay = new Date(
-    Date.UTC(targetYear, birth.getUTCMonth() + 1, 0),
-  ).getUTCDate()
-
-  const fifthBirthday = new Date(
-    Date.UTC(
-      targetYear,
-      birth.getUTCMonth(),
-      Math.min(birth.getUTCDate(), lastDay),
-    ),
-  )
-
-  if (
-    !Number.isFinite(birth.getTime()) ||
-    payload.assessment_date < birthDate ||
-    payload.assessment_date > today ||
-    parsed >= fifthBirthday
-  ) {
+  const lastDay = new Date(Date.UTC(targetYear, birth.getUTCMonth() + 1, 0)).getUTCDate()
+  const fifthBirthday = new Date(Date.UTC(targetYear, birth.getUTCMonth(), Math.min(birth.getUTCDate(), lastDay)))
+  if (!Number.isFinite(birth.getTime()) || payload.assessment_date < birthDate
+      || payload.assessment_date > today || parsed >= fifthBirthday) {
     return 'The assessment must be on or after birth, not in the future, and before the fifth birthday.'
   }
-
-  if (
-    ![payload.weight, payload.height].every(
-      (value) => Number.isFinite(value) && value > 0,
-    ) ||
-    (payload.muac !== null &&
-      (!Number.isFinite(payload.muac) ||
-        payload.muac <= 0))
-  ) {
+  if (![payload.weight, payload.height].every((value) => Number.isFinite(value) && value > 0)
+      || (payload.muac !== null && (!Number.isFinite(payload.muac) || payload.muac <= 0))) {
     return 'Weight, length/height and any recorded MUAC must be finite positive numbers.'
   }
-
-  if (
-    !['LENGTH', 'HEIGHT'].includes(
-      payload.measurement_type,
-    )
-  ) {
-    return 'Choose the actual measurement position.'
+  if (!['LENGTH', 'HEIGHT'].includes(payload.measurement_type)) return 'Choose the actual measurement position.'
+  if (!Number.isInteger(payload.edema_grade) || payload.edema_grade < 0 || payload.edema_grade > 3) {
+    return 'Record the edema examination result as 0, 1, 2 or 3.'
   }
-
-  if (
-    !Number.isInteger(payload.edema_grade) ||
-    payload.edema_grade < 0 ||
-    payload.edema_grade > 3
-  ) {
-    return 'Edema grade must be an integer between 0 and 3.'
-  }
-
   return null
 }

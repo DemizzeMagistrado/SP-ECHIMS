@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { Check, ChevronDown, Eye, EyeOff } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/lib/offline/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
 import type { UserRole } from "@/lib/echims-data";
 import { createClient } from "@/lib/supabase/client";
@@ -442,7 +442,7 @@ export default function RegisterPage() {
         <section className="hidden w-1/2 flex-col justify-between bg-gradient-to-br from-[#123C82] to-[#087DB9] p-14 text-white lg:flex">
           <div>
             <img
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/echimes%20white%20and%20blue-gtjr6RbRtIsj4rnx93fDvsrSwRYq5X.png"
+              src="/login-logo.png"
               alt="eCHIMS logo"
               width={430}
               height={120}

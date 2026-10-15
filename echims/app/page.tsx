@@ -63,7 +63,7 @@ export default function LandingPage() {
           className="shrink-0"
         >
           <img
-            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/echims%20blue%20and%20white-uMjflMPgqvEd7e3iQnVdDphmz1oAkU.png"
+            src="/landing-logo.png"
             alt="eCHIMS logo"
             width={170}
             height={48}

@@ -1,4 +1,5 @@
 'use client'
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 // NIP-USR008 — Record Prior vaccination modal.
 // Opened in the context of a specific child from the Immunization History section.

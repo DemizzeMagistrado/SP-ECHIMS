@@ -1,4 +1,6 @@
 'use client'
+import { loadIdentity } from '@/lib/offline/store'
+import { offlineScope } from '@/lib/offline/fetch'
 
 export type OfflineForm = {
   childId:string; supplementId:string; protocolId:string; batchId:string; date:string;
@@ -42,11 +44,15 @@ async function transaction<T>(store:'snapshots'|'drafts',mode:IDBTransactionMode
 }
 export async function cacheSupplementData<T extends {currentUserId:string}>(ownerId:string,data:T){
   if(data.currentUserId!==ownerId)throw new Error('Cached data belongs to another account.')
-  await transaction('snapshots','readwrite',s=>s.put({ownerId,savedAt:new Date().toISOString(),data}))
+  const identity=await loadIdentity(ownerId)
+  if(!identity)throw new Error('Prepare this account online before caching supplementation records.')
+  await transaction('snapshots','readwrite',s=>s.put({ownerId,scope:offlineScope(identity.user),savedAt:new Date().toISOString(),data}))
 }
 export async function loadSupplementCache<T extends {currentUserId:string}>(ownerId:string){
-  const row=await transaction<{ownerId:string;savedAt:string;data:T}|undefined>('snapshots','readonly',s=>s.get(ownerId))
-  return row?.ownerId===ownerId&&row.data.currentUserId===ownerId?row:null
+  const identity=await loadIdentity(ownerId)
+  if(!identity)return null
+  const row=await transaction<{ownerId:string;scope?:string;savedAt:string;data:T}|undefined>('snapshots','readonly',s=>s.get(ownerId))
+  return row?.ownerId===ownerId&&row.data.currentUserId===ownerId&&row.scope===offlineScope(identity.user)?row:null
 }
 export async function listSupplementDrafts(ownerId:string){
   const rows=await transaction<SupplementDraft[]>('drafts','readonly',s=>s.index('ownerId').getAll(ownerId))

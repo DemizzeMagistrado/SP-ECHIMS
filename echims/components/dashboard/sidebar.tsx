@@ -7,7 +7,7 @@
 // moved to top-nav Settings menu — removed from here.
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname } from '@/lib/offline/navigation'
 import { useEffect, useState } from 'react'
 import {
   Home, Baby, Syringe, Apple, Package, AlertCircle, FileText, Settings,

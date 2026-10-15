@@ -1,4 +1,5 @@
 'use client'
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'

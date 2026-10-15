@@ -1,4 +1,5 @@
 'use client'
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 // NIP-USR006 — Add / edit vaccine form modal (admin-only).
 

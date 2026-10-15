@@ -1,8 +1,11 @@
 'use client'
 import { UserActions } from '@/components/user-management/user-actions'
 import { useAuth } from '@/components/auth/auth-provider'
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
+
 import {
   useMemo,
+  useEffect,
   useState,
 } from 'react'
 
@@ -48,6 +51,7 @@ type UserRow = {
 
 type UserManagementClientProps = {
   users: UserRow[]
+  readOnly?: boolean
 }
 
 /* =========================================================
@@ -56,11 +60,19 @@ type UserManagementClientProps = {
 
 export default function UserManagementClient({
   users,
+  readOnly: savedReadOnly = false,
 }: UserManagementClientProps) {
+  const { user: currentUser } = useAuth()
+  const [online, setOnline] = useState(true)
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine)
+    update()
+    window.addEventListener('online', update)
+    window.addEventListener('offline', update)
+    return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update) }
+  }, [])
+  const readOnly = savedReadOnly || !online
 
-
-const { user } = useAuth()
-const currentUserId = user?.id ?? ''
   const [
     selectedUser,
     setSelectedUser,
@@ -351,52 +363,7 @@ const currentUserId = user?.id ?? ''
       null
     )
   }
-// ─── Profile edit ─────────────────────────────────────
-async function saveProfile(
-  user: UserRow,
-  profile: { fullName?: string; email?: string; contactNumber?: string },
-) {
-  setProcessingUserId(user.user_id)
-  setMessage(null); setError(null)
-  try {
-    const res = await fetch('/api/admin/users', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user.user_id, profile }),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data?.error ?? 'Unable to save changes.')
-    setMessage('Profile updated.')
-    window.location.reload()
-  } catch (err) {
-    setError(err instanceof Error ? err.message : 'Unable to save changes.')
-  } finally {
-    setProcessingUserId(null)
-  }
-}
 
-// ─── Soft delete ──────────────────────────────────────
-async function deleteAccount(user: UserRow) {
-  if (!confirm(`Delete ${user.full_name}'s account? They will no longer appear in the user list. (Account history is preserved for audit.)`)) return
-  setProcessingUserId(user.user_id)
-  setMessage(null); setError(null)
-  try {
-    const res = await fetch('/api/admin/users', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user.user_id }),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data?.error ?? 'Unable to delete account.')
-    setMessage('Account deleted.')
-    closeModal()
-    window.location.reload()
-  } catch (err) {
-    setError(err instanceof Error ? err.message : 'Unable to delete account.')
-  } finally {
-    setProcessingUserId(null)
-  }
-}
   /* =======================================================
      UPDATE ACCOUNT STATUS
   ======================================================= */
@@ -408,6 +375,7 @@ async function deleteAccount(user: UserRow) {
       | 'INACTIVE'
       | 'SUSPENDED'
   ) {
+    if (readOnly) return
     setProcessingUserId(
       user.user_id
     )
@@ -942,11 +910,8 @@ async function deleteAccount(user: UserRow) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
 
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white shadow-2xl">
-<UserActions
-  user={selectedUser}
-  currentUserId={currentUserId}
-  onChanged={() => window.location.reload()}
-/>
+
+            {!readOnly && currentUser && <UserActions user={selectedUser} currentUserId={currentUser.id} onChanged={() => window.location.reload()} />}
             {/* MODAL HEADER */}
 
             <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5">
@@ -969,7 +934,7 @@ async function deleteAccount(user: UserRow) {
                 }
                 className="rounded-lg px-3 py-1 text-2xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
               >
-                ×
+                ├ù
               </button>
 
             </div>
@@ -1324,6 +1289,7 @@ async function deleteAccount(user: UserRow) {
                         <button
                           type="button"
                           disabled={
+                            readOnly ||
                             processingUserId ===
                             selectedUser.user_id
                           }
@@ -1344,6 +1310,7 @@ async function deleteAccount(user: UserRow) {
                         <button
                           type="button"
                           disabled={
+                            readOnly ||
                             processingUserId ===
                               selectedUser.user_id ||
                             !selectedUserHasWorkplace
@@ -1384,6 +1351,7 @@ async function deleteAccount(user: UserRow) {
                         <button
                           type="button"
                           disabled={
+                            readOnly ||
                             processingUserId ===
                             selectedUser.user_id
                           }
@@ -1404,6 +1372,7 @@ async function deleteAccount(user: UserRow) {
                         <button
                           type="button"
                           disabled={
+                            readOnly ||
                             processingUserId ===
                             selectedUser.user_id
                           }
@@ -1449,6 +1418,7 @@ async function deleteAccount(user: UserRow) {
                         <button
                           type="button"
                           disabled={
+                            readOnly ||
                             processingUserId ===
                               selectedUser.user_id ||
                             !selectedUserHasWorkplace
@@ -1488,6 +1458,7 @@ async function deleteAccount(user: UserRow) {
                         <button
                           type="button"
                           disabled={
+                            readOnly ||
                             processingUserId ===
                               selectedUser.user_id ||
                             !selectedUserHasWorkplace
@@ -1509,6 +1480,7 @@ async function deleteAccount(user: UserRow) {
                         <button
                           type="button"
                           disabled={
+                            readOnly ||
                             processingUserId ===
                             selectedUser.user_id
                           }

@@ -1,4 +1,5 @@
 "use client";
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
@@ -101,10 +102,6 @@ export function ProgramSmsPanel({
     setData(null);
     setError("");
     setLoading(true);
-    if (!online) {
-      setLoading(false);
-      return () => controller.abort();
-    }
     void (async () => {
       try {
         const result = await readJson(

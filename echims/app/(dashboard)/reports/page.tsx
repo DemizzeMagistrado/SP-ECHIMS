@@ -1,4 +1,5 @@
 "use client";
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useEffect, useRef, useState } from "react";
 import { ReportDownloadButtons } from "@/components/reports/report-download-buttons";
 import { InventoryReportFormat } from "@/components/reports/inventory-report-format";

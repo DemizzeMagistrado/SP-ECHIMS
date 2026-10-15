@@ -1,4 +1,5 @@
 'use client'
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 // CP-USR002 — Philippine Address Picker (4-level cascading dropdowns).
 //

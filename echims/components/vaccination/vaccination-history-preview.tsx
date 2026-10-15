@@ -1,4 +1,5 @@
 'use client'
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 // NIP-USR009 — Previous vaccinations preview panel.
 // Compact, read-only summary of a child's immunization history, meant to live

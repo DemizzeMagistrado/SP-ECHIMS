@@ -1,4 +1,5 @@
 'use client'
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 // NIP-USR010 — Batch Request create modal (RHM / Admin flow).
 // Opens from the Batch Requests tab's "New request" button. RHM fills in:

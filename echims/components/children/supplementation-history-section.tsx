@@ -1,9 +1,9 @@
 'use client'
+import { useAuth } from '@/components/auth/auth-provider'
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import useSWR from 'swr'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import type { Session, User } from '@supabase/supabase-js'
 import { buildSupplementationDue, manilaToday } from '@/lib/supplementation-due'
 import type { NutritionBasis } from '@/lib/supplementation-nutrition'
 type Entry={purpose?:string|null;protocol_snapshot?:unknown;clinical_indication?:string|null;course_reference?:string|null;clinical_dose_number?:number|null;course_start_date?:string|null;tier?:string|null;order_reference?:string|null;recorded_by?:string|null;supplementation_record_id:number;supplementation_date:string;supplement_id:number;quantity_given:number;dose_value:number|null;dose_unit:string|null;record_type:string|null;batch_number:string|null;source_assessment_id:number|null;plan_id:number|null;remarks:string|null}
@@ -28,41 +28,16 @@ async function fetchHistory(url:string):Promise<History>{
   return {...history,products:history.products.map(p=>({...p,item:p.item?{...p.item,item_name:commodityDisplayName(p.item.item_name)}:null})),plans:history.plans.map(p=>({...p,product_label:commodityDisplayName(p.product_label)}))}
 }
 export function SupplementationHistorySection({childId}:{childId:number}){
+  const sharedAuth=useAuth();
   // Include the authenticated account in the cache key to isolate account switches.
-  const [client]=useState(()=>createClient());const [owner,setOwner]=useState<string|null>(null);const [authError,setAuthError]=useState('');const [authReady,setAuthReady]=useState(false);
+  const [owner,setOwner]=useState<string|null>(null);const [authError,setAuthError]=useState('');const [authReady,setAuthReady]=useState(false);
   const [tab,setTab]=useState<'DUE'|'ADMINISTRATION'|'DISPENSING'|'PLANS'>('DUE');
   const [today,setToday]=useState(()=>manilaToday());
   useEffect(()=>{const refresh=()=>setToday(manilaToday());const timer=window.setInterval(refresh,60000);window.addEventListener('focus',refresh);return()=>{window.clearInterval(timer);window.removeEventListener('focus',refresh)}},[]);
   useEffect(()=>{
-    let active=true, generation=0;
-    const apply=(userId:string|null)=>{if(active){setOwner(userId);setAuthError('');setAuthReady(true)}};
-    const initial=generation;
-void client.auth
-  .getUser()
-  .then(
-    (result: {
-      data: { user: User | null }
-      error: unknown
-    }) => {
-      if (!active || generation !== initial) return
-
-      apply(result.error ? null : result.data.user?.id ?? null)
-
-      if (result.error) {
-        setAuthError('Unable to verify session.')
-      }
-    },
-  )
-  .catch(() => {
-    if (!active || generation !== initial) return
-
-    setOwner(null)
-    setAuthReady(true)
-    setAuthError('Unable to verify session.')
-  })
-      const {data:listener}=client.auth.onAuthStateChange((_event:string,session:Session|null)=>{generation++;apply(session?.user.id??null)});
-    return()=>{active=false;listener.subscription.unsubscribe()}
-  },[client]);
+    if(!sharedAuth.isReady)return;
+    setOwner(sharedAuth.user?.id??null);setAuthError('');setAuthReady(true);
+  },[sharedAuth.isReady,sharedAuth.user?.id]);
   const {data,error,isLoading,mutate}=useSWR<History>(owner?[`/api/supplementation?childId=${childId}`,owner]:null,([url]:[string,string])=>fetchHistory(url));
   const loadState=!authReady?<p className="p-5 text-sm">Verifying session…</p>:authError?<p role="alert" className="p-5 text-red-700">{authError}</p>:error?<div role="alert" className="p-5 text-sm text-red-700">{error.message}<button type="button" className="ml-3 underline" onClick={()=>void mutate()}>Retry</button></div>:isLoading?<p className="p-5 text-sm">Loading supplementation…</p>:!data?<p className="p-5 text-sm">Sign in to view supplementation.</p>:null
   const historyTable=(entries:Entry[])=>(!authReady?<p className="p-5 text-sm">Verifying session…</p>:authError?<p role="alert" className="p-5 text-red-700">{authError}</p>:error?<div role="alert" className="p-5 text-sm text-red-700">{error.message}<button type="button" className="ml-3 underline" onClick={()=>void mutate()}>Retry</button></div>:isLoading?<p className="p-5 text-sm">Loading history…</p>:!data?<p className="p-5 text-sm">Sign in to view supplementation history.</p>:<div className="overflow-x-auto"><table className="w-full"><thead className="bg-muted/60"><tr>{['Date','Entry','Product','Actual Dose','Quantity Issued / Used','Batch','Nutrition Basis','Order Reference','Recorded By','Remarks'].map(h=><th key={h} className="px-4 py-3 text-left text-xs font-semibold">{h}</th>)}</tr></thead><tbody className="divide-y divide-border">{entries.length===0?<tr><td colSpan={10} className="p-6 text-center text-sm text-muted-foreground">No supplementation entries recorded.</td></tr>:entries.map(r=>{

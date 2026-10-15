@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { getAuthorizationContext } from '@/lib/auth/authorization'
 import { createClient } from '@/lib/supabase/server'
 
-import UserManagementClient from './user-management-client'
+import { SavedUserManagement } from '@/components/offline/saved-user-management'
 
 /* =========================================================
    TYPES
@@ -558,7 +558,8 @@ export default async function UserManagementPage() {
   ======================================================= */
 
   return (
-    <UserManagementClient
+    <SavedUserManagement
+      ownerId={context.authUser.id}
       users={formattedUsers}
     />
   )

@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
-import { FormEvent, useState } from 'react'
+import { FormEvent, useState, useEffect } from 'react'
 import { useAuth } from '@/components/auth/auth-provider'
 
 export default function LoginPage() {
@@ -12,11 +12,17 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
+  const [offline,setOffline]=useState(false)
+  const [busy,setBusy]=useState(false)
+  useEffect(()=>{const update=()=>setOffline(!navigator.onLine);update();window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update)}},[])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
-    const result = await login(email, password)
+    if(busy)return
+    setBusy(true)
+    let result: {error?:string}
+    try{result=await login(email,password)}catch{result={error:'Unable to sign in. Check your connection or saved offline account.'}}finally{setBusy(false)}
     if (result.error) {
       setError(result.error)
       return
@@ -25,7 +31,7 @@ export default function LoginPage() {
     // already visible to getUser()/SSR. router.push races the just-written session
     // cookie — on the first try the layout sees isReady=true, user=null, and bounces
     // back to /login; a second attempt works only because the cookie is finally there.
-    window.location.assign('/dashboard')
+    window.location.assign(navigator.onLine?'/dashboard':'/offline?path=%2Fdashboard')
   }
 
   return (
@@ -33,7 +39,7 @@ export default function LoginPage() {
       <div className="flex w-full max-w-6xl overflow-hidden rounded-[28px] bg-white shadow-xl lg:min-h-[665px]">
         <section className="hidden w-1/2 flex-col justify-between bg-gradient-to-br from-[#123C82] to-[#087DB9] p-14 text-white lg:flex">
           <div>
-            <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/echimes%20white%20and%20blue-gtjr6RbRtIsj4rnx93fDvsrSwRYq5X.png" alt="eCHIMS logo" width={430} height={120} className="h-auto w-full max-w-[430px]" />
+            <img src="/login-logo.png" alt="eCHIMS logo" width={430} height={120} className="h-auto w-full max-w-[430px]" />
             <h1 className="mt-14 text-center text-2xl font-bold leading-relaxed">Early Child Health Information and Monitoring System</h1>
             <p className="mt-5 text-center text-base text-blue-100">Comprehensive healthcare management for Rural Health Units</p>
           </div>
@@ -52,7 +58,8 @@ export default function LoginPage() {
         <section className="flex flex-1 flex-col justify-center px-7 py-10 sm:px-14 lg:w-1/2">
           <div className="mx-auto w-full max-w-md">
             <h2 className="text-3xl font-bold text-[#03045E]">Welcome Back</h2>
-            <p className="mt-2 text-[#6B7280]">Sign in to your RHU account</p>
+            <p className="mt-2 text-[#6B7280]">{offline?'Sign in to your saved account on this device':'Sign in to your RHU account'}</p>
+            {offline && <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Use the email and password you last used to sign in online on this browser. Saved access lasts seven days from online verification. New accounts and password resets require internet.</p>}
             <form onSubmit={handleSubmit} className="mt-9 space-y-5">
               <div>
                 <label htmlFor="email" className="text-sm font-semibold text-[#03045E]">Username or Email</label>
@@ -67,7 +74,7 @@ export default function LoginPage() {
               </div>
               <div className="flex items-center justify-between text-sm"><label className="flex items-center gap-2 text-[#6B7280]"><input type="checkbox" className="h-4 w-4 accent-[#0077B6]" />Remember me</label><Link href="forgot-password/" className="font-semibold text-[#0077B6] hover:underline">Forgot Password?</Link></div>
               {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-              <button type="submit" className="w-full rounded-full bg-[#0784BE] py-3 font-semibold text-white shadow-sm transition-colors hover:bg-[#056d9e]">Sign In</button>
+              <button type="submit" disabled={busy} className="w-full rounded-full bg-[#0784BE] py-3 font-semibold text-white shadow-sm transition-colors hover:bg-[#056d9e]">{busy?'Signing in…':offline?'Sign In Offline':'Sign In'}</button>
             </form>
             <div className="my-7 flex items-center gap-3 text-xs uppercase text-[#9CA3AF]"><span className="h-px flex-1 bg-[#E5E7EB]" />New User?<span className="h-px flex-1 bg-[#E5E7EB]" /></div>
             <p className="text-center text-sm text-[#6B7280]">Need an account? <Link href="/register" className="font-semibold text-[#0077B6] hover:underline">Register here</Link></p>

@@ -1,4 +1,6 @@
 'use client'
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
+import { SystemOfflineTools } from '@/components/offline/system-offline-tools'
 
 // RPT-USR001 polish — Top navigation.
 // Changes vs original:
@@ -9,13 +11,13 @@
 
 import {
   Bell, CheckCheck, Loader2, RefreshCw, X,
-  Settings as SettingsIcon, LogOut, User as UserIcon, Wifi, WifiOff,
+  Settings as SettingsIcon, LogOut, User as UserIcon,
 } from 'lucide-react'
 import {
   useCallback, useEffect, useId, useRef, useState,
 } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/lib/offline/navigation'
 import { useAuth } from '@/components/auth/auth-provider'
 
 type Notification = {
@@ -61,7 +63,6 @@ export function TopNav() {
   const [today, setToday] = useState('')
   const [open, setOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [online, setOnline] = useState(true)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -74,21 +75,6 @@ export function TopNav() {
   const loadController = useRef<AbortController | null>(null)
   const mutationBusy = useRef(false)
 
-  // ─── Online / offline detection ─────────────────────────────────────
-  useEffect(() => {
-    if (typeof navigator === 'undefined') return
-    setOnline(navigator.onLine)
-    const goOnline = () => setOnline(true)
-    const goOffline = () => setOnline(false)
-    window.addEventListener('online', goOnline)
-    window.addEventListener('offline', goOffline)
-    return () => {
-      window.removeEventListener('online', goOnline)
-      window.removeEventListener('offline', goOffline)
-    }
-  }, [])
-
-  // ─── Notifications polling ─────────────────────────────────────────
   const loadNotifications = useCallback(async () => {
     loadController.current?.abort()
     const controller = new AbortController()
@@ -171,7 +157,7 @@ export function TopNav() {
   async function viewNotification(item: Notification) {
     const target = notificationTarget(item)
     if (!target) return
-    if (item.status === 'UNREAD') {
+    if (item.status === 'UNREAD' && navigator.onLine) {
       const ok = await updateNotifications({ alertId: item.alert_id, status: 'READ' })
       if (!ok) return
     }
@@ -193,13 +179,7 @@ export function TopNav() {
       </div>
 
       <div className="flex items-center gap-3 sm:gap-4">
-        {/* Online/offline indicator */}
-        <div className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${
-          online ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'
-        }`} title={online ? 'Online — changes sync in real time' : 'Offline — changes are queued locally'}>
-          {online ? <Wifi size={14} /> : <WifiOff size={14} />}
-          <span>{online ? 'Online' : 'Offline'}</span>
-        </div>
+        <SystemOfflineTools />
 
         {/* Notifications */}
         <div ref={containerRef} className="relative">

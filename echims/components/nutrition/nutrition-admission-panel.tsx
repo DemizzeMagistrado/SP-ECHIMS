@@ -1,4 +1,5 @@
 "use client";
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";

@@ -1,4 +1,5 @@
 "use client";
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useState } from "react";
 import { captureReport } from "@/lib/reports/capture-report";
 import {

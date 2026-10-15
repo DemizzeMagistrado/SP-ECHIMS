@@ -1,8 +1,10 @@
 "use client";
+import { routeSearch } from '@/lib/offline/navigation'
+import { useAuth } from '@/components/auth/auth-provider'
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, Package, X, AlertTriangle } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import {
   latestNutrition,
   nutritionReview,
@@ -368,7 +370,7 @@ const button =
   "inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50";
 
 export default function SupplementsPage() {
-  const [client] = useState(() => createClient());
+  const sharedAuth = useAuth();
   const [owner, setOwner] = useState<string | null>(null);
   const ownerRef = useRef<string | null>(null);
   const generation = useRef(0);
@@ -537,63 +539,12 @@ export default function SupplementsPage() {
       }
     };
 
-    const sessionUser = () =>
-      client.auth
-        .getSession()
-        .then((r: { data: { session: Session | null }; error: unknown }) => ({
-          data: { user: r.data.session?.user ?? null },
-          error: r.error,
-        }));
-
-    void (navigator.onLine ? client.auth.getUser() : sessionUser())
-
-      .then(
-        (result: {
-          data: { user: User | null };
-
-          error: unknown;
-        }) => {
-          if (!active) return;
-
-          const user = result.data.user;
-
-          apply(user?.id ?? null);
-
-          if (result.error || !user) {
-            setLoading(false);
-
-            setError("Please sign in to access supplementation.");
-          }
-        },
-      )
-
-      .catch(() => {
-        if (!active) return;
-
-        apply(null);
-
-        setLoading(false);
-
-        setError("Unable to verify your session. Please sign in again.");
-      });
-
-    const { data: authListener } = client.auth.onAuthStateChange(
-      (_event: string, session: Session | null) => {
-        apply(session?.user.id ?? null);
-      },
-    );
-
-    return () => {
-      active = false;
-
-      generation.current++;
-
-      authListener.subscription.unsubscribe();
-    };
-  }, [client]);
+    if (sharedAuth.isReady) apply(sharedAuth.user?.id ?? null);
+    return () => { active = false; generation.current++; };
+  }, [sharedAuth.isReady, sharedAuth.user?.id]);
 
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get("childId");
+    const id = new URLSearchParams(routeSearch()).get("childId");
     if (id && /^\d+$/.test(id)) {
       setForm((f) => ({ ...f, childId: id }));
       setFilter(id);
@@ -661,7 +612,7 @@ export default function SupplementsPage() {
   function open(kind: "RECORD" | "RECEIVE" | "PLAN" | "DISPENSE" | "CLINICAL") {
     setEditingDraft(null);
     setDraftConfirmed(false);
-    const id = new URLSearchParams(window.location.search).get("childId");
+    const id = new URLSearchParams(routeSearch()).get("childId");
     setForm({
       ...initial(),
       ...(kind === "CLINICAL"

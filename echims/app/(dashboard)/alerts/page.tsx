@@ -1,4 +1,5 @@
 "use client";
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -13,8 +14,8 @@ import {
 import Link from "next/link";
 import { alertDestination } from "@/lib/alerts/alert-destination";
 import { SmsSimulationPanel } from "@/components/alerts/sms-simulation-panel";
-import { createClient } from "@/lib/supabase/client";
-import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import { useAuth } from "@/components/auth/auth-provider";
+import { offlineScope } from "@/lib/offline/fetch";
 type Rule = {
   rule_id: number;
   rule_name: string;
@@ -289,9 +290,13 @@ function EvaluationMonitoring({
   );
 }
 export default function AlertsPage() {
-  const client = useMemo(() => createClient(), []);
-  const [owner, setOwner] = useState<string | null>(null);
-  const [authReady, setAuthReady] = useState(false);
+  const {user,isReady}=useAuth();
+  if(!isReady)return <p>Checking account…</p>;
+  return <AlertsWorkspace key={user?user.id+':'+offlineScope(user):'signed-out'}/>;
+}
+function AlertsWorkspace() {
+  const {user,isReady:authReady}=useAuth();
+  const owner=user?.id??null;
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -311,31 +316,8 @@ export default function AlertsPage() {
   const [resolving, setResolving] = useState(false);
   const sequence = useRef(0);
   const ownerRef = useRef<string | null>(null);
-  useEffect(() => {
-    const { data: subscription } = client.auth.onAuthStateChange(
-      (_event: AuthChangeEvent, session: Session | null) => {
-        const next = session?.user.id ?? null;
-        if (next !== ownerRef.current) {
-          sequence.current++;
-          ownerRef.current = next;
-          setData(null);
-          setDraft(null);
-          setResolveTarget(null);
-          setResolutionReviewed(false);
-          setTab("ALERTS");
-          setPage(1);
-          setError("");
-          setNotice("");
-          setOwner(next);
-        }
-        setAuthReady(true);
-      },
-    );
-    return () => {
-      sequence.current++;
-      subscription.subscription.unsubscribe();
-    };
-  }, [client]);
+  ownerRef.current=owner;
+  useEffect(()=>()=>{sequence.current++;ownerRef.current=null},[]);
   const load = useCallback(async () => {
     if (!owner) return;
     const token = ++sequence.current;

@@ -1,8 +1,8 @@
 "use client";
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useAuth } from "@/components/auth/auth-provider";
 
 type Attempt = {
   simulation_id: number;
@@ -60,7 +60,7 @@ export function GuardianSmsHistory({
   childId: number;
   guardianId: number;
 }) {
-  const client = useMemo(() => createClient(), []);
+  const sharedAuth = useAuth();
   const [owner, setOwner] = useState<string | null>(null);
   const [data, setData] = useState<History | null>(null);
   const [error, setError] = useState("");
@@ -72,7 +72,7 @@ export function GuardianSmsHistory({
 
   useEffect(() => {
     mounted.current = true;
-    let authEvent = 0;
+    const activeRequests = pending.current;
     const apply = (id: string | null) => {
       if (!mounted.current) return;
       if (ownerRef.current === id) {
@@ -92,46 +92,14 @@ export function GuardianSmsHistory({
       setError("");
       setLoading(Boolean(id));
     };
-    const initial = authEvent;
-    void client.auth
-      .getUser()
-      .then(
-        ({
-          data: authData,
-          error: authError,
-        }: {
-          data: { user: { id: string } | null };
-          error: unknown;
-        }) => {
-          if (!mounted.current || authEvent !== initial) return;
-          apply(authError ? null : (authData.user?.id ?? null));
-          if (authError || !authData.user) {
-            setLoading(false);
-            setError("Please sign in to view SMS history.");
-          }
-        },
-      )
-      .catch(() => {
-        if (mounted.current && authEvent === initial) {
-          setLoading(false);
-          setError("Unable to verify the session.");
-        }
-      });
-    const { data: subscription } = client.auth.onAuthStateChange(
-      (_event: AuthChangeEvent, session: Session | null) => {
-        authEvent++;
-        apply(session?.user.id ?? null);
-      },
-    );
-    const activeRequests = pending.current;
+    if(sharedAuth.isReady) apply(sharedAuth.user?.id ?? null);
     return () => {
       mounted.current = false;
       generation.current++;
       activeRequests.forEach((controller) => controller.abort());
       activeRequests.clear();
-      subscription.subscription.unsubscribe();
     };
-  }, [client]);
+  }, [sharedAuth.isReady, sharedAuth.user?.id]);
 
   const refresh = useCallback(async () => {
     if (!owner || ownerRef.current !== owner) return;

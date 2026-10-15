@@ -1,4 +1,5 @@
 'use client'
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 // Modal for changing a child's record status (ACTIVE / INACTIVE / MOVED / LOST / DECEASED).
 // Opens from the profile page. Posts to /api/children/[childId]/movement which flips

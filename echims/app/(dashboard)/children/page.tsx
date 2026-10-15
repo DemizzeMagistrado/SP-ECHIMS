@@ -1,4 +1,5 @@
 'use client'
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 // Children list page. Register uses the shared ChildFormModal.
 // Editing happens from the profile page (/children/[childId]), not from this list.
@@ -16,6 +17,7 @@ import { Plus, Search, X } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
+import { ChildDraftPanel } from '@/components/children/child-draft-panel'
 import { ChildFormModal } from '@/components/children/child-form-modal'
 import { useToast } from '@/components/ui/toast'
 
@@ -121,6 +123,7 @@ export default function ChildHealthPage() {
   return (
     <div className="space-y-6">
       <ModuleTabs parent="Child Profiling" role={role} />
+      {canRegister && <ChildDraftPanel onUploaded={() => mutate()} />}
 
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -236,6 +239,7 @@ export default function ChildHealthPage() {
       {registerOpen && canRegister && (
         <ChildFormModal
           mode="create"
+          onDraftSaved={() => {setRegisterOpen(false);showToast({type: 'success', message: 'Child draft saved on this device. Review it before uploading when online.'})}}
           onClose={() => setRegisterOpen(false)}
           onSaved={() => {
             setRegisterOpen(false)

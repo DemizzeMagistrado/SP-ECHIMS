@@ -1,4 +1,5 @@
 "use client";
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 // CHILD-USR003 — View Child Profile
 // Centralized profile view that pulls the child record, their linked guardian,
 // their household and barangay context, and every related health record
@@ -168,6 +169,9 @@ const fetcher = async (url: string) => {
   }
   if (!response.ok)
     throw new Error(data.error || "Unable to load the child profile.");
+  if(url.startsWith('/api/children?') && (!data || typeof data!=='object' || !data.child || !Number.isSafeInteger(Number(data.child.child_id)))) {
+    throw new Error('This saved child profile is incomplete. Reconnect and open the child online to refresh it.');
+  }
   return data;
 };
 function ageDescription(dob: string) {
@@ -426,6 +430,9 @@ export default function ChildProfilePage({
 }) {
   // Next 16 app-router: params is a Promise, unwrapped with React.use()
   const { childId } = use(params);
+  return <ChildProfileView childId={childId} />;
+}
+export function ChildProfileView({childId}: {childId: string}) {
   const parsedId = parseChildRouteId(childId);
   const { user, isReady } = useAuth();
   const role = user?.role as UserRole | undefined;

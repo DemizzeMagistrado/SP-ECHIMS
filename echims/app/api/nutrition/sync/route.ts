@@ -50,6 +50,7 @@ export async function PATCH(request: Request) {
   try {
     const { supabase, user } = await authenticate()
     if (!user) return fail('Unauthorized.', 401)
+    if (!await nutritionAccess(supabase, user.id)) return fail('Only active authorized BNS accounts can finalize this sync.', 403)
     const payload: unknown = await request.json().catch(() => null)
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return fail('Invalid sync result.', 400)
     const body = payload as Record<string, unknown>

@@ -9,8 +9,8 @@ export default function SettingsPage() {
   const { logout, user } = useAuth()
   const isAdmin = user?.role === 'Administrator'
 
-  function handleLogout() {
-    logout()
+  async function handleLogout() {
+    await logout()
     // replace (not assign) so the dashboard is overwritten in the browser history —
     // see sidebar.tsx for the full rationale.
     window.location.replace('/')
