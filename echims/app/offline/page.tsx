@@ -26,7 +26,6 @@ import SettingsPage from '@/app/(dashboard)/settings/page'
 import HealthActivitiesClient from '@/app/(dashboard)/health-activities/health-activities-client'
 import { ProfileErrorBoundary } from '@/components/offline/profile-error-boundary'
 import { SavedUserManagement } from '@/components/offline/saved-user-management'
-import { ModulePage } from '@/components/dashboard/module-page'
 const roles: Record<UserRole, Role> = { Administrator:'Administrator', 'Public Health Nurse':'PHN', 'Rural Health Midwife':'RHM', 'Barangay Health Worker':'BHW', 'Barangay Nutrition Scholar':'BNS' }
 
 export default function OfflinePage() {
@@ -62,7 +61,14 @@ export default function OfflinePage() {
   else if (path === '/health-activities') page = <HealthActivitiesClient/>
   else if (path === '/user-management') page = <SavedUserManagement/>
   else if (/^\/(settings|organization)(\/|$)/.test(path)) page = <SettingsPage/>
-  else page = <ModulePage slug={path.slice(1).split('/')}/>
+  else page = (
+  <section className="rounded-xl border border-sky-200 bg-white p-6">
+    <h1 className="text-xl font-semibold">Offline view unavailable</h1>
+    <p className="mt-2 text-sm text-slate-600">
+      Reconnect to open this page. Your saved drafts remain on this device.
+    </p>
+  </section>
+)
   return <OfflinePathContext.Provider value={path}><ToastProvider><div className="flex min-h-screen items-stretch bg-[#CAF0F8]">
     <Sidebar role={roles[user.role]} fullName={user.fullName}/>
     <div className="flex min-h-screen min-w-0 flex-1 flex-col"><TopNav/>

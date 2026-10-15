@@ -7,7 +7,7 @@ import type { AuthUser } from '@/components/auth/auth-provider'
 // Only explicit read endpoints are saved. No authentication, administration,
 // report generation/export, or mutation requests enter this cache.
 export function canSaveOfflineRead(path: string) {
-  return /^\/api\/(children(?:\/\d+\/(?:guardian-sms|vaccination-schedule|movement))?|guardians(?:\/\d+)?|households|barangays|rhus|psgc|notifications|alerts|nutrition(?:\/admissions)?|supplementation(?:\/(?:compliance|sms|stock-requests))?|vaccination\/(?:records|history|defaulters|schedule|batch-requests)|vaccines(?:\/catalog)?|health-activities(?:\/(?:options|personnel-options))?|sms\/reminders|reports)$/.test(path)
+  return /^\/api\/(dashboard\/summary|children(?:\/\d+\/(?:guardian-sms|vaccination-schedule|movement))?|guardians(?:\/\d+)?|households|barangays|rhus|psgc|notifications|alerts|nutrition(?:\/admissions)?|supplementation(?:\/(?:compliance|sms|stock-requests))?|vaccination\/(?:records|history|defaulters|schedule|batch-requests)|vaccines(?:\/catalog)?|health-activities(?:\/(?:options|personnel-options))?|sms\/reminders|reports)$/.test(path)
 }
 export function offlineScope(user: Pick<AuthUser, 'role' | 'rhu_id' | 'barangay_ids'>) {
   return JSON.stringify([user.role, user.rhu_id ?? '', [...(user.barangay_ids ?? [])].sort()])
