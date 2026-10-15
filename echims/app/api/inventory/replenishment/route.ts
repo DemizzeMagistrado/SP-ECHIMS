@@ -24,7 +24,7 @@ export async function GET(request: Request) {
       status, reason, remarks, approved_at, requested_by, approved_by,
       item_id, target_barangay_id,
       item:item(item_id, item_name, unit),
-      target_barangay:barangay!stock_request_target_barangay_id_fkey(barangay_id, barangay_name)
+      target_barangay:barangay!fk_stock_request_target_barangay(barangay_id, barangay_name)
     `)
     .eq('request_type', 'REPLENISHMENT')
     .order('request_date', { ascending: false })
