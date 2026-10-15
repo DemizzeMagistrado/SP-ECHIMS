@@ -43,7 +43,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     window.addEventListener('echims-offline-storage-error', storageError)
     document.addEventListener('click', navigate, true)
     if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
-      void navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' })
+      void navigator.serviceWorker.register('/offline-worker', { scope: '/', updateViaCache: 'none' })
         .catch(() => setError('Offline page preparation failed. Retry while online.'))
     }
     return () => {

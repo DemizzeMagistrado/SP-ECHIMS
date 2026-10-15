@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto'
 // Build the public /offline page before running this script. Never copy dashboard HTML.
 const shell=await readFile('.next/server/app/offline.html')
 if(shell.includes(Buffer.from('"accountStatus":"APPROVED"')))throw new Error('Refusing to precache a personalized shell.')
-const assetManifest=await getManifest({globDirectory:'.next/static',globPatterns:['**/*.{js,css,woff,woff2}'],maximumFileSizeToCacheInBytes:12*1024*1024,modifyURLPrefix:{'':'/_next/static/'}})
+const assetManifest=await getManifest({globDirectory:'.next/static',globPatterns:['**/*.{js,css,woff,woff2}'],globIgnores:['**/_*Manifest.js'],maximumFileSizeToCacheInBytes:12*1024*1024,modifyURLPrefix:{'':'/_next/static/'}})
 if(assetManifest.warnings.length)throw new Error(assetManifest.warnings.join('\n'))
 const htmlHash=createHash('sha256').update(shell).digest('hex')
 const additional=[...assetManifest.manifestEntries,{url:'/offline',revision:htmlHash}]
@@ -19,3 +19,11 @@ await writeFile('.next/echims-sw-source.js',source.replace('__BUILD__',buildId))
 const result=await injectManifest({swSrc:'.next/echims-sw-source.js',swDest:'public/sw.js',globDirectory:'public',globPatterns:[],additionalManifestEntries:additional,maximumFileSizeToCacheInBytes:12*1024*1024})
 if(result.warnings.length)throw new Error(result.warnings.join('\n'))
 console.log(`Offline public shell and ${result.count} public assets prepared.`)
+
+// Fail deployment if the worker endpoint cannot carry the generated file.
+const tracePath = '.next/server/app/offline-worker/route.js.nft.json'
+const trace = JSON.parse(await readFile(tracePath, 'utf8'))
+if (!trace.files.some(file => file.replaceAll('\\', '/').endsWith('/public/sw.js'))) {
+  throw new Error('Offline worker missing from route trace. Check outputFileTracingIncludes.')
+}
+console.log('Offline worker endpoint verified: current generated worker included in deployment.')

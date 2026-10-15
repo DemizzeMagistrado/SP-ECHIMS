@@ -3,7 +3,19 @@ const assets = self.__WB_MANIFEST;
 const CACHE = 'echims-public-__BUILD__';
 const urls = new Set(assets.map(x => new URL(x.url, self.location.origin).pathname));
 self.addEventListener('install', event => {
- event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(assets.map(x => x.url))));
+ event.waitUntil((async () => {
+  const cache = await caches.open(CACHE);
+  // Required assets must all succeed; report the exact failed URL.
+  let cursor = 0;
+  await Promise.all(Array.from({length: 4}, async () => {
+   while (cursor < assets.length) {
+    const asset = assets[cursor++];
+    const response = await fetch(asset.url, {cache: 'reload'});
+    if (!response.ok || response.redirected) throw new Error(`Offline preparation failed: ${asset.url} (HTTP ${response.status})`);
+    await cache.put(asset.url, response);
+   }
+  }));
+ })());
  // Do not skipWaiting: keep an open form on its current application version.
 });
 self.addEventListener('activate', event => {
