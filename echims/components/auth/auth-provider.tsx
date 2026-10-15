@@ -7,7 +7,8 @@ import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import type { UserRole } from "@/lib/echims-data";
 
 import { createClient } from "@/lib/supabase/client";
-import { saveIdentity, loadIdentity, forgetIdentity, type OfflineIdentity } from "@/lib/offline/store";
+import { enrollOfflineLogin, unlockOfflineLogin, revokeOfflineLogin } from '@/lib/offline/login-vault';
+import { saveIdentity, loadIdentity, loadActiveIdentity, clearActiveIdentity, isOfflineLocked, lockOfflineDevice, unlockOfflineDevice, forgetIdentity, type OfflineIdentity } from "@/lib/offline/store";
 
 /* =========================================================
 
@@ -382,18 +383,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function loadUser(authUser: User | null) {
       const turn = ++generation;
       let verifiedUser: AuthUser | null = null;
-      const apply = (next: AuthUser | null) => { if (mounted && turn === generation) setUser(next); };
+      const apply = (next: AuthUser | null) => { if (mounted && turn === generation) setUser(isOfflineLocked() ? null : next); };
       try {
-        if (!authUser) { apply(null); return; }
+        if (isOfflineLocked()) { apply(null); return; }
         if (!navigator.onLine) {
-          const cached = await loadIdentity(authUser.id);
+          const cached = await loadActiveIdentity();
+          // Offline password unlock selects the local owner. SDK session events
+          // may still contain an expired or different account and cannot replace it.
           apply(cached?.user ?? null);
           return;
         }
+        if (!authUser) { await clearActiveIdentity(); apply(null); return; }
         const { data: profile, error } = await Promise.race([supabase.rpc("get_my_profile").maybeSingle(), new Promise<never>((_,reject)=>window.setTimeout(()=>reject(new Error("Profile lookup timed out.")),10000))]);
         if (error) { apply(null); return; }
         verifiedUser = toAuthUser(authUser, profile as ProfileRow | null);
-        apply(verifiedUser);
         const response = await fetch('/api/offline/context', { cache: 'no-store', signal: AbortSignal.timeout(10000) });
         if (response.ok) {
           const identity = await response.json() as OfflineIdentity;
@@ -402,6 +405,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             apply(identity.user);
           }
         } else if (response.status === 401 || response.status === 403) {
+          await revokeOfflineLogin(authUser.id).catch(() => {});
           await forgetIdentity(authUser.id);
           apply(null);
         }
@@ -413,6 +417,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } finally { if (mounted && turn === generation) setIsReady(true); }
     }
     async function reload() {
+  if (isOfflineLocked()) { generation++; if (mounted) { setUser(null); setIsReady(true); } return; }
+  if (!navigator.onLine) { await loadUser(null); return; }
   async function sessionUser(): Promise<User | null> {
     if (navigator.onLine) {
       const result = await supabase.auth.getUser()
@@ -423,14 +429,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return result.data.session?.user ?? null
   }
 
-  let timeout: ReturnType<typeof window.setTimeout> | undefined
+  let timeout: number | undefined
 
   try {
     const authUser = await Promise.race<User | null>([
       sessionUser(),
 
       new Promise<never>((_, reject) => {
-        let timeout = window.setTimeout(() => {
+        timeout = window.setTimeout(() => {
           reject(new Error('Session lookup timed out.'))
         }, 10000)
       }),
@@ -451,12 +457,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void reload();
     const { data: listener } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
       // Do not await Supabase operations inside its auth callback.
-      if (event === 'SIGNED_OUT') { generation++; if(mounted){setUser(null);setIsReady(true);} }
+      if (event === 'SIGNED_OUT') { if (!navigator.onLine && !isOfflineLocked()) window.setTimeout(() => { if(mounted) void loadUser(null); }, 0); else { generation++; void clearActiveIdentity().catch(() => {}); if(mounted){setUser(null);setIsReady(true);} } }
       else window.setTimeout(() => { if(mounted) void loadUser(session?.user??null); },0);
     });
+    const storageChanged = () => { if (isOfflineLocked()) { generation++; if(mounted){setUser(null);setIsReady(true);} } };
+    window.addEventListener('storage', storageChanged);
     window.addEventListener('online', reload);
     window.addEventListener('offline', reload);
-    return () => {mounted=false;generation++;listener.subscription.unsubscribe();window.removeEventListener('online',reload);window.removeEventListener('offline',reload);};
+    return () => {mounted=false;generation++;listener.subscription.unsubscribe();window.removeEventListener('storage',storageChanged);window.removeEventListener('online',reload);window.removeEventListener('offline',reload);};
   }, [supabase]);
 
   const value = useMemo<AuthContextValue>(
@@ -476,6 +484,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ================================================= */
 
       login: async (email, password) => {
+        if (!navigator.onLine) {
+          try {
+            const identity=await unlockOfflineLogin(email,password);
+            unlockOfflineDevice();
+            await saveIdentity(identity);
+            setUser(identity.user);setIsReady(true);
+            return {};
+          } catch(error) {return {error:error instanceof Error?error.message:'Unable to sign in offline.'};}
+        }
 
         const { error } = await supabase.auth.signInWithPassword({
 
@@ -505,6 +522,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         }
 
+        unlockOfflineDevice();
+        try {
+          const response=await fetch('/api/offline/context',{cache:'no-store',signal:AbortSignal.timeout(10000)});
+          if(response.ok){
+            const identity=await response.json() as OfflineIdentity;
+            await saveIdentity(identity);
+            setUser(identity.user);
+            await enrollOfflineLogin(email,password,identity);
+          }
+        } catch(error) {console.warn('Offline sign-in was not prepared:',error instanceof Error?error.message:'Local storage unavailable.');}
         return {};
 
       },
@@ -516,6 +543,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ================================================= */
 
       register: async (form) => {
+        if (!navigator.onLine) return { error: "Reconnect to register an account. Registration is not queued offline." };
 
         try {
 
@@ -735,10 +763,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       logout: async () => {
 
-        if (user?.id) await forgetIdentity(user.id);
-        await supabase.auth.signOut({ scope: "local" });
-
+        lockOfflineDevice();
         setUser(null);
+        if (user?.id) await forgetIdentity(user.id).catch(() => {});
+        await clearActiveIdentity().catch(() => {});
+        // Local access is locked immediately, even if the auth service is offline.
+        await Promise.race([
+          supabase.auth.signOut({ scope: "local" }).catch(() => {}),
+          new Promise<void>(resolve => window.setTimeout(resolve, 1500)),
+        ]);
 
       },
 

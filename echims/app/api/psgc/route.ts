@@ -31,6 +31,33 @@ export async function GET(request: Request) {
   const level = url.searchParams.get('level')?.toLowerCase()
   const parent = url.searchParams.get('parent')
 
+  if (level === 'offline-reference') {
+    const account = await supabase.from('users').select('account_status').eq('user_id', user.id).maybeSingle()
+    if (account.error) return invalid('Unable to verify offline preparation access.', 500)
+    if (account.data?.account_status !== 'ACTIVE') return invalid('An active account is required.', 403)
+    const rows: unknown[] = []
+    let total: number | null = null
+    // An exact total and actual page lengths also handle a server row cap below 1,000.
+    for (let offset = 0; offset < 100000;) {
+      const result = await supabase.from('psgc_location')
+        .select('psgc_code,name,geographic_level,region_code,province_code,city_municipality_code', offset === 0 ? {count:'exact'} : {})
+        .order('psgc_code', {ascending:true}).range(offset, offset + 999)
+      if (result.error) return invalid('Unable to prepare location references.', 500)
+      if (offset === 0) {
+        total = result.count
+        if (total == null) return invalid('Unable to confirm the complete location reference.', 500)
+        if (total === 0) return invalid('No PSGC location reference is installed.', 503)
+        if (total > 100000) break
+      }
+      const page = result.data ?? []
+      if (!page.length) return invalid('Location preparation was incomplete. Please retry online.', 500)
+      rows.push(...page)
+      offset += page.length
+      if (rows.length === total) return NextResponse.json({currentUserId:user.id, rows}, {headers:{'Cache-Control':'private, no-store'}})
+      if (rows.length > total!) return invalid('The location reference changed during preparation. Retry online.', 409)
+    }
+    return invalid('Location reference exceeds the preparation limit; no partial reference was returned.', 500)
+  }
   if (!level) return invalid('level query param is required (regions|provinces|cities|barangays).')
 
   let query = supabase.from('psgc_location')

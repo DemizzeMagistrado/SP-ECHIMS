@@ -21,7 +21,9 @@ self.addEventListener('fetch', event => {
   if(url.pathname==='/offline')return (await caches.open(CACHE)).match('/offline').then(r=>r||fetch(request));
   try{return await fetch(request)}catch{
    // A document redirect keeps Next's /offline tree consistent with the address bar.
-   return Response.redirect(new URL('/offline',self.location.origin).href,302);
+   const fallback = new URL('/offline', self.location.origin);
+   fallback.searchParams.set('path', url.pathname + url.search);
+   return Response.redirect(fallback.href, 302);
   }
  })());
 });

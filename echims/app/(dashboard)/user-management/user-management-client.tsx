@@ -1,4 +1,5 @@
 'use client'
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import {
   useMemo,
@@ -47,6 +48,7 @@ type UserRow = {
 
 type UserManagementClientProps = {
   users: UserRow[]
+  readOnly?: boolean
 }
 
 /* =========================================================
@@ -55,6 +57,7 @@ type UserManagementClientProps = {
 
 export default function UserManagementClient({
   users,
+  readOnly = false,
 }: UserManagementClientProps) {
   const [
     selectedUser,
@@ -1270,6 +1273,7 @@ export default function UserManagementClient({
                         <button
                           type="button"
                           disabled={
+                            readOnly ||
                             processingUserId ===
                             selectedUser.user_id
                           }
@@ -1290,6 +1294,7 @@ export default function UserManagementClient({
                         <button
                           type="button"
                           disabled={
+                            readOnly ||
                             processingUserId ===
                               selectedUser.user_id ||
                             !selectedUserHasWorkplace
@@ -1330,6 +1335,7 @@ export default function UserManagementClient({
                         <button
                           type="button"
                           disabled={
+                            readOnly ||
                             processingUserId ===
                             selectedUser.user_id
                           }
@@ -1350,6 +1356,7 @@ export default function UserManagementClient({
                         <button
                           type="button"
                           disabled={
+                            readOnly ||
                             processingUserId ===
                             selectedUser.user_id
                           }
@@ -1395,6 +1402,7 @@ export default function UserManagementClient({
                         <button
                           type="button"
                           disabled={
+                            readOnly ||
                             processingUserId ===
                               selectedUser.user_id ||
                             !selectedUserHasWorkplace
@@ -1434,6 +1442,7 @@ export default function UserManagementClient({
                         <button
                           type="button"
                           disabled={
+                            readOnly ||
                             processingUserId ===
                               selectedUser.user_id ||
                             !selectedUserHasWorkplace
@@ -1455,6 +1464,7 @@ export default function UserManagementClient({
                         <button
                           type="button"
                           disabled={
+                            readOnly ||
                             processingUserId ===
                             selectedUser.user_id
                           }

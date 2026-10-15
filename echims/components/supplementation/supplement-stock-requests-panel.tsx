@@ -1,4 +1,5 @@
 "use client";
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useEffect, useRef, useState } from "react";
 import { Package, X } from "lucide-react";
 type Product = { supplement_id: number; name: string; unit: string };

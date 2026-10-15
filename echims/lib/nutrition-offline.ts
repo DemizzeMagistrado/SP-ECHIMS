@@ -1,5 +1,7 @@
 'use client'
 
+import { loadIdentity } from '@/lib/offline/store'
+import { offlineScope } from '@/lib/offline/fetch'
 import { createClient } from '@/lib/supabase/client'
 
 export type NutritionPayload = {
@@ -70,11 +72,15 @@ async function transact<T>(store: 'snapshots' | 'queue', mode: IDBTransactionMod
 
 export async function saveSnapshot<T extends { currentUserId: string }>(ownerId: string, data: T) {
   if (data.currentUserId !== ownerId) throw new Error('The snapshot belongs to a different account.')
-  await transact('snapshots', 'readwrite', (store) => store.put({ ownerId, savedAt: new Date().toISOString(), data }))
+  const identity = await loadIdentity(ownerId)
+  if (!identity) throw new Error('Prepare this account online before caching nutrition records.')
+  await transact('snapshots', 'readwrite', (store) => store.put({ ownerId, scope: offlineScope(identity.user), savedAt: new Date().toISOString(), data }))
 }
 export async function loadSnapshot<T>(ownerId: string): Promise<T | null> {
-  const row = await transact<{ ownerId: string; data: T } | undefined>('snapshots', 'readonly', (store) => store.get(ownerId))
-  return row?.ownerId === ownerId ? row.data : null
+  const identity = await loadIdentity(ownerId)
+  if (!identity) return null
+  const row = await transact<{ ownerId: string; scope?: string; data: T } | undefined>('snapshots', 'readonly', (store) => store.get(ownerId))
+  return row?.ownerId === ownerId && row.scope === offlineScope(identity.user) ? row.data : null
 }
 export async function removeSnapshot(ownerId: string) {
   await transact('snapshots', 'readwrite', (store) => store.delete(ownerId))

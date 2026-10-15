@@ -1,4 +1,9 @@
 'use client'
+import { useAuth } from '@/components/auth/auth-provider'
+import { offlineScope } from '@/lib/offline/fetch'
+import { submitSafeDraft } from '@/lib/offline/safe-submit'
+import { listActivityDrafts,saveActivityDraft,deleteActivityDraft,type ActivityDraft } from '@/lib/activity-drafts'
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import {
   AlertTriangle,
@@ -19,6 +24,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useRef,
 } from 'react'
 
 import HealthActivityCalendar from './health-activity-calendar'
@@ -368,6 +374,12 @@ function ActivityDetailsModal({
 ========================================================= */
 
 export default function HealthActivitiesClient() {
+ const {user,isReady}=useAuth()
+ if(!isReady)return <p>Checking account…</p>
+ if(!user)return <p>Please sign in to view health activities.</p>
+ return <ActivityWorkspace key={user.id+':'+offlineScope(user)}/>
+}
+function ActivityWorkspace() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null)
   const [statusActivity, setStatusActivity] = useState<Activity | null>(null)
@@ -530,6 +542,8 @@ export default function HealthActivitiesClient() {
             </button>
           )}
         </div>
+
+        <div className="mb-7"><ActivityDraftPanel onUploaded={() => void loadActivities()}/></div>
 
         {/* SUMMARY */}
 
@@ -1464,11 +1478,19 @@ function RequestActivityModal({
   role,
   onClose,
   onCreated,
+  draft,
 }: {
+  draft?: ActivityDraft
   role: HealthWorkerRole
   onClose: () => void
   onCreated: (evaluation?: RuleEvaluation) => void
 }) {
+  const {user}=useAuth()
+  const [online,setOnline]=useState<boolean|null>(null)
+  useEffect(()=>{const update=()=>setOnline(navigator.onLine);update();window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update)}},[])
+  const formRef=useRef<HTMLFormElement>(null)
+  const requestId=useRef(draft?.requestId??'')
+  const [reviewed,setReviewed]=useState(false)
   const [barangays, setBarangays] = useState<Barangay[]>([])
   const [loadingOptions, setLoadingOptions] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -1526,8 +1548,20 @@ function RequestActivityModal({
     }
   }, [])
 
+  async function saveLocal(){
+    if(submitting||!formRef.current)return
+    setSubmitting(true);setError('')
+    try{
+      if(!user)throw new Error('Sign in before saving a draft.')
+      if(!requestId.current)requestId.current=crypto.randomUUID()
+      const form=Object.fromEntries(new FormData(formRef.current).entries()) as Record<string,string>
+      await saveActivityDraft({requestId:requestId.current,ownerId:user.id,scope:offlineScope(user),savedAt:new Date().toISOString(),status:'DRAFT',form})
+      onClose()
+    }catch(e){setError(e instanceof Error?e.message:'Draft was not saved.')}finally{setSubmitting(false)}
+  }
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if(!navigator.onLine){await saveLocal();return}
 
     if (loadingOptions || barangays.length === 0) return
 
@@ -1537,6 +1571,11 @@ function RequestActivityModal({
     const formData = new FormData(event.currentTarget)
 
     try {
+      if(draft){
+        if(!reviewed)throw new Error('Review and confirm this request before uploading.')
+        const data=await submitSafeDraft('ACTIVITY',{...draft,form:Object.fromEntries(formData.entries()) as Record<string,string>},{activityType:formData.get('activityType'),barangayId:Number(formData.get('barangayId')),scheduleDate:formData.get('scheduleDate'),startTime:formData.get('startTime'),endTime:formData.get('endTime'),remarks:formData.get('remarks')})
+        onCreated(data.ruleEvaluation);return
+      }
       const response = await fetch('/api/health-activities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1568,7 +1607,7 @@ function RequestActivityModal({
 
   return (
     <ModalShell title="Request Health Activity" onClose={onClose}>
-      <form onSubmit={handleSubmit} className="grid gap-4">
+      <form ref={formRef} onSubmit={handleSubmit} className="grid gap-4">
         <div className="rounded-2xl bg-[#f1fbfd] px-3 py-3">
           <p className="text-xs font-medium uppercase text-slate-400">
             Requesting as
@@ -1577,7 +1616,7 @@ function RequestActivityModal({
         </div>
 
         <Field label="Activity Type">
-          <select name="activityType" required className={inputClass}>
+          <select name="activityType" defaultValue={String(draft?.form.activityType??'')} required className={inputClass}>
             <option value="">Select activity</option>
 
             {availableActivityTypes.map((item) => (
@@ -1590,7 +1629,7 @@ function RequestActivityModal({
 
         <Field label="Barangay">
           <select
-            name="barangayId"
+            name="barangayId" defaultValue={String(draft?.form.barangayId??'')}
             required
             disabled={loadingOptions || barangays.length === 0}
             className={inputClass}
@@ -1628,7 +1667,7 @@ function RequestActivityModal({
         <Field label="Date">
           <input
             type="date"
-            name="scheduleDate"
+            name="scheduleDate" defaultValue={String(draft?.form.scheduleDate??'')}
             min={minDate}
             required
             className={inputClass}
@@ -1637,22 +1676,24 @@ function RequestActivityModal({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Start Time">
-            <input type="time" name="startTime" required className={inputClass} />
+            <input type="time" name="startTime" defaultValue={String(draft?.form.startTime??'')} required className={inputClass} />
           </Field>
 
           <Field label="End Time">
-            <input type="time" name="endTime" required className={inputClass} />
+            <input type="time" name="endTime" defaultValue={String(draft?.form.endTime??'')} required className={inputClass} />
           </Field>
         </div>
 
         <Field label="Remarks">
           <textarea
-            name="remarks"
+            name="remarks" defaultValue={String(draft?.form.remarks??'')}
             placeholder="Activity details or notes"
             className={textareaClass}
           />
         </Field>
 
+        <p className="text-sm text-amber-800">{online===false?'Save on this device, then review and submit after reconnecting. A draft does not reserve a schedule.':'Requests are checked against current scheduling rules when submitted.'}</p>
+        {draft&&online===true&&<label className="flex gap-2 text-sm"><input type="checkbox" checked={reviewed} onChange={e=>setReviewed(e.target.checked)}/>I reviewed the date, time, activity and barangay.</label>}
         {error && <ErrorBox>{error}</ErrorBox>}
 
         <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -1665,14 +1706,15 @@ function RequestActivityModal({
             Cancel
           </button>
 
-          <button
+          {online===false && <button type="button" disabled={submitting} onClick={()=>void saveLocal()} className="rounded-full border border-sky-600 px-4 py-2 text-sm font-bold text-sky-800">Save Draft on Device</button>}
+          {online===true && <button
             type="submit"
-            disabled={submitting || loadingOptions || barangays.length === 0}
+            disabled={submitting || loadingOptions || barangays.length === 0 || Boolean(draft&&!reviewed)}
             className="inline-flex items-center justify-center gap-2 rounded-full bg-[#087db9] px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-[#056d9e] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting && <Loader2 size={16} className="animate-spin" />}
-            {submitting ? 'Submitting...' : 'Submit Request'}
-          </button>
+            {submitting ? 'Submitting...' : draft?'Submit Reviewed Request':'Submit Request'}
+          </button>}
         </div>
       </form>
     </ModalShell>
@@ -2024,4 +2066,17 @@ function ActionButton({
       {label}
     </button>
   )
+}
+function ActivityDraftPanel({onUploaded}:{onUploaded:()=>void}){
+ const {user}=useAuth(),scope=user?offlineScope(user):''
+ const [online,setOnline]=useState(true),[showReview,setShowReview]=useState(false)
+ useEffect(()=>{const update=()=>setOnline(navigator.onLine);update();window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update)}},[])
+ const [rows,setRows]=useState<ActivityDraft[]>([]),[selected,setSelected]=useState<ActivityDraft|null>(null),[error,setError]=useState('')
+ useEffect(()=>{let active=true;const refresh=()=>{if(user)void listActivityDrafts(user.id,scope).then(r=>{if(active)setRows(r)}).catch(e=>{if(active)setError(e.message)})};refresh();window.addEventListener('echims-activity-drafts',refresh);return()=>{active=false;window.removeEventListener('echims-activity-drafts',refresh)}},[user?.id,scope])
+ const aliases:Record<string,HealthWorkerRole>={'Public Health Nurse':'PHN','Rural Health Midwife':'RHM','Barangay Health Worker':'BHW','Barangay Nutrition Scholar':'BNS'}
+ const role=user?aliases[user.role]:undefined
+ if(!role)return null
+ return <section aria-label="Offline activity queue" className="space-y-3 rounded-xl border border-sky-200 bg-sky-50 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">{online?'Pending offline drafts':'Offline'} · {rows.length} local draft{rows.length===1?'':'s'}</h2><p className="text-xs text-muted-foreground">Drafts stay on this device until you review and confirm submission. Scheduling rules are checked online.</p></div><button type="button" disabled={rows.length===0} onClick={()=>setShowReview(v=>!v)} className="rounded-lg border border-border bg-white px-3 py-2 text-sm disabled:opacity-50">{showReview?'Hide pending drafts':'Review pending drafts'}</button></div>{error&&<p role="alert">{error}</p>}
+ {showReview&&rows.map(row=><div key={row.requestId} className="flex flex-wrap justify-between gap-2 rounded-lg bg-white p-3 text-sm"><span>{String(row.form.activityType||'Activity draft')} · {String(row.form.scheduleDate||'Date incomplete')}{row.status==='UNCERTAIN'?(row.safeRetry?' — Submission uncertain. Retry the same request safely.':' — Older uncertain request needs reconciliation.'):''}</span>{row.status==='UNCERTAIN'&&row.safeRetry&&<button onClick={async()=>{try{await submitSafeDraft('ACTIVITY',row);onUploaded()}catch(e){setError(e instanceof Error?e.message:'Retry failed.')}}}>Retry unchanged submission</button>}{row.status==='DRAFT'&&<div className="flex gap-3"><button onClick={()=>setSelected(row)}>Review / Edit</button><button onClick={async()=>{if(window.confirm('Delete this local activity draft?'))try{await deleteActivityDraft(row)}catch(e){setError(e instanceof Error?e.message:'Unable to delete draft.')}}}>Delete draft</button></div>}</div>)}
+ {selected&&selected.ownerId===user?.id&&selected.scope===scope&&<RequestActivityModal key={selected.requestId} role={role} draft={selected} onClose={()=>setSelected(null)} onCreated={()=>{setSelected(null);onUploaded()}}/>}</section>
 }

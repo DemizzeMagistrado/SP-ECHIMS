@@ -1,4 +1,5 @@
 'use client'
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 // NIP-USR010 — PHN review modal for a single batch request.
 // Shows the full request detail and gives Approve / Reject buttons.

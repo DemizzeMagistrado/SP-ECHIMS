@@ -8,9 +8,11 @@ const assetManifest=await getManifest({globDirectory:'.next/static',globPatterns
 if(assetManifest.warnings.length)throw new Error(assetManifest.warnings.join('\n'))
 const htmlHash=createHash('sha256').update(shell).digest('hex')
 const additional=[...assetManifest.manifestEntries,{url:'/offline',revision:htmlHash}]
-for(const icon of ['offline-icon.svg','icon.svg','sidebar-logo.png','apple-icon.png']){
+for(const icon of ['offline-icon.svg','icon.svg','sidebar-logo.png','apple-icon.png','landing-logo.png','login-logo.png','logo.png','icon-light-32x32.png','icon-dark-32x32.png']){
  try{const bytes=await readFile('public/'+icon);additional.push({url:'/'+icon,revision:createHash('sha256').update(bytes).digest('hex')})}catch{}
 }
+const manifest=await readFile('.next/server/app/manifest.webmanifest.body')
+additional.push({url:'/manifest.webmanifest',revision:createHash('sha256').update(manifest).digest('hex')})
 const source=await readFile('scripts/sw-source.js','utf8')
 const buildId=createHash('sha256').update(JSON.stringify(additional)).digest('hex')
 await writeFile('.next/echims-sw-source.js',source.replace('__BUILD__',buildId))

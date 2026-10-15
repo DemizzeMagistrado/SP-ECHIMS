@@ -1,4 +1,6 @@
 'use client'
+import { SystemOfflineTools } from '@/components/offline/system-offline-tools'
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import {
 
@@ -28,7 +30,7 @@ import {
 
 } from 'react'
 
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/lib/offline/navigation'
 
 type Notification = {
 
@@ -54,7 +56,7 @@ type Notification = {
 }
 
 function notificationTarget(item: Notification): { href: string; label: string } | null {
-  if (item.source_module === 'SUPPLEMENTATION'
+  if (['SUPPLEMENTATION', 'VACCINATION', 'NUTRITION'].includes(item.source_module ?? '')
       && typeof item.child_id === 'number'
       && Number.isSafeInteger(item.child_id)
       && item.child_id > 0) {
@@ -403,9 +405,9 @@ export function TopNav() {
     const target = notificationTarget(item)
     if (!target) return
 
-    if (item.status === 'UNREAD') {
+    if (item.status === 'UNREAD' && navigator.onLine) {
 
-      const updated = await updateNotifications({
+      await updateNotifications({
 
         alertId: item.alert_id,
 
@@ -413,7 +415,6 @@ export function TopNav() {
 
       })
 
-      if (!updated) return
 
     }
 
@@ -820,19 +821,7 @@ export function TopNav() {
 
         </div>
 
-        {/* Existing sync status */}
-
-        <div className="flex items-center gap-2 rounded-lg bg-[#F3F4F6] px-3 py-2">
-
-          <div className="size-2 animate-pulse rounded-full bg-[#10B981]" />
-
-          <span className="text-xs font-medium text-[#6B7280]">
-
-            Synced
-
-          </span>
-
-        </div>
+        <SystemOfflineTools />
 
       </div>
 

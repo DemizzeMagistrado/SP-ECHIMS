@@ -1,4 +1,5 @@
 'use client'
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 // Vaccination module — all sections merged into one page (one route).
 // Sections: Records · Schedule · Defaulters · SMS Reminders · NIP Catalog · Batch Requests.
@@ -6,12 +7,12 @@
 // Only the active section is mounted, so only its API calls fire.
 
 import React, { Fragment, useEffect, useMemo, useState } from 'react'
-import { mutate as globalMutate } from 'swr'
+import { refreshOfflineViews as globalMutate } from '@/lib/offline/refresh'
 import { useVaccinationView } from '@/hooks/use-vaccination-view'
 import { vaccinationKeyMatches } from '@/lib/vaccination-cache'
 import { VaccinationOfflineTools, VaccinationSnapshotNotice } from '@/components/vaccination/vaccination-offline-tools'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname } from '@/lib/offline/navigation'
 import {
   Plus, Package, AlertCircle, Hash, MapPin, CalendarClock, CheckCircle2, Clock, XCircle,
   Pencil, Power, Syringe, Eye, History, ChevronDown, ChevronRight, BookOpen, Shield, Info,
@@ -211,6 +212,8 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
           </button>
         )}
       </div>
+
+      <VaccinationOfflineTools />
 
       {/* Filters */}
       <fieldset disabled={readOnly}>
@@ -1113,7 +1116,7 @@ function SmsSection() {
         <h1 className="text-3xl font-bold">Vaccination SMS Reminders</h1>
         <p className="mt-1 text-muted-foreground">Guardian messages and presentation simulation history</p>
       </div>
-      {online ? <VaccinationSmsPanel /> : <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">SMS sending and simulation require an online session. SMS history caching is not connected in this patch.</p>}
+      <VaccinationSmsPanel online={online}/>
     </div>
   )
 }
@@ -1780,7 +1783,6 @@ export default function VaccinationPage() {
             {t.label}
           </button>
         ))}
-        <VaccinationOfflineTools />
       </div>
 
       {active === 'records' && <RecordsSection key={user?.id} onGoToSchedule={() => setTab('schedule')} />}

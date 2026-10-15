@@ -1,4 +1,5 @@
 "use client";
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import {
   useEffect,
   useMemo,
@@ -8,13 +9,12 @@ import {
   type ReactNode,
 } from "react";
 import useSWR from "swr";
-import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import { useAuth } from "@/components/auth/auth-provider";
 import Link from "next/link";
 import { NutritionAdmissionPanel } from "@/components/nutrition/nutrition-admission-panel";
 import { NutritionRiskMonitor } from "@/components/nutrition/nutrition-risk-monitor";
 import type { RiskMonitoring } from "@/lib/nutrition-risk";
 import {
-  getNutritionBrowserClient,
   saveSnapshot,
   loadSnapshot,
   removeSnapshot,
@@ -1136,6 +1136,7 @@ function ClassificationList({
   );
 }
 export default function NutritionPage() {
+  const sharedAuth = useAuth();
   const [category, setCategory] = useState("All");
   const [history, setHistory] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -1865,45 +1866,9 @@ export default function NutritionPage() {
       }
       setAuthReady(true);
     };
-    try {
-      const client = getNutritionBrowserClient();
-      let authEventReceived = false;
-      const { data: subscription } = client.auth.onAuthStateChange(
-        (_event: AuthChangeEvent, session: Session | null) => {
-          authEventReceived = true;
-          applySession(session?.user.id ?? null);
-        },
-      );
-      void client.auth
-        .getSession()
-        .then(
-          ({ data: sessionData }: { data: { session: Session | null } }) => {
-            if (!authEventReceived)
-              applySession(sessionData.session?.user.id ?? null);
-          },
-        )
-        .catch(() => {
-          if (alive) {
-            setAuthReady(true);
-            setStorageError("Unable to load the signed-in session.");
-          }
-        });
-      return () => {
-        alive = false;
-        subscription.subscription.unsubscribe();
-      };
-    } catch (problem) {
-      setAuthReady(true);
-      setStorageError(
-        problem instanceof Error
-          ? problem.message
-          : "Unable to initialize the session.",
-      );
-      return () => {
-        alive = false;
-      };
-    }
-  }, []);
+    if (sharedAuth.isReady) applySession(sharedAuth.user?.id ?? null);
+    return () => { alive = false; };
+  }, [sharedAuth.isReady, sharedAuth.user?.id]);
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
     update();

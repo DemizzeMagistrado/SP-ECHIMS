@@ -1,4 +1,5 @@
 'use client'
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 // NIP-USR004 — Immunization history section (replaces the inline Vaccination History
 // SectionCard on the child profile page). Shows:
 //   - "Next due" callout (overdue first, then due)

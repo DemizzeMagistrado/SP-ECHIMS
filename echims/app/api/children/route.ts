@@ -77,6 +77,13 @@ export async function GET(request: Request) {
   const { data, error } = await query;
   if (error) return invalid("Unable to load child records.", 500);
   const rows = data ?? [];
+  if (new URL(request.url).searchParams.get("view") === "vaccination-options") {
+    if (!auth.role || !canPerform(auth.role, "Vaccination", "view")) return invalid("Vaccination access is required.", 403);
+    const account = await auth.supabase.from("users").select("account_status").eq("user_id", auth.user.id).maybeSingle();
+    if (account.error) return invalid("Unable to verify vaccination access.", 500);
+    if (account.data?.account_status !== "ACTIVE") return invalid("An active account is required.", 403);
+    return NextResponse.json({currentUserId: auth.user.id, children: rows}, {headers: {"Cache-Control": "private, no-store"}});
+  }
   if (childId) {
     const child = rows[0];
     if (!child) return invalid("Child could not be found.", 404);

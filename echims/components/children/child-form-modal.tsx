@@ -1,4 +1,5 @@
 "use client";
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 // Shared Child registration + edit modal.
 // Used by:
@@ -6,9 +7,14 @@
 //   - /children/[childId] (profile page) in 'edit' mode when Edit profile is clicked
 // Keeps all form state local so the parent page just toggles mounting + listens for onSaved.
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, useRef } from "react";
 import useSWR from "swr";
 import { X } from "lucide-react";
+import { useAuth } from '@/components/auth/auth-provider'
+import { offlineScope } from '@/lib/offline/fetch'
+import { submitSafeDraft } from '@/lib/offline/safe-submit'
+import { saveChildDraft, type ChildRegistrationDraft } from '@/lib/child-registration-drafts'
+
 // CP-USR002 — Structured 4-level dropdown for Birth place (region → brgy).
 import { PhilippineAddressPicker } from "@/components/children/philippine-address-picker";
 
@@ -327,17 +333,26 @@ export function ChildFormModal({
   onClose,
   onSaved,
   onError,
+  draft,
+  onDraftSaved,
 }: {
+  draft?: ChildRegistrationDraft;
+  onDraftSaved?: () => void;
   mode: Mode;
   childId?: number | null;
   onClose: () => void;
   onSaved: () => void;
   onError?: (message: string) => void;
 }) {
-  const [form, setForm] = useState<FormState>({ ...emptyForm });
-  const [newGuardian, setNewGuardian] = useState(false);
+  const { user } = useAuth()
+  const [online,setOnline]=useState(true)
+  useEffect(()=>{const update=()=>setOnline(navigator.onLine);update();window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update)}},[])
+  const draftId=useRef(draft?.requestId ?? '')
+  const [reviewed,setReviewed]=useState(false)
+  const [form, setForm] = useState<FormState>({ ...emptyForm, ...draft?.form });
+  const [newGuardian, setNewGuardian] = useState(draft?.newGuardian ?? false);
   const [originalGuardianContact, setOriginalGuardianContact] = useState("");
-  const [newHousehold, setNewHousehold] = useState(false);
+  const [newHousehold, setNewHousehold] = useState(draft?.newHousehold ?? false);
   const [householdQuery, setHouseholdQuery] = useState("");
   const [guardianQuery, setGuardianQuery] = useState("");
   const [message, setMessage] = useState("");
@@ -457,8 +472,25 @@ export function ChildFormModal({
     return resolved;
   }
 
+  async function saveLocalDraft() {
+    if(saving)return
+    setMessage('');setSaving(true)
+    try {
+      if(!user)throw new Error('Sign in online once before using local child drafts.')
+      if(draft?.status==='UNCERTAIN')throw new Error('This upload needs reconciliation before the draft can be changed.')
+      if(!draftId.current)draftId.current=crypto.randomUUID()
+      await saveChildDraft({requestId:draftId.current,ownerId:user.id,scope:offlineScope(user),savedAt:new Date().toISOString(),form:{...form},newGuardian,newHousehold,status:'DRAFT'})
+      setMessage('Draft saved on this device. Reopen it from Child registration drafts, review and upload when online.')
+      onDraftSaved?.()
+    } catch(error) {
+      const detail=error instanceof Error?error.message:'Local storage failed.'
+      setMessage('Child draft was not saved: '+detail);onError?.('Child draft was not saved: '+detail)
+    } finally {setSaving(false)}
+  }
+
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if(mode==='create' && !navigator.onLine){await saveLocalDraft();return}
     setMessage("");
     const months = ageInMonths(String(form.date_of_birth));
     if (
@@ -475,7 +507,7 @@ export function ChildFormModal({
       onError?.(msg);
       return;
     }
-    if (months < 0 || months > 59) {
+    if (!Number.isFinite(months) || months < 0 || months > 59 || String(form.date_of_birth) > new Date().toISOString().slice(0,10)) {
       const msg = "Child must be between 0 and 59 months old.";
       setMessage(msg);
       onError?.(msg);
@@ -503,6 +535,14 @@ export function ChildFormModal({
     try {
       const resolved = resolveOthers(form);
       let r: Response;
+      if(mode==='create' && (!navigator.onLine || draft)) {
+        if(!user)throw new Error('Sign in before saving a local draft.')
+        if(draft?.status==='UNCERTAIN')throw new Error('Check server records before resolving this uncertain upload. Do not submit it again.')
+        const row:ChildRegistrationDraft={requestId:draft?.requestId??crypto.randomUUID(),ownerId:user.id,scope:offlineScope(user),savedAt:new Date().toISOString(),form:{...form},newGuardian,newHousehold,status:'DRAFT'}
+        if(!navigator.onLine){await saveChildDraft(row);onDraftSaved?.();return}
+        if(!reviewed)throw new Error('Review the complete form and confirm before uploading.')
+
+      }
       if (mode === "edit" && childId) {
         r = await fetch("/api/children", {
           method: "PATCH",
@@ -539,6 +579,10 @@ export function ChildFormModal({
               }
             : undefined,
         };
+        if(draft){
+          await submitSafeDraft('CHILD',{...draft,form:{...form},newGuardian,newHousehold},body)
+          onSaved();return
+        }
         r = await fetch("/api/children", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -591,6 +635,10 @@ export function ChildFormModal({
           </p>
         )}
 
+        {mode==='create' && (!online || draft) && <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+          {!online ? 'Save on this device as a draft. Reconnect, reopen it and review before uploading. This is not a registered server record yet.' : 'Review all child, household, guardian and profiling fields before uploading. Uploading is manual.'}
+          {draft && online && <label className="mt-2 flex gap-2"><input type="checkbox" checked={reviewed} onChange={e=>setReviewed(e.target.checked)}/>I reviewed these details and checked for an existing child record.</label>}
+        </div>}
         <Section title="Child Information">
           <Field
             label="First name"
@@ -1036,7 +1084,8 @@ export function ChildFormModal({
           </fieldset>
         </Section>
 
-        <div className="flex justify-end gap-3 border-t border-border pt-5">
+        <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-5">
+          {mode==='create' && <button type="button" disabled={saving} onClick={saveLocalDraft} className="rounded-lg border border-primary px-4 py-2 font-semibold text-primary hover:bg-sky-50 disabled:opacity-60">{saving?'Saving...':'Save Draft on Device'}</button>}
           <button
             type="button"
             onClick={onClose}
@@ -1045,14 +1094,16 @@ export function ChildFormModal({
             Cancel
           </button>
           <button
-            disabled={saving}
+            type="submit"
+            hidden={mode==='create' && !online}
+            disabled={saving || Boolean(draft && online && !reviewed)}
             className="rounded-lg bg-primary px-5 py-2 text-white disabled:opacity-60"
           >
             {saving
               ? "Saving..."
               : mode === "edit"
                 ? "Save Changes"
-                : "Save Child Record"}
+                : !online ? "Save Draft on Device" : draft ? "Upload Reviewed Draft" : "Save Child Record"}
           </button>
         </div>
       </form>

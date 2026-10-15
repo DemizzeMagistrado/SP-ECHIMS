@@ -1,4 +1,5 @@
 'use client'
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 
 
@@ -223,7 +224,7 @@ export function RecordVaccinationModal({ open, onClose, onSaved, ownerId, prefil
 
 
 
-  const childrenSWR = useSWR<{ children: ChildRef[] }>(open ? '/api/children' : null, fetcher)
+  const childrenSWR = useSWR<{ children: ChildRef[] }>(open ? '/api/children?view=vaccination-options' : null, fetcher)
 
   const vaccinesSWR = useSWR<{ vaccines: VaccineRef[] }>(open ? '/api/vaccines' : null, fetcher)
 
@@ -667,6 +668,7 @@ export function RecordVaccinationModal({ open, onClose, onSaved, ownerId, prefil
 
                   >
 
+                    {childrenSWR.error && <p role="alert" className="px-3 py-2 text-xs text-rose-700">{childrenSWR.error.message}</p>}
                     {childrenSWR.isLoading && (
 
                       <div className="px-3 py-3 text-sm text-muted-foreground">Loading…</div>

@@ -14,6 +14,7 @@ export default function ForgotPasswordPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!navigator.onLine) { setError('Reconnect to request a password reset.'); return }
 
     setError('')
     setLoading(true)
@@ -51,7 +52,7 @@ export default function ForgotPasswordPage() {
         <section className="hidden w-1/2 flex-col justify-between bg-gradient-to-br from-[#123C82] to-[#087DB9] p-14 text-white lg:flex">
           <div>
             <img
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/echimes%20white%20and%20blue-gtjr6RbRtIsj4rnx93fDvsrSwRYq5X.png"
+              src="/login-logo.png"
               alt="eCHIMS logo"
               width={430}
               height={120}

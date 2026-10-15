@@ -1,4 +1,5 @@
 'use client'
+import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { Activity, AlertCircle, Apple, Baby, Clock, Package, Syringe } from 'lucide-react'
 import Link from 'next/link'
 import useSWR from 'swr'

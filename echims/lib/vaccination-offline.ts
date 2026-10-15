@@ -1,5 +1,6 @@
 'use client'
 import { createClient } from '@/lib/supabase/client'
+import { loadActiveIdentity, isOfflineLocked } from '@/lib/offline/store'
 export type VaccinationPayload={child_id:number;vaccine_id:number;dose_number:number;vaccination_date:string;batch_number:string|null;vaccination_site:string|null;remarks:string|null;schedule_id:number|null;client_request_id:string}
 export type QueuedVaccination={key:string;ownerId:string;requestId:string;childName:string;vaccineLabel:string;queuedAt:string;status:'PENDING'|'BLOCKED';lastError:string|null;payload:VaccinationPayload}
 const DB_NAME='echims-vaccination-offline-v1', STORE='queue'
@@ -37,6 +38,26 @@ export async function queueVaccinationDraft(ownerId:string,payload:VaccinationPa
 }
 export async function listQueuedVaccinations(ownerId:string):Promise<QueuedVaccination[]>{const rows=await tx<QueuedVaccination[]>('readonly',s=>s.index('ownerId').getAll(ownerId));return rows.filter(x=>x.ownerId===ownerId&&x.key===keyOf(ownerId,x.requestId)).sort((a,b)=>a.queuedAt.localeCompare(b.queuedAt))}
 export async function removeQueuedVaccination(ownerId:string,requestId:string){await tx('readwrite',s=>s.delete(keyOf(ownerId,requestId)));window.dispatchEvent(new CustomEvent('echims-vaccination-queue'))}
+// User deletion is limited to rejected/conflicting local entries. An uncertain
+// pending upload must retain its request ID until the server acknowledges it.
+export async function discardBlockedVaccinationDraft(ownerId:string,requestId:string){
+ const identity=await loadActiveIdentity()
+ if(!identity||identity.user.id!==ownerId||isOfflineLocked())throw new Error('Sign in with the account that recorded this draft.')
+ const db=await openDb()
+ await new Promise<void>((resolve,reject)=>{
+  const t=db.transaction(STORE,'readwrite'),s=t.objectStore(STORE),r=s.get(keyOf(ownerId,requestId));let failure='Unable to delete this local draft.'
+  r.onsuccess=()=>{
+   const row=r.result as QueuedVaccination|undefined
+   if(isOfflineLocked()){failure='Sign in again before deleting a draft.';t.abort();return}
+   if(!row)return
+   if(row.ownerId!==ownerId||row.requestId!==requestId||row.key!==keyOf(ownerId,requestId)||row.status!=='BLOCKED'){failure='This draft changed or is awaiting sync. Refresh and review it again.';t.abort();return}
+   s.delete(row.key)
+  }
+  t.oncomplete=()=>resolve()
+  t.onerror=t.onabort=()=>reject(new Error(failure))
+ })
+ window.dispatchEvent(new CustomEvent('echims-vaccination-queue'))
+}
 export type SendResult={ok:true;vaccination_record_id:number;status:string;idempotent?:boolean}|{ok:false;queued:boolean;error:string}
 async function sessionOwner(){const {data}=await createClient().auth.getSession();return data.session?.user.id??null}
 export async function sendOrQueueVaccination(ownerId:string,payload:VaccinationPayload,display:{childName:string;vaccineLabel:string}):Promise<SendResult>{
