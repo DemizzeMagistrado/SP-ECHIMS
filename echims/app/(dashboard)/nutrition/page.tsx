@@ -1364,7 +1364,7 @@ export default function NutritionPage() {
     setSyncReview(null);
     await syncHandler.current(approval);
   }
-  async function syncQueue(approval?: SyncReview) {
+  async function performSyncQueue(approval?: SyncReview) {
     const id = ownerRef.current;
     if (
       !id ||
@@ -1573,6 +1573,13 @@ export default function NutritionPage() {
       if (ownerRef.current === id) setSyncing(false);
     }
   }
+  async function syncQueue(approval?: SyncReview) {
+    if (navigator.locks) {
+      await navigator.locks.request('echims-nutrition-sync', {ifAvailable:true}, async lock => {
+        if (lock) await performSyncQueue(approval);
+      });
+    } else await performSyncQueue(approval);
+  }
   syncHandler.current = syncQueue;
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1731,7 +1738,7 @@ export default function NutritionPage() {
               onlineRequest.current = null;
               setDraft(null);
               setMessage(
-                "Submission could not be confirmed. A recovery draft was retained; review it before retrying. Nothing is uploaded automatically.",
+                "Submission could not be confirmed. A recovery draft was retained; review it before retrying. Eligible drafts sync when online; conflicts require recorder review.",
               );
               await refreshQueue(id);
             }
@@ -1772,7 +1779,7 @@ export default function NutritionPage() {
       setDraft(null);
       setStorageError("");
       setMessage(
-        "Draft saved locally. Review or edit it, then confirm upload when online. Nothing is uploaded automatically.",
+        "Draft saved locally. Eligible drafts sync when online; review any flagged conflicts. Eligible drafts sync when online; conflicts require recorder review.",
       );
       await refreshQueue(id);
     } catch (saveError) {
@@ -1948,6 +1955,47 @@ export default function NutritionPage() {
     setCachedResponse(null);
     void removeSnapshot(ownerId).catch(() => {});
   }, [ownerId, accessDenied]);
+
+  // Automatic upload uses the same fresh-scope/duplicate checks as reviewed uploads.
+  useEffect(() => {
+    if (!ownerId || !online || !canRecord || accessDenied) return;
+    const id = ownerId;
+    let alive = true;
+    let preparing = false;
+    async function automaticSync() {
+      if (!alive || preparing || syncBusy.current || reviewing || savingRef.current || !navigator.onLine || ownerRef.current !== id) return;
+      preparing = true;
+      try {
+        const fresh = await fetchNutrition(endpoint);
+        if (!alive || ownerRef.current !== id || fresh.currentUserId !== id || fresh.role !== 'BNS' || !fresh.permissions.create) return;
+        const pending = (await listQueue(id)).filter(row => row.status === 'PENDING');
+        const rows: SyncReviewRow[] = pending.map((draft,index) => {
+          const sameDay = fresh.data.filter(record => record.client_request_id !== draft.requestId && Number(record.child_id) === Number(draft.payload.child_id) && record.assessment_date === draft.payload.assessment_date);
+          return {draft,sameDay,exactDuplicates:sameDay.filter(record=>sameMeasurements(draft.payload,record)),localDuplicateIds:pending.slice(0,index).filter(other=>sameMeasurements(draft.payload,other.payload)).map(other=>other.requestId)};
+        });
+        const selectedIds:string[]=[];
+        for (const row of rows) {
+          if (!alive || ownerRef.current !== id) return;
+          if (row.sameDay.length || row.localDuplicateIds.length) {
+            await putQueuedAssessment(id,{...row.draft,status:'BLOCKED',lastError:'A same-day assessment or matching local draft exists. Recorder review is required.'});
+          } else selectedIds.push(row.draft.requestId);
+        }
+        if (!alive || ownerRef.current !== id) return;
+        if (selectedIds.length) await syncHandler.current({ownerId:id,rows,selectedIds});
+        await refreshQueue(id);
+      } catch (problem) {
+        if (alive && ownerRef.current === id) setStorageError(problem instanceof Error ? problem.message : 'Automatic sync paused. Drafts retained.');
+      } finally { preparing=false; }
+    }
+    const wake=()=>{void automaticSync();};
+    // Delay first run slightly so initialization and owner snapshots can complete.
+    const first=window.setTimeout(wake,500);
+    const timer=window.setInterval(wake,45000);
+    window.addEventListener('online',wake);
+    window.addEventListener('focus',wake);
+    return ()=>{alive=false;window.clearTimeout(first);window.clearInterval(timer);window.removeEventListener('online',wake);window.removeEventListener('focus',wake);};
+  },[ownerId,online,canRecord,accessDenied]);
+
   return (
     <div className="nutrition-report-root space-y-6">
       <style>{`@media print {
@@ -2103,7 +2151,7 @@ export default function NutritionPage() {
               </h2>
               <p className="text-xs text-muted-foreground">
                 Drafts stay on this device until you review and confirm upload.
-                Reconnecting never uploads automatically.
+                Eligible drafts sync automatically when online. Conflicts remain for recorder review.
               </p>
             </div>
             <button
