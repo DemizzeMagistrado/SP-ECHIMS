@@ -1,5 +1,6 @@
 'use client'
-
+import { UserActions } from '@/components/user-management/user-actions'
+import { useAuth } from '@/components/auth/auth-provider'
 import {
   useMemo,
   useState,
@@ -56,6 +57,10 @@ type UserManagementClientProps = {
 export default function UserManagementClient({
   users,
 }: UserManagementClientProps) {
+
+
+const { user } = useAuth()
+const currentUserId = user?.id ?? ''
   const [
     selectedUser,
     setSelectedUser,
@@ -346,7 +351,52 @@ export default function UserManagementClient({
       null
     )
   }
+// ─── Profile edit ─────────────────────────────────────
+async function saveProfile(
+  user: UserRow,
+  profile: { fullName?: string; email?: string; contactNumber?: string },
+) {
+  setProcessingUserId(user.user_id)
+  setMessage(null); setError(null)
+  try {
+    const res = await fetch('/api/admin/users', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.user_id, profile }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data?.error ?? 'Unable to save changes.')
+    setMessage('Profile updated.')
+    window.location.reload()
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Unable to save changes.')
+  } finally {
+    setProcessingUserId(null)
+  }
+}
 
+// ─── Soft delete ──────────────────────────────────────
+async function deleteAccount(user: UserRow) {
+  if (!confirm(`Delete ${user.full_name}'s account? They will no longer appear in the user list. (Account history is preserved for audit.)`)) return
+  setProcessingUserId(user.user_id)
+  setMessage(null); setError(null)
+  try {
+    const res = await fetch('/api/admin/users', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.user_id }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data?.error ?? 'Unable to delete account.')
+    setMessage('Account deleted.')
+    closeModal()
+    window.location.reload()
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Unable to delete account.')
+  } finally {
+    setProcessingUserId(null)
+  }
+}
   /* =======================================================
      UPDATE ACCOUNT STATUS
   ======================================================= */
@@ -892,7 +942,11 @@ export default function UserManagementClient({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
 
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white shadow-2xl">
-
+<UserActions
+  user={selectedUser}
+  currentUserId={currentUserId}
+  onChanged={() => window.location.reload()}
+/>
             {/* MODAL HEADER */}
 
             <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5">

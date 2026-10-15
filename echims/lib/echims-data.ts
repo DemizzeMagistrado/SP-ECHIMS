@@ -31,43 +31,17 @@ export const moduleTabs: Record<string, { label: string; href: string; module: s
     // NIP-USR010 — RHM batch requests + PHN approval queue.
     { label: 'Batch Requests', href: '/vaccination/batch-requests', module: 'Vaccine Batch Requests' },
   ],
-  Inventory: [
+   Inventory: [
     { label: 'Stock Overview', href: '/inventory/stock-overview', module: 'Inventory' },
     { label: 'Allocation', href: '/inventory/stock-allocation', module: 'Stock Allocation' },
-    // INV-USR004 — RHM logs usage/waste against batches at their barangay.
     { label: 'Usage Log', href: '/inventory/usage', module: 'Inventory' },
-    // INV-USR005 — RHM requests replenishment; PHN approves/rejects.
     { label: 'Replenishment', href: '/inventory/replenishment', module: 'Inventory' },
-    // INV-USR006 — PHN/Admin traces a batch across stock-in, allocations, usage.
     { label: 'Batch Trace', href: '/inventory/batch-trace', module: 'Inventory' },
-    { label: 'Transactions', href: '/inventory/transactions', module: 'Inventory Transactions' },
-    { label: 'Items', href: '/inventory/items', module: 'Inventory' },
   ],
   // Settings deliberately omitted — settings/page.tsx already provides its own in-page
   // tabs for Profile / Organization / Notifications / Security so a second tab strip
   // would be redundant.
 }
-
-export const children = [
-  { id: 'CH-2025-001', name: 'Maria Santos', age: '2 yrs 4 mos', barangay: 'San Isidro', status: 'Under Monitoring', risk: 'Normal' },
-  { id: 'CH-2025-002', name: 'Juan Dela Cruz', age: '1 yr 8 mos', barangay: 'Poblacion', status: 'Needs Follow-up', risk: 'At Risk' },
-  { id: 'CH-2025-003', name: 'Sofia Reyes', age: '3 yrs 1 mo', barangay: 'Mabini', status: 'Active', risk: 'Normal' },
-  { id: 'CH-2025-004', name: 'Andrei Garcia', age: '8 mos', barangay: 'San Roque', status: 'Under Monitoring', risk: 'At Risk' },
-]
-
-export const vaccines = [
-  { child: 'Maria Santos', vaccine: 'Measles, Mumps, Rubella', dose: 'Dose 1', date: 'Sep 12, 2025', status: 'Done' },
-  { child: 'Juan Dela Cruz', vaccine: 'Pentavalent', dose: 'Dose 3', date: 'Sep 15, 2025', status: 'Due' },
-  { child: 'Sofia Reyes', vaccine: 'Polio', dose: 'Dose 2', date: 'Sep 18, 2025', status: 'Scheduled' },
-  { child: 'Andrei Garcia', vaccine: 'BCG', dose: 'Dose 1', date: 'Aug 28, 2025', status: 'Missed' },
-]
-
-export const inventory = [
-  { item: 'BCG Vaccine', barangay: 'RHU Central', onHand: 24, reorder: 20, status: 'Normal' },
-  { item: 'Pentavalent Vaccine', barangay: 'RHU Central', onHand: 8, reorder: 15, status: 'Low' },
-  { item: 'Vitamin A 100,000 IU', barangay: 'San Isidro', onHand: 0, reorder: 30, status: 'Out of Stock' },
-  { item: 'Iron Supplement', barangay: 'Mabini', onHand: 68, reorder: 25, status: 'Normal' },
-]
 
 export const alerts = [
   { title: 'Vaccine stock below reorder level', detail: 'Pentavalent Vaccine has 8 doses remaining.', tone: 'warning' },
@@ -93,7 +67,6 @@ export const moduleRoutes: Record<string, string> = {
   Supplementation: '/supplementation',
   Inventory: '/inventory/stock-overview',
   'Stock Allocation': '/inventory/stock-allocation',
-  'Inventory Transactions': '/inventory/transactions',
   'Health Activities': '/health-activities',
   Alerts: '/alerts',
   SMS: '/sms',
