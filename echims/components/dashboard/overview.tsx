@@ -105,7 +105,7 @@ export function DashboardOverview() {
         <div className="flex flex-wrap items-center gap-2">
           <input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)}
             className="rounded-lg border border-border px-3 py-1.5 text-sm outline-none focus:border-primary" />
-          <span className="text-xs text-muted-foreground">ΓåÆ</span>
+          <span className="text-xs text-muted-foreground">to</span>
           <input type="date" value={to} min={from} max={todayYMD()} onChange={(e) => setTo(e.target.value)}
             className="rounded-lg border border-border px-3 py-1.5 text-sm outline-none focus:border-primary" />
           <button type="button" onClick={() => { setFrom(daysAgoYMD(30)); setTo(todayYMD()) }}

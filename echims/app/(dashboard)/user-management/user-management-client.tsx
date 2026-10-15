@@ -1,4 +1,5 @@
 'use client'
+import { X } from 'lucide-react'
 import { UserActions } from '@/components/user-management/user-actions'
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
@@ -932,9 +933,10 @@ export default function UserManagementClient({
                 onClick={
                   closeModal
                 }
+                aria-label="Close user details"
                 className="rounded-lg px-3 py-1 text-2xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
               >
-                ├ù
+                <X size={20} aria-hidden="true" />
               </button>
 
             </div>
