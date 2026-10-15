@@ -1,0 +1,3 @@
+child_first_name,child_middle_name,child_last_name,child_sex,child_date_of_birth,child_birth_place,barangay_name,household_address,purok,household_no,is_4ps_member,guardian_first_name,guardian_middle_name,guardian_last_name,guardian_contact_number,guardian_relationship
+Juan,Dela,Cruz,MALE,2024-05-12,Daet Hospital,Alawihao,"123 Rizal St.",Purok 1,HH-00123,false,Maria,Santos,Cruz,09171234567,Mother
+Ana,Reyes,Santos,FEMALE,2023-11-30,Daet Hospital,Bagasbas,"456 Mabini St.",Purok 2,,true,Pedro,,Santos,09181234567,Father
