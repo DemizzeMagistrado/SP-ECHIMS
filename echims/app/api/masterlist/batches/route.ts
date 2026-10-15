@@ -17,12 +17,20 @@ export async function GET(request: Request) {
   if (batchId) {
     const { data, error } = await supabase
       .from('masterlist_upload_batch')
-      .select(`*, uploader:users!masterlist_upload_batch_uploaded_by_fkey(user_id, full_name, email)`)
+      .select('*')
       .eq('batch_id', Number(batchId))
       .maybeSingle()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     if (!data) return NextResponse.json({ error: 'Batch not found.' }, { status: 404 })
-    return NextResponse.json({ batch: data })
+
+    // Enrich with uploader info via a separate lookup (users FK is to auth.users,
+    // so a PostgREST join to public.users doesn't resolve automatically).
+    const { data: uploader } = await supabase
+      .from('users')
+      .select('user_id, full_name, email')
+      .eq('user_id', data.uploaded_by)
+      .maybeSingle()
+    return NextResponse.json({ batch: { ...data, uploader: uploader ?? null } })
   }
 
   const limit = Math.min(Number(url.searchParams.get('limit') ?? 50), 200)
