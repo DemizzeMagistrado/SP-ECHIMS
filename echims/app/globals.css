@@ -239,9 +239,36 @@ html {
 .auth-stagger > :nth-child(7) { animation-delay: 450ms; }
 .auth-stagger > :nth-child(n + 8) { animation-delay: 500ms; }
 
+/* Dashboard charts: bars grow up, donut arcs draw in */
+@keyframes grow-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+.grow-y {
+  transform-origin: bottom;
+  animation: grow-y 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes donut-fill {
+  from {
+    stroke-dasharray: 0 1000;
+  }
+}
+
+.donut-arc {
+  animation: donut-fill 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  .grow-y,
+  .donut-arc {
+    animation: none !important;
   }
 
   .brand .animate-in,

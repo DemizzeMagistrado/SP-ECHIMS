@@ -59,7 +59,7 @@ function formatTimestamp(value: string) {
 export function TopNav() {
   const router = useRouter()
   const { logout, user } = useAuth()
-  const { inShell, setMobileOpen } = useShell()
+  const { inShell, toggleMenu, mobileOpen, collapsed } = useShell()
   const dropdownId = useId()
   const settingsMenuId = useId()
   const [today, setToday] = useState('')
@@ -176,8 +176,10 @@ export function TopNav() {
     <div className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-[#03045E]/[0.07] bg-white/90 px-4 backdrop-blur-md sm:px-6 lg:px-8">
       <div className="flex min-w-0 items-center gap-2">
         {inShell && (
-          <button type="button" onClick={() => setMobileOpen(true)} aria-label="Open menu"
-            className="-ml-1 rounded-lg p-2 text-[#03045E] transition hover:bg-[#EAF6FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9] lg:hidden">
+          <button type="button" onClick={toggleMenu} aria-controls="main-sidebar"
+            aria-expanded={mobileOpen || !collapsed}
+            aria-label="Toggle menu" title={collapsed ? 'Expand menu' : 'Collapse menu'}
+            className="-ml-1 rounded-lg p-2 text-[#03045E] transition hover:bg-[#EAF6FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9]">
             <Menu size={22} />
           </button>
         )}

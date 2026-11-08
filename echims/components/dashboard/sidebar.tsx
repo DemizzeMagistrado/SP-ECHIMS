@@ -1,16 +1,15 @@
 'use client'
 
 // Sidebar: user identity at the top (name, with role directly under the eCHIMS logo),
-// modules grouped by purpose, collapsible rail on desktop, slide-in drawer on mobile.
-// Collapse preference persists in localStorage (`echims-sidebar-collapsed`).
+// modules grouped by purpose. The top bar's hamburger collapses it to an icon rail on
+// desktop and opens it as a drawer on mobile (state lives in ./shell).
 // Logout lives in the top bar's account menu.
 
 import Link from 'next/link'
 import { usePathname } from '@/lib/offline/navigation'
-import { useEffect, useState } from 'react'
 import {
   Home, Baby, Syringe, Apple, Package, AlertCircle, FileText, Settings,
-  Users, Activity, Boxes, ChevronsLeft, ChevronsRight, X,
+  Users, Activity, Boxes, X,
 } from 'lucide-react'
 import { moduleRoutes, roleModules, type UserRole } from '@/lib/echims-data'
 import type { Role } from '@/lib/auth/permissions'
@@ -72,8 +71,6 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
   },
 ]
 
-const STORAGE_KEY = 'echims-sidebar-collapsed'
-
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean)
   return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase() || '?'
@@ -81,23 +78,7 @@ function initials(name: string) {
 
 export function Sidebar({ role, fullName }: { role: Role; fullName: string }) {
   const pathname = usePathname()
-  const { mobileOpen, setMobileOpen } = useShell()
-  const [collapsed, setCollapsed] = useState(false)
-
-  // Rehydrate collapse preference after mount (avoids SSR mismatch).
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(STORAGE_KEY) === '1') setCollapsed(true)
-    } catch { /* localStorage can throw in some sandboxes; ignore */ }
-  }, [])
-
-  function toggle() {
-    setCollapsed((c) => {
-      const next = !c
-      try { localStorage.setItem(STORAGE_KEY, next ? '1' : '0') } catch { /* ignore */ }
-      return next
-    })
-  }
+  const { mobileOpen, setMobileOpen, collapsed } = useShell()
 
   const label = roleLabels[role]
   const groups = menuGroups
@@ -119,6 +100,7 @@ export function Sidebar({ role, fullName }: { role: Role; fullName: string }) {
       />
 
       <aside
+        id="main-sidebar"
         aria-label="Main navigation"
         className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-[#03045E] text-white shadow-2xl transition-[transform,width] duration-300 ease-out
           lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0 lg:shadow-none
@@ -131,15 +113,9 @@ export function Sidebar({ role, fullName }: { role: Role; fullName: string }) {
             {!rail && (
               <Image src="/sidebar-logo.png" alt="eCHIMS" width={200} height={64} priority className="h-auto max-h-10 w-auto object-contain" />
             )}
-            <button
-              type="button"
-              onClick={toggle}
-              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              title={collapsed ? 'Expand' : 'Collapse'}
-              className="hidden shrink-0 rounded-lg p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90E0EF] lg:block"
-            >
-              {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
-            </button>
+            {rail && (
+              <span aria-label="eCHIMS" className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#087DB9] text-lg font-extrabold">e</span>
+            )}
             <button
               type="button"
               onClick={() => setMobileOpen(false)}

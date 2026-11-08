@@ -1,77 +1,69 @@
 'use client'
 
-// RPT-USR001 — Lightweight inline-SVG charts for the dashboard. No external
-// dep (Recharts, Chart.js, etc.) so bundle stays small. Two shapes:
-//   • Donut — shows one percentage with a label underneath
-//   • Bars  — simple vertical bars for a monthly series
+// RPT-USR001 — Lightweight charts for the dashboard, no chart library.
+//   • Donut — one percentage, arc draws in on mount
+//   • TrendBars — monthly bars that stretch to the card width and grow in on mount
 
 type DonutProps = { percentage: number; label: string; color?: string; size?: number }
 
-export function Donut({ percentage, label, color = '#0ea5e9', size = 120 }: DonutProps) {
+export function Donut({ percentage, label, color = '#087DB9', size = 132 }: DonutProps) {
   const pct = Math.max(0, Math.min(100, percentage))
   const radius = size / 2 - 10
   const circ = 2 * Math.PI * radius
   const dash = (pct / 100) * circ
   const center = size / 2
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-center gap-2">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${label}: ${pct}%`}>
-        <circle cx={center} cy={center} r={radius} fill="none" stroke="#e2e8f0" strokeWidth="12" />
+        <circle cx={center} cy={center} r={radius} fill="none" stroke="#E3EEF3" strokeWidth="12" />
         <circle
+          className="donut-arc"
           cx={center} cy={center} r={radius} fill="none"
           stroke={color} strokeWidth="12"
           strokeDasharray={`${dash} ${circ - dash}`}
-          strokeDashoffset={circ / 4}   // start at top
-          strokeLinecap="round"
+          strokeLinecap={pct > 0 ? 'round' : 'butt'}
           transform={`rotate(-90 ${center} ${center})`}
         />
-        <text x={center} y={center} textAnchor="middle" dy="0.35em" fontSize="20" fontWeight="700" fill="#0f172a">
+        <text x={center} y={center} textAnchor="middle" dy="0.35em" fontSize="24" fontWeight="700" fill="#03045E">
           {pct}%
         </text>
       </svg>
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-center text-sm text-[#5B6478]">{label}</p>
     </div>
   )
 }
 
-type BarsProps = {
-  data: { month: string; count: number }[]
-  color?: string
-  height?: number
-}
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-export function MiniBars({ data, color = '#0ea5e9', height = 100 }: BarsProps) {
+export function TrendBars({ data, color = '#087DB9', label }: { data: { month: string; count: number }[]; color?: string; label: string }) {
   if (data.length === 0) {
     return (
-      <div className="flex h-24 items-center justify-center text-xs italic text-muted-foreground">
-        No data in this range.
+      <div className="flex h-48 items-center justify-center rounded-xl bg-[#F8FCFD] text-sm text-[#5B6478]">
+        No records in this date range.
       </div>
     )
   }
   const max = Math.max(1, ...data.map((d) => d.count))
-  const barWidth = Math.max(14, 220 / data.length)
-  const totalWidth = Math.max(220, data.length * (barWidth + 6))
   return (
-    <div className="overflow-x-auto">
-      <svg width={totalWidth} height={height + 24} role="img" aria-label="Vaccinations per month">
-        {data.map((d, i) => {
-          const h = (d.count / max) * height
-          const x = i * (barWidth + 6)
-          const y = height - h
-          const monthShort = d.month.slice(5) // "01".."12"
-          return (
-            <g key={d.month}>
-              <rect x={x} y={y} width={barWidth} height={h} rx={3} fill={color} />
-              <text x={x + barWidth / 2} y={y - 4} textAnchor="middle" fontSize="10" fill="#475569" fontWeight="600">
-                {d.count}
-              </text>
-              <text x={x + barWidth / 2} y={height + 14} textAnchor="middle" fontSize="10" fill="#64748b">
-                {monthShort}
-              </text>
-            </g>
-          )
-        })}
-      </svg>
+    <div role="img" aria-label={`${label} per month: ${data.map((d) => `${d.month} ${d.count}`).join(', ')}`}>
+      <div className="flex h-48 items-end gap-1.5 border-b border-[#E3EEF3] sm:gap-3">
+        {data.map((d, i) => (
+          <div key={d.month} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1">
+            <span className="text-xs font-semibold tabular-nums text-[#2D3A55]">{d.count}</span>
+            <div
+              className="grow-y w-full max-w-12 rounded-t-md"
+              style={{ height: `${Math.max(2, (d.count / max) * 100)}%`, background: color, animationDelay: `${i * 50}ms` }}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 flex gap-1.5 sm:gap-3">
+        {data.map((d) => (
+          <span key={d.month} className="min-w-0 flex-1 truncate text-center text-xs text-[#5B6478]">
+            {MONTHS[Number(d.month.slice(5, 7)) - 1] ?? d.month}
+          </span>
+        ))}
+      </div>
     </div>
   )
 }
