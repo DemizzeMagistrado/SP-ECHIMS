@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { Atkinson_Hyperlegible, Bricolage_Grotesque } from 'next/font/google'
 import {
   Apple,
   Baby,
@@ -12,11 +11,10 @@ import {
   Radar,
 } from 'lucide-react'
 import { FeatureList } from '@/components/landing/feature-list'
+import { brandFonts } from '@/components/landing/fonts'
 import { InView } from '@/components/landing/in-view'
-import { BackToTop, SectionLink } from '@/components/landing/section-nav'
+import { BackToTop, LandingHeader, SectionLink } from '@/components/landing/section-nav'
 
-const display = Bricolage_Grotesque({ subsets: ['latin'], weight: ['600', '700', '800'], variable: '--font-display' })
-const body = Atkinson_Hyperlegible({ subsets: ['latin'], weight: ['400', '700'], variable: '--font-body' })
 
 const programs = [
   [Heart, 'Immunization', 'Each child’s vaccine schedule, from birth doses onward'],
@@ -68,34 +66,12 @@ const secondaryButton = `inline-flex items-center justify-center rounded-lg bord
 
 export default function LandingPage() {
   return (
-    <main className={`landing ${display.variable} ${body.variable} min-h-screen overflow-x-hidden bg-white text-[#03045E]`}>
+    <main className={`${brandFonts} min-h-screen overflow-x-hidden bg-white text-[#03045E]`}>
       <SectionLink to="features" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:shadow">
         Skip to features
       </SectionLink>
 
-      {/* HEADER */}
-      <header className="sticky top-0 z-50 border-b border-[#03045E]/[0.06] bg-[#CAF0F8]/80 backdrop-blur-md animate-in fade-in slide-in-from-top-2 fill-mode-both duration-500">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:h-20 sm:px-8">
-          <SectionLink to="top" aria-label="Back to top" className={`shrink-0 rounded-lg ${focusRing}`}>
-            <img src="/landing-logo.png" alt="eCHIMS logo" width={170} height={48} className="h-auto w-[120px] sm:w-[150px]" fetchPriority="high" />
-          </SectionLink>
-          <nav aria-label="Sections" className="hidden items-center gap-1 md:flex">
-            {[['features', 'Features'], ['how-it-works', 'How it works'], ['roles', 'Who uses it']].map(([id, label]) => (
-              <SectionLink key={id} to={id} className={`rounded-lg px-3 py-2 text-sm font-semibold text-[#03045E]/75 transition-colors hover:text-[#03045E] ${focusRing}`}>
-                {label}
-              </SectionLink>
-            ))}
-          </nav>
-          <div className="flex items-center gap-2">
-            <Link href="/login" className={`rounded-lg px-4 py-2.5 text-sm font-semibold text-[#03045E] transition-colors hover:bg-[#CAF0F8] ${focusRing}`}>
-              Sign in
-            </Link>
-            <Link href="/register" className={`hidden rounded-lg bg-[#087DB9] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#056d9e] sm:inline-block ${focusRing}`}>
-              Create account
-            </Link>
-          </div>
-        </div>
-      </header>
+      <LandingHeader />
 
       {/* HERO: the system as a whole */}
       <section className="relative isolate overflow-hidden bg-[linear-gradient(180deg,#CAF0F8_0%,#DDF5FA_55%,#FFFFFF_100%)]">

@@ -6,6 +6,7 @@ import { useRouter } from "@/lib/offline/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
 import type { UserRole } from "@/lib/echims-data";
 import { createClient } from "@/lib/supabase/client";
+import { AuthShell } from "@/components/auth/auth-shell";
 /* =========================================================
    LOCATION TYPES
 ========================================================= */
@@ -431,59 +432,25 @@ export default function RegisterPage() {
      STYLES
   ======================================================= */
   const inputClass =
-    "w-full rounded-full border border-[#E5E7EB] bg-[#F3F4F6] px-5 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#0077B6] focus:ring-2 focus:ring-[#CAF0F8]";
+    "h-12 w-full rounded-xl border border-[#C9DCE6] bg-white px-4 text-base text-[#03045E] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#8A93A6] focus:border-[#087DB9] focus:ring-4 focus:ring-[#087DB9]/15 disabled:bg-[#F4F6F8] disabled:text-[#8A93A6]";
   const selectClass = `${inputClass} appearance-none pr-12`;
   /* =======================================================
      UI
   ======================================================= */
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#CAF0F8] p-4 sm:p-8">
-      <div className="flex w-full max-w-6xl overflow-hidden rounded-[28px] bg-white shadow-xl lg:min-h-[800px]">
-        <section className="hidden w-1/2 flex-col justify-between bg-gradient-to-br from-[#123C82] to-[#087DB9] p-14 text-white lg:flex">
-          <div>
-            <img
-              src="/login-logo.png"
-              alt="eCHIMS logo"
-              width={430}
-              height={120}
-              className="h-auto w-full max-w-[430px]"
-            />
-            <h1 className="mt-14 text-center text-2xl font-bold leading-relaxed">
-              Early Child Health Information and Monitoring System
-            </h1>
-            <p className="mt-5 text-center text-base text-blue-100">
-              Comprehensive healthcare management for Rural Health Units
-            </p>
-          </div>
-          <div>
-            <div className="flex justify-center gap-16 text-center">
-              <div>
-                <p className="text-4xl font-bold text-cyan-300">500+</p>
-                <p className="mt-2 text-sm text-blue-100">Children Tracked</p>
-              </div>
-              <div className="border-l border-white/20 pl-16">
-                <p className="text-4xl font-bold text-cyan-300">50+</p>
-                <p className="mt-2 text-sm text-blue-100">Barangays</p>
-              </div>
-            </div>
-            <div className="mt-12 border-t border-white/20 pt-8 text-center text-sm text-blue-100">
-              <p>Bachelor of Science in Information Technology</p>
-              <p className="mt-3">© 2025 Rural Health Units</p>
-            </div>
-          </div>
-        </section>
-        <section className="flex flex-1 flex-col lg:w-1/2 lg:max-h-[800px] lg:overflow-y-auto">
-          <div className="px-7 py-10 sm:px-14">
-            <div className="mx-auto w-full max-w-md">
-              <h2 className="text-3xl font-bold text-[#03045E]">
-                Create Account
+    <AuthShell scrollable>
+          <div className="auth-stagger">
+              <h2 className="text-3xl font-bold tracking-tight">
+                Create an account
               </h2>
-              <p className="mt-2 text-sm text-gray-500">
-                Register your eCHIMS account for verification.
+              <p className="mt-2 text-[#5B6478]">
+                Your RHU administrator reviews new accounts before first sign-in.
               </p>
+          </div>
+          <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-500 [animation-delay:250ms]">
               <form onSubmit={handleSubmit} className="mt-8 space-y-5">
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                  <label className="mb-2 block text-sm font-semibold text-[#03045E]">
                     Full Name
                   </label>
                   <input
@@ -497,7 +464,7 @@ export default function RegisterPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                  <label className="mb-2 block text-sm font-semibold text-[#03045E]">
                     Username
                   </label>
                   <input
@@ -511,7 +478,7 @@ export default function RegisterPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                  <label className="mb-2 block text-sm font-semibold text-[#03045E]">
                     Contact Number
                   </label>
                   <input
@@ -525,7 +492,7 @@ export default function RegisterPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                  <label className="mb-2 block text-sm font-semibold text-[#03045E]">
                     Email Address
                   </label>
                   <input
@@ -539,7 +506,7 @@ export default function RegisterPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                  <label className="mb-2 block text-sm font-semibold text-[#03045E]">
                     User Role
                   </label>
                   <div className="relative">
@@ -567,7 +534,7 @@ export default function RegisterPage() {
                 </div>
                 {!isAdministrator && (
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                    <label className="mb-2 block text-sm font-semibold text-[#03045E]">
                       Employee ID
                     </label>
                     <input
@@ -583,7 +550,7 @@ export default function RegisterPage() {
                 )}
                 {requiresLicense && (
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                    <label className="mb-2 block text-sm font-semibold text-[#03045E]">
                       License Number
                     </label>
                     <input
@@ -608,7 +575,7 @@ export default function RegisterPage() {
                       </p>
                     </div>
                     <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">
+                      <label className="mb-2 block text-sm font-semibold text-[#03045E]">
                         Region
                       </label>
                       <div className="relative">
@@ -634,7 +601,7 @@ export default function RegisterPage() {
                       </div>
                     </div>
                     <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">
+                      <label className="mb-2 block text-sm font-semibold text-[#03045E]">
                         Province
                       </label>
                       <div className="relative">
@@ -665,7 +632,7 @@ export default function RegisterPage() {
                       </div>
                     </div>
                     <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">
+                      <label className="mb-2 block text-sm font-semibold text-[#03045E]">
                         Municipality / City
                       </label>
                       <div className="relative">
@@ -692,7 +659,7 @@ export default function RegisterPage() {
                       </div>
                     </div>
                     <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">
+                      <label className="mb-2 block text-sm font-semibold text-[#03045E]">
                         Rural Health Unit
                       </label>
                       <div className="relative">
@@ -748,7 +715,7 @@ export default function RegisterPage() {
                       )}
                     {isRHM && selectedRhu && (
                       <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-700">
+                        <label className="mb-2 block text-sm font-semibold text-[#03045E]">
                           Assigned Barangays
                         </label>
                         <p className="mb-3 text-xs text-gray-500">
@@ -783,7 +750,7 @@ export default function RegisterPage() {
                     )}
                     {isBarangayWorker && (
                       <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-700">
+                        <label className="mb-2 block text-sm font-semibold text-[#03045E]">
                           Barangay
                         </label>
                         <div className="relative">
@@ -819,7 +786,7 @@ export default function RegisterPage() {
                   </div>
                 )}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                  <label className="mb-2 block text-sm font-semibold text-[#03045E]">
                     Password
                   </label>
                   <div className="relative">
@@ -846,7 +813,7 @@ export default function RegisterPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                  <label className="mb-2 block text-sm font-semibold text-[#03045E]">
                     Confirm Password
                   </label>
                   <div className="relative">
@@ -895,36 +862,33 @@ export default function RegisterPage() {
                   </span>
                 </label>
                 {error && (
-                  <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
+                  <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 animate-in fade-in slide-in-from-top-1 duration-200">
                     {error}
                   </div>
                 )}
                 {success && (
-                  <div className="rounded-2xl bg-green-50 px-4 py-3 text-sm text-green-700">
+                  <div className="rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700 animate-in fade-in slide-in-from-top-1 duration-200">
                     {success}
                   </div>
                 )}
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full rounded-full bg-[#0784BE] px-5 py-3.5 font-semibold text-white transition hover:bg-[#056d9e] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="h-12 w-full rounded-lg bg-[#087DB9] px-5 font-semibold text-white shadow-sm shadow-[#087DB9]/30 transition-colors hover:bg-[#056d9e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {loading ? "Creating account..." : "Create Account"}
+                  {loading ? "Creating account…" : "Create account"}
                 </button>
               </form>
-              <p className="mt-6 text-center text-sm text-gray-500">
+              <p className="mt-6 text-center text-sm text-[#5B6478]">
                 Already have an account?{" "}
                 <Link
                   href="/login"
-                  className="font-semibold text-[#0077B6] hover:underline"
+                  className="font-semibold text-[#087DB9] hover:underline"
                 >
-                  Sign In
+                  Sign in
                 </Link>
               </p>
-            </div>
           </div>
-        </section>
-      </div>
-    </main>
+    </AuthShell>
   );
 }

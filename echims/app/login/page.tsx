@@ -1,10 +1,10 @@
 'use client'
 
-import Image from 'next/image'
 import Link from 'next/link'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { FormEvent, useState, useEffect } from 'react'
 import { useAuth } from '@/components/auth/auth-provider'
+import { AuthShell } from '@/components/auth/auth-shell'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -35,54 +35,41 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#CAF0F8] p-4 sm:p-8">
-      <div className="flex w-full max-w-6xl overflow-hidden rounded-[28px] bg-white shadow-xl lg:min-h-[665px]">
-        <section className="hidden w-1/2 flex-col justify-between bg-gradient-to-br from-[#123C82] to-[#087DB9] p-14 text-white lg:flex">
-          <div>
-            <img src="/login-logo.png" alt="eCHIMS logo" width={430} height={120} className="h-auto w-full max-w-[430px]" />
-            <h1 className="mt-14 text-center text-2xl font-bold leading-relaxed">Early Child Health Information and Monitoring System</h1>
-            <p className="mt-5 text-center text-base text-blue-100">Comprehensive healthcare management for Rural Health Units</p>
-          </div>
-          <div>
-            <div className="flex justify-center gap-16 text-center">
-              <div><p className="text-4xl font-bold text-cyan-300">500+</p><p className="mt-2 text-sm text-blue-100">Children Tracked</p></div>
-              <div className="border-l border-white/20 pl-16"><p className="text-4xl font-bold text-cyan-300">50+</p><p className="mt-2 text-sm text-blue-100">Barangays</p></div>
-            </div>
-            <div className="mt-12 border-t border-white/20 pt-8 text-center text-sm text-blue-100">
-              <p>Bachelor of Science in Information Technology</p>
-              <p className="mt-3">© 2025 Rural Health Units</p>
-            </div>
-          </div>
-        </section>
-
-        <section className="flex flex-1 flex-col justify-center px-7 py-10 sm:px-14 lg:w-1/2">
-          <div className="mx-auto w-full max-w-md">
-            <h2 className="text-3xl font-bold text-[#03045E]">Welcome Back</h2>
-            <p className="mt-2 text-[#6B7280]">{offline?'Sign in to your saved account on this device':'Sign in to your RHU account'}</p>
-            {offline && <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Use the email and password you last used to sign in online on this browser. Saved access lasts seven days from online verification. New accounts and password resets require internet.</p>}
-            <form onSubmit={handleSubmit} className="mt-9 space-y-5">
-              <div>
-                <label htmlFor="email" className="text-sm font-semibold text-[#03045E]">Username or Email</label>
-                <input id="email" type="text" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-2 w-full rounded-full border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-3 outline-none focus:border-[#0077B6] focus:ring-2 focus:ring-[#CAF0F8]" placeholder="you@example.com" required />
-              </div>
-              <div>
-                <label htmlFor="password" className="text-sm font-semibold text-[#03045E]">Password</label>
-                <div className="relative mt-2">
-                  <input id="password" type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} className="w-full rounded-full border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-3 pr-12 outline-none focus:border-[#0077B6] focus:ring-2 focus:ring-[#CAF0F8]" placeholder="Enter your password" required />
-                  <button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((visible) => !visible)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B7280]">{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
-                </div>
-              </div>
-              <div className="flex items-center justify-between text-sm"><label className="flex items-center gap-2 text-[#6B7280]"><input type="checkbox" className="h-4 w-4 accent-[#0077B6]" />Remember me</label><Link href="/forgot-password" className="font-semibold text-[#0077B6] hover:underline">Forgot Password?</Link></div>
-              {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-              <button type="submit" disabled={busy} className="w-full rounded-full bg-[#0784BE] py-3 font-semibold text-white shadow-sm transition-colors hover:bg-[#056d9e]">{busy?'Signing in…':offline?'Sign In Offline':'Sign In'}</button>
-            </form>
-            <div className="my-7 flex items-center gap-3 text-xs uppercase text-[#9CA3AF]"><span className="h-px flex-1 bg-[#E5E7EB]" />New User?<span className="h-px flex-1 bg-[#E5E7EB]" /></div>
-            <p className="text-center text-sm text-[#6B7280]">Need an account? <Link href="/register" className="font-semibold text-[#0077B6] hover:underline">Register here</Link></p>
-            <div className="mt-5 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-[#0077B6]"><p className="font-semibold">Demo Credentials</p><p className="mt-2">Email: <strong>demo@rhu.gov.ph</strong></p><p>Password: <strong>Demo@123</strong></p></div>
-            <p className="mt-8 text-center text-xs text-[#9CA3AF]">By signing in, you agree to our <Link href="/terms" className="text-[#0077B6]">Terms of Service</Link> and <Link href="/privacy" className="text-[#0077B6]">Privacy Policy</Link></p>
-          </div>
-        </section>
+    <AuthShell>
+      <div className="auth-stagger">
+        <h2 className="text-3xl font-bold tracking-tight">Welcome back</h2>
+        <p className="mt-2 text-[#5B6478]">{offline?'Sign in to your saved account on this device':'Sign in to your RHU account'}</p>
+        {offline && <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm leading-6 text-amber-900">Use the email and password you last used to sign in online on this browser. Saved access lasts seven days from online verification. New accounts and password resets require internet.</p>}
       </div>
-    </main>
+      <form onSubmit={handleSubmit} className="auth-stagger mt-8 space-y-5">
+        <div>
+          <label htmlFor="email" className="text-sm font-semibold">Username or email</label>
+          <input id="email" type="text" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} className={`${inputClass} mt-2`} placeholder="you@example.com" required />
+        </div>
+        <div>
+          <div className="flex items-center justify-between">
+            <label htmlFor="password" className="text-sm font-semibold">Password</label>
+            <Link href="/forgot-password" className="rounded text-sm font-semibold text-[#087DB9] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9]">Forgot password?</Link>
+          </div>
+          <div className="relative mt-2">
+            <input id="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} className={`${inputClass} pr-12`} placeholder="Enter your password" required />
+            <button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((visible) => !visible)} className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-[#5B6478] transition-colors hover:bg-[#EAF6FA] hover:text-[#03045E]">{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+          </div>
+        </div>
+        <label className="flex w-fit items-center gap-2 text-sm text-[#5B6478]"><input type="checkbox" className="h-4 w-4 accent-[#087DB9]" />Remember me</label>
+        {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 animate-in fade-in slide-in-from-top-1 duration-200">{error}</p>}
+        <button type="submit" disabled={busy} className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#087DB9] font-semibold text-white shadow-sm shadow-[#087DB9]/30 transition-colors hover:bg-[#056d9e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70">
+          {busy && <Loader2 size={18} aria-hidden className="animate-spin" />}
+          {busy?'Signing in…':offline?'Sign in offline':'Sign in'}
+        </button>
+      </form>
+      <div className="auth-stagger">
+        <p className="mt-7 text-center text-sm text-[#5B6478]">New to eCHIMS? <Link href="/register" className="font-semibold text-[#087DB9] hover:underline">Create an account</Link></p>
+        <div className="mt-6 rounded-xl border border-[#CAF0F8] bg-[#F4FBFD] p-4 text-sm text-[#03045E]"><p className="font-semibold">Demo credentials</p><p className="mt-2 text-[#2D3A55]">Email: <strong>demo@rhu.gov.ph</strong></p><p className="text-[#2D3A55]">Password: <strong>Demo@123</strong></p></div>
+        <p className="mt-8 text-center text-xs leading-5 text-[#8A93A6]">By signing in, you agree to our <Link href="/terms" className="text-[#087DB9] hover:underline">Terms of Service</Link> and <Link href="/privacy" className="text-[#087DB9] hover:underline">Privacy Policy</Link></p>
+      </div>
+    </AuthShell>
   )
 }
+
+const inputClass = 'h-12 w-full rounded-xl border border-[#C9DCE6] bg-white px-4 text-base text-[#03045E] placeholder:text-[#8A93A6] outline-none transition-[border-color,box-shadow] duration-150 focus:border-[#087DB9] focus:ring-4 focus:ring-[#087DB9]/15'
