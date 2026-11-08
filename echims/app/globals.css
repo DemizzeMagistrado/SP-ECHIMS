@@ -193,6 +193,18 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Cross-fade full page loads (e.g. sign-in -> dashboard) instead of blanking.
+   Browsers without support just navigate normally. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 350ms;
+  }
+}
+
 .brand {
   font-family: var(--font-body), system-ui, sans-serif;
 }

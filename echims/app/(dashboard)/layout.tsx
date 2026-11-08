@@ -117,8 +117,9 @@ export default async function DashboardLayout({
   return (
     <ToastProvider>
       <DashboardShell>
-        {/* Same sky tone as the sign-in page, so arriving after login feels continuous */}
-        <div className={`${brandFonts} flex min-h-screen items-stretch bg-[linear-gradient(180deg,#CAF0F8_0%,#E4F6FA_40%,#F1FAFC_100%)] bg-fixed text-[#03045E] animate-in fade-in duration-500`}>
+        {/* Same sky tone as the sign-in overlay, so arriving after login feels continuous.
+            No fade on this root: fading from opacity 0 flashes the white body behind it. */}
+        <div className={`${brandFonts} flex min-h-screen items-stretch bg-[linear-gradient(180deg,#CAF0F8_0%,#E4F6FA_40%,#F1FAFC_100%)] bg-fixed text-[#03045E]`}>
           <Sidebar
             role={context.role}
             fullName={context.profile.full_name}
