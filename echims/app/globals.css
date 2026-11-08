@@ -188,31 +188,21 @@
   }
 }
 
-/* Landing page motion */
+/* Landing page */
 html {
   scroll-behavior: smooth;
 }
 
-.reveal {
-  opacity: 0;
-  transform: translateY(24px);
-  transition: opacity 0.7s ease-out, transform 0.7s ease-out;
-  transition-delay: var(--reveal-delay, 0ms);
+.landing {
+  font-family: var(--font-body), system-ui, sans-serif;
 }
 
-.reveal.is-visible {
-  opacity: 1;
-  transform: none;
+.landing :is(h1, h2, h3) {
+  font-family: var(--font-display), system-ui, sans-serif;
 }
 
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
-  }
-
-  .reveal {
-    opacity: 1;
-    transform: none;
-    transition: none;
   }
 }

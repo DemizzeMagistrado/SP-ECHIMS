@@ -72,7 +72,7 @@ export default function LoginPage() {
                   <button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((visible) => !visible)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B7280]">{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
                 </div>
               </div>
-              <div className="flex items-center justify-between text-sm"><label className="flex items-center gap-2 text-[#6B7280]"><input type="checkbox" className="h-4 w-4 accent-[#0077B6]" />Remember me</label><Link href="forgot-password/" className="font-semibold text-[#0077B6] hover:underline">Forgot Password?</Link></div>
+              <div className="flex items-center justify-between text-sm"><label className="flex items-center gap-2 text-[#6B7280]"><input type="checkbox" className="h-4 w-4 accent-[#0077B6]" />Remember me</label><Link href="/forgot-password" className="font-semibold text-[#0077B6] hover:underline">Forgot Password?</Link></div>
               {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
               <button type="submit" disabled={busy} className="w-full rounded-full bg-[#0784BE] py-3 font-semibold text-white shadow-sm transition-colors hover:bg-[#056d9e]">{busy?'Signing in…':offline?'Sign In Offline':'Sign In'}</button>
             </form>
