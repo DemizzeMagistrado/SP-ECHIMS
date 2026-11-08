@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Atkinson_Hyperlegible, Bricolage_Grotesque } from 'next/font/google'
 import { BellRing, Check, Clock, MessageSquareText } from 'lucide-react'
 import { FeatureList } from '@/components/landing/feature-list'
-import { HeaderActions } from '@/components/landing/header-actions'
+import { BackToTop, SectionLink } from '@/components/landing/section-nav'
 
 const display = Bricolage_Grotesque({ subsets: ['latin'], weight: ['600', '700', '800'], variable: '--font-display' })
 const body = Atkinson_Hyperlegible({ subsets: ['latin'], weight: ['400', '700'], variable: '--font-body' })
@@ -40,24 +40,31 @@ const secondaryButton = `inline-flex items-center justify-center rounded-lg bord
 export default function LandingPage() {
   return (
     <main className={`landing ${display.variable} ${body.variable} min-h-screen overflow-x-hidden bg-white text-[#03045E]`}>
-      <a href="#features" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:shadow">
+      <SectionLink to="features" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:shadow">
         Skip to features
-      </a>
+      </SectionLink>
 
       {/* HEADER */}
       <header className="sticky top-0 z-50 border-b border-[#03045E]/10 bg-white/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:h-20 sm:px-8">
-          <Link href="/" aria-label="eCHIMS home" className={`shrink-0 rounded-lg ${focusRing}`}>
+          <SectionLink to="top" aria-label="Back to top" className={`shrink-0 rounded-lg ${focusRing}`}>
             <img src="/landing-logo.png" alt="eCHIMS logo" width={170} height={48} className="h-auto w-[120px] sm:w-[150px]" fetchPriority="high" />
-          </Link>
+          </SectionLink>
           <nav aria-label="Sections" className="hidden items-center gap-1 md:flex">
-            {[['#features', 'Features'], ['#how-it-works', 'How it works'], ['#roles', 'Who uses it']].map(([href, label]) => (
-              <a key={href} href={href} className={`rounded-lg px-3 py-2 text-sm font-semibold text-[#03045E]/75 transition-colors hover:text-[#03045E] ${focusRing}`}>
+            {[['features', 'Features'], ['how-it-works', 'How it works'], ['roles', 'Who uses it']].map(([id, label]) => (
+              <SectionLink key={id} to={id} className={`rounded-lg px-3 py-2 text-sm font-semibold text-[#03045E]/75 transition-colors hover:text-[#03045E] ${focusRing}`}>
                 {label}
-              </a>
+              </SectionLink>
             ))}
           </nav>
-          <HeaderActions />
+          <div className="flex items-center gap-2">
+            <Link href="/login" className={`rounded-lg px-4 py-2.5 text-sm font-semibold text-[#03045E] transition-colors hover:bg-[#CAF0F8] ${focusRing}`}>
+              Sign in
+            </Link>
+            <Link href="/register" className={`hidden rounded-lg bg-[#087DB9] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#056d9e] sm:inline-block ${focusRing}`}>
+              Create account
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -134,7 +141,7 @@ export default function LandingPage() {
       </section>
 
       {/* FEATURES */}
-      <section id="features" className="scroll-mt-20 px-4 py-16 sm:scroll-mt-24 sm:px-8 sm:py-24">
+      <section id="features" tabIndex={-1} className="outline-none scroll-mt-20 px-4 py-16 sm:scroll-mt-24 sm:px-8 sm:py-24">
         <div className="mx-auto max-w-7xl">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Everything an RHU tracks, in one system</h2>
           <p className="mt-4 max-w-[60ch] text-lg leading-8 text-[#4B5563]">
@@ -145,7 +152,7 @@ export default function LandingPage() {
       </section>
 
       {/* HOW IT WORKS */}
-      <section id="how-it-works" className="scroll-mt-20 bg-[#F4FBFD] px-4 py-16 sm:scroll-mt-24 sm:px-8 sm:py-24">
+      <section id="how-it-works" tabIndex={-1} className="outline-none scroll-mt-20 bg-[#F4FBFD] px-4 py-16 sm:scroll-mt-24 sm:px-8 sm:py-24">
         <div className="mx-auto max-w-7xl">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">How it works</h2>
           <p className="mt-4 max-w-[60ch] text-lg leading-8 text-[#4B5563]">
@@ -167,7 +174,7 @@ export default function LandingPage() {
       </section>
 
       {/* ROLES */}
-      <section id="roles" className="scroll-mt-20 px-4 py-16 sm:scroll-mt-24 sm:px-8 sm:py-24">
+      <section id="roles" tabIndex={-1} className="outline-none scroll-mt-20 px-4 py-16 sm:scroll-mt-24 sm:px-8 sm:py-24">
         <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1fr_1.6fr] lg:gap-16">
           <div>
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Built for the people doing the work</h2>
@@ -219,6 +226,7 @@ export default function LandingPage() {
           </nav>
         </div>
       </footer>
+      <BackToTop />
     </main>
   )
 }
