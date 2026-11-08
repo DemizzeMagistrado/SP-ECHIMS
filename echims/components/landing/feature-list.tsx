@@ -300,7 +300,7 @@ export function FeatureList() {
                     onClick={() => setSelected(f.title)}
                     aria-expanded={isActive}
                     className={`flex w-full items-start gap-4 px-2 py-4 text-left transition-colors duration-150 ${focusRing} ${
-                      isActive ? 'bg-[#F4FBFD]' : 'hover:bg-[#F8FCFD]'
+                      isActive ? 'bg-white' : 'hover:bg-white/60'
                     }`}
                   >
                     <span
@@ -386,7 +386,7 @@ export function FeatureList() {
         {active && (
           <div
             key={active.title}
-            className="sticky top-28 rounded-2xl border border-[#C9DCE6] bg-[#F4FBFD] p-8 animate-in fade-in duration-200 motion-reduce:animate-none"
+            className="sticky top-28 rounded-2xl border border-[#DCEAF0] bg-white p-8 shadow-[0_18px_40px_-28px_rgba(3,4,94,0.4)] animate-in fade-in duration-200 motion-reduce:animate-none"
           >
             <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#087DB9] text-white">
               <active.icon size={24} aria-hidden />

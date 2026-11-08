@@ -74,7 +74,7 @@ export default function LandingPage() {
       </SectionLink>
 
       {/* HEADER */}
-      <header className="sticky top-0 z-50 border-b border-[#03045E]/10 bg-white/90 backdrop-blur animate-in fade-in slide-in-from-top-2 fill-mode-both duration-500">
+      <header className="sticky top-0 z-50 border-b border-[#03045E]/[0.06] bg-[#CAF0F8]/80 backdrop-blur-md animate-in fade-in slide-in-from-top-2 fill-mode-both duration-500">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:h-20 sm:px-8">
           <SectionLink to="top" aria-label="Back to top" className={`shrink-0 rounded-lg ${focusRing}`}>
             <img src="/landing-logo.png" alt="eCHIMS logo" width={170} height={48} className="h-auto w-[120px] sm:w-[150px]" fetchPriority="high" />
@@ -98,8 +98,8 @@ export default function LandingPage() {
       </header>
 
       {/* HERO: the system as a whole */}
-      <section className="relative isolate overflow-hidden bg-[#CAF0F8]">
-        <div aria-hidden className="absolute inset-x-0 bottom-0 -z-10 h-1/3 bg-gradient-to-b from-transparent to-white/50" />
+      <section className="relative isolate overflow-hidden bg-[linear-gradient(180deg,#CAF0F8_0%,#DDF5FA_55%,#FFFFFF_100%)]">
+        <div aria-hidden className="absolute -z-10 right-[-10%] top-[8%] h-[34rem] w-[34rem] rounded-full bg-[radial-gradient(closest-side,rgba(144,224,239,0.55),transparent)]" />
         <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 py-14 sm:px-8 sm:py-20 lg:min-h-[calc(100svh-5rem)] lg:grid-cols-[1.1fr_1fr] lg:gap-16 lg:py-16">
           <div>
             <p className={`text-base font-bold text-[#087DB9] ${fadeUp}`} style={delay(100)}>
@@ -147,7 +147,7 @@ export default function LandingPage() {
             <div
               aria-hidden
               style={delay(1100)}
-              className="absolute left-1/2 top-1/2 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full bg-[#03045E] text-white ring-8 ring-[#CAF0F8] animate-in fade-in zoom-in-50 fill-mode-both duration-500 sm:h-24 sm:w-24"
+              className="absolute left-1/2 top-1/2 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full bg-[#03045E] text-white ring-8 ring-[#E3F6FA] animate-in fade-in zoom-in-50 fill-mode-both duration-500 sm:h-24 sm:w-24"
             >
               <Baby size={26} />
               <span className="mt-1 text-[11px] font-bold leading-none sm:text-xs">One record</span>
@@ -227,7 +227,7 @@ export default function LandingPage() {
       </section>
 
       {/* FEATURES */}
-      <section id="features" tabIndex={-1} className="outline-none scroll-mt-20 bg-[#F4FBFD] px-4 py-16 sm:scroll-mt-24 sm:px-8 sm:py-24">
+      <section id="features" tabIndex={-1} className="outline-none scroll-mt-20 bg-[linear-gradient(180deg,#FFFFFF_0%,#F0F9FC_14%,#F0F9FC_86%,#FFFFFF_100%)] px-4 py-16 sm:scroll-mt-24 sm:px-8 sm:py-24">
         <InView className="mx-auto max-w-7xl">
           <h2 className={`text-3xl font-bold tracking-tight sm:text-4xl ${fadeUp}`}>Everything an RHU tracks, in one system</h2>
           <p className={`mt-4 max-w-[60ch] text-lg leading-8 text-[#4B5563] ${fadeUp}`} style={delay(100)}>
@@ -268,7 +268,7 @@ export default function LandingPage() {
       </section>
 
       {/* ROLES */}
-      <section id="roles" tabIndex={-1} className="outline-none scroll-mt-20 bg-[#F4FBFD] px-4 py-16 sm:scroll-mt-24 sm:px-8 sm:py-24">
+      <section id="roles" tabIndex={-1} className="outline-none scroll-mt-20 bg-[linear-gradient(180deg,#FFFFFF_0%,#EAF6FA_100%)] px-4 py-16 sm:scroll-mt-24 sm:px-8 sm:py-24">
         <InView className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1fr_1.6fr] lg:gap-16">
           <div>
             <h2 className={`text-3xl font-bold tracking-tight sm:text-4xl ${fadeUp}`}>Built for the people doing the work</h2>
@@ -292,8 +292,9 @@ export default function LandingPage() {
       </section>
 
       {/* CALL TO ACTION */}
-      <section className="bg-[#03045E] px-4 py-16 text-white sm:px-8 sm:py-20">
-        <InView className="mx-auto flex max-w-7xl flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+      <section className="bg-[linear-gradient(180deg,#EAF6FA_0%,#EAF6FA_50%,#FFFFFF_50%)] px-4 sm:px-8">
+        <InView className="relative isolate mx-auto flex max-w-7xl flex-col gap-8 overflow-hidden rounded-3xl bg-[#03045E] px-6 py-12 text-white sm:px-12 sm:py-16 lg:flex-row lg:items-center lg:justify-between">
+          <div aria-hidden className="absolute -z-10 -right-24 -top-32 h-96 w-96 rounded-full bg-[radial-gradient(closest-side,rgba(8,125,185,0.55),transparent)]" />
           <div className={fadeUp}>
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Start tracking your barangay’s children</h2>
             <p className="mt-3 max-w-[55ch] text-lg leading-8 text-[#CAF0F8]">
@@ -312,7 +313,7 @@ export default function LandingPage() {
       </section>
 
       {/* FOOTER */}
-      <footer className="px-4 py-10 sm:px-8">
+      <footer className="px-4 pb-10 pt-14 sm:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-6 text-sm text-[#5B6478] sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-bold text-[#03045E]">eCHIMS</p>
