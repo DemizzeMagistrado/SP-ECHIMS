@@ -201,8 +201,30 @@ html {
   font-family: var(--font-display), system-ui, sans-serif;
 }
 
+/* Entrance animations wait until their block scrolls into view */
+.in-view:not(.is-visible),
+.in-view:not(.is-visible) * {
+  animation-play-state: paused !important;
+}
+
+@keyframes draw-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+.draw-x {
+  transform-origin: left;
+  animation: draw-x 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  .landing .animate-in,
+  .landing .draw-x {
+    animation: none !important;
   }
 }
