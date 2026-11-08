@@ -65,7 +65,6 @@ export default function LoginPage() {
       </form>
       <div className="auth-stagger">
         <p className="mt-7 text-center text-sm text-[#5B6478]">New to eCHIMS? <Link href="/register" className="font-semibold text-[#087DB9] hover:underline">Create an account</Link></p>
-        <div className="mt-6 rounded-xl border border-[#CAF0F8] bg-[#F4FBFD] p-4 text-sm text-[#03045E]"><p className="font-semibold">Demo credentials</p><p className="mt-2 text-[#2D3A55]">Email: <strong>demo@rhu.gov.ph</strong></p><p className="text-[#2D3A55]">Password: <strong>Demo@123</strong></p></div>
         <p className="mt-8 text-center text-xs leading-5 text-[#8A93A6]">By signing in, you agree to our <Link href="/terms" className="text-[#087DB9] hover:underline">Terms of Service</Link> and <Link href="/privacy" className="text-[#087DB9] hover:underline">Privacy Policy</Link></p>
       </div>
     </AuthShell>
