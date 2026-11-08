@@ -14,7 +14,7 @@ export function Donut({ percentage, label, color = '#087DB9', size = 132 }: Donu
   const center = size / 2
   return (
     <div className="flex flex-col items-center gap-2">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${label || 'Progress'}: ${pct}%`}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${label}: ${pct}%`}>
         <circle cx={center} cy={center} r={radius} fill="none" stroke="#E3EEF3" strokeWidth="12" />
         <circle
           className="donut-arc"
@@ -28,7 +28,7 @@ export function Donut({ percentage, label, color = '#087DB9', size = 132 }: Donu
           {pct}%
         </text>
       </svg>
-      {label && <p className="text-center text-sm text-[#5B6478]">{label}</p>}
+      <p className="text-center text-sm text-[#5B6478]">{label}</p>
     </div>
   )
 }
