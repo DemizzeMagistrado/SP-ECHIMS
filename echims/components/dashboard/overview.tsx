@@ -4,22 +4,22 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 // RPT-USR001 — Role-scoped dashboard overview.
 // Reads live data from /api/dashboard/summary, which handles role scoping
 // (BHW/BNS/RHM = assigned barangays; PHN = RHU-wide; Admin = everything).
-// One layout for every role; cards, charts and quick actions are filtered by
-// the modules the role can open (roleModules).
+// One layout for every role; cards and charts are filtered by the modules the
+// role can open (roleModules).
 //
-// Layout: greeting · one row of "needs attention" cards · main column
-// (activity chart with period totals, recent alerts) + side column (status, quick actions).
+// Layout: greeting, then a 2x2 grid of number cards beside the Status donuts,
+// then the activity chart (full width) with period totals.
+// Alerts live in the top-bar bell and the Alerts module, so they are not repeated here.
 
 import { useMemo, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
 import {
   AlertCircle, AlertTriangle, Apple, ArrowUpRight, Baby, Boxes, CalendarClock,
-  ClipboardCheck, FileText, Pill, Syringe, Users,
+  Pill, Syringe,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { roleModules, type UserRole } from '@/lib/echims-data'
-import { RecentAlerts } from './recent-alerts'
 import { Donut, TrendBars } from './mini-charts'
 
 type Payload = {
@@ -72,40 +72,6 @@ const ranges = [
   [365, 'Last year'],
 ] as const
 
-// Quick actions per role, most-used first; anything the role cannot open is dropped.
-const quickActions: Record<UserRole, { label: string; href: string; module: string; icon: ReactNode }[]> = {
-  Administrator: [
-    { label: 'Review accounts', href: '/user-management', module: 'User Management', icon: <Users size={17} /> },
-    { label: 'Children', href: '/child-profiling/children', module: 'Child Profiling', icon: <Baby size={17} /> },
-    { label: 'Stock overview', href: '/inventory/stock-overview', module: 'Inventory', icon: <Boxes size={17} /> },
-    { label: 'Reports', href: '/reports', module: 'Reports', icon: <FileText size={17} /> },
-  ],
-  'Public Health Nurse': [
-    { label: 'Health activities', href: '/health-activities', module: 'Health Activities', icon: <ClipboardCheck size={17} /> },
-    { label: 'Defaulters', href: '/vaccination/defaulters', module: 'Vaccination', icon: <AlertTriangle size={17} /> },
-    { label: 'Stock overview', href: '/inventory/stock-overview', module: 'Inventory', icon: <Boxes size={17} /> },
-    { label: 'Reports', href: '/reports', module: 'Reports', icon: <FileText size={17} /> },
-  ],
-  'Rural Health Midwife': [
-    { label: 'Vaccination records', href: '/vaccination/records', module: 'Vaccination', icon: <Syringe size={17} /> },
-    { label: 'Defaulters', href: '/vaccination/defaulters', module: 'Vaccination', icon: <AlertTriangle size={17} /> },
-    { label: 'Schedule', href: '/vaccination/schedule', module: 'Vaccination', icon: <CalendarClock size={17} /> },
-    { label: 'Supplementation', href: '/supplementation', module: 'Supplementation', icon: <Pill size={17} /> },
-  ],
-  'Barangay Health Worker': [
-    { label: 'Children', href: '/child-profiling/children', module: 'Child Profiling', icon: <Baby size={17} /> },
-    { label: 'Defaulters', href: '/vaccination/defaulters', module: 'Vaccination', icon: <AlertTriangle size={17} /> },
-    { label: 'Health activities', href: '/health-activities', module: 'Health Activities', icon: <ClipboardCheck size={17} /> },
-    { label: 'Alerts', href: '/alerts', module: 'Alerts', icon: <AlertCircle size={17} /> },
-  ],
-  'Barangay Nutrition Scholar': [
-    { label: 'Nutrition', href: '/nutrition', module: 'Nutritional Assessment', icon: <Apple size={17} /> },
-    { label: 'Supplementation', href: '/supplementation', module: 'Supplementation', icon: <Pill size={17} /> },
-    { label: 'Children', href: '/child-profiling/children', module: 'Child Profiling', icon: <Baby size={17} /> },
-    { label: 'Alerts', href: '/alerts', module: 'Alerts', icon: <AlertCircle size={17} /> },
-  ],
-}
-
 const stagger = (i: number) => ({ animationDelay: `${i * 60}ms` })
 const rise = 'animate-in fade-in slide-in-from-bottom-3 fill-mode-both duration-500 ease-out motion-reduce:animate-none'
 const card = 'rounded-2xl border border-[#DCEAF0] bg-white'
@@ -151,7 +117,23 @@ export function DashboardOverview() {
     can('Inventory') && { label: 'Low-stock items', value: m.low_stock_items, note: '10 or fewer on hand', href: '/inventory/stock-overview', tone: 'slate' as const, icon: <Boxes size={20} /> },
   ].filter(Boolean) as AttentionItem[] : []
 
-  const actions = (quickActions[role] ?? []).filter((a) => can(a.module))
+  // Roles with fewer than four follow-up cards get period counts from modules they use,
+  // so every role sees a full 2x2 grid.
+  const fillers = m ? [
+    can('Child Profiling') && { label: 'Registered children', value: m.children, note: 'Active profiles in your area', href: '/child-profiling/children', tone: 'sky' as const, icon: <Baby size={20} />, info: true },
+    can('Vaccination') && { label: 'Vaccinations given', value: m.vaccinations_approved, note: 'Approved in this period', href: '/vaccination/records', tone: 'emerald' as const, icon: <Syringe size={20} />, info: true },
+    can('Supplementation') && { label: 'Supplement doses', value: m.supplementation_records, note: 'Given in this period', href: '/supplementation', tone: 'violet' as const, icon: <Pill size={20} />, info: true },
+    can('Nutritional Assessment') && { label: 'Assessments done', value: m.nutrition_assessments, note: 'Recorded in this period', href: '/nutrition', tone: 'sky' as const, icon: <Apple size={20} />, info: true },
+  ].filter(Boolean) as AttentionItem[] : []
+  const cards = [...attention, ...fillers].slice(0, 4)
+  const onCard = new Set(cards.map((c) => c.label))
+  // Period totals under the chart, skipping any number already shown as a card.
+  const totals = m ? ([
+    can('Child Profiling') && { label: 'Registered children', value: m.children, icon: <Baby size={15} /> },
+    can('Vaccination') && { label: 'Vaccinations given', value: m.vaccinations_approved, icon: <Syringe size={15} /> },
+    can('Nutritional Assessment') && { label: 'Assessments done', value: m.nutrition_assessments, icon: <Apple size={15} /> },
+    can('Supplementation') && { label: 'Supplement doses', value: m.supplementation_records, icon: <Pill size={15} /> },
+  ].filter(Boolean) as { label: string; value: number; icon: ReactNode }[]).filter((t) => !onCard.has(t.label)) : []
 
   const trends = (data ? [
     can('Vaccination') && { key: 'vacc', label: 'Vaccinations', note: 'Approved vaccination records per month', data: data.charts.vaccinations_by_month, color: '#087DB9' },
@@ -220,91 +202,65 @@ export function DashboardOverview() {
         !error && <OverviewSkeleton bare />
       ) : (
         <>
-          {/* Needs attention: one row; each card opens the list behind its number */}
-          {attention.length > 0 && (
-            <section aria-label="Needs attention" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]">
-              {attention.map((item, i) => (
-                <AttentionCard key={item.label} item={item} style={stagger(i + 4)} />
-              ))}
-            </section>
-          )}
-
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-3 xl:gap-6">
-            {/* Main column */}
-            <div className="space-y-5 xl:col-span-2 xl:space-y-6">
-              <section aria-labelledby="trend-heading" className={`${card} p-5 sm:p-6 ${rise}`} style={stagger(8)}>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h2 id="trend-heading" className="text-lg font-bold">Activity over time</h2>
-                    <p className="text-sm text-[#5B6478]">{trend ? trend.note : 'Records in this period'}</p>
-                  </div>
-                  {trends.length > 1 && (
-                    <div role="tablist" aria-label="Chart" className="flex gap-1 rounded-lg bg-[#F1F7FA] p-1">
-                      {trends.map((t) => (
-                        <button key={t.key} type="button" role="tab" aria-selected={trend?.key === t.key} onClick={() => setTrendKey(t.key)}
-                          className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9] ${
-                            trend?.key === t.key ? 'bg-white text-[#03045E] shadow-sm' : 'text-[#5B6478] hover:text-[#03045E]'
-                          }`}>
-                          {t.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {trend && (
-                  <div key={trend.key} className="mt-6">
-                    <TrendBars data={trend.data} color={trend.color} label={trend.label} />
-                  </div>
-                )}
-                <dl className={`${trend ? 'mt-6 border-t border-[#EEF4F7] pt-5' : 'mt-4'} grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-6`}>
-                  <Total label="Children" value={m.children} icon={<Baby size={15} />} />
-                  {can('Vaccination') && <Total label="Vaccinations" value={m.vaccinations_approved} icon={<Syringe size={15} />} />}
-                  {can('Nutritional Assessment') && <Total label="Assessments" value={m.nutrition_assessments} icon={<Apple size={15} />} />}
-                  {can('Supplementation') && <Total label="Supplements" value={m.supplementation_records} icon={<Pill size={15} />} />}
-                  <Total label="Pending approval" value={m.pending_approvals} icon={<ClipboardCheck size={15} />} />
-                  <Total label="Open alerts" value={m.open_alerts} icon={<AlertCircle size={15} />} />
-                </dl>
+            {/* Number cards, 2x2; each opens the list behind its number */}
+            {cards.length > 0 && (
+              <section aria-label="Key numbers" className={`grid grid-cols-1 gap-3 sm:grid-cols-2 xl:auto-rows-fr xl:gap-4 ${showCoverage || showNutrition ? 'xl:col-span-2' : 'xl:col-span-3'}`}>
+                {cards.map((item, i) => (
+                  <AttentionCard key={item.label} item={item} style={stagger(i + 4)} />
+                ))}
               </section>
+            )}
 
-              <div className={rise} style={stagger(10)}>
-                <RecentAlerts />
-              </div>
-            </div>
+            {(showCoverage || showNutrition) && (
+              <section aria-labelledby="status-heading" className={`${card} flex flex-col p-5 sm:p-6 ${rise} ${cards.length === 0 ? 'xl:col-span-3' : ''}`} style={stagger(8)}>
+                <h2 id="status-heading" className="text-lg font-bold">Status</h2>
+                <p className="text-sm text-[#5B6478]">For this period and your scope</p>
+                <div className={`mt-5 grid flex-1 content-center gap-4 ${bothDonuts ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  {showCoverage && <Donut percentage={vaccPct} label="Vaccination coverage" color="#059669" size={bothDonuts ? 116 : 140} />}
+                  {showNutrition && (nb && nb.total > 0 ? (
+                    <Donut percentage={Math.round((nb.at_risk / nb.total) * 100)} label={`At nutritional risk (${nb.at_risk} of ${nb.total})`} color="#DC2626" size={bothDonuts ? 116 : 140} />
+                  ) : (
+                    <div className="flex items-center justify-center rounded-xl bg-[#F8FCFD] p-4 text-center text-sm text-[#5B6478]">No nutrition assessments yet.</div>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
 
-            {/* Side column */}
-            <div className="space-y-5 xl:space-y-6">
-              {(showCoverage || showNutrition) && (
-                <section aria-labelledby="status-heading" className={`${card} p-5 sm:p-6 ${rise}`} style={stagger(9)}>
-                  <h2 id="status-heading" className="text-lg font-bold">Status</h2>
-                  <p className="text-sm text-[#5B6478]">For this period and your scope</p>
-                  <div className={`mt-5 grid gap-4 ${bothDonuts ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                    {showCoverage && <Donut percentage={vaccPct} label="Vaccination coverage" color="#059669" size={bothDonuts ? 116 : 140} />}
-                    {showNutrition && (nb && nb.total > 0 ? (
-                      <Donut percentage={Math.round((nb.at_risk / nb.total) * 100)} label={`At nutritional risk (${nb.at_risk} of ${nb.total})`} color="#DC2626" size={bothDonuts ? 116 : 140} />
-                    ) : (
-                      <div className="flex items-center justify-center rounded-xl bg-[#F8FCFD] p-4 text-center text-sm text-[#5B6478]">No nutrition assessments yet.</div>
+          {/* Activity over time, full width */}
+          {(trend || totals.length > 0) && (
+            <section aria-labelledby="trend-heading" className={`${card} p-5 sm:p-6 ${rise}`} style={stagger(9)}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 id="trend-heading" className="text-lg font-bold">Activity over time</h2>
+                  <p className="text-sm text-[#5B6478]">{trend ? trend.note : 'Records in this period'}</p>
+                </div>
+                {trends.length > 1 && (
+                  <div role="tablist" aria-label="Chart" className="flex gap-1 rounded-lg bg-[#F1F7FA] p-1">
+                    {trends.map((t) => (
+                      <button key={t.key} type="button" role="tab" aria-selected={trend?.key === t.key} onClick={() => setTrendKey(t.key)}
+                        className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9] ${
+                          trend?.key === t.key ? 'bg-white text-[#03045E] shadow-sm' : 'text-[#5B6478] hover:text-[#03045E]'
+                        }`}>
+                        {t.label}
+                      </button>
                     ))}
                   </div>
-                </section>
+                )}
+              </div>
+              {trend && (
+                <div key={trend.key} className="mt-6">
+                  <TrendBars data={trend.data} color={trend.color} label={trend.label} />
+                </div>
               )}
-
-              <section aria-labelledby="actions-heading" className={`${card} p-5 sm:p-6 ${rise}`} style={stagger(11)}>
-                <h2 id="actions-heading" className="text-lg font-bold">Quick actions</h2>
-                <ul className="mt-4 space-y-2">
-                  {actions.map((a) => (
-                    <li key={a.href}>
-                      <Link href={a.href}
-                        className="group flex items-center gap-3 rounded-xl border border-[#E3EEF3] px-3 py-2.5 text-sm font-semibold transition-colors duration-200 hover:border-[#90E0EF] hover:bg-[#F4FBFD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9]">
-                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#EAF6FA] text-[#0077B6] transition-colors duration-200 group-hover:bg-[#087DB9] group-hover:text-white">{a.icon}</span>
-                        <span className="flex-1">{a.label}</span>
-                        <ArrowUpRight size={16} className="text-[#8A93A6] transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[#087DB9]" />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            </div>
-          </div>
+              {totals.length > 0 && (
+                <dl className={`${trend ? 'mt-6 border-t border-[#EEF4F7] pt-5' : 'mt-4'} grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4`}>
+                  {totals.map((t) => <Total key={t.label} label={t.label} value={t.value} icon={t.icon} />)}
+                </dl>
+              )}
+            </section>
+          )}
         </>
       )}
     </div>
@@ -312,14 +268,17 @@ export function DashboardOverview() {
 }
 
 // ─── Pieces ──────────────────────────────────────────────────────────
-type Tone = 'rose' | 'amber' | 'violet' | 'slate'
-type AttentionItem = { label: string; value: number; note: string; href: string; tone: Tone; icon: ReactNode }
+type Tone = 'rose' | 'amber' | 'violet' | 'slate' | 'sky' | 'emerald'
+// info = a plain count (no follow-up), so no accent bar and no "nothing to follow up" note.
+type AttentionItem = { label: string; value: number; note: string; href: string; tone: Tone; icon: ReactNode; info?: boolean }
 
 const TONE: Record<Tone, { icon: string; bar: string }> = {
   rose: { icon: 'bg-rose-50 text-rose-700', bar: 'bg-rose-500' },
   amber: { icon: 'bg-amber-50 text-amber-700', bar: 'bg-amber-500' },
   violet: { icon: 'bg-violet-50 text-violet-700', bar: 'bg-violet-500' },
   slate: { icon: 'bg-slate-100 text-slate-700', bar: 'bg-slate-500' },
+  sky: { icon: 'bg-[#EAF6FA] text-[#0077B6]', bar: 'bg-[#087DB9]' },
+  emerald: { icon: 'bg-emerald-50 text-emerald-700', bar: 'bg-emerald-500' },
 }
 
 function AttentionCard({ item, style }: { item: AttentionItem; style: React.CSSProperties }) {
@@ -327,12 +286,12 @@ function AttentionCard({ item, style }: { item: AttentionItem; style: React.CSSP
   return (
     <Link href={item.href} style={style}
       className={`group relative flex items-center gap-4 overflow-hidden ${card} p-4 transition-[border-color,box-shadow] duration-200 hover:border-[#90E0EF] hover:shadow-[0_14px_30px_-20px_rgba(3,4,94,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9] sm:p-5 ${rise}`}>
-      <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${item.value > 0 ? t.bar : 'bg-transparent'}`} />
+      <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${item.value > 0 && !item.info ? t.bar : 'bg-transparent'}`} />
       <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${t.icon}`}>{item.icon}</span>
       <div className="min-w-0 flex-1">
         <p className="text-2xl font-bold leading-none tabular-nums">{item.value.toLocaleString()}</p>
         <p className="mt-1.5 truncate text-sm font-semibold">{item.label}</p>
-        <p className="truncate text-sm text-[#5B6478]">{item.value === 0 ? 'Nothing to follow up' : item.note}</p>
+        <p className="truncate text-sm text-[#5B6478]">{item.value === 0 && !item.info ? 'Nothing to follow up' : item.note}</p>
       </div>
       <ArrowUpRight size={16} className="shrink-0 self-start text-[#8A93A6] transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[#087DB9]" />
     </Link>
@@ -353,13 +312,13 @@ function OverviewSkeleton({ bare = false }: { bare?: boolean }) {
   return (
     <div role="status" aria-label="Loading dashboard" className="space-y-5 lg:space-y-6">
       {!bare && <div className="h-32 animate-pulse rounded-2xl bg-[#03045E]/90" />}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => <div key={i} className={`h-24 ${block}`} />)}
-      </div>
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3 xl:gap-6">
-        <div className={`h-96 xl:col-span-2 ${block}`} />
-        <div className={`h-96 ${block}`} />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:col-span-2 xl:gap-4">
+          {Array.from({ length: 4 }).map((_, i) => <div key={i} className={`h-28 ${block}`} />)}
+        </div>
+        <div className={`h-64 ${block}`} />
       </div>
+      <div className={`h-96 ${block}`} />
     </div>
   )
 }
