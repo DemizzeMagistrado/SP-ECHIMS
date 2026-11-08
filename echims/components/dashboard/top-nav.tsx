@@ -10,7 +10,7 @@ import { SystemOfflineTools } from '@/components/offline/system-offline-tools'
 //   • Notifications bell untouched (same component, same behavior)
 
 import {
-  Bell, CheckCheck, Loader2, RefreshCw, X,
+  Bell, CheckCheck, Loader2, Menu, RefreshCw, X,
   Settings as SettingsIcon, LogOut, User as UserIcon,
 } from 'lucide-react'
 import {
@@ -19,6 +19,7 @@ import {
 import Link from 'next/link'
 import { useRouter } from '@/lib/offline/navigation'
 import { useAuth } from '@/components/auth/auth-provider'
+import { useShell } from './shell'
 
 type Notification = {
   alert_id: number
@@ -58,6 +59,7 @@ function formatTimestamp(value: string) {
 export function TopNav() {
   const router = useRouter()
   const { logout, user } = useAuth()
+  const { inShell, setMobileOpen } = useShell()
   const dropdownId = useId()
   const settingsMenuId = useId()
   const [today, setToday] = useState('')
@@ -171,11 +173,15 @@ export function TopNav() {
   }
 
   return (
-    <div className="flex h-20 items-center justify-between border-b border-[#E5E7EB] bg-white px-4 shadow-sm sm:px-8">
-      {/* Date */}
-      <div>
-        <p className="text-xs uppercase tracking-wider text-[#6B7280]">Today</p>
-        <p className="text-sm font-medium text-[#03045E]">{today || '—'}</p>
+    <div className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-[#03045E]/[0.07] bg-white/90 px-4 backdrop-blur-md sm:px-6 lg:px-8">
+      <div className="flex min-w-0 items-center gap-2">
+        {inShell && (
+          <button type="button" onClick={() => setMobileOpen(true)} aria-label="Open menu"
+            className="-ml-1 rounded-lg p-2 text-[#03045E] transition hover:bg-[#EAF6FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9] lg:hidden">
+            <Menu size={22} />
+          </button>
+        )}
+        <p className="truncate text-sm font-semibold text-[#2D3A55]">{today || ' '}</p>
       </div>
 
       <div className="flex items-center gap-3 sm:gap-4">
@@ -187,7 +193,7 @@ export function TopNav() {
             aria-label={`Notifications, ${unreadCount} unread`}
             aria-expanded={open} aria-controls={dropdownId}
             onClick={() => { const next = !open; setOpen(next); if (next) void loadNotifications() }}
-            className="relative rounded-full p-2.5 text-[#03045E] transition hover:bg-[#F3F4F6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9]">
+            className="relative rounded-lg p-2.5 text-[#03045E] transition hover:bg-[#EAF6FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9]">
             <Bell size={22} />
             {unreadCount > 0 && (
               <span aria-hidden="true"
@@ -199,7 +205,7 @@ export function TopNav() {
 
           {open && (
             <section id={dropdownId} aria-label="Notifications"
-              className="absolute right-0 top-full z-50 mt-3 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+              className="absolute right-0 top-full z-50 mt-3 w-[min(24rem,calc(100vw-2rem))] origin-top-right overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl animate-in fade-in zoom-in-95 slide-in-from-top-1 duration-150">
               <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                 <div>
                   <h2 className="font-bold text-[#03045E]">Notifications</h2>
@@ -283,12 +289,12 @@ export function TopNav() {
         <div ref={settingsRef} className="relative">
           <button type="button" aria-label="Settings menu" aria-expanded={settingsOpen} aria-controls={settingsMenuId}
             onClick={() => setSettingsOpen((s) => !s)}
-            className="rounded-full p-2.5 text-[#03045E] transition hover:bg-[#F3F4F6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9]">
+            className="rounded-lg p-2.5 text-[#03045E] transition hover:bg-[#EAF6FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9]">
             <SettingsIcon size={22} />
           </button>
           {settingsOpen && (
             <section id={settingsMenuId} aria-label="Settings"
-              className="absolute right-0 top-full z-50 mt-3 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+              className="absolute right-0 top-full z-50 mt-3 w-60 origin-top-right overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl animate-in fade-in zoom-in-95 slide-in-from-top-1 duration-150">
               <div className="border-b border-slate-100 px-4 py-3">
                 <p className="truncate text-sm font-semibold text-[#03045E]">{user?.fullName ?? 'Account'}</p>
                 <p className="truncate text-xs text-slate-500">{user?.role ?? ''}</p>

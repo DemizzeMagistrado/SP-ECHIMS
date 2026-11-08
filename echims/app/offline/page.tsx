@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { TopNav } from '@/components/dashboard/top-nav'
+import { DashboardShell } from '@/components/dashboard/shell'
+import { brandFonts } from '@/components/landing/fonts'
 import { ToastProvider } from '@/components/ui/toast'
 import { OfflinePathContext } from '@/lib/offline/navigation'
 import type { Role } from '@/lib/auth/permissions'
@@ -69,10 +71,11 @@ export default function OfflinePage() {
     </p>
   </section>
 )
-  return <OfflinePathContext.Provider value={path}><ToastProvider><div className="flex min-h-screen items-stretch bg-[#CAF0F8]">
+  // Same shell as app/(dashboard)/layout.tsx so offline pages look and navigate the same.
+  return <OfflinePathContext.Provider value={path}><ToastProvider><DashboardShell><div className={`${brandFonts} flex min-h-screen items-stretch bg-[linear-gradient(180deg,#CAF0F8_0%,#E4F6FA_40%,#F1FAFC_100%)] bg-fixed text-[#03045E]`}>
     <Sidebar role={roles[user.role]} fullName={user.fullName}/>
     <div className="flex min-h-screen min-w-0 flex-1 flex-col"><TopNav/>
-      <main className="min-h-0 flex-1 overflow-y-auto bg-[#CAF0F8] p-8"><div className="mx-auto w-full max-w-7xl">{page}</div></main>
+      <main className="min-h-0 flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8"><div className="mx-auto w-full max-w-7xl">{page}</div></main>
     </div>
-  </div></ToastProvider></OfflinePathContext.Provider>
+  </div></DashboardShell></ToastProvider></OfflinePathContext.Provider>
 }

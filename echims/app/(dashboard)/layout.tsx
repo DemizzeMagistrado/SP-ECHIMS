@@ -4,6 +4,8 @@ import { TopNav } from '@/components/dashboard/top-nav'
 import { getAuthorizationContext } from '@/lib/auth/authorization'
 import { hasPermission, type Role } from '@/lib/auth/permissions'
 import { ToastProvider } from '@/components/ui/toast'
+import { DashboardShell } from '@/components/dashboard/shell'
+import { brandFonts } from '@/components/landing/fonts'
 
 export default async function DashboardLayout({
   children,
@@ -114,22 +116,25 @@ export default async function DashboardLayout({
 
   return (
     <ToastProvider>
-      <div className="flex min-h-screen items-stretch bg-[#CAF0F8]">
-        <Sidebar
-          role={context.role}
-          fullName={context.profile.full_name}
-        />
+      <DashboardShell>
+        {/* Same sky tone as the sign-in page, so arriving after login feels continuous */}
+        <div className={`${brandFonts} flex min-h-screen items-stretch bg-[linear-gradient(180deg,#CAF0F8_0%,#E4F6FA_40%,#F1FAFC_100%)] bg-fixed text-[#03045E] animate-in fade-in duration-500`}>
+          <Sidebar
+            role={context.role}
+            fullName={context.profile.full_name}
+          />
 
-        <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-          <TopNav />
+          <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+            <TopNav />
 
-          <main className="min-h-0 flex-1 overflow-y-auto bg-[#CAF0F8] p-8">
-            <div className="mx-auto w-full max-w-7xl">
-              {children}
-            </div>
-          </main>
+            <main className="min-h-0 flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+              <div className="mx-auto w-full max-w-7xl">
+                {children}
+              </div>
+            </main>
+          </div>
         </div>
-      </div>
+      </DashboardShell>
     </ToastProvider>
   )
 }

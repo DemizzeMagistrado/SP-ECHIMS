@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [offline,setOffline]=useState(false)
   const [busy,setBusy]=useState(false)
+  const [entering,setEntering]=useState(false)
   useEffect(()=>{const update=()=>setOffline(!navigator.onLine);update();window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update)}},[])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -31,11 +32,21 @@ export default function LoginPage() {
     // already visible to getUser()/SSR. router.push races the just-written session
     // cookie — on the first try the layout sees isReady=true, user=null, and bounces
     // back to /login; a second attempt works only because the cookie is finally there.
-    window.location.assign(navigator.onLine?'/dashboard':'/offline?path=%2Fdashboard')
+    // Cover the page with the dashboard's opening color first, so the hard navigation
+    // reads as one continuous transition instead of a blank flash.
+    setEntering(true)
+    const target=navigator.onLine?'/dashboard':'/offline?path=%2Fdashboard'
+    window.setTimeout(()=>window.location.assign(target),280)
   }
 
   return (
     <AuthShell>
+      {entering && (
+        <div role="status" className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[linear-gradient(180deg,#CAF0F8_0%,#E4F6FA_40%,#F1FAFC_100%)] animate-in fade-in duration-300">
+          <img src="/landing-logo.png" alt="" width={170} height={48} className="h-auto w-[150px] animate-in fade-in zoom-in-95 duration-500" />
+          <p className="mt-6 flex items-center gap-2 text-sm font-semibold text-[#03045E]"><Loader2 size={16} aria-hidden className="animate-spin" />Opening your dashboard…</p>
+        </div>
+      )}
       <div className="auth-stagger">
         <h2 className="text-3xl font-bold tracking-tight">Welcome back</h2>
         <p className="mt-2 text-[#5B6478]">{offline?'Sign in to your saved account on this device':'Sign in to your RHU account'}</p>
