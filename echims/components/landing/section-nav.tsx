@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState, type MouseEvent, type ReactNode } from 'react'
 import { ArrowUp, Menu, X } from 'lucide-react'
+import { Logo } from '@/components/brand/logo'
 
 // Scrolls in-page without adding "/#section" to history, so the browser Back
 // button from login/register returns straight to the landing page.
@@ -121,7 +122,7 @@ export function LandingHeader() {
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:h-[4.5rem] sm:px-8">
         <SectionLink to="top" aria-label="Back to top" onNavigate={() => setOpen(false)} className={`shrink-0 rounded-lg ${focusRing}`}>
-          <img src="/landing-logo.png" alt="eCHIMS logo" width={170} height={48} className="h-auto w-[120px] sm:w-[145px]" fetchPriority="high" />
+          <Logo size={44} priority />
         </SectionLink>
 
         <nav aria-label="Sections" className="hidden items-center gap-1 md:flex">

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { ArrowLeft, Check } from 'lucide-react'
+import { Logo } from '@/components/brand/logo'
 
 const points = [
   'Immunization, nutrition, and supplementation in one child record',
@@ -40,13 +41,7 @@ export function AuthShell({
             <div aria-hidden className="absolute -right-32 -top-32 -z-10 h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(closest-side,rgba(8,125,185,0.6),transparent)]" />
             <div aria-hidden className="absolute -bottom-40 -left-24 -z-10 h-96 w-96 rounded-full bg-[radial-gradient(closest-side,rgba(144,224,239,0.18),transparent)]" />
             <div>
-              <img
-                src="/login-logo.png"
-                alt="eCHIMS logo"
-                width={430}
-                height={120}
-                className="h-auto w-full max-w-[300px] animate-in fade-in slide-in-from-bottom-3 fill-mode-both duration-700 [animation-delay:200ms]"
-              />
+              <Logo tone="light" size={80} priority className="animate-in fade-in slide-in-from-bottom-3 fill-mode-both duration-700 [animation-delay:200ms]" />
               <h1 className="mt-12 max-w-[20ch] text-3xl font-bold leading-tight animate-in fade-in slide-in-from-bottom-3 fill-mode-both duration-700 [animation-delay:300ms]">
                 Early Child Health Information and Monitoring System
               </h1>
@@ -81,7 +76,7 @@ export function AuthShell({
             }`}
           >
             <div className="mx-auto w-full max-w-md">
-              <img src="/landing-logo.png" alt="eCHIMS logo" width={170} height={48} className="mb-8 h-auto w-[130px] lg:hidden" />
+              <Logo size={44} className="mb-8 lg:hidden" />
               {children}
             </div>
           </section>

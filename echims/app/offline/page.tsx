@@ -25,6 +25,7 @@ import ReportsPage from '@/app/(dashboard)/reports/page'
 import AlertsPage from '@/app/(dashboard)/alerts/page'
 import SettingsPage from '@/app/(dashboard)/settings/page'
 import HealthActivitiesClient from '@/app/(dashboard)/health-activities/health-activities-client'
+import { Logo } from '@/components/brand/logo'
 import { ProfileErrorBoundary } from '@/components/offline/profile-error-boundary'
 import { SavedUserManagement } from '@/components/offline/saved-user-management'
 const roles: Record<UserRole, Role> = { Administrator:'Administrator', 'Public Health Nurse':'PHN', 'Rural Health Midwife':'RHM', 'Barangay Health Worker':'BHW', 'Barangay Nutrition Scholar':'BNS' }
@@ -49,7 +50,7 @@ export default function OfflinePage() {
   if (path === '/reset-password') return <OfflinePathContext.Provider value={path}><ResetPasswordPage/></OfflinePathContext.Provider>
   if (path === '/login') return <OfflinePathContext.Provider value={path}>{user && <p className="p-4"><a className="font-semibold underline" href="/dashboard">Continue with this device’s signed-in account</a></p>}<LoginPage/></OfflinePathContext.Provider>
   if (!isReady) return <main className="p-8">Loading this device’s account…</main>
-  if (!user || user.accountStatus !== 'APPROVED') return <main className="space-y-3 p-8"><h1 className="text-2xl font-bold">Sign in to eCHIMS</h1><p>Your device account is locked or its saved access has expired. Sign in with a previously prepared account to open its saved records and drafts.</p><a className="inline-block rounded-lg border px-4 py-2 font-semibold" href="/offline?path=%2Flogin">Sign in on this device</a><p><a className="underline" href="/">Return to landing page</a></p></main>
+  if (!user || user.accountStatus !== 'APPROVED') return <main className="space-y-3 p-8"><Logo size={40} /><h1 className="text-2xl font-bold">Sign in to eCHIMS</h1><p>Your device account is locked or its saved access has expired. Sign in with a previously prepared account to open its saved records and drafts.</p><a className="inline-block rounded-lg border px-4 py-2 font-semibold" href="/offline?path=%2Flogin">Sign in on this device</a><p><a className="underline" href="/">Return to landing page</a></p></main>
   let page
   if (path === '/dashboard') page = <DashboardPage/>
   else if (childId) page = <ProfileErrorBoundary key={childId}><ChildProfileView childId={childId}/></ProfileErrorBoundary>

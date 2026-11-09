@@ -5,6 +5,7 @@ import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { FormEvent, useState, useEffect } from 'react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { AuthShell } from '@/components/auth/auth-shell'
+import { Logo } from '@/components/brand/logo'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -43,7 +44,7 @@ export default function LoginPage() {
     <AuthShell>
       {entering && (
         <div role="status" className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[linear-gradient(180deg,#CAF0F8_0%,#E4F6FA_40%,#F1FAFC_100%)] animate-in fade-in duration-300">
-          <img src="/landing-logo.png" alt="" width={170} height={48} className="h-auto w-[150px] animate-in fade-in zoom-in-95 duration-500" />
+          <Logo size={52} className="animate-in fade-in zoom-in-95 duration-500" />
           <p className="mt-6 flex items-center gap-2 text-sm font-semibold text-[#03045E]"><Loader2 size={16} aria-hidden className="animate-spin" />Opening your dashboard…</p>
         </div>
       )}

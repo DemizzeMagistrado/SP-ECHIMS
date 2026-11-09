@@ -13,6 +13,7 @@ import {
 import { FeatureList } from '@/components/landing/feature-list'
 import { InView } from '@/components/landing/in-view'
 import { BackToTop, LandingHeader, SectionLink } from '@/components/landing/section-nav'
+import { Logo } from '@/components/brand/logo'
 
 
 const programs = [
@@ -271,6 +272,7 @@ export default function LandingPage() {
         <InView className="relative isolate mx-auto flex max-w-7xl flex-col gap-8 overflow-hidden rounded-3xl bg-[#03045E] px-6 py-12 text-white sm:px-12 sm:py-16 lg:flex-row lg:items-center lg:justify-between">
           <div aria-hidden className="absolute -z-10 -right-24 -top-32 h-96 w-96 rounded-full bg-[radial-gradient(closest-side,rgba(8,125,185,0.55),transparent)]" />
           <div className={fadeUp}>
+            <Logo tone="light" size={40} className="mb-6" />
             <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Start tracking your barangay’s children</h2>
             <p className="mt-3 max-w-[55ch] text-lg leading-8 text-[#CAF0F8]">
               Register with your RHU details. Your administrator approves the account and assigns your barangays.
@@ -291,7 +293,7 @@ export default function LandingPage() {
       <footer className="px-4 pb-10 pt-14 sm:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-6 text-sm text-[#5B6478] sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="font-bold text-[#03045E]">eCHIMS</p>
+            <Logo size={36} />
             <p className="mt-1">© {new Date().getFullYear()} Early Child Health Information and Monitoring System</p>
           </div>
           <nav aria-label="Legal" className="-mx-3 flex gap-1">

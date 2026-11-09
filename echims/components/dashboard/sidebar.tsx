@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { moduleRoutes, roleModules, type UserRole } from '@/lib/echims-data'
 import type { Role } from '@/lib/auth/permissions'
-import Image from 'next/image'
+import { Logo } from '@/components/brand/logo'
 import { useShell } from './shell'
 
 const roleLabels: Record<Role, UserRole> = {
@@ -109,13 +109,16 @@ export function Sidebar({ role, fullName }: { role: Role; fullName: string }) {
       >
         {/* Brand + user identity, visible as soon as the dashboard opens */}
         <div className="px-3 pb-4 pt-4">
-          <div className={`flex items-center ${rail ? 'justify-center' : 'justify-between'} gap-2 px-1`}>
-            {!rail && (
-              <Image src="/sidebar-logo.png" alt="eCHIMS" width={200} height={64} priority className="h-auto max-h-10 w-auto object-contain" />
-            )}
-            {rail && (
-              <span aria-label="eCHIMS" className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#087DB9] text-lg font-extrabold">e</span>
-            )}
+          <div className="flex items-center justify-between gap-2 px-1">
+            {/* Wordmark and icon sit on top of each other and crossfade as the rail opens or closes. */}
+            <div className="relative h-10 min-w-0 flex-1 overflow-hidden">
+              <span aria-hidden={rail} className={`absolute inset-y-0 left-0 flex items-center transition-opacity duration-300 ${rail ? 'opacity-0' : 'opacity-100'}`}>
+                <Logo tone="light" size={36} priority />
+              </span>
+              <span aria-hidden={!rail} className={`absolute inset-y-0 left-[5px] flex items-center transition-opacity duration-300 ${rail ? 'opacity-100' : 'opacity-0'}`}>
+                <Logo variant="icon" tone="light" size={34} />
+              </span>
+            </div>
             <button
               type="button"
               onClick={() => setMobileOpen(false)}

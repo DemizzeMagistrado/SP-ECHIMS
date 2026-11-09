@@ -5,6 +5,7 @@ import { Eye, EyeOff } from 'lucide-react'
 import { FormEvent, useState } from 'react'
 import { useRouter } from '@/lib/offline/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { Logo } from '@/components/brand/logo'
 
 export default function ResetPasswordPage() {
   const router = useRouter()
@@ -63,13 +64,7 @@ export default function ResetPasswordPage() {
         {/* LEFT SIDE */}
         <section className="hidden w-1/2 flex-col justify-between bg-gradient-to-br from-[#123C82] to-[#087DB9] p-14 text-white lg:flex">
           <div>
-            <img
-              src="/login-logo.png"
-              alt="eCHIMS logo"
-              width={430}
-              height={120}
-              className="h-auto w-full max-w-[430px]"
-            />
+            <Logo tone="light" size={96} priority />
 
             <h1 className="mt-14 text-center text-2xl font-bold leading-relaxed">
               Early Child Health Information and Monitoring System
