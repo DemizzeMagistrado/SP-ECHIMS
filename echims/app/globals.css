@@ -22,7 +22,7 @@
   --color-good-soft: var(--tone-good-soft);
   --color-nutrition: var(--tone-nutrition);
   --color-nutrition-soft: var(--tone-nutrition-soft);
-  --font-display: var(--font-archivo), 'Arial Narrow', system-ui, Helvetica, Arial, sans-serif;
+  --font-display: var(--font-jakarta), system-ui, Helvetica, Arial, sans-serif;
   --font-sans: var(--font-inter), system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
   --font-serif: var(--font-caslon), Georgia, 'Times New Roman', serif;
   --color-sidebar-ring: var(--sidebar-ring);
@@ -230,12 +230,9 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Display type: expanded Archivo. It runs wide, so tracking is tightened. */
-.font-display,
-.brand :is(h1, h2) {
+/* Page titles use the display face; section and card headings stay in Inter. */
+.brand h1 {
   font-family: var(--font-display);
-  font-stretch: 115%;
-  letter-spacing: -0.02em;
 }
 
 /* Entrance animations wait until their block scrolls into view */

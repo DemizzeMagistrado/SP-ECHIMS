@@ -80,7 +80,7 @@ export default function LandingPage() {
             <p className={`font-serif text-lg italic text-[#087DB9] ${fadeUp}`} style={delay(100)}>
               Rule-Based Early Child Health Information and Monitoring System
             </p>
-            <h1 className={`mt-4 max-w-[17ch] text-[2rem] font-extrabold leading-[1.05] sm:text-5xl lg:text-6xl ${fadeUp}`} style={delay(200)}>
+            <h1 className={`mt-4 max-w-[17ch] text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl ${fadeUp}`} style={delay(200)}>
               Every child’s health record, in one system for your RHU.
             </h1>
             <p className={`mt-6 max-w-[58ch] text-lg leading-8 text-[#2D3A55] ${fadeUp}`} style={delay(350)}>
@@ -135,7 +135,7 @@ export default function LandingPage() {
       <section className="px-4 py-16 sm:px-8 sm:py-24">
         <InView className="mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[1fr_1.05fr] lg:gap-16">
           <div>
-            <h2 className={`max-w-[20ch] text-3xl font-bold tracking-tight sm:text-4xl ${fadeUp}`}>
+            <h2 className={`max-w-[20ch] font-display text-3xl font-bold tracking-tight sm:text-4xl ${fadeUp}`}>
               The rules catch what’s due, so nobody has to remember.
             </h2>
             <p className={`mt-4 max-w-[55ch] text-lg leading-8 text-[#4B5563] ${fadeUp}`} style={delay(100)}>
@@ -204,7 +204,7 @@ export default function LandingPage() {
       {/* FEATURES */}
       <section id="features" tabIndex={-1} className="outline-none scroll-mt-20 bg-[linear-gradient(180deg,#FFFFFF_0%,#F0F9FC_14%,#F0F9FC_86%,#FFFFFF_100%)] px-4 py-16 sm:scroll-mt-24 sm:px-8 sm:py-24">
         <InView className="mx-auto max-w-7xl">
-          <h2 className={`text-3xl font-bold tracking-tight sm:text-4xl ${fadeUp}`}>Everything an RHU tracks, in one system</h2>
+          <h2 className={`font-display text-3xl font-bold tracking-tight sm:text-4xl ${fadeUp}`}>Everything an RHU tracks, in one system</h2>
           <p className={`mt-4 max-w-[60ch] text-lg leading-8 text-[#4B5563] ${fadeUp}`} style={delay(100)}>
             Search or filter the modules, then select one to see what it handles and who uses it.
           </p>
@@ -217,7 +217,7 @@ export default function LandingPage() {
       {/* HOW IT WORKS */}
       <section id="how-it-works" tabIndex={-1} className="outline-none scroll-mt-20 px-4 py-16 sm:scroll-mt-24 sm:px-8 sm:py-24">
         <InView className="mx-auto max-w-7xl">
-          <h2 className={`text-3xl font-bold tracking-tight sm:text-4xl ${fadeUp}`}>How it works</h2>
+          <h2 className={`font-display text-3xl font-bold tracking-tight sm:text-4xl ${fadeUp}`}>How it works</h2>
           <p className={`mt-4 max-w-[60ch] text-lg leading-8 text-[#4B5563] ${fadeUp}`} style={delay(100)}>
             Health workers record what they already do. The rules handle the follow-up.
           </p>
@@ -246,7 +246,7 @@ export default function LandingPage() {
       <section id="roles" tabIndex={-1} className="outline-none scroll-mt-20 bg-[linear-gradient(180deg,#FFFFFF_0%,#EAF6FA_100%)] px-4 py-16 sm:scroll-mt-24 sm:px-8 sm:py-24">
         <InView className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1fr_1.6fr] lg:gap-16">
           <div>
-            <h2 className={`text-3xl font-bold tracking-tight sm:text-4xl ${fadeUp}`}>Built for the people doing the work</h2>
+            <h2 className={`font-display text-3xl font-bold tracking-tight sm:text-4xl ${fadeUp}`}>Built for the people doing the work</h2>
             <p className={`mt-4 max-w-[45ch] text-lg leading-8 text-[#4B5563] ${fadeUp}`} style={delay(100)}>
               Each account sees only the tools and barangays assigned to its role.
             </p>
@@ -271,7 +271,7 @@ export default function LandingPage() {
         <InView className="relative isolate mx-auto flex max-w-7xl flex-col gap-8 overflow-hidden rounded-3xl bg-[#03045E] px-6 py-12 text-white sm:px-12 sm:py-16 lg:flex-row lg:items-center lg:justify-between">
           <div aria-hidden className="absolute -z-10 -right-24 -top-32 h-96 w-96 rounded-full bg-[radial-gradient(closest-side,rgba(8,125,185,0.55),transparent)]" />
           <div className={fadeUp}>
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Start tracking your barangay’s children</h2>
+            <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Start tracking your barangay’s children</h2>
             <p className="mt-3 max-w-[55ch] text-lg leading-8 text-[#CAF0F8]">
               Register with your RHU details. Your administrator approves the account and assigns your barangays.
             </p>

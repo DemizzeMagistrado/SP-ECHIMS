@@ -440,7 +440,7 @@ export default function RegisterPage() {
   return (
     <AuthShell scrollable>
           <div className="auth-stagger">
-              <h2 className="text-3xl font-bold tracking-tight">
+              <h2 className="font-display text-3xl font-bold tracking-tight">
                 Create an account
               </h2>
               <p className="mt-2 text-[#5B6478]">

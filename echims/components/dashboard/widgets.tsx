@@ -76,7 +76,7 @@ export function WidgetShell({ id, title, note, link, action, style, size, classN
       className={`${card} flex min-w-0 flex-col p-5 sm:p-6 ${size ? SIZE[size] : ''} ${rise} ${className}`} style={style}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 id={`${id}-heading`} className="truncate text-lg font-bold">{title}</h2>
+          <h2 id={`${id}-heading`} className="truncate text-base font-semibold">{title}</h2>
           <p className="truncate text-sm text-brand-muted">{note}</p>
         </div>
         {link ? <CardLink {...link} /> : action}
@@ -209,9 +209,9 @@ export function MyBarangayWidget({ style, size = 'tall' }: WidgetProps) {
           <li key={b.id} className="rounded-xl bg-brand-ice/60 p-3">
             <p className="truncate font-semibold">{b.name}</p>
             <dl className="mt-2 grid grid-cols-3 gap-2 text-sm">
-              <div><dt className="text-brand-muted">Children</dt><dd className="font-display text-xl font-bold tabular-nums">{b.children.toLocaleString()}</dd></div>
-              <div><dt className="text-brand-muted">Overdue</dt><dd className={`font-display text-xl font-bold tabular-nums ${b.overdue ? 'text-danger' : ''}`}>{b.overdue.toLocaleString()}</dd></div>
-              <div><dt className="text-brand-muted">At risk</dt><dd className={`font-display text-xl font-bold tabular-nums ${b.at_risk ? 'text-nutrition' : ''}`}>{b.at_risk.toLocaleString()}</dd></div>
+              <div><dt className="text-brand-muted">Children</dt><dd className="text-xl font-semibold tabular-nums">{b.children.toLocaleString()}</dd></div>
+              <div><dt className="text-brand-muted">Overdue</dt><dd className={`text-xl font-semibold tabular-nums ${b.overdue ? 'text-danger' : ''}`}>{b.overdue.toLocaleString()}</dd></div>
+              <div><dt className="text-brand-muted">At risk</dt><dd className={`text-xl font-semibold tabular-nums ${b.at_risk ? 'text-nutrition' : ''}`}>{b.at_risk.toLocaleString()}</dd></div>
             </dl>
           </li>
         ))}

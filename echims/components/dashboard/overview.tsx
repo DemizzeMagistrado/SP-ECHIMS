@@ -198,7 +198,7 @@ export function DashboardOverview() {
   )
   const status = showStatus && !error && (
     <section key="status" aria-labelledby="status-heading" aria-busy={!data} className={`${card} flex flex-col p-5 sm:p-6 ${SIZE.compact} ${rise}`} style={stagger(7)}>
-      <h2 id="status-heading" className="text-lg font-bold">Status</h2>
+      <h2 id="status-heading" className="text-base font-semibold">Status</h2>
       <p className="text-sm text-brand-muted">For this period and your scope</p>
       <div className={`mt-3 grid flex-1 content-center gap-3 ${showCoverage && showNutritionDonut ? 'grid-cols-2' : 'grid-cols-1'}`}>
         {!data ? (
@@ -373,7 +373,7 @@ function ActivityChart({ trends, trendKey, onTrend, totals, metrics, loading, st
     <section aria-labelledby="trend-heading" aria-busy={loading} className={`${card} p-5 sm:p-6 ${rise}`} style={style}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 id="trend-heading" className="text-lg font-bold">Activity over time</h2>
+          <h2 id="trend-heading" className="text-base font-semibold">Activity over time</h2>
           <p className="text-sm text-brand-muted">{trend.note}</p>
         </div>
         {trends.length > 1 && (
@@ -401,7 +401,7 @@ function ActivityChart({ trends, trendKey, onTrend, totals, metrics, loading, st
           {totals.map((t) => (
             <div key={t.label} className="min-w-0">
               <dt className="flex items-center gap-1.5 truncate text-sm text-brand-muted"><span aria-hidden className="shrink-0 text-brand-sky">{t.icon}</span>{t.label}</dt>
-              <dd className="mt-1 h-7 font-display text-xl font-bold tabular-nums">{metrics ? t.value(metrics).toLocaleString() : <span className="block h-6 w-12 animate-pulse rounded bg-brand-ice motion-reduce:animate-none" />}</dd>
+              <dd className="mt-1 h-7 text-xl font-semibold tabular-nums">{metrics ? t.value(metrics).toLocaleString() : <span className="block h-6 w-12 animate-pulse rounded bg-brand-ice motion-reduce:animate-none" />}</dd>
             </div>
           ))}
         </dl>

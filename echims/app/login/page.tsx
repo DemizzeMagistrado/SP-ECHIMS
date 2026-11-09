@@ -48,7 +48,7 @@ export default function LoginPage() {
         </div>
       )}
       <div className="auth-stagger">
-        <h2 className="text-3xl font-bold tracking-tight">Welcome back</h2>
+        <h2 className="font-display text-3xl font-bold tracking-tight">Welcome back</h2>
         <p className="mt-2 text-[#5B6478]">{offline?'Sign in to your saved account on this device':'Sign in to your RHU account'}</p>
         {offline && <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm leading-6 text-amber-900">Use the email and password you last used to sign in online on this browser. Saved access lasts seven days from online verification. New accounts and password resets require internet.</p>}
       </div>
