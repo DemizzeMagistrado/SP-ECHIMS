@@ -20,7 +20,7 @@ import {
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, roleModules, type UserRole } from '@/lib/echims-data'
 import { Donut, TrendBars } from './mini-charts'
-import { card, fetcher, rise, stagger, ApprovalsWidget, BarangayRankingWidget, ExpiringBatchesWidget, FicWidget, MasterlistWidget, MyBarangayWidget, NutritionBreakdownWidget, OfflineSyncWidget, RuleTriggersWidget, WeighingDueWidget, UpcomingWidget } from './widgets'
+import { card, fetcher, rise, stagger, ApprovalsWidget, BarangayRankingWidget, ExpiringBatchesWidget, FicWidget, MasterlistWidget, MyBarangayWidget, NutritionBreakdownWidget, OfflineSyncWidget, RuleTriggersWidget, SystemActivityWidget, UpcomingWidget, WeighingDueWidget } from './widgets'
 
 type Payload = {
   role: string
@@ -153,6 +153,7 @@ export function DashboardOverview() {
     ),
     (isAdmin || role === 'Public Health Nurse') && <ApprovalsWidget key="approvals" showInventory={can('Inventory')} style={stagger(12)} />,
     isAdmin && can('Inventory') && <ExpiringBatchesWidget key="expiring" style={stagger(13)} />,
+    isAdmin && can('User Management') && <SystemActivityWidget key="system" range={{ from, to }} style={stagger(15)} />,
     isAdmin && canPerform(role, 'Masterlist Upload', 'view') && <MasterlistWidget key="masterlist" style={stagger(14)} />,
     isBhw && can('Child Profiling') && <MyBarangayWidget key="my-barangay" style={stagger(10)} />,
     isBns && can('Nutritional Assessment') && <NutritionBreakdownWidget key="nutrition" style={stagger(9)} />,

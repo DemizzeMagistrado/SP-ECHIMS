@@ -474,3 +474,26 @@ export function MasterlistWidget({ style }: { style?: CSSProperties }) {
     </WidgetShell>
   )
 }
+
+// ─── System activity (Admin) ─────────────────────────────────────────
+export function SystemActivityWidget({ range, style }: { range: Range; style?: CSSProperties }) {
+  const { data, error, isLoading } = useWidget<{ new_accounts: number; pending_users: number }>('system', range)
+  return (
+    <WidgetShell id="system" title="System activity" note="User accounts in this period"
+      link={{ href: '/user-management', label: 'Manage users' }} style={style}
+      loading={isLoading} error={error}>
+      {data && (
+        <dl className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl bg-[#F8FCFD] p-3">
+            <dt className="text-sm text-[#5B6478]">New accounts</dt>
+            <dd className="mt-1 text-2xl font-bold tabular-nums">{data.new_accounts.toLocaleString()}</dd>
+          </div>
+          <div className="rounded-xl bg-[#F8FCFD] p-3">
+            <dt className="text-sm text-[#5B6478]">Pending activation</dt>
+            <dd className={`mt-1 text-2xl font-bold tabular-nums ${data.pending_users ? 'text-amber-700' : ''}`}>{data.pending_users.toLocaleString()}</dd>
+          </div>
+        </dl>
+      )}
+    </WidgetShell>
+  )
+}

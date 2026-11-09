@@ -220,6 +220,17 @@ const widgets: Record<string, (ctx: Ctx) => Promise<unknown>> = {
       }),
     }
   },
+
+  // Admin: accounts created in the period and accounts waiting for activation.
+  async system(ctx) {
+    only(ctx, ['Administrator'])
+    const head = { count: 'exact', head: true }
+    const [created, pending] = await Promise.all([
+      count(ctx.supabase.from('users').select('user_id', head).gte('created_at', `${ctx.from}T00:00:00+08:00`).lte('created_at', `${ctx.to}T23:59:59.999+08:00`)),
+      count(ctx.supabase.from('users').select('user_id', head).eq('account_status', 'PENDING')),
+    ])
+    return { new_accounts: created, pending_users: pending }
+  },
 }
 
 export async function GET(request: Request) {
