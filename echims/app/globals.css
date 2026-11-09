@@ -5,6 +5,23 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* Brand + semantic palette shared by landing, auth and dashboard */
+  --color-brand-navy: var(--brand-navy);
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-sky: var(--brand-sky);
+  --color-brand-aqua: var(--brand-aqua);
+  --color-brand-mist: var(--brand-mist);
+  --color-brand-ice: var(--brand-ice);
+  --color-brand-line: var(--brand-line);
+  --color-brand-muted: var(--brand-muted);
+  --color-danger: var(--tone-danger);
+  --color-danger-soft: var(--tone-danger-soft);
+  --color-warn: var(--tone-warn);
+  --color-warn-soft: var(--tone-warn-soft);
+  --color-good: var(--tone-good);
+  --color-good-soft: var(--tone-good-soft);
+  --color-nutrition: var(--tone-nutrition);
+  --color-nutrition-soft: var(--tone-nutrition-soft);
   --font-display: var(--font-archivo), 'Arial Narrow', system-ui, Helvetica, Arial, sans-serif;
   --font-sans: var(--font-inter), system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
   --font-serif: var(--font-caslon), Georgia, 'Times New Roman', serif;
@@ -50,6 +67,23 @@
 
 :root {
   color-scheme: light;
+  --brand-navy: #03045E;
+  --brand-blue: #0077B6;
+  --brand-sky: #087DB9;
+  --brand-aqua: #90E0EF;
+  --brand-mist: #CAF0F8;
+  --brand-ice: #F1F7FA;
+  --brand-line: #DCEAF0;
+  --brand-muted: #5B6478;
+  /* Semantic tones: strong value for text/icons/thin marks, soft value for small chip backgrounds */
+  --tone-danger: #BE123C;
+  --tone-danger-soft: #FFF1F2;
+  --tone-warn: #B45309;
+  --tone-warn-soft: #FFF7E6;
+  --tone-good: #047857;
+  --tone-good-soft: #ECFDF5;
+  --tone-nutrition: #6D28D9;
+  --tone-nutrition-soft: #F5F3FF;
   --background: #CAF0F8;
   --foreground: #03045E;
   --card: #FFFFFF;

@@ -6,7 +6,7 @@
 
 type DonutProps = { percentage: number; label: string; color?: string; size?: number }
 
-export function Donut({ percentage, label, color = '#087DB9', size = 132 }: DonutProps) {
+export function Donut({ percentage, label, color = 'var(--brand-sky)', size = 132 }: DonutProps) {
   const pct = Math.max(0, Math.min(100, percentage))
   const radius = size / 2 - 10
   const circ = 2 * Math.PI * radius
@@ -15,16 +15,16 @@ export function Donut({ percentage, label, color = '#087DB9', size = 132 }: Donu
   return (
     <div className="flex flex-col items-center gap-2">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${label}: ${pct}%`}>
-        <circle cx={center} cy={center} r={radius} fill="none" stroke="#E3EEF3" strokeWidth="12" />
+        <circle cx={center} cy={center} r={radius} fill="none" stroke="#E3EEF3" strokeWidth="10" />
         <circle
           className="donut-arc"
           cx={center} cy={center} r={radius} fill="none"
-          stroke={color} strokeWidth="12"
+          style={{ stroke: color }} strokeWidth="10"
           strokeDasharray={`${dash} ${circ - dash}`}
           strokeLinecap={pct > 0 ? 'round' : 'butt'}
           transform={`rotate(-90 ${center} ${center})`}
         />
-        <text x={center} y={center} textAnchor="middle" dy="0.35em" fontSize="24" fontWeight="700" fill="#03045E">
+        <text x={center} y={center} textAnchor="middle" dy="0.35em" fontSize="24" fontWeight="700" fill="#03045E" className="font-display">
           {pct}%
         </text>
       </svg>
@@ -35,7 +35,7 @@ export function Donut({ percentage, label, color = '#087DB9', size = 132 }: Donu
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-export function TrendBars({ data, color = '#087DB9', label }: { data: { month: string; count: number }[]; color?: string; label: string }) {
+export function TrendBars({ data, color = 'var(--brand-sky)', label }: { data: { month: string; count: number }[]; color?: string; label: string }) {
   if (data.length === 0) {
     return (
       <div className="flex h-48 items-center justify-center rounded-xl bg-[#F8FCFD] text-sm text-[#5B6478]">
