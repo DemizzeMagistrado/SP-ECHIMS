@@ -5,6 +5,9 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --font-display: var(--font-archivo), 'Arial Narrow', system-ui, Helvetica, Arial, sans-serif;
+  --font-sans: var(--font-inter), system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-serif: var(--font-caslon), Georgia, 'Times New Roman', serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -184,7 +187,7 @@
     display: none;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
   }
 }
 
@@ -193,12 +196,12 @@ html {
   scroll-behavior: smooth;
 }
 
-.brand {
-  font-family: var(--font-body), system-ui, sans-serif;
-}
-
-.brand :is(h1, h2, h3) {
-  font-family: var(--font-display), system-ui, sans-serif;
+/* Display type: expanded Archivo. It runs wide, so tracking is tightened. */
+.font-display,
+.brand :is(h1, h2) {
+  font-family: var(--font-display);
+  font-stretch: 115%;
+  letter-spacing: -0.02em;
 }
 
 /* Entrance animations wait until their block scrolls into view */

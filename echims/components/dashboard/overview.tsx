@@ -169,7 +169,7 @@ export function DashboardOverview() {
         <div aria-hidden className="absolute -right-24 -top-32 -z-10 h-80 w-80 rounded-full bg-[radial-gradient(closest-side,rgba(8,125,185,0.65),transparent)]" />
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
-            <p className={`text-sm font-semibold text-[#90E0EF] ${rise}`}>{greeting()}</p>
+            <p className={`font-serif text-base italic text-[#90E0EF] ${rise}`}>{greeting()}</p>
             <h1 className={`mt-0.5 truncate text-2xl font-bold tracking-tight sm:text-3xl ${rise}`} style={stagger(1)}>
               {firstName ? `Welcome back, ${firstName}` : 'Welcome back'}
             </h1>

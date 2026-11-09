@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { ArrowLeft, Check } from 'lucide-react'
-import { brandFonts } from '@/components/landing/fonts'
 
 const points = [
   'Immunization, nutrition, and supplementation in one child record',
@@ -23,7 +22,7 @@ export function AuthShell({
   scrollable?: boolean
 }) {
   return (
-    <main className={`${brandFonts} flex min-h-screen flex-col items-center bg-[linear-gradient(180deg,#CAF0F8_0%,#E6F7FB_45%,#FFFFFF_100%)] px-4 py-5 text-[#03045E] sm:px-8 sm:py-8`}>
+    <main className={`brand flex min-h-screen flex-col items-center bg-[linear-gradient(180deg,#CAF0F8_0%,#E6F7FB_45%,#FFFFFF_100%)] px-4 py-5 text-[#03045E] sm:px-8 sm:py-8`}>
       <div className="flex w-full max-w-6xl items-center animate-in fade-in slide-in-from-top-2 fill-mode-both duration-500">
         <Link
           href="/"
@@ -51,7 +50,7 @@ export function AuthShell({
               <h1 className="mt-12 max-w-[20ch] text-3xl font-bold leading-tight animate-in fade-in slide-in-from-bottom-3 fill-mode-both duration-700 [animation-delay:300ms]">
                 Early Child Health Information and Monitoring System
               </h1>
-              <p className="mt-4 max-w-[40ch] leading-7 text-[#CAF0F8] animate-in fade-in slide-in-from-bottom-3 fill-mode-both duration-700 [animation-delay:400ms]">
+              <p className="mt-4 max-w-[40ch] font-serif text-lg italic leading-7 text-[#CAF0F8] animate-in fade-in slide-in-from-bottom-3 fill-mode-both duration-700 [animation-delay:400ms]">
                 Health management for rural health units and barangay health workers.
               </p>
               <ul className="mt-10 space-y-4">

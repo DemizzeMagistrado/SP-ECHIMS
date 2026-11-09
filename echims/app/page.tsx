@@ -11,7 +11,6 @@ import {
   Radar,
 } from 'lucide-react'
 import { FeatureList } from '@/components/landing/feature-list'
-import { brandFonts } from '@/components/landing/fonts'
 import { InView } from '@/components/landing/in-view'
 import { BackToTop, LandingHeader, SectionLink } from '@/components/landing/section-nav'
 
@@ -66,7 +65,7 @@ const secondaryButton = `inline-flex items-center justify-center rounded-lg bord
 
 export default function LandingPage() {
   return (
-    <main className={`${brandFonts} min-h-screen overflow-x-hidden bg-white text-[#03045E]`}>
+    <main className={`brand min-h-screen overflow-x-hidden bg-white text-[#03045E]`}>
       <SectionLink to="features" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:shadow">
         Skip to features
       </SectionLink>
@@ -78,10 +77,10 @@ export default function LandingPage() {
         <div aria-hidden className="absolute -z-10 right-[-10%] top-[8%] h-[34rem] w-[34rem] rounded-full bg-[radial-gradient(closest-side,rgba(144,224,239,0.55),transparent)]" />
         <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 py-14 sm:px-8 sm:py-20 lg:min-h-[calc(100svh-5rem)] lg:grid-cols-[1.1fr_1fr] lg:gap-16 lg:py-16">
           <div>
-            <p className={`text-base font-bold text-[#087DB9] ${fadeUp}`} style={delay(100)}>
+            <p className={`font-serif text-lg italic text-[#087DB9] ${fadeUp}`} style={delay(100)}>
               Rule-Based Early Child Health Information and Monitoring System
             </p>
-            <h1 className={`mt-4 max-w-[17ch] text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl ${fadeUp}`} style={delay(200)}>
+            <h1 className={`mt-4 max-w-[17ch] text-[2rem] font-extrabold leading-[1.05] sm:text-5xl lg:text-6xl ${fadeUp}`} style={delay(200)}>
               Every child’s health record, in one system for your RHU.
             </h1>
             <p className={`mt-6 max-w-[58ch] text-lg leading-8 text-[#2D3A55] ${fadeUp}`} style={delay(350)}>

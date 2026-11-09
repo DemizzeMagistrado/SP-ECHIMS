@@ -5,7 +5,6 @@ import { getAuthorizationContext } from '@/lib/auth/authorization'
 import { hasPermission, type Role } from '@/lib/auth/permissions'
 import { ToastProvider } from '@/components/ui/toast'
 import { DashboardShell } from '@/components/dashboard/shell'
-import { brandFonts } from '@/components/landing/fonts'
 
 export default async function DashboardLayout({
   children,
@@ -118,7 +117,7 @@ export default async function DashboardLayout({
     <ToastProvider>
       <DashboardShell>
         {/* Same sky tone as the sign-in page, so arriving after login feels continuous */}
-        <div className={`${brandFonts} flex min-h-screen items-stretch bg-[linear-gradient(180deg,#CAF0F8_0%,#E4F6FA_40%,#F1FAFC_100%)] bg-fixed text-[#03045E] animate-in fade-in duration-500`}>
+        <div className={`brand flex min-h-screen items-stretch bg-[linear-gradient(180deg,#CAF0F8_0%,#E4F6FA_40%,#F1FAFC_100%)] bg-fixed text-[#03045E] animate-in fade-in duration-500`}>
           <Sidebar
             role={context.role}
             fullName={context.profile.full_name}
