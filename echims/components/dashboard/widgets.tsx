@@ -1,10 +1,17 @@
 'use client'
-import { offlineFetch as fetch } from '@/lib/offline/fetch'
+import { offlineFetch as fetch, offlineScope } from '@/lib/offline/fetch'
+import type { AuthUser } from '@/components/auth/auth-provider'
+import { listActivityDrafts } from '@/lib/activity-drafts'
+import { listChildDrafts } from '@/lib/child-registration-drafts'
+import { getQueuedUsageCount } from '@/lib/inventory-offline'
+import { listQueue } from '@/lib/nutrition-offline'
+import { listSupplementDrafts } from '@/lib/supplementation-offline'
+import { listQueuedVaccinations } from '@/lib/vaccination-offline'
 
 // RPT-USR001 — Overview widgets. Each one loads /api/dashboard/widgets?widget=<name>
 // on its own, so a slow or failing widget never blocks the rest of the dashboard.
 
-import { useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
 import { AlertCircle, ArrowUpRight } from 'lucide-react'
@@ -381,6 +388,54 @@ export function ExpiringBatchesWidget({ style }: { style?: CSSProperties }) {
             </li>
           )
         })}
+      </ul>
+    </WidgetShell>
+  )
+}
+
+// ─── 8. Offline sync status ──────────────────────────────────────────
+// Reads this device's offline queues (IndexedDB/localStorage); nothing here is on the server yet.
+const QUEUE_EVENTS = ['echims-vaccination-queue', 'echims-activity-drafts', 'echims-child-drafts', 'online']
+
+async function loadQueues(user: AuthUser) {
+  const scope = offlineScope(user)
+  const sources: [string, string, () => Promise<number>][] = [
+    ['Vaccinations', '/vaccination/records', async () => (await listQueuedVaccinations(user.id)).length],
+    ['Assessments', '/nutrition', async () => (await listQueue(user.id)).length],
+    ['Supplement doses', '/supplementation', async () => (await listSupplementDrafts(user.id)).length],
+    ['Child registrations', '/child-profiling/children', async () => (await listChildDrafts(user.id, scope)).length],
+    ['Health activities', '/health-activities', async () => (await listActivityDrafts(user.id, scope)).length],
+    ['Stock usage', '/inventory/usage', async () => getQueuedUsageCount()],
+  ]
+  // A store this device never opened (or one locked to another session) counts as nothing queued.
+  const results = await Promise.allSettled(sources.map(([, , load]) => load()))
+  if (results.every((r) => r.status === 'rejected')) throw new Error('Unable to read this device’s offline storage.')
+  return sources.map(([label, href], i) => ({ label, href, count: results[i].status === 'fulfilled' ? results[i].value : 0 }))
+}
+
+export function OfflineSyncWidget({ user, style }: { user: AuthUser; style?: CSSProperties }) {
+  const { data, error, isLoading, mutate } = useSWR(['offline-queues', user.id], () => loadQueues(user))
+  useEffect(() => {
+    const refresh = () => { void mutate() }
+    QUEUE_EVENTS.forEach((e) => window.addEventListener(e, refresh))
+    return () => QUEUE_EVENTS.forEach((e) => window.removeEventListener(e, refresh))
+  }, [mutate])
+  const queued = (data ?? []).filter((q) => q.count > 0)
+  const total = queued.reduce((n, q) => n + q.count, 0)
+  return (
+    <WidgetShell id="offline" title="Offline sync" note="Records saved on this device, not yet sent"
+      style={style} loading={isLoading} error={error} empty={data && total === 0 && 'Everything on this device is synced.'}>
+      <p className="text-3xl font-bold leading-none tabular-nums text-amber-700">{total.toLocaleString()}</p>
+      <p className="mt-1 text-sm text-[#5B6478]">record{total === 1 ? '' : 's'} waiting to sync · reconnect and open each module to send</p>
+      <ul className="mt-3 space-y-1">
+        {queued.map((q) => (
+          <li key={q.label}>
+            <Link href={q.href} className="-mx-2 flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-sm transition-colors duration-200 hover:bg-[#F1F7FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9]">
+              <span className="truncate font-semibold">{q.label}</span>
+              <span className="shrink-0 font-bold tabular-nums">{q.count.toLocaleString()}</span>
+            </Link>
+          </li>
+        ))}
       </ul>
     </WidgetShell>
   )
