@@ -1,5 +1,4 @@
 'use client'
-import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 // RPT-USR001 — Role-scoped dashboard overview.
 // Reads live data from /api/dashboard/summary, which handles role scoping
@@ -21,6 +20,7 @@ import {
 import { useAuth } from '@/components/auth/auth-provider'
 import { roleModules, type UserRole } from '@/lib/echims-data'
 import { Donut, TrendBars } from './mini-charts'
+import { card, fetcher, rise, stagger, RuleTriggersWidget } from './widgets'
 
 type Payload = {
   role: string
@@ -46,11 +46,6 @@ type Payload = {
   }
 }
 
-const fetcher = async (url: string) => {
-  const r = await fetch(url); const d = await r.json()
-  if (!r.ok) throw new Error(d.error || 'Load failed.'); return d
-}
-
 function todayYMD(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -72,9 +67,6 @@ const ranges = [
   [365, 'Last year'],
 ] as const
 
-const stagger = (i: number) => ({ animationDelay: `${i * 60}ms` })
-const rise = 'animate-in fade-in slide-in-from-bottom-3 fill-mode-both duration-500 ease-out motion-reduce:animate-none'
-const card = 'rounded-2xl border border-[#DCEAF0] bg-white'
 const segBtn = 'rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90E0EF]'
 
 type Trend = { key: string; label: string; note: string; data: { month: string; count: number }[]; color: string }
@@ -145,6 +137,13 @@ export function DashboardOverview() {
   const showCoverage = can('Vaccination')
   const showNutrition = can('Nutritional Assessment')
   const bothDonuts = showCoverage && showNutrition
+
+  // Role layout: each role gets only the widgets for its daily work.
+  const isAdmin = role === 'Administrator'
+  const isNurse = role === 'Public Health Nurse' || role === 'Rural Health Midwife'
+  const panels = [
+    (isAdmin || isNurse) && can('Alerts') && <RuleTriggersWidget key="rules" style={stagger(9)} />,
+  ].filter(Boolean)
 
   return (
     <div className="space-y-5 lg:space-y-6">
@@ -227,6 +226,10 @@ export function DashboardOverview() {
               </section>
             )}
           </div>
+
+          {panels.length > 0 && (
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 xl:gap-6">{panels}</div>
+          )}
 
           {/* Activity over time, full width */}
           {(trend || totals.length > 0) && (
