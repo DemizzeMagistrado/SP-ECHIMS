@@ -20,7 +20,7 @@ import {
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, roleModules, type UserRole } from '@/lib/echims-data'
 import { Donut, TrendBars } from './mini-charts'
-import { card, fetcher, rise, stagger, BarangayRankingWidget, FicWidget, MyBarangayWidget, RuleTriggersWidget } from './widgets'
+import { card, fetcher, rise, stagger, BarangayRankingWidget, FicWidget, MyBarangayWidget, RuleTriggersWidget, UpcomingWidget } from './widgets'
 
 type Payload = {
   role: string
@@ -146,6 +146,10 @@ export function DashboardOverview() {
     (isAdmin || isNurse) && can('Alerts') && <RuleTriggersWidget key="rules" style={stagger(9)} />,
     (isAdmin || isNurse) && can('Vaccination') && <FicWidget key="fic" range={{ from, to }} style={stagger(10)} />,
     isAdmin && canPerform(role, 'Geospatial', 'view') && <BarangayRankingWidget key="ranking" style={stagger(11)} />,
+    (isNurse || isBhw) && (can('Vaccination') || can('Supplementation')) && (
+      <UpcomingWidget key="upcoming" style={stagger(11)}
+        programs={[can('Vaccination') && 'VACCINATION' as const, can('Supplementation') && 'SUPPLEMENTATION' as const].filter((p) => p !== false)} />
+    ),
     isBhw && can('Child Profiling') && <MyBarangayWidget key="my-barangay" style={stagger(10)} />,
   ].filter(Boolean)
 

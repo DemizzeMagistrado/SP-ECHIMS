@@ -8,6 +8,7 @@ import { useState, type CSSProperties, type ReactNode } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
 import { AlertCircle, ArrowUpRight } from 'lucide-react'
+import { manilaTodayYMD } from '@/lib/nip-schedule'
 import { Donut } from './mini-charts'
 
 export const stagger = (i: number) => ({ animationDelay: `${i * 60}ms` })
@@ -220,6 +221,46 @@ export function MyBarangayWidget({ style }: { style?: CSSProperties }) {
           </li>
         ))}
       </ul>
+    </WidgetShell>
+  )
+}
+
+// ─── 4. Upcoming schedule (next 7 days) ──────────────────────────────
+// Reuses the SMS reminder follow-ups (/api/sms/reminders), which already compute
+// who is due per program within the viewer's scope.
+type Followup = { child_id: number; child_name: string; service_key: string; service_name: string; due_date: string }
+
+const addDaysYMD = (d: string, n: number) => {
+  const t = new Date(`${d}T00:00:00Z`); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10)
+}
+const shortDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', weekday: 'short' })
+
+export function UpcomingWidget({ programs, style }: { programs: ('VACCINATION' | 'SUPPLEMENTATION')[]; style?: CSSProperties }) {
+  const { data, error, isLoading } = useSWR<Followup[]>(programs.length ? ['upcoming', ...programs] : null, async () => {
+    const panels = await Promise.all(programs.map((p) => fetcher(`/api/sms/reminders?program=${p}`)))
+    return panels.flatMap((p, i) => ((p.rows ?? []) as Followup[]).map((r) => ({ ...r, service_name: `${programs[i] === 'VACCINATION' ? '' : 'Supplement: '}${r.service_name}` })))
+  })
+  const today = manilaTodayYMD()
+  const end = addDaysYMD(today, 7)
+  // shortcut: the reminders API returns its first 200 follow-ups (oldest due first); a large overdue backlog can hide upcoming ones.
+  const upcoming = (data ?? []).filter((r) => r.due_date >= today && r.due_date <= end).sort((a, b) => a.due_date.localeCompare(b.due_date))
+  const children = new Set(upcoming.map((r) => r.child_id)).size
+  return (
+    <WidgetShell id="upcoming" title="Due in the next 7 days" note={data ? `${children} child${children === 1 ? '' : 'ren'}, ${upcoming.length} dose${upcoming.length === 1 ? '' : 's'}` : 'Vaccination and supplementation'}
+      link={{ href: '/vaccination/sms', label: 'Send SMS reminder' }} style={style}
+      loading={isLoading} error={error} empty={data && upcoming.length === 0 && 'Nobody is due in the next 7 days.'}>
+      <ul className="max-h-72 divide-y divide-[#EEF4F7] overflow-y-auto pr-1">
+        {upcoming.slice(0, 30).map((r) => (
+          <li key={`${r.child_id}:${r.service_key}`} className="flex items-center justify-between gap-3 py-2 text-sm">
+            <Link href={`/children/${r.child_id}`} className="min-w-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9]">
+              <span className="block truncate font-semibold hover:text-[#087DB9]">{r.child_name}</span>
+              <span className="block truncate text-[#5B6478]">{r.service_name}</span>
+            </Link>
+            <span className="shrink-0 rounded-md bg-[#EAF6FA] px-2 py-0.5 text-xs font-semibold text-[#0077B6]">{shortDate(r.due_date)}</span>
+          </li>
+        ))}
+      </ul>
+      {upcoming.length > 30 && <p className="mt-2 text-xs text-[#5B6478]">Showing 30 of {upcoming.length}. Open SMS reminders for the full list.</p>}
     </WidgetShell>
   )
 }
