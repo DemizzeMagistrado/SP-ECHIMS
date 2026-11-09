@@ -82,7 +82,7 @@ export function WidgetShell({ id, title, note, link, action, style, size, classN
         </div>
         {link ? <CardLink {...link} /> : action}
       </div>
-      <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <div className="scroll-subtle mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto">
         {loading ? (
           <LogoLoader label={`Loading ${title.toLowerCase()}…`} className="min-h-0 flex-1" />
         ) : error ? (
@@ -109,8 +109,8 @@ export function BarList({ items, color, label }: { items: { key: string; label: 
               <span className="min-w-0 truncate font-semibold">{item.label}{item.hint && <span className="font-normal text-brand-muted"> · {item.hint}</span>}</span>
               <span className="shrink-0 font-semibold tabular-nums">{item.value.toLocaleString()}</span>
             </span>
-            <span aria-hidden className="mt-1 block h-1.5 overflow-hidden rounded-full bg-brand-ice">
-              <span className="grow-x block h-full rounded-full" style={{ width: `${Math.max(3, (item.value / max) * 100)}%`, background: color, animationDelay: `${i * 50}ms` }} />
+            <span aria-hidden className="mt-1 block h-1 overflow-hidden rounded-full bg-brand-ice">
+              <span className="grow-x block h-full rounded-full opacity-70" style={{ width: `${Math.max(3, (item.value / max) * 100)}%`, background: color, animationDelay: `${i * 50}ms` }} />
             </span>
           </>
         )
@@ -333,8 +333,8 @@ export function WeighingDueWidget({ style, size = 'compact' }: WidgetProps) {
         <div className="flex flex-1 flex-col justify-center">
           <p className={`font-display text-4xl font-bold leading-none tabular-nums ${data.due_weighing ? 'text-warn' : ''}`}>{data.due_weighing.toLocaleString()}</p>
           <p className="mt-2 text-sm text-brand-muted">of {data.under5.toLocaleString()} children under 5 {data.due_weighing === 0 ? '· all weighed recently' : 'need a new weight'}</p>
-          <div aria-hidden className="mt-4 h-1.5 overflow-hidden rounded-full bg-brand-ice">
-            <span className="grow-x block h-full rounded-full bg-warn" style={{ width: `${(data.due_weighing / data.under5) * 100}%` }} />
+          <div aria-hidden className="mt-4 h-1 overflow-hidden rounded-full bg-brand-ice">
+            <span className="grow-x block h-full rounded-full bg-warn/70" style={{ width: `${(data.due_weighing / data.under5) * 100}%` }} />
           </div>
         </div>
       )}

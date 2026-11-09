@@ -102,7 +102,7 @@ export function Sidebar({ role, fullName }: { role: Role; fullName: string }) {
       <aside
         id="main-sidebar"
         aria-label="Main navigation"
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-[#03045E] text-white shadow-2xl transition-[transform,width] duration-300 ease-out
+        className={`scroll-subtle-dark fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-[#03045E] text-white shadow-2xl transition-[transform,width] duration-300 ease-out
           lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0 lg:shadow-none
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
           ${rail ? 'lg:w-[76px]' : 'lg:w-64'}`}
