@@ -20,7 +20,7 @@ import {
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, roleModules, type UserRole } from '@/lib/echims-data'
 import { Donut, TrendBars } from './mini-charts'
-import { card, fetcher, rise, stagger, BarangayRankingWidget, FicWidget, MyBarangayWidget, RuleTriggersWidget, UpcomingWidget } from './widgets'
+import { card, fetcher, rise, stagger, ApprovalsWidget, BarangayRankingWidget, FicWidget, MyBarangayWidget, RuleTriggersWidget, UpcomingWidget } from './widgets'
 
 type Payload = {
   role: string
@@ -150,6 +150,7 @@ export function DashboardOverview() {
       <UpcomingWidget key="upcoming" style={stagger(11)}
         programs={[can('Vaccination') && 'VACCINATION' as const, can('Supplementation') && 'SUPPLEMENTATION' as const].filter((p) => p !== false)} />
     ),
+    (isAdmin || role === 'Public Health Nurse') && <ApprovalsWidget key="approvals" showInventory={can('Inventory')} style={stagger(12)} />,
     isBhw && can('Child Profiling') && <MyBarangayWidget key="my-barangay" style={stagger(10)} />,
   ].filter(Boolean)
 

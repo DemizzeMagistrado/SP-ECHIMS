@@ -264,3 +264,36 @@ export function UpcomingWidget({ programs, style }: { programs: ('VACCINATION' |
     </WidgetShell>
   )
 }
+
+// ─── 5. Pending approvals ────────────────────────────────────────────
+type ApprovalData = { queues: { vaccinations: number; activities: number; batches: number; replenishment: number } }
+
+export function ApprovalsWidget({ showInventory, style }: { showInventory: boolean; style?: CSSProperties }) {
+  const { data, error, isLoading } = useWidget<ApprovalData>('approvals')
+  const q = data?.queues
+  const items = q ? [
+    { key: 'vacc', label: 'Vaccination records', value: q.vaccinations, href: '/vaccination/records' },
+    { key: 'act', label: 'Health activities', value: q.activities, href: '/health-activities' },
+    { key: 'batch', label: 'Vaccine & supplement batches', value: q.batches, href: '/vaccination/batch-requests' },
+    ...(showInventory ? [{ key: 'repl', label: 'Stock replenishment', value: q.replenishment, href: '/inventory/replenishment' }] : []),
+  ] : []
+  const total = items.reduce((n, i) => n + i.value, 0)
+  return (
+    <WidgetShell id="approvals" title="Waiting for approval" note={q ? `${total} record${total === 1 ? '' : 's'} to review` : 'Records awaiting your review'}
+      style={style} loading={isLoading} error={error} empty={q && total === 0 && 'Nothing is waiting for approval.'}>
+      <ul className="space-y-1">
+        {items.filter((i) => i.value > 0).map((i) => (
+          <li key={i.key}>
+            <Link href={i.href} className="group -mx-2 flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm transition-colors duration-200 hover:bg-[#F1F7FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9]">
+              <span className="min-w-0 truncate font-semibold">{i.label}</span>
+              <span className="flex shrink-0 items-center gap-2">
+                <span className="rounded-md bg-amber-50 px-2 py-0.5 font-bold tabular-nums text-amber-700">{i.value.toLocaleString()}</span>
+                <span className="text-[#087DB9]">Review</span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </WidgetShell>
+  )
+}

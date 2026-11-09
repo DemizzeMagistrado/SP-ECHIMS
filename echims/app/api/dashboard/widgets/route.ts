@@ -79,6 +79,15 @@ async function childStatus(ctx: Ctx) {
 }
 
 // ─── Widgets ─────────────────────────────────────────────────────────
+class Forbidden extends Error {}
+const only = (ctx: Ctx, roles: string[]) => { if (!roles.includes(ctx.role)) throw new Forbidden() }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function count(q: PromiseLike<{ count: number | null; error: any }>) {
+  const { count: n, error } = await q
+  if (error) throw error
+  return n ?? 0
+}
+
 const widgets: Record<string, (ctx: Ctx) => Promise<unknown>> = {
   // Alerts the rule engine created today (Manila), per rule type. The feed view is
   // already scoped to the viewer; one event can reach several recipients, so count
@@ -149,6 +158,19 @@ const widgets: Record<string, (ctx: Ctx) => Promise<unknown>> = {
     }
     return { barangays: [...out.values()] }
   },
+
+  // Records waiting for an approver. RLS limits PHN to their RHU.
+  async approvals(ctx) {
+    only(ctx, ['Administrator', 'Public Health Nurse'])
+    const head = { count: 'exact', head: true }
+    const [vaccinations, activities, batches, replenishment] = await Promise.all([
+      count(ctx.supabase.from('vaccination_record').select('vaccination_record_id', head).eq('status', 'PENDING')),
+      count(ctx.supabase.from('health_activity_schedule').select('schedule_id', head).eq('status', 'PENDING')),
+      count(ctx.supabase.from('stock_request').select('stock_request_id', head).eq('status', 'PENDING').in('request_type', ['VACCINE_BATCH', 'SUPPLEMENT_BATCH'])),
+      count(ctx.supabase.from('stock_request').select('stock_request_id', head).eq('status', 'PENDING').eq('request_type', 'REPLENISHMENT')),
+    ])
+    return { queues: { vaccinations, activities, batches, replenishment } }
+  },
 }
 
 export async function GET(request: Request) {
@@ -171,6 +193,7 @@ export async function GET(request: Request) {
     const data = await handler({ supabase, userId: user.id, role, scope, from, to, today })
     return NextResponse.json(data, { headers })
   } catch (error) {
+    if (error instanceof Forbidden) return fail('This widget is not available for your role.', 403)
     console.error('Dashboard widget:', error)
     return fail('Unable to load this widget.', 500)
   }
