@@ -8,6 +8,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
 import { AlertCircle, ArrowUpRight } from 'lucide-react'
+import { Donut } from './mini-charts'
 
 export const stagger = (i: number) => ({ animationDelay: `${i * 60}ms` })
 export const rise = 'animate-in fade-in slide-in-from-bottom-3 fill-mode-both duration-500 ease-out motion-reduce:animate-none'
@@ -131,6 +132,40 @@ export function RuleTriggersWidget({ style }: { style?: CSSProperties }) {
             }))} />
           </div>
         </>
+      )}
+    </WidgetShell>
+  )
+}
+
+// ─── 2. FIC progress ─────────────────────────────────────────────────
+type FicData = { fully_immunized: number; eligible: number; target: number }
+
+export function FicWidget({ range, style }: { range: Range; style?: CSSProperties }) {
+  const { data, error, isLoading } = useWidget<FicData>('fic', range)
+  const pct = data && data.eligible > 0 ? Math.round((data.fully_immunized / data.eligible) * 100) : 0
+  const gap = data ? Math.max(0, data.target - pct) : 0
+  // Children still needed to reach the target, so the gap reads as work, not only points.
+  const needed = data ? Math.max(0, Math.ceil((data.target / 100) * data.eligible) - data.fully_immunized) : 0
+  return (
+    <WidgetShell id="fic" title="Fully immunized children" note="Children who turned 1 in this period"
+      link={{ href: '/vaccination/defaulters', label: 'Defaulters' }} style={style}
+      loading={isLoading} error={error} empty={data?.eligible === 0 && 'No children turned 12 months old in this period.'}>
+      {data && (
+        <div className="flex flex-wrap items-center gap-5">
+          <Donut percentage={pct} label={`FIC rate, target ${data.target}%`} color={gap === 0 ? '#059669' : '#D97706'} size={128} />
+          <dl className="min-w-0 flex-1 space-y-3 text-sm">
+            <div>
+              <dt className="text-[#5B6478]">Fully immunized</dt>
+              <dd className="text-xl font-bold tabular-nums">{data.fully_immunized.toLocaleString()} <span className="text-sm font-normal text-[#5B6478]">of {data.eligible.toLocaleString()} children</span></dd>
+            </div>
+            <div>
+              <dt className="text-[#5B6478]">Gap to DOH target</dt>
+              <dd className={`font-semibold ${gap === 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                {gap === 0 ? 'Target reached' : `${gap} points · ${needed.toLocaleString()} more child${needed === 1 ? '' : 'ren'}`}
+              </dd>
+            </div>
+          </dl>
+        </div>
       )}
     </WidgetShell>
   )

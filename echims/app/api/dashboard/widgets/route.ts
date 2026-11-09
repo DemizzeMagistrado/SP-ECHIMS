@@ -70,6 +70,35 @@ const widgets: Record<string, (ctx: Ctx) => Promise<unknown>> = {
     const byRule = [...groups.values()].sort((a, b) => b.count - a.count)
     return { total: seen.size, by_rule: byRule }
   },
+
+  // Fully Immunized Child: of the active children who turned 12 months old in the
+  // period, how many had every FIC dose (approved, including prior doses) by their
+  // first birthday. DOH FIC antigens: BCG, 3 Penta, 3 OPV, 1 measles-containing (MMR).
+  async fic(ctx) {
+    const required: Record<string, number> = { BCG: 1, PENTA: 3, OPV: 3, MMR: 1 }
+    const children = await rows(scoped(ctx, ctx.supabase.from('child')
+      .select('child_id, date_of_birth')
+      .eq('status', 'ACTIVE')
+      .gte('date_of_birth', addYears(ctx.from, -1))
+      .lte('date_of_birth', addYears(ctx.to, -1))))
+    const vaccines = await rows(ctx.supabase.from('vaccine').select('vaccine_id, vaccine_type'))
+    const code = new Map(vaccines.map((v) => [v.vaccine_id, String(v.vaccine_type).toUpperCase()]))
+    const records = await byIds(children.map((c) => c.child_id), (ids) => ctx.supabase.from('vaccination_record')
+      .select('child_id, vaccine_id, dose_number, vaccination_date')
+      .eq('status', 'APPROVED')
+      .in('child_id', ids))
+    const birthday = new Map(children.map((c) => [c.child_id, addYears(c.date_of_birth, 1)]))
+    const doses = new Map<number, Map<string, Set<number>>>()
+    for (const r of records) {
+      const vc = code.get(r.vaccine_id)
+      if (!vc || !(vc in required) || r.vaccination_date > birthday.get(r.child_id)!) continue
+      const byVaccine = doses.get(r.child_id) ?? new Map<string, Set<number>>()
+      byVaccine.set(vc, (byVaccine.get(vc) ?? new Set()).add(r.dose_number))
+      doses.set(r.child_id, byVaccine)
+    }
+    const fic = children.filter((c) => Object.entries(required).every(([vc, n]) => (doses.get(c.child_id)?.get(vc)?.size ?? 0) >= n)).length
+    return { fully_immunized: fic, eligible: children.length, target: 95 }
+  },
 }
 
 export async function GET(request: Request) {
