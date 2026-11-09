@@ -440,3 +440,37 @@ export function OfflineSyncWidget({ user, style }: { user: AuthUser; style?: CSS
     </WidgetShell>
   )
 }
+
+// ─── 9. Recent masterlist upload ─────────────────────────────────────
+type UploadBatch = { batch_id: number; file_name: string; status: string; row_count: number; valid_count: number; error_count: number; duplicate_count: number; imported_count: number; uploaded_at: string }
+
+export function MasterlistWidget({ style }: { style?: CSSProperties }) {
+  const { data, error, isLoading } = useSWR<{ batches: UploadBatch[] }>('/api/masterlist/batches?limit=1', fetcher)
+  const b = data?.batches[0]
+  const done = b && b.imported_count > 0
+  const stats = b ? [
+    [done ? 'Imported' : 'Valid', done ? b.imported_count : b.valid_count, 'text-emerald-700'],
+    ['Errors', b.error_count, b.error_count ? 'text-rose-700' : ''],
+    ['Duplicates', b.duplicate_count, b.duplicate_count ? 'text-amber-700' : ''],
+  ] as const : []
+  return (
+    <WidgetShell id="masterlist" title="Latest masterlist upload" note={b ? new Date(b.uploaded_at).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' }) : 'Most recent import'}
+      link={{ href: '/masterlist-upload', label: 'Open imports' }} style={style}
+      loading={isLoading} error={error} empty={data && !b && 'No masterlist has been uploaded yet.'}>
+      {b && (
+        <>
+          <p className="flex items-center justify-between gap-3 text-sm">
+            <span className="min-w-0 truncate font-semibold" title={b.file_name}>{b.file_name}</span>
+            <span className="shrink-0 rounded-md bg-[#EAF6FA] px-2 py-0.5 text-xs font-semibold text-[#0077B6]">{humanize(b.status)}</span>
+          </p>
+          <p className="mt-0.5 text-sm text-[#5B6478]">{b.row_count.toLocaleString()} rows</p>
+          <dl className="mt-4 grid grid-cols-3 gap-2 text-sm">
+            {stats.map(([label, value, tone]) => (
+              <div key={label}><dt className="text-[#5B6478]">{label}</dt><dd className={`text-lg font-bold tabular-nums ${tone}`}>{value.toLocaleString()}</dd></div>
+            ))}
+          </dl>
+        </>
+      )}
+    </WidgetShell>
+  )
+}
