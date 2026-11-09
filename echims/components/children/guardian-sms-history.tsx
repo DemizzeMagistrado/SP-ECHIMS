@@ -4,6 +4,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Spinner } from '@/components/brand/logo-loader'
+import { usePageLoading } from '@/components/brand/page-gate'
 
 type Attempt = {
   simulation_id: number;
@@ -66,6 +67,7 @@ export function GuardianSmsHistory({
   const [data, setData] = useState<History | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  usePageLoading(loading)
   const ownerRef = useRef<string | null>(null);
   const generation = useRef(0);
   const mounted = useRef(true);

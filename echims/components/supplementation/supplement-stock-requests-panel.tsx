@@ -3,6 +3,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useEffect, useRef, useState } from "react";
 import { Package, X } from "lucide-react";
 import { Spinner } from '@/components/brand/logo-loader'
+import { usePageLoading } from '@/components/brand/page-gate'
 type Product = { supplement_id: number; name: string; unit: string };
 type Barangay = {
   barangay_id: number;
@@ -61,6 +62,7 @@ export function SupplementStockRequestsPanel({
   const [data, setData] = useState<Data | null>(null);
   const [reload, setReload] = useState(0);
   const [loading, setLoading] = useState(true);
+  usePageLoading(loading)
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [open, setOpen] = useState(false);

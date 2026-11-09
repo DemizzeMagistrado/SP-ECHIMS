@@ -68,3 +68,23 @@ export async function afterPaint() {
   await (document.fonts?.ready ?? Promise.resolve()).catch(() => {})
   await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
 }
+
+/**
+ * Resolves once no page is waiting for its first data, no transition overlay is up and the browser
+ * is idle (or after 5s idle timeout). Background work (offline preparation) starts here so it never
+ * competes with a page load or its entrance animation.
+ */
+export function whenSettled(): Promise<void> {
+  return new Promise((resolve) => {
+    const idle = () => {
+      const ric = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback
+      if (ric) ric(() => resolve(), { timeout: 5000 }); else window.setTimeout(resolve, 500)
+    }
+    // A short pause also covers the entrance animation (~400ms) after the last gate opens.
+    const check = () => {
+      if (waiting.size === 0 && !overlayUp) { unsubscribe(); window.setTimeout(idle, 600) }
+    }
+    const unsubscribe = subscribe(check)
+    check()
+  })
+}

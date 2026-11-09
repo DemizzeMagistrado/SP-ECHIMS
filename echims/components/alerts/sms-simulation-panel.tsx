@@ -2,6 +2,7 @@
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useEffect, useState } from "react";
 import { Spinner } from '@/components/brand/logo-loader'
+import { usePageLoading } from '@/components/brand/page-gate'
 type Queue = {
   notification_id: number;
   child_id: number;
@@ -29,6 +30,7 @@ export function SmsSimulationPanel({ ownerId }: { ownerId: string }) {
     [loading, setLoading] = useState(true),
     [reload, setReload] = useState(0),
     [program, setProgram] = useState("ALL");
+  usePageLoading(loading)
   useEffect(() => {
     let active = true;
     const controller = new AbortController();

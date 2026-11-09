@@ -3,6 +3,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Spinner } from '@/components/brand/logo-loader'
+import { usePageLoading } from '@/components/brand/page-gate'
 
 type Program = "VACCINATION" | "SUPPLEMENTATION";
 type MessageType = "UPCOMING" | "OVERDUE";
@@ -79,6 +80,7 @@ export function ProgramSmsPanel({
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [reload, setReload] = useState(0);
+  usePageLoading(loading)
   const [selectedKey, setSelectedKey] = useState(""),
     [errorCode, setErrorCode] = useState<ErrorCode>("NETWORK_ERROR"),
     [busy, setBusy] = useState(false);

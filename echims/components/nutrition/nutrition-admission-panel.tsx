@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { Spinner } from '@/components/brand/logo-loader'
+import { usePageLoading } from '@/components/brand/page-gate'
 
 type Event = {
   event_id: number;
@@ -84,6 +85,7 @@ export function NutritionAdmissionPanel({
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
+  usePageLoading(loading)
   const [reload, setReload] = useState(0),
     [filter, setFilter] = useState("OPEN"),
     [search, setSearch] = useState(""),

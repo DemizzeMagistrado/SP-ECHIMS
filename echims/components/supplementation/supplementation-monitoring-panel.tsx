@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { Spinner } from '@/components/brand/logo-loader'
+import { usePageLoading } from '@/components/brand/page-gate'
 
 type Status =
   | 'UPCOMING'
@@ -71,6 +72,7 @@ export function SupplementationMonitoringPanel({
 }) {
   const [result, setResult] = useState<Result | null>(null)
   const [loading, setLoading] = useState(true)
+  usePageLoading(loading)
   const [error, setError] = useState('')
   const [reload, setReload] = useState(0)
   const [barangay, setBarangay] = useState('ALL')
