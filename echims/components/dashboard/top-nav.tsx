@@ -20,7 +20,7 @@ import Link from 'next/link'
 import { useRouter } from '@/lib/offline/navigation'
 import { useAuth } from '@/components/auth/auth-provider'
 import { useShell } from './shell'
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { Spinner } from '@/components/brand/logo-loader'
 
 type Notification = {
   alert_id: number
@@ -218,7 +218,7 @@ export function TopNav() {
                   <button type="button" aria-label="Refresh" disabled={loading || saving}
                     onClick={() => void loadNotifications()}
                     className="rounded-full p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50">
-                    {loading ? <LogoLoader size="inline" /> : <RefreshCw size={16} />}
+                    {loading ? <Spinner /> : <RefreshCw size={16} />}
                   </button>
                   <button type="button" aria-label="Close"
                     onClick={() => { setOpen(false); bellRef.current?.focus() }}
@@ -240,7 +240,7 @@ export function TopNav() {
               )}
               <div className="max-h-[60vh] overflow-y-auto">
                 {loading && notifications.length === 0 ? (
-                  <LogoLoader label="Loading notifications…" />
+                  <Spinner showLabel label="Loading notifications…" className="w-full justify-center py-6 text-sm text-muted-foreground" />
                 ) : notifications.length === 0 ? (
                   <div className="p-8 text-center text-sm text-slate-500">
                     <Bell size={28} className="mx-auto mb-3 text-slate-300" />

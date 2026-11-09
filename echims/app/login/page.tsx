@@ -7,7 +7,7 @@ import { useAuth } from '@/components/auth/auth-provider'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from '@/lib/offline/navigation'
 import { AuthShell } from '@/components/auth/auth-shell'
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -73,7 +73,7 @@ export default function LoginPage() {
         <label className="flex w-fit items-center gap-2 text-sm text-[#5B6478]"><input type="checkbox" className="h-4 w-4 accent-[#087DB9]" />Remember me</label>
         {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 animate-in fade-in slide-in-from-top-1 duration-200">{error}</p>}
         <button type="submit" disabled={busy} className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#087DB9] font-semibold text-white shadow-sm shadow-[#087DB9]/30 transition-colors hover:bg-[#056d9e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70">
-          {busy && <LogoLoader size="inline" label="Signing in" />}
+          {busy && <Spinner label="Signing in" />}
           {busy?'Signing in…':offline?'Sign in offline':'Sign in'}
         </button>
       </form>

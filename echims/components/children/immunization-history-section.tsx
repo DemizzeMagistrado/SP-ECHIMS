@@ -17,7 +17,7 @@ import { Syringe, Printer, AlertCircle, CheckCircle2, Clock, CalendarClock, Filt
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { RecordPriorVaccinationModal } from '@/components/vaccination/record-prior-vaccination-modal'
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { Spinner } from '@/components/brand/logo-loader'
 type DoseStatus = 'COMPLETE' | 'DUE' | 'OVERDUE' | 'UPCOMING'
 type DoseRow = {
   dose_number: number
@@ -138,7 +138,7 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
       <div className="space-y-5 p-6">
         {isLoading && (
           <div className="rounded-xl border border-dashed border-border">
-            <LogoLoader label="Loading immunization history…" />
+            <Spinner showLabel label="Loading immunization history…" className="w-full justify-center py-6 text-sm text-muted-foreground" />
           </div>
         )}
         {error && (

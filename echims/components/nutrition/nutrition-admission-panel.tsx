@@ -3,7 +3,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { Spinner } from '@/components/brand/logo-loader'
 
 type Event = {
   event_id: number;
@@ -280,7 +280,7 @@ export function NutritionAdmissionPanel({
         </p>
       )}
       {loading && !data ? (
-        <LogoLoader label="Loading admission tracking…" />
+        <Spinner showLabel label="Loading admission tracking…" className="w-full justify-center py-6 text-sm text-muted-foreground" />
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -542,7 +542,7 @@ export function NutritionAdmissionPanel({
                 disabled={busy || !online}
                 className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
-                {busy && <LogoLoader size="inline" className="mr-2" />}{busy ? "Saving…" : "Save care details"}
+                {busy && <Spinner className="mr-2" />}{busy ? "Saving…" : "Save care details"}
               </button>
             </footer>
           </form>

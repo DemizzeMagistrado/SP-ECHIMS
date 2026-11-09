@@ -2,7 +2,7 @@
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { Spinner } from '@/components/brand/logo-loader'
 
 type Program = "VACCINATION" | "SUPPLEMENTATION";
 type MessageType = "UPCOMING" | "OVERDUE";
@@ -291,7 +291,7 @@ export function ProgramSmsPanel({
         </p>
       )}
       {loading ? (
-        <LogoLoader label="Loading SMS reminders…" />
+        <Spinner showLabel label="Loading SMS reminders…" className="w-full justify-center py-6 text-sm text-muted-foreground" />
       ) : (
         data && (
           <>
@@ -471,7 +471,7 @@ export function ProgramSmsPanel({
                         onClick={() => void send("SIMULATED_SENT")}
                         className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                       >
-                        {busy && <LogoLoader size="inline" className="mr-2" />}
+                        {busy && <Spinner className="mr-2" />}
                         {busy
                           ? "Saving…"
                           : data.previewEnabled

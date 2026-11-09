@@ -15,7 +15,7 @@ import useSWR from 'swr'
 import { X, Package, Hash, MapPin, AlertCircle, PackageMinus, Trash2, WifiOff, CheckCircle2 } from 'lucide-react'
 import { useToast } from '@/components/ui/toast'
 import { newClientRequestId, sendOrQueueUsage } from '@/lib/inventory-offline'
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { Spinner } from '@/components/brand/logo-loader'
 
 type Batch = { batch_id: number; batch_number: string; expiry_date: string; quantity_on_hand: number }
 type InventoryRow = {
@@ -217,7 +217,7 @@ export function LogUsageModal({ open, onClose, onSaved }: Props) {
               className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 ${
                 subtype === 'WASTE' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-amber-600 hover:bg-amber-700'
               }`}>
-              {saving ? <LogoLoader size="inline" /> : <CheckCircle2 size={14} />}
+              {saving ? <Spinner /> : <CheckCircle2 size={14} />}
               {saving ? 'Saving…' : subtype === 'WASTE' ? 'Log waste' : 'Log usage'}
             </button>
           </div>

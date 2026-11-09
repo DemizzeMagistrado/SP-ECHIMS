@@ -21,7 +21,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import useSWR from 'swr'
 import Link from 'next/link'
 import { CheckCircle2, History, CalendarClock, AlertCircle, ArrowRight, Syringe } from 'lucide-react'
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { Spinner } from '@/components/brand/logo-loader'
 
 type DoseStatus = 'COMPLETE' | 'DUE' | 'OVERDUE' | 'UPCOMING'
 
@@ -89,7 +89,7 @@ export function VaccinationHistoryPreview({ childId }: { childId: number }) {
   if (isLoading) {
     return (
       <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-800">
-        <span role="status" className="flex items-center gap-2"><LogoLoader size="inline" label="Loading vaccination history…" />Loading vaccination history…</span>
+        <span role="status" className="flex items-center gap-2"><Spinner label="Loading vaccination history…" />Loading vaccination history…</span>
       </div>
     )
   }

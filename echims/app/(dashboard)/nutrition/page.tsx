@@ -32,7 +32,7 @@ import {
   Printer,
   X,
 } from "lucide-react";
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 type Relation<T> = T | T[] | null;
 type Barangay = {
   barangay_id: number;
@@ -2077,7 +2077,7 @@ export default function NutritionPage() {
         </div>
       )}
       {!authReady && (
-        <LogoLoader label="Checking signed-in account…" />
+        <LogoLoader size="section" label="Checking signed-in account…" />
       )}
       {authReady && !ownerId && (
         <p role="alert" className={alertClass}>
@@ -2088,7 +2088,7 @@ export default function NutritionPage() {
         <p role="status" className="flex items-center gap-2 text-sm">
           {online ? (
             <>
-              <LogoLoader size="inline" />
+              <Spinner />
               Loading assessments…
             </>
           ) : (
@@ -2341,7 +2341,7 @@ export default function NutritionPage() {
               onClick={() => void mutate()}
               className="ml-auto flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm disabled:opacity-50"
             >
-              {isValidating ? <LogoLoader size="inline" /> : <RefreshCw size={16} />}
+              {isValidating ? <Spinner /> : <RefreshCw size={16} />}
               Refresh
             </button>
           </div>
@@ -2981,7 +2981,7 @@ export default function NutritionPage() {
                 }
                 className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white disabled:opacity-50"
               >
-                {saving && <LogoLoader size="inline" />}
+                {saving && <Spinner />}
                 {saving
                   ? "Saving…"
                   : editingRequest.current

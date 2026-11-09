@@ -27,7 +27,7 @@ import {
 } from 'react'
 
 import HealthActivityCalendar from './health-activity-calendar'
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 
 /* =========================================================
    TYPES
@@ -375,7 +375,7 @@ function ActivityDetailsModal({
 
 export default function HealthActivitiesClient() {
  const {user,isReady}=useAuth()
- if(!isReady)return <LogoLoader label="Checking account…" className="min-h-[50vh]" />
+ if(!isReady)return <LogoLoader label="Checking account…" />
  if(!user)return <p>Please sign in to view health activities.</p>
  return <ActivityWorkspace key={user.id+':'+offlineScope(user)}/>
 }
@@ -734,7 +734,7 @@ function ActivityWorkspace() {
           </div>
 
           {loading ? (
-            <LogoLoader label="Loading activities…" className="min-h-52" />
+            <LogoLoader size="section" label="Loading activities…" />
           ) : error ? (
             <div className="m-5 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
               {error}
@@ -1232,7 +1232,7 @@ function EditActivityModal({
             disabled={submitting}
             className="inline-flex items-center gap-2 rounded-full bg-[#087db9] px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-[#056d9e] disabled:opacity-50"
           >
-            {submitting && <LogoLoader size="inline" />}
+            {submitting && <Spinner />}
             {submitting ? 'Resubmitting…' : 'Resubmit for Review'}
           </button>
         </div>
@@ -1454,7 +1454,7 @@ function UpdateStatusModal({
             className="inline-flex items-center gap-2 rounded-full bg-[#087db9] px-5 py-2 text-sm font-bold text-white hover:bg-[#056d9e] disabled:opacity-50"
           >
             {submitting && (
-              <LogoLoader size="inline" />
+              <Spinner />
             )}
             {submitting ? 'Saving…' : 'Save status'}
           </button>
@@ -1647,7 +1647,7 @@ function RequestActivityModal({
 
           {loadingOptions && (
             <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-              <LogoLoader size="inline" />
+              <Spinner />
               Loading your geographic scope...
             </div>
           )}
@@ -1707,7 +1707,7 @@ function RequestActivityModal({
             disabled={submitting || loadingOptions || barangays.length === 0 || Boolean(draft&&!reviewed)}
             className="inline-flex items-center justify-center gap-2 rounded-full bg-[#087db9] px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-[#056d9e] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitting && <LogoLoader size="inline" />}
+            {submitting && <Spinner />}
             {submitting ? 'Submitting...' : draft?'Submit Reviewed Request':'Submit Request'}
           </button>}
         </div>
@@ -2053,7 +2053,7 @@ function ActionButton({
       className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
     >
       {loading ? (
-        <LogoLoader size="inline" />
+        <Spinner />
       ) : (
         <Icon size={16} />
       )}

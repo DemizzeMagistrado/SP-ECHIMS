@@ -3,7 +3,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { Spinner } from '@/components/brand/logo-loader'
 
 type Attempt = {
   simulation_id: number;
@@ -206,7 +206,7 @@ export function GuardianSmsHistory({
           </p>
         )}
         {loading && !data && (
-          <LogoLoader label="Loading SMS history…" />
+          <Spinner showLabel label="Loading SMS history…" className="w-full justify-center py-6 text-sm text-muted-foreground" />
         )}
         {data?.reminders.length === 0 && (
           <p className="text-sm text-muted-foreground">

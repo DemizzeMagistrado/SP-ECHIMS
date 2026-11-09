@@ -13,14 +13,13 @@ import { listQueuedVaccinations } from '@/lib/vaccination-offline'
 // Every widget has a fixed height for its size, so loading, empty, tab switches and
 // long lists never resize the cards beside it; long lists scroll or cap at 5 rows.
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
 import { AlertCircle, AlertTriangle, ArrowUpRight, BellOff, Info } from 'lucide-react'
 import { manilaTodayYMD } from '@/lib/nip-schedule'
 import { alertDestination } from '@/lib/alerts/alert-destination'
 import { Donut } from './mini-charts'
-import { LogoLoader } from '@/components/brand/logo-loader'
 
 export const stagger = (i: number) => ({ animationDelay: `${i * 60}ms` })
 export const rise = 'animate-in fade-in slide-in-from-bottom-3 fill-mode-both duration-500 ease-out motion-reduce:animate-none'
@@ -40,10 +39,16 @@ export const fetcher = async (url: string) => {
 export type Range = { from: string; to: string }
 type WidgetProps = { style?: CSSProperties; size?: Size }
 
+// isLoading is the first load only. A new range keeps the previous numbers on screen
+// (refreshing) so the card dims instead of emptying.
 function useWidget<T>(name: string, range?: Range) {
   const qs = new URLSearchParams({ widget: name, ...(range ?? {}) })
-  return useSWR<T>(`/api/dashboard/widgets?${qs}`, fetcher)
+  const { data, error, isLoading } = useSWR<T>(`/api/dashboard/widgets?${qs}`, fetcher, { keepPreviousData: true })
+  return { data, error, isLoading: isLoading && !data, refreshing: isLoading && !!data }
 }
+
+/** The overview listens here so it can keep every card hidden until all of them have their first data. */
+export const RevealContext = createContext<((id: string, loading: boolean) => void) | null>(null)
 
 const humanize = (s: string) => s.toLowerCase().replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
 
@@ -65,15 +70,20 @@ type ShellProps = WidgetProps & {
   action?: ReactNode
   className?: string
   loading: boolean
+  /** New data on its way for content already shown: dims the body instead of replacing it. */
+  refreshing?: boolean
   error?: Error
   empty?: string | false
   children?: ReactNode
 }
 
 // Card frame with the three states every widget needs: loading, error, empty.
-export function WidgetShell({ id, title, note, link, action, style, size, className = '', loading, error, empty, children }: ShellProps) {
+export function WidgetShell({ id, title, note, link, action, style, size, className = '', loading, refreshing = false, error, empty, children }: ShellProps) {
+  const report = useContext(RevealContext)
+  useEffect(() => { report?.(id, loading) }, [report, id, loading])
+  useEffect(() => () => report?.(id, false), [report, id])
   return (
-    <section aria-labelledby={`${id}-heading`} aria-busy={loading}
+    <section aria-labelledby={`${id}-heading`} aria-busy={loading || refreshing}
       className={`${card} flex min-w-0 flex-col p-5 sm:p-6 ${size ? SIZE[size] : ''} ${rise} ${className}`} style={style}>
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
         <div className="min-w-0 flex-[1_1_12rem]">
@@ -82,9 +92,13 @@ export function WidgetShell({ id, title, note, link, action, style, size, classN
         </div>
         {link ? <CardLink {...link} /> : action}
       </div>
-      <div className="scroll-subtle mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto">
+      {/* The card itself carries the entrance animation (opacity held at 1), so dimming goes on this inner box. */}
+      <div className={`scroll-subtle mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto transition-opacity duration-200 ${refreshing ? 'opacity-50' : ''}`}>
         {loading ? (
-          <LogoLoader label={`Loading ${title.toLowerCase()}…`} className="min-h-0 flex-1" />
+          // Only reached when a card loads after the overview is already showing; first loads stay behind the page loader.
+          <div role="status" aria-label={`Loading ${title}`} className="space-y-2.5">
+            {Array.from({ length: size === 'tall' ? 5 : 3 }).map((_, i) => <div key={i} className="h-8 animate-pulse rounded-lg bg-brand-ice motion-reduce:animate-none" />)}
+          </div>
         ) : error ? (
           <p role="alert" className="flex items-start gap-2 rounded-xl bg-danger-soft p-3 text-sm text-danger">
             <AlertCircle size={16} className="mt-0.5 shrink-0" /> {error.message}
@@ -136,7 +150,7 @@ const more = (total: number) => total > SHOWN && <p className="mt-auto pt-2 text
 type FicData = { fully_immunized: number; eligible: number; target: number }
 
 export function FicWidget({ range, style, size = 'tall' }: WidgetProps & { range: Range }) {
-  const { data, error, isLoading } = useWidget<FicData>('fic', range)
+  const { data, error, isLoading, refreshing } = useWidget<FicData>('fic', range)
   const pct = data && data.eligible > 0 ? Math.round((data.fully_immunized / data.eligible) * 100) : 0
   const gap = data ? Math.max(0, data.target - pct) : 0
   // Children still needed to reach the target, so the gap reads as work, not only points.
@@ -144,7 +158,7 @@ export function FicWidget({ range, style, size = 'tall' }: WidgetProps & { range
   return (
     <WidgetShell id="fic" title="Fully immunized (FIC)" note="Turned 1 in this period"
       link={{ href: '/vaccination/defaulters', label: 'Defaulters' }} style={style} size={size}
-      loading={isLoading} error={error} empty={data?.eligible === 0 && 'No children turned 12 months old in this period.'}>
+      loading={isLoading} refreshing={refreshing} error={error} empty={data?.eligible === 0 && 'No children turned 12 months old in this period.'}>
       {data && (
         <div className="flex flex-1 flex-wrap items-center justify-center gap-6">
           <Donut percentage={pct} label={`FIC rate, target ${data.target}%`} color={gap === 0 ? 'var(--tone-good)' : 'var(--brand-sky)'} size={136} />
@@ -456,11 +470,11 @@ export function MasterlistWidget({ style, size = 'compact' }: WidgetProps) {
 
 // ─── System activity (Admin) ─────────────────────────────────────────
 export function SystemActivityWidget({ range, style, size = 'compact' }: WidgetProps & { range: Range }) {
-  const { data, error, isLoading } = useWidget<{ new_accounts: number; pending_users: number }>('system', range)
+  const { data, error, isLoading, refreshing } = useWidget<{ new_accounts: number; pending_users: number }>('system', range)
   return (
     <WidgetShell id="system" title="System activity" note="User accounts in this period"
       link={{ href: '/user-management', label: 'Users' }} style={style} size={size}
-      loading={isLoading} error={error}>
+      loading={isLoading} refreshing={refreshing} error={error}>
       {data && (
         <dl className="grid flex-1 grid-cols-2 content-center gap-3">
           <div className="rounded-xl bg-brand-ice/60 p-3">

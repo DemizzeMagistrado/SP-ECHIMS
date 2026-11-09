@@ -7,7 +7,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import type { UserRole } from "@/lib/echims-data";
 import { createClient } from "@/lib/supabase/client";
 import { AuthShell } from "@/components/auth/auth-shell";
-import { LogoLoader } from "@/components/brand/logo-loader";
+import { LogoLoader, Spinner } from "@/components/brand/logo-loader";
 /* =========================================================
    LOCATION TYPES
 ========================================================= */
@@ -700,7 +700,7 @@ export default function RegisterPage() {
                     </div>
                     {locationLoading && (
                       <p className="text-xs text-gray-500">
-                        <span role="status" className="flex items-center gap-2"><LogoLoader size="inline" label="Loading workplace options…" />Loading workplace options…</span>
+                        <span role="status" className="flex items-center gap-2"><Spinner label="Loading workplace options…" />Loading workplace options…</span>
                       </p>
                     )}
                     {locationError && (
@@ -889,7 +889,7 @@ export default function RegisterPage() {
                   disabled={loading}
                   className="h-12 w-full rounded-lg bg-[#087DB9] px-5 font-semibold text-white shadow-sm shadow-[#087DB9]/30 transition-colors hover:bg-[#056d9e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {loading && <LogoLoader size="inline" label="Creating account" className="mr-2" />}
+                  {loading && <Spinner label="Creating account" className="mr-2" />}
                   {loading ? "Creating account…" : "Create account"}
                 </button>
               </form>

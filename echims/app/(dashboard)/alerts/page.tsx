@@ -16,7 +16,7 @@ import { alertDestination } from "@/lib/alerts/alert-destination";
 import { SmsSimulationPanel } from "@/components/alerts/sms-simulation-panel";
 import { useAuth } from "@/components/auth/auth-provider";
 import { offlineScope } from "@/lib/offline/fetch";
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 type Rule = {
   rule_id: number;
   rule_name: string;
@@ -292,7 +292,7 @@ function EvaluationMonitoring({
 }
 export default function AlertsPage() {
   const {user,isReady}=useAuth();
-  if(!isReady)return <LogoLoader label="Checking account…" className="min-h-[50vh]" />;
+  if(!isReady)return <LogoLoader label="Checking account…" />;
   return <AlertsWorkspace key={user?user.id+':'+offlineScope(user):'signed-out'}/>;
 }
 function AlertsWorkspace() {
@@ -598,7 +598,7 @@ function AlertsWorkspace() {
         </p>
       )}
       {!authReady || loading ? (
-        <LogoLoader label="Loading alerts…" className="min-h-48" />
+        <LogoLoader size="section" label="Loading alerts…" />
       ) : !owner ? (
         <p>Please sign in to access alerts.</p>
       ) : null}
@@ -1097,7 +1097,7 @@ function AlertsWorkspace() {
                     onClick={() => void saveRule()}
                     className="rounded-lg bg-primary px-4 py-2 text-white disabled:opacity-50"
                   >
-                    {saving && <LogoLoader size="inline" className="mr-2" />}{saving ? "Saving…" : "Confirm and save"}
+                    {saving && <Spinner className="mr-2" />}{saving ? "Saving…" : "Confirm and save"}
                   </button>
                 </div>
               </>

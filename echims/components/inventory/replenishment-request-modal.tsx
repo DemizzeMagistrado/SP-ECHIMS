@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState } from 'react'
 import useSWR from 'swr'
 import { X, Package, MapPin, AlertCircle, PackagePlus } from 'lucide-react'
 import { useToast } from '@/components/ui/toast'
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { Spinner } from '@/components/brand/logo-loader'
 
 type Item = { item_id: number; item_name: string; unit: string; kind: string }
 type Barangay = { barangay_id: number; barangay_name: string }
@@ -191,7 +191,7 @@ export function ReplenishmentRequestModal({ open, onClose, onSaved }: Props) {
             </button>
             <button type="submit" disabled={saving}
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60">
-              {saving ? <LogoLoader size="inline" /> : <PackagePlus size={14} />}
+              {saving ? <Spinner /> : <PackagePlus size={14} />}
               {saving ? 'Submitting…' : 'Submit request'}
             </button>
           </div>

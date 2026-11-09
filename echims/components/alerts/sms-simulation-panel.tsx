@@ -1,7 +1,7 @@
 "use client";
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useEffect, useState } from "react";
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { Spinner } from '@/components/brand/logo-loader'
 type Queue = {
   notification_id: number;
   child_id: number;
@@ -121,7 +121,7 @@ export function SmsSimulationPanel({ ownerId }: { ownerId: string }) {
         </p>
       )}
       {loading && (
-        <LogoLoader label="Loading SMS overview…" />
+        <Spinner showLabel label="Loading SMS overview…" className="w-full justify-center py-6 text-sm text-muted-foreground" />
       )}
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">

@@ -2,7 +2,7 @@
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import { useState } from "react";
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { Spinner } from '@/components/brand/logo-loader'
 
 type Props = {
   guardian: {
@@ -137,7 +137,7 @@ export function GuardianSmsConsent({ guardian, canEdit, onSaved }: Props) {
             onClick={() => void save(true)}
             className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {saving && <LogoLoader size="inline" className="mr-2" />}{saving ? "Saving..." : "Confirm SMS Consent"}
+            {saving && <Spinner className="mr-2" />}{saving ? "Saving..." : "Confirm SMS Consent"}
           </button>
         </>
       )}
@@ -148,7 +148,7 @@ export function GuardianSmsConsent({ guardian, canEdit, onSaved }: Props) {
           onClick={() => void save(false)}
           className="rounded-lg border border-border px-3 py-2 text-sm font-medium disabled:opacity-50"
         >
-          {saving && <LogoLoader size="inline" className="mr-2" />}{saving ? "Saving..." : "Disable SMS Reminders"}
+          {saving && <Spinner className="mr-2" />}{saving ? "Saving..." : "Disable SMS Reminders"}
         </button>
       )}
       {error && (

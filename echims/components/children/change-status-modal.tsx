@@ -13,7 +13,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import { FormEvent, useState } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { Spinner } from '@/components/brand/logo-loader'
 
 type ChildStatus = 'ACTIVE' | 'INACTIVE' | 'MOVED' | 'LOST' | 'DECEASED'
 
@@ -186,7 +186,7 @@ export function ChangeStatusModal({ childId, currentStatus, childName, onClose, 
             disabled={saving || !canSubmit}
             className={`rounded-lg px-5 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed ${meta?.tone === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-primary/90'}`}
           >
-            {saving && <LogoLoader size="inline" className="mr-2" />}{saving ? 'Saving...' : meta ? `Mark as ${meta.label}` : 'Save status change'}
+            {saving && <Spinner className="mr-2" />}{saving ? 'Saving...' : meta ? `Mark as ${meta.label}` : 'Save status change'}
           </button>
         </div>
       </form>

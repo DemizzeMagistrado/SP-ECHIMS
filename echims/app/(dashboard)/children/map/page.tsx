@@ -17,7 +17,7 @@ const BarangayMap = dynamic(() => import('@/components/geospatial/barangay-map-i
   ssr: false,
   loading: () => (
     <div className="h-[560px] rounded-xl border border-border bg-muted/30">
-      <LogoLoader label="Loading map…" />
+      <LogoLoader size="section" label="Loading map…" />
     </div>
   ),
 })

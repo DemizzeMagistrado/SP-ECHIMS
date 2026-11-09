@@ -650,7 +650,7 @@ export default function ReportsPage() {
           )}
         </section>
       )}
-      {loading && <LogoLoader label="Loading reports…" />}
+      {loading && <LogoLoader size="section" label="Loading reports…" />}
       {shown && (
         <section className="space-y-4 rounded-2xl border bg-white p-5">
           <header>

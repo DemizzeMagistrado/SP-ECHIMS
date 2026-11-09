@@ -13,7 +13,7 @@
 // sit side by side share one fixed height and columns align to the top, so a tab
 // switch, a loading state or a long list never resizes a neighbouring card.
 
-import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
 import {
@@ -27,9 +27,10 @@ import {
   card, fetcher, focusRing, rise, stagger, SIZE,
   ApprovalsWidget, BarangayRankingWidget, ExpiringBatchesWidget, FicWidget, MasterlistWidget,
   MyBarangayWidget, NutritionBreakdownWidget, OfflineSyncWidget, QuickActionsWidget, RecentAlertsWidget,
-  SystemActivityWidget, UpcomingWidget, WeighingDueWidget, type QuickAction,
+  SystemActivityWidget, UpcomingWidget, WeighingDueWidget, RevealContext, type QuickAction,
 } from './widgets'
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
+import { useMinimumLoading } from '@/components/brand/use-minimum-loading'
 
 type Payload = {
   role: string
@@ -127,9 +128,34 @@ export function DashboardOverview() {
   const [trendKey, setTrendKey] = useState('vacc')
   const url = useMemo(() => `/api/dashboard/summary?from=${from}&to=${to}`, [from, to])
 
-  const { data, error } = useSWR<Payload>(isReady && role ? url : null, fetcher, { keepPreviousData: true })
+  const { data, error, isLoading } = useSWR<Payload>(isReady && role ? url : null, fetcher, { keepPreviousData: true })
+  // A new date range keeps the old numbers up, dimmed, until the new ones arrive.
+  const refreshing = isLoading && !!data
+  const dim = `transition-opacity duration-200 ${refreshing ? 'opacity-50' : ''}`
 
-  if (!isReady) return <LogoLoader label="Loading dashboard…" className="min-h-[50vh]" />
+  // First load: one page loader and nothing else. Every card mounts hidden (so it fetches) and
+  // reports whether it is still on its first load; once the summary and all cards are in, they
+  // appear together and the staggered entrance plays once. Later refreshes never re-hide them.
+  const [cardsLoading, setCardsLoading] = useState<Record<string, boolean>>({})
+  const report = useCallback((id: string, loading: boolean) =>
+    setCardsLoading((c) => (c[id] === loading ? c : { ...c, [id]: loading })), [])
+  const active = isReady && Boolean(role)
+  // Cards report in their effects, which run before this one, so one render later every card has reported.
+  const [armed, setArmed] = useState(false)
+  const [revealed, setRevealed] = useState(false)
+  useEffect(() => { if (active) setArmed(true) }, [active])
+  useEffect(() => {
+    if (!revealed && armed && (data || error) && !Object.values(cardsLoading).some(Boolean)) setRevealed(true)
+  }, [revealed, armed, data, error, cardsLoading])
+  useEffect(() => {
+    if (!armed || revealed) return
+    // shortcut: a card that never answers is shown in its own loading state after 10s instead of holding the page.
+    const t = window.setTimeout(() => setRevealed(true), 10_000)
+    return () => window.clearTimeout(t)
+  }, [armed, revealed])
+  const holding = useMinimumLoading(!revealed)
+
+  if (!isReady) return <LogoLoader label="Loading dashboard…" />
   if (!role) return <div className={`${card} p-10 text-center text-brand-muted`}>Dashboard unavailable for this account.</div>
 
   const modules = roleModules[role] ?? []
@@ -195,15 +221,15 @@ export function DashboardOverview() {
   // ─── Building blocks, each already gated by module access ──────────
   const chart = showChart && !error && (
     <ActivityChart key="chart" trends={trends} trendKey={trendKey} onTrend={setTrendKey}
-      totals={totals} metrics={m} loading={!data} style={stagger(6)} />
+      totals={totals} metrics={m} loading={!data} dim={dim} style={stagger(6)} />
   )
   const status = showStatus && !error && (
     <section key="status" aria-labelledby="status-heading" aria-busy={!data} className={`${card} flex flex-col p-5 sm:p-6 ${SIZE.compact} ${rise}`} style={stagger(7)}>
       <h2 id="status-heading" className="text-base font-semibold">Status</h2>
       <p className="text-sm text-brand-muted">For this period and your scope</p>
-      <div className={`mt-3 grid flex-1 content-center gap-3 ${showCoverage && showNutritionDonut ? 'grid-cols-2' : 'grid-cols-1'}`}>
+      <div className={`mt-3 grid flex-1 content-center gap-3 ${showCoverage && showNutritionDonut ? 'grid-cols-2' : 'grid-cols-1'} ${dim}`}>
         {!data ? (
-          <LogoLoader label="" className="min-h-0" />
+          <span className="flex justify-center text-brand-muted"><Spinner /></span>
         ) : (
           <>
             {showCoverage && <Donut percentage={vaccPct} label="Vaccine coverage" color="var(--tone-good)" size={104} />}
@@ -250,7 +276,10 @@ export function DashboardOverview() {
   const twoColumns = main.length > 0 && side.length > 0
 
   return (
-    <div className="space-y-5 lg:space-y-6">
+    <RevealContext.Provider value={report}>
+    {holding && <LogoLoader label="Loading dashboard…" />}
+    {/* display:none keeps every card mounted (and fetching) without starting its entrance animation. */}
+    <div className={holding ? 'hidden' : 'space-y-5 lg:space-y-6'}>
       {/* 1. Greeting + date range */}
       <header className="relative isolate overflow-hidden rounded-2xl bg-brand-navy px-5 py-4 text-white sm:px-6">
         <div aria-hidden className="absolute -right-24 -top-32 -z-10 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(8,125,185,0.6),transparent)]" />
@@ -262,7 +291,7 @@ export function DashboardOverview() {
             </h1>
             <div className={`mt-2 flex flex-wrap items-center gap-2 text-sm ${rise}`} style={stagger(2)}>
               <span className="rounded-md bg-white/10 px-2 py-0.5 font-medium">{role}</span>
-              <span className="rounded-md bg-white/10 px-2 py-0.5 text-brand-mist">{data ? scopeLabel : <LogoLoader size="inline" label="Loading scope" />}</span>
+              <span className="rounded-md bg-white/10 px-2 py-0.5 text-brand-mist">{data ? scopeLabel : '…'}</span>
             </div>
           </div>
 
@@ -302,10 +331,10 @@ export function DashboardOverview() {
 
       {/* 2. Needs attention */}
       {cards.length > 0 && !error && (
-        <section aria-label="Needs attention" className={`grid grid-cols-1 gap-3 sm:grid-cols-2 xl:gap-4 ${cards.length >= 4 ? 'xl:grid-cols-4' : cards.length === 3 ? 'sm:grid-cols-3' : ''}`}>
+        <section aria-label="Needs attention" className={`grid grid-cols-1 gap-3 sm:grid-cols-2 xl:gap-4 ${dim} ${cards.length >= 4 ? 'xl:grid-cols-4' : cards.length === 3 ? 'sm:grid-cols-3' : ''}`}>
           {cards.map((item, i) => m
             ? <AttentionCard key={item.label} item={item} metrics={m} style={stagger(i + 2)} />
-            : <div key={item.label} className={`h-[104px] ${card}`}><LogoLoader label="" className="min-h-0" /></div>)}
+            : <div key={item.label} className={`h-[104px] ${card}`} />)}
         </section>
       )}
 
@@ -330,6 +359,7 @@ export function DashboardOverview() {
         </div>
       )}
     </div>
+    </RevealContext.Provider>
   )
 }
 
@@ -364,10 +394,10 @@ function AttentionCard({ item, metrics, style }: { item: AttentionItem; metrics:
 type TrendDef = { key: string; label: string; note: string; data?: { month: string; count: number }[]; color: string }
 
 // Fixed-height bars area, so switching tabs or an empty range keeps the card's size.
-function ActivityChart({ trends, trendKey, onTrend, totals, metrics, loading, style }: {
+function ActivityChart({ trends, trendKey, onTrend, totals, metrics, loading, dim, style }: {
   trends: TrendDef[]; trendKey: string; onTrend: (k: string) => void
   totals: { label: string; value: (x: Metrics) => number; icon: ReactNode }[]
-  metrics?: Metrics; loading: boolean; style: CSSProperties
+  metrics?: Metrics; loading: boolean; dim: string; style: CSSProperties
 }) {
   const trend = trends.find((t) => t.key === trendKey) ?? trends[0]
   return (
@@ -390,19 +420,19 @@ function ActivityChart({ trends, trendKey, onTrend, totals, metrics, loading, st
           </div>
         )}
       </div>
-      <div className="mt-6 h-[232px]">
+      <div className={`mt-6 h-[232px] ${dim}`}>
         {loading || !trend.data ? (
-          <LogoLoader label="Loading chart…" className="min-h-0" />
+          <div className="flex h-full items-center justify-center text-brand-muted"><Spinner label="Loading chart" /></div>
         ) : (
           <div key={trend.key}><TrendBars data={trend.data} color={trend.color} label={trend.label} /></div>
         )}
       </div>
       {totals.length > 0 && (
-        <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-brand-ice pt-5 sm:grid-cols-4">
+        <dl className={`mt-5 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-brand-ice pt-5 sm:grid-cols-4 ${dim}`}>
           {totals.map((t) => (
             <div key={t.label} className="min-w-0">
               <dt className="flex items-start gap-1.5 text-sm leading-snug text-brand-muted"><span aria-hidden className="shrink-0 text-brand-sky">{t.icon}</span>{t.label}</dt>
-              <dd className="mt-1 h-7 text-xl font-semibold tabular-nums">{metrics ? t.value(metrics).toLocaleString() : <LogoLoader size="inline" label="Loading" />}</dd>
+              <dd className="mt-1 h-7 text-xl font-semibold tabular-nums">{metrics ? t.value(metrics).toLocaleString() : '—'}</dd>
             </div>
           ))}
         </dl>

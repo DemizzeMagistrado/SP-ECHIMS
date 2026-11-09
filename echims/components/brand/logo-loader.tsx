@@ -9,33 +9,29 @@ const arms = [
   { d: 'M10.5 38H29.47A36.5 36.5 0 0 0 32.5 82H10.5A10.5 10.5 0 0 1 0 71.5V48.5A10.5 10.5 0 0 1 10.5 38Z', from: '-14px 0px' },
 ]
 
+// Centering boxes. content = the dashboard area beside the sidebar and under the 4rem top bar,
+// minus <main>'s vertical padding (py-6, lg:py-8).
+const BOX = {
+  page: 'min-h-dvh',
+  content: 'min-h-[calc(100dvh-7rem)] lg:min-h-[calc(100dvh-8rem)]',
+  section: 'h-full min-h-48',
+} as const
+
 type Props = {
-  /** page: full-screen mark. section: small mark centered in a card/table area. inline: tiny pulsing icon for buttons. */
-  size?: 'page' | 'section' | 'inline'
-  /** Visible text under the mark (page/section). Inline loaders keep it for screen readers only. */
+  /** page: full viewport. content: dashboard content area. section: a module's main table/list area. */
+  size?: keyof typeof BOX
   label?: string
   className?: string
 }
 
-/** The one loading indicator for eCHIMS. Hidden for its first 200ms so fast loads never flash it. */
-export function LogoLoader({ size = 'section', label = 'Loading…', className = '' }: Props) {
-  if (size === 'inline') {
-    return (
-      <span role="status" aria-live="polite" className={`logo-loader logo-loader-inline inline-flex size-[18px] shrink-0 items-center justify-center rounded-full bg-white p-px align-middle ${className}`}>
-        {/* eslint-disable-next-line @next/next/no-img-element -- 18px decorative icon, no optimization needed */}
-        <img src={brandIcon} alt="" width={16} height={16} className="h-full w-auto" />
-        <span className="sr-only">{label}</span>
-      </span>
-    )
-  }
-  const page = size === 'page'
-  const px = page ? 112 : 48
+/**
+ * Page-level loading only (routes, auth/logout transitions, offline boot, a module's main data).
+ * Widgets and buttons use <Spinner>. Hidden for its first 200ms so fast loads never flash it.
+ */
+export function LogoLoader({ size = 'content', label = 'Loading…', className = '' }: Props) {
+  const px = size === 'section' ? 56 : 104
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      className={`logo-loader flex flex-col items-center justify-center ${page ? 'min-h-svh gap-4' : 'h-full min-h-32 gap-2'} ${className}`}
-    >
+    <div role="status" aria-live="polite" className={`logo-loader flex w-full flex-col items-center justify-center gap-4 ${BOX[size]} ${className}`}>
       <span className="sr-only">Loading eCHIMS</span>
       <svg aria-hidden width={px} height={px} viewBox="0 0 120 120" className="overflow-visible">
         <g fill="#33446A">
@@ -44,14 +40,24 @@ export function LogoLoader({ size = 'section', label = 'Loading…', className =
               style={{ '--from': a.from, animationDelay: `${0.2 + i * 0.08}s` } as React.CSSProperties} />
           ))}
         </g>
-        <circle className="logo-loader-ring" cx="60" cy="58" r="33.2" fill="none" stroke="var(--brand-sky)" strokeWidth={page ? 1.6 : 2.4} strokeLinecap="round" strokeDasharray="36 173" />
+        <circle className="logo-loader-ring" cx="60" cy="58" r="33.2" fill="none" stroke="var(--brand-sky)" strokeWidth={size === 'section' ? 2.4 : 1.6} strokeLinecap="round" strokeDasharray="36 173" />
         <g className="logo-loader-pop">
           <g className="logo-loader-breathe">
             <image href={brandIcon} x="32.5" y="31.8" width="54" height="52.7" />
           </g>
         </g>
       </svg>
-      {label && <p className={page ? 'text-sm text-brand-muted' : 'text-xs text-brand-muted'}>{label}</p>}
+      {label && <p className="text-sm text-brand-muted">{label}</p>}
     </div>
+  )
+}
+
+/** Small plain spinner for buttons, widgets and small fetches. Takes the text color. */
+export function Spinner({ label = 'Loading', showLabel = false, className = '' }: { label?: string; showLabel?: boolean; className?: string }) {
+  return (
+    <span role="status" aria-live="polite" className={`inline-flex items-center gap-2 align-middle ${className}`}>
+      <span aria-hidden className="size-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent opacity-80 motion-reduce:animate-none" />
+      {showLabel ? label : <span className="sr-only">{label}</span>}
+    </span>
   )
 }

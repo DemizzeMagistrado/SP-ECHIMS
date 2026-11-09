@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState } from 'react'
 import useSWR from 'swr'
 import { X, ArrowRight, MapPin, Package, Hash, AlertCircle, Send } from 'lucide-react'
 import { useToast } from '@/components/ui/toast'
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { Spinner } from '@/components/brand/logo-loader'
 
 type Barangay = { barangay_id: number; barangay_name: string }
 type Batch = {
@@ -245,7 +245,7 @@ export function AllocateStockModal({ open, onClose, onSaved }: Props) {
             </button>
             <button type="submit" disabled={saving}
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60">
-              {saving ? <LogoLoader size="inline" /> : <Send size={14} />}
+              {saving ? <Spinner /> : <Send size={14} />}
               {saving ? 'Allocating…' : 'Allocate'}
             </button>
           </div>

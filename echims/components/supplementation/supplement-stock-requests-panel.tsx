@@ -2,7 +2,7 @@
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useEffect, useRef, useState } from "react";
 import { Package, X } from "lucide-react";
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { Spinner } from '@/components/brand/logo-loader'
 type Product = { supplement_id: number; name: string; unit: string };
 type Barangay = {
   barangay_id: number;
@@ -310,7 +310,7 @@ export function SupplementStockRequestsPanel({
         </p>
       )}
       {loading && !data ? (
-        <LogoLoader label="Loading stock requests…" />
+        <Spinner showLabel label="Loading stock requests…" className="w-full justify-center py-6 text-sm text-muted-foreground" />
       ) : (
         data && (
           <>
@@ -555,7 +555,7 @@ export function SupplementStockRequestsPanel({
                 className={button}
                 disabled={busy || !online}
               >
-                {busy && <LogoLoader size="inline" className="mr-2" />}{busy ? "Saving…" : "Submit Request"}
+                {busy && <Spinner className="mr-2" />}{busy ? "Saving…" : "Submit Request"}
               </button>
               <button
                 type="button"
@@ -662,7 +662,7 @@ export function SupplementStockRequestsPanel({
                 disabled={busy || !online}
                 className={button}
               >
-                {busy && <LogoLoader size="inline" className="mr-2" />}{busy ? "Saving…" : "Approve and Add Batch Stock"}
+                {busy && <Spinner className="mr-2" />}{busy ? "Saving…" : "Approve and Add Batch Stock"}
               </button>
               <button
                 type="button"

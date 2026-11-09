@@ -4,7 +4,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { Spinner } from '@/components/brand/logo-loader'
 
 type Status =
   | 'UPCOMING'
@@ -171,7 +171,7 @@ export function SupplementationMonitoringPanel({
           onClick={refresh}
           className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
         >
-          {loading ? <LogoLoader size="inline" /> : <RefreshCw size={16} />}
+          {loading ? <Spinner /> : <RefreshCw size={16} />}
           Refresh
         </button>
       </div>
@@ -184,7 +184,7 @@ export function SupplementationMonitoringPanel({
           label children as missed.
         </p>
       ) : loading ? (
-        <LogoLoader label="Loading supplementation monitoring…" />
+        <Spinner showLabel label="Loading supplementation monitoring…" className="w-full justify-center py-6 text-sm text-muted-foreground" />
       ) : error ? (
         <div
           role="alert"

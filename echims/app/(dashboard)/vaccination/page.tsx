@@ -27,7 +27,7 @@ import { BatchRequestDecisionModal, type BatchRequestRow } from '@/components/va
 import { RecordVaccinationModal } from '@/components/vaccination/record-vaccination-modal'
 import { VaccineFormModal, type VaccineCatalogRow } from '@/components/vaccination/vaccine-form-modal'
 import { VaccinationSmsPanel } from '@/components/vaccination/vaccination-sms-panel'
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 
 /* ═════════════════════════ Shared helpers ═════════════════════════ */
 
@@ -149,7 +149,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
   const url = `/api/vaccination/records${qs ? `?${qs}` : ''}`
   const { data, error, isLoading, readOnly, savedAt } = useVaccinationView<RecordsPayload>(isReady && canView ? url : null)
 
-  if (!isReady) return <LogoLoader className="min-h-[50vh]" />
+  if (!isReady) return <LogoLoader />
   if (!canView) return <div className="rounded-2xl border border-border bg-white p-10 text-center text-red-600">You are not authorized to view vaccination records.</div>
 
   const rows = data?.rows ?? []
@@ -256,7 +256,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
             </fieldset>
 {/* Table or empty state */}
       {isLoading ? (
-        <div className="rounded-2xl border border-border bg-white"><LogoLoader label="Loading records…" className="min-h-48" /></div>
+        <div className="rounded-2xl border border-border bg-white"><LogoLoader size="section" label="Loading records…" /></div>
       ) : error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
       ) : rows.length === 0 ? (
@@ -413,7 +413,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
                   reviewing.action === 'APPROVE' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
                 }`}
               >
-                {submittingReview && <LogoLoader size="inline" className="mr-2" />}{submittingReview ? 'Submitting...' : reviewing.action === 'APPROVE' ? 'Confirm approve' : 'Confirm reject'}
+                {submittingReview && <Spinner className="mr-2" />}{submittingReview ? 'Submitting...' : reviewing.action === 'APPROVE' ? 'Confirm approve' : 'Confirm reject'}
               </button>
             </div>
           </div>
@@ -484,7 +484,7 @@ function ScheduleSection() {
   const url = `/api/vaccination/schedule${qs ? `?${qs}` : ''}`
   const { data, error, isLoading, readOnly, savedAt } = useVaccinationView<SchedulePayload>(isReady && canView ? url : null)
 
-  if (!isReady) return <LogoLoader className="min-h-[50vh]" />
+  if (!isReady) return <LogoLoader />
   if (!canView) return <div className="rounded-2xl border border-border bg-white p-10 text-center text-red-600">You are not authorized to view the vaccination schedule.</div>
 
   const rows = data?.rows ?? []
@@ -625,7 +625,7 @@ function ScheduleSection() {
             </thead>
             <tbody className="divide-y divide-border">
               {isLoading && (
-                <tr><td colSpan={6} className="px-5 py-6"><LogoLoader label="Loading schedule requests…" /></td></tr>
+                <tr><td colSpan={6} className="px-5 py-6"><LogoLoader size="section" label="Loading schedule requests…" /></td></tr>
               )}
               {error && (
                 <tr><td colSpan={6} className="px-5 py-10 text-center text-red-600">{error.message}</td></tr>
@@ -747,7 +747,7 @@ function ScheduleSection() {
                   reviewAction === 'APPROVE' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
                 }`}
               >
-                {submitting && <LogoLoader size="inline" className="mr-2" />}{submitting ? 'Submitting...' : reviewAction === 'APPROVE' ? 'Confirm approve' : 'Confirm reject'}
+                {submitting && <Spinner className="mr-2" />}{submitting ? 'Submitting...' : reviewAction === 'APPROVE' ? 'Confirm approve' : 'Confirm reject'}
               </button>
             </div>
           </div>
@@ -866,7 +866,7 @@ function DefaultersSection() {
     }
   }
 
-  if (!isReady) return <LogoLoader className="min-h-[50vh]" />
+  if (!isReady) return <LogoLoader />
   if (!canView) return <div className="rounded-2xl border border-border bg-white p-10 text-center text-red-600">You are not authorized to view the defaulters list.</div>
 
   const counts = data?.counts
@@ -939,7 +939,7 @@ function DefaultersSection() {
             </fieldset>
 {/* Table or empty state */}
       {isLoading ? (
-        <div className="rounded-2xl border border-border bg-white"><LogoLoader label="Loading defaulters…" className="min-h-48" /></div>
+        <div className="rounded-2xl border border-border bg-white"><LogoLoader size="section" label="Loading defaulters…" /></div>
       ) : error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
       ) : groups.length === 0 ? (
@@ -1108,7 +1108,7 @@ function SmsSection() {
   const { online } = useVaccinationView<unknown>(null)
   const { user, isReady } = useAuth()
   const role = user?.role as UserRole | undefined
-  if (!isReady) return <LogoLoader label="Checking session…" />
+  if (!isReady) return <LogoLoader size="section" label="Checking session…" />
   if (!role || !canPerform(role, 'Vaccination', 'view'))
     return <p role="alert">You cannot view vaccination reminders.</p>
   return (
@@ -1191,7 +1191,7 @@ function CatalogSection() {
     }
   }
 
-  if (!isReady) return <LogoLoader className="min-h-[50vh]" />
+  if (!isReady) return <LogoLoader />
   if (!canView) {
     return (
       <div className="space-y-6">
@@ -1250,7 +1250,7 @@ function CatalogSection() {
       )}
 
       {isLoading ? (
-        <div className="rounded-2xl border border-border bg-white"><LogoLoader label="Loading catalog…" className="min-h-48" /></div>
+        <div className="rounded-2xl border border-border bg-white"><LogoLoader size="section" label="Loading catalog…" /></div>
       ) : error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
       ) : rows.length === 0 ? (
@@ -1542,7 +1542,7 @@ function BatchRequestsSection() {
   const [decisionTarget, setDecisionTarget] = useState<BatchRequestRow | null>(null)
 
   if (!isReady) {
-    return <LogoLoader className="min-h-[50vh]" />
+    return <LogoLoader />
   }
   if (!canView) {
     return (
@@ -1613,7 +1613,7 @@ function BatchRequestsSection() {
             </fieldset>
 {/* List */}
       {isLoading ? (
-        <div className="rounded-2xl border border-border bg-white"><LogoLoader label="Loading requests…" className="min-h-48" /></div>
+        <div className="rounded-2xl border border-border bg-white"><LogoLoader size="section" label="Loading requests…" /></div>
       ) : error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
       ) : rows.length === 0 ? (
@@ -1747,7 +1747,7 @@ export default function VaccinationPage() {
   }, [pathname])
 
   if (!isReady) {
-    return <LogoLoader className="min-h-[50vh]" />
+    return <LogoLoader />
   }
 
   // Only show tabs the current role may view

@@ -5,7 +5,7 @@
 
 import { useState } from 'react'
 import { Pencil, Trash2, Save, X, AlertTriangle, ShieldAlert } from 'lucide-react'
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { Spinner } from '@/components/brand/logo-loader'
 
 type UserRow = {
   user_id: string
@@ -161,7 +161,7 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
               disabled={busy}
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50"
             >
-              {busy ? <LogoLoader size="inline" /> : <Save size={14} />} {busy ? 'Saving...' : 'Save changes'}
+              {busy ? <Spinner /> : <Save size={14} />} {busy ? 'Saving...' : 'Save changes'}
             </button>
           </div>
         </div>
