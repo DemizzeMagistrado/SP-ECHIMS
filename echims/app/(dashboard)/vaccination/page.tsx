@@ -28,6 +28,8 @@ import { RecordVaccinationModal } from '@/components/vaccination/record-vaccinat
 import { VaccineFormModal, type VaccineCatalogRow } from '@/components/vaccination/vaccine-form-modal'
 import { VaccinationSmsPanel } from '@/components/vaccination/vaccination-sms-panel'
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
+import { TabPanel } from '@/components/brand/page-gate'
+import { TabIndicator } from '@/components/dashboard/tab-indicator'
 
 /* ═════════════════════════ Shared helpers ═════════════════════════ */
 
@@ -1775,23 +1777,25 @@ export default function VaccinationPage() {
             role="tab"
             aria-selected={active === t.id}
             onClick={() => setTab(t.id)}
-            className={`-mb-px rounded-t-lg border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
-              active === t.id
-                ? 'border-[#0077B6] text-[#0077B6]'
-                : 'border-transparent text-[#6B7280] hover:text-[#03045E]'
+            className={`-mb-px rounded-t-lg border-b-2 border-transparent px-4 py-2.5 text-sm font-semibold transition-colors ${
+              active === t.id ? 'text-[#0077B6]' : 'text-[#6B7280] hover:text-[#03045E]'
             }`}
           >
             {t.label}
           </button>
         ))}
+        <TabIndicator group="vaccination" activeKey={active} />
       </div>
 
-      {active === 'records' && <RecordsSection key={user?.id} onGoToSchedule={() => setTab('schedule')} />}
-      {active === 'schedule' && <ScheduleSection key={user?.id} />}
-      {active === 'defaulters' && <DefaultersSection key={user?.id} />}
-      {active === 'sms' && <SmsSection key={user?.id} />}
-      {active === 'catalog' && <CatalogSection key={user?.id} />}
-      {active === 'batch' && <BatchRequestsSection key={user?.id} />}
+      {/* Holds the previous tab's height and fades the new one in once its data is in. */}
+      <TabPanel tabKey={active}>
+        {active === 'records' && <RecordsSection key={user?.id} onGoToSchedule={() => setTab('schedule')} />}
+        {active === 'schedule' && <ScheduleSection key={user?.id} />}
+        {active === 'defaulters' && <DefaultersSection key={user?.id} />}
+        {active === 'sms' && <SmsSection key={user?.id} />}
+        {active === 'catalog' && <CatalogSection key={user?.id} />}
+        {active === 'batch' && <BatchRequestsSection key={user?.id} />}
+      </TabPanel>
     </div>
   )
 }
