@@ -12,6 +12,8 @@ import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { useToast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
+import { TabIndicator } from '@/components/dashboard/tab-indicator'
+import { TabPanel } from '@/components/brand/page-gate'
 type ScheduleEntry = {
   vaccine_code: string
   vaccine_type: string
@@ -329,7 +331,7 @@ export function VaccinationScheduleSection({ childId }: { childId: number }) {
         <h2 className="flex items-center gap-2 text-lg font-semibold text-primary"><Syringe size={18} />National Immunization Program</h2>
         <p className="mt-1 text-sm text-muted-foreground">Saved immunization records, dose status and vaccination schedule requests</p>
       </div>
-      <div role="tablist" aria-label="NIP record sections" className="flex flex-wrap gap-2 border-b p-3 print:hidden">
+      <div role="tablist" aria-label="NIP record sections" className="relative flex flex-wrap gap-2 border-b p-3 print:hidden">
         {nipTabs.map((tab, index) => <button
           key={tab.key}
           id={`${tabId}-tab-${tab.key}`}
@@ -340,9 +342,11 @@ export function VaccinationScheduleSection({ childId }: { childId: number }) {
           tabIndex={activeTab === tab.key ? 0 : -1}
           onClick={() => setActiveTab(tab.key)}
           onKeyDown={(event) => navigateTabs(event, index)}
-          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === tab.key ? 'bg-primary text-white' : 'bg-muted/40 text-foreground hover:bg-muted'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`}
+          className={`relative z-10 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === tab.key ? 'text-white' : 'bg-muted/40 text-foreground hover:bg-muted'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`}
         >{tab.label}</button>)}
+        <TabIndicator group="nip-records" activeKey={activeTab} variant="pill" className="rounded-lg bg-primary" />
       </div>
+      <TabPanel tabKey={activeTab}>
       {nipTabs.map((tab) => <div
         key={tab.key}
         id={`${tabId}-panel-${tab.key}`}
@@ -357,6 +361,7 @@ export function VaccinationScheduleSection({ childId }: { childId: number }) {
           ? <ImmunizationHistorySection childId={childId} />
           : <VaccinationScheduleContent childId={childId} />}
       </div>)}
+      </TabPanel>
     </section>
   )
 }

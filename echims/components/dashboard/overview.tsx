@@ -30,6 +30,7 @@ import {
   SystemActivityWidget, UpcomingWidget, WeighingDueWidget, type QuickAction,
 } from './widgets'
 import { Spinner } from '@/components/brand/logo-loader'
+import { TabIndicator } from './tab-indicator'
 
 type Payload = {
   role: string
@@ -382,15 +383,16 @@ function ActivityChart({ trends, trendKey, onTrend, totals, metrics, loading, di
           <p className="line-clamp-2 text-sm text-brand-muted">{trend.note}</p>
         </div>
         {trends.length > 1 && (
-          <div role="tablist" aria-label="Chart" className="flex gap-1 rounded-lg bg-brand-ice p-1">
+          <div role="tablist" aria-label="Chart" className="relative flex gap-1 rounded-lg bg-brand-ice p-1">
             {trends.map((t) => (
               <button key={t.key} type="button" role="tab" aria-selected={trend.key === t.key} onClick={() => onTrend(t.key)}
-                className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors duration-200 ${focusRing} ${
-                  trend.key === t.key ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-muted hover:text-brand-navy'
+                className={`relative z-10 rounded-md px-3 py-1.5 text-sm font-semibold transition-colors duration-200 ${focusRing} ${
+                  trend.key === t.key ? 'text-brand-navy' : 'text-brand-muted hover:text-brand-navy'
                 }`}>
                 {t.label}
               </button>
             ))}
+            <TabIndicator group="overview-chart" activeKey={trend.key} variant="pill" className="rounded-md bg-white shadow-sm" />
           </div>
         )}
       </div>

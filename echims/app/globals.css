@@ -449,3 +449,8 @@ html[data-navigating] .page-gate { opacity: 0; transition: opacity 120ms var(--e
   .tab-indicator { transition: opacity 120ms; }
   .tab-content { transition-duration: 120ms; }
 }
+.tab-pill {
+  position: absolute; left: 0; top: 0; z-index: 0; opacity: 0; pointer-events: none;
+  transition: transform 250ms var(--ease-smooth), opacity 150ms var(--ease-smooth);
+}
+@media (prefers-reduced-motion: reduce) { .tab-pill { transition: opacity 120ms; } }

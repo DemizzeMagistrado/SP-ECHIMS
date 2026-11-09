@@ -6,10 +6,15 @@ import { useLayoutEffect, useRef } from 'react'
 const last = new Map<string, string>()
 
 /**
- * A 2px bar under the active tab ([aria-selected="true"] or [aria-current="page"]) of its parent,
- * which must be position: relative. Moves with transform only (translate + scaleX).
+ * Marks the active tab ([aria-selected="true"] or [aria-current="page"]) of its parent, which must
+ * be position: relative. line: a 2px bar under the tab that moves with translate + scaleX.
+ * pill: a background behind pill/segmented tabs (give the tab buttons `relative z-10` and no active
+ * background); it slides with translate and takes the new tab's size without animating it, so its
+ * corners never stretch.
  */
-export function TabIndicator({ group, activeKey }: { group: string; activeKey: string }) {
+export function TabIndicator({ group, activeKey, variant = 'line', className = '' }: {
+  group: string; activeKey: string; variant?: 'line' | 'pill'; className?: string
+}) {
   const bar = useRef<HTMLSpanElement>(null)
 
   useLayoutEffect(() => {
@@ -19,7 +24,10 @@ export function TabIndicator({ group, activeKey }: { group: string; activeKey: s
     const place = (animate: boolean) => {
       const tab = list.querySelector<HTMLElement>('[aria-selected="true"], [aria-current="page"]')
       if (!tab) { el.style.opacity = '0'; return }
-      const to = `translate(${tab.offsetLeft}px, ${tab.offsetTop + tab.offsetHeight - 2}px) scaleX(${tab.offsetWidth})`
+      const to = variant === 'pill'
+        ? `translate(${tab.offsetLeft}px, ${tab.offsetTop}px)`
+        : `translate(${tab.offsetLeft}px, ${tab.offsetTop + tab.offsetHeight - 2}px) scaleX(${tab.offsetWidth})`
+      if (variant === 'pill') { el.style.width = `${tab.offsetWidth}px`; el.style.height = `${tab.offsetHeight}px` }
       el.style.transition = animate ? '' : 'none'
       el.style.opacity = '1'
       el.style.transform = to
@@ -40,7 +48,7 @@ export function TabIndicator({ group, activeKey }: { group: string; activeKey: s
     const ro = new ResizeObserver(() => { if (initial) { initial = false; return } place(false) })
     ro.observe(list)
     return () => ro.disconnect()
-  }, [group, activeKey])
+  }, [group, activeKey, variant])
 
-  return <span ref={bar} aria-hidden className="tab-indicator" />
+  return <span ref={bar} aria-hidden className={`${variant === 'pill' ? 'tab-pill' : 'tab-indicator'} ${className}`} />
 }

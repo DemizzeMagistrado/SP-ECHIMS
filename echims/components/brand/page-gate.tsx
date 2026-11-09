@@ -96,12 +96,17 @@ export function PageGate({ children }: { children: ReactNode }) {
 export function TabPanel({ tabKey, children }: { tabKey: string; children: ReactNode }) {
   const [pending, report] = usePending()
   const panel = useRef<HTMLDivElement>(null)
-  const [shown, setShown] = useState(false)
+  // The first tab starts visible: its data already holds the page gate, so it appears with the page
+  // instead of a frame later. Only later switches hide and fade.
+  const [shown, setShown] = useState(true)
   const [minHeight, setMinHeight] = useState<number | undefined>()
   const [armedFor, setArmedFor] = useState<string | null>(null)
+  const firstKey = useRef(tabKey)
 
   // Before the new tab paints: hold the old height and hide the new content.
   useLayoutEffect(() => {
+    if (tabKey === firstKey.current) return
+    firstKey.current = ''
     setMinHeight((h) => (panel.current ? panel.current.offsetHeight : h))
     setShown(false)
   }, [tabKey])

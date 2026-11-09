@@ -20,6 +20,7 @@ import { AlertCircle, AlertTriangle, ArrowUpRight, BellOff, Info } from 'lucide-
 import { manilaTodayYMD } from '@/lib/nip-schedule'
 import { alertDestination } from '@/lib/alerts/alert-destination'
 import { Donut } from './mini-charts'
+import { TabIndicator } from './tab-indicator'
 
 // Pages enter as blocks (see .page-gate in globals.css), not card by card. Kept as no-ops so
 // call sites stay unchanged.
@@ -189,13 +190,14 @@ export function BarangayRankingWidget({ style, size = 'tall' }: WidgetProps) {
     <WidgetShell id="ranking" title="Barangays at risk" note="Top 5 by children needing follow-up"
       link={{ href: '/geospatial', label: 'Map' }} style={style} size={size}
       loading={isLoading} error={error}>
-      <div role="tablist" aria-label="Rank barangays by" className="mb-3 flex shrink-0 gap-1 rounded-lg bg-brand-ice p-1">
+      <div role="tablist" aria-label="Rank barangays by" className="relative mb-3 flex shrink-0 gap-1 rounded-lg bg-brand-ice p-1">
         {([['overdue', 'Overdue vaccines'], ['at_risk', 'Malnourished']] as const).map(([key, label]) => (
           <button key={key} type="button" role="tab" aria-selected={by === key} onClick={() => setBy(key)}
-            className={`flex-1 rounded-md leading-tight px-3 py-1.5 text-sm font-semibold transition-colors duration-200 ${focusRing} ${by === key ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-muted hover:text-brand-navy'}`}>
+            className={`relative z-10 flex-1 rounded-md leading-tight px-3 py-1.5 text-sm font-semibold transition-colors duration-200 ${focusRing} ${by === key ? 'text-brand-navy' : 'text-brand-muted hover:text-brand-navy'}`}>
             {label}
           </button>
         ))}
+        <TabIndicator group="barangay-ranking" activeKey={by} variant="pill" className="rounded-md bg-white shadow-sm" />
       </div>
       {top.length === 0 ? (
         <p className="flex flex-1 items-center justify-center rounded-xl bg-brand-ice/60 p-4 text-center text-sm text-brand-muted">No barangay has {what}.</p>

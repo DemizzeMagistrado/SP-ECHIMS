@@ -17,8 +17,9 @@ import { SmsSimulationPanel } from "@/components/alerts/sms-simulation-panel";
 import { useAuth } from "@/components/auth/auth-provider";
 import { offlineScope } from "@/lib/offline/fetch";
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
-import { usePageLoading } from '@/components/brand/page-gate'
+import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
+import { TabIndicator } from '@/components/dashboard/tab-indicator'
 type Rule = {
   rule_id: number;
   rule_name: string;
@@ -538,7 +539,7 @@ function AlertsWorkspace() {
     <div className="space-y-6">
       {data?.canConfigure && (
         <div
-          className="flex flex-wrap gap-2 border-b border-border pb-3"
+          className="relative flex flex-wrap gap-2 border-b border-border pb-3"
           role="tablist"
           aria-label="Alert sections"
         >
@@ -557,15 +558,16 @@ function AlertsWorkspace() {
               role="tab"
               aria-selected={tab === item.value}
               onClick={() => setTab(item.value)}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              className={`relative z-10 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                 tab === item.value
-                  ? "bg-primary text-white"
+                  ? "border border-transparent text-white"
                   : "border border-border bg-white text-foreground hover:bg-muted"
               }`}
             >
               {item.label}
             </button>
           ))}
+          <TabIndicator group="alerts" activeKey={tab} variant="pill" className="rounded-lg bg-primary" />
         </div>
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -608,6 +610,8 @@ function AlertsWorkspace() {
       ) : !owner ? (
         <p>Please sign in to access alerts.</p>
       ) : null}
+      {/* Tab content fades in with the previous tab's height held, so the page below does not jump. */}
+      <TabPanel tabKey={tab}>
       {data?.canConfigure && tab === "MONITORING" && (
         <div role="tabpanel" aria-label="Evaluation monitoring">
           <EvaluationMonitoring monitoring={data.monitoring} />
@@ -959,6 +963,7 @@ function AlertsWorkspace() {
           </table>
         </div>
       )}
+      </TabPanel>
       {resolveTarget && resolveTarget.recipient_id === owner && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <section

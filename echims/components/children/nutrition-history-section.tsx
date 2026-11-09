@@ -3,6 +3,8 @@ import { useId, useState, type KeyboardEvent } from 'react'
 import { History, TrendingUp, AlertCircle } from 'lucide-react'
 import { labelClassification, numericValue, withHistoryComparisons, type HistoryAssessment } from '@/lib/nutrition-history'
 import { Spinner } from '@/components/brand/logo-loader'
+import { TabIndicator } from '@/components/dashboard/tab-indicator'
+import { TabPanel } from '@/components/brand/page-gate'
 const metrics = [
   { key: 'weight', label: 'Weight', unit: 'kg', color: '#087DB9' },
   { key: 'height', label: 'Length / height', unit: 'cm', color: '#0F766E' },
@@ -128,7 +130,7 @@ export function NutritionHistorySection({ assessments, loading = false, error, o
         <p className="mt-1 text-sm text-muted-foreground">{chronological.length} saved assessment{chronological.length === 1 ? '' : 's'} · Latest results, history, growth trends and classification changes</p>
       </div>
     </div>
-    <div role="tablist" aria-label="Nutrition record sections" className="flex flex-wrap gap-2 border-b p-3">
+    <div role="tablist" aria-label="Nutrition record sections" className="relative flex flex-wrap gap-2 border-b p-3">
       {tabs.map((tab, index) => <button
         key={tab.key}
         id={`${tabId}-tab-${tab.key}`}
@@ -139,9 +141,11 @@ export function NutritionHistorySection({ assessments, loading = false, error, o
         tabIndex={activeTab === tab.key ? 0 : -1}
         onClick={() => setActiveTab(tab.key)}
         onKeyDown={(event) => navigateTabs(event, index)}
-        className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === tab.key ? 'bg-primary text-white' : 'bg-muted/40 text-foreground hover:bg-muted'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`}
+        className={`relative z-10 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === tab.key ? 'text-white' : 'bg-muted/40 text-foreground hover:bg-muted'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`}
       >{tab.label}</button>)}
+      <TabIndicator group="nutrition-history" activeKey={activeTab} variant="pill" className="rounded-lg bg-primary" />
     </div>
+    <TabPanel tabKey={activeTab}>
     <div className="p-5">
       {tabs.map((tab) => <div
         key={tab.key}
@@ -178,5 +182,6 @@ export function NutritionHistorySection({ assessments, loading = false, error, o
         </div>)}
       </div>)}
     </div>
+    </TabPanel>
   </section>
 }
