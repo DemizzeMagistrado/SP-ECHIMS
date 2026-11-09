@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
 import { SWRConfig, type Middleware } from 'swr'
 import { LoadingGate } from './loading-gate'
 import { LogoLoader } from './logo-loader'
-import { afterPaint } from './loader-state'
+import { afterPaint, useRefreshSignal } from './loader-state'
 
 type Report = (id: symbol, loading: boolean) => void
 const PendingContext = createContext<Report | null>(null)
@@ -23,10 +23,12 @@ export function PagePending() {
 }
 
 // Every useSWR under a page reports its first load (no data yet). Later key changes, background
-// revalidation and cached revisits never hold the page.
+// revalidation and cached revisits never hold the page. A refetch behind data already on screen
+// (keepPreviousData on a new filter or range) drives the top progress bar instead.
 const trackFirstLoad: Middleware = (useSWRNext) => (key, fetcher, config) => {
   const swr = useSWRNext(key, fetcher, config)
   usePageLoading(swr.isLoading && swr.data === undefined)
+  useRefreshSignal(swr.isLoading && swr.data !== undefined)
   return swr
 }
 

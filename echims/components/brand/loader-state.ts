@@ -1,5 +1,5 @@
 'use client'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 // Shared timing for every loader → content handoff.
 export const SHOW_DELAY = 200 // fast loads never show the loader
@@ -13,11 +13,13 @@ let lastLoaderGone = -Infinity
 let overlayUp = false
 let gateMounts = 0
 const waiting = new Set<symbol>()
+const refreshing = new Set<symbol>()
 const listeners = new Set<() => void>()
 const emit = () => listeners.forEach((l) => l())
 
 export const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l) } }
 export const getWaiting = () => waiting.size
+export const getRefreshing = () => refreshing.size
 export const getOverlayUp = () => overlayUp
 export const getGateMounts = () => gateMounts
 export function noteGateMount() { gateMounts++; emit() }
@@ -26,6 +28,20 @@ export function setWaiting(id: symbol, isWaiting: boolean) {
   if (isWaiting === waiting.has(id)) return
   if (isWaiting) waiting.add(id); else waiting.delete(id)
   emit()
+}
+
+/**
+ * Content already on screen is being refetched (new filter or range, kept previous data).
+ * The top progress bar shows it instead of an in-page loader.
+ */
+export function useRefreshSignal(active: boolean) {
+  const [id] = useState(() => Symbol('refresh'))
+  useEffect(() => {
+    if (active === refreshing.has(id)) return
+    if (active) refreshing.add(id); else refreshing.delete(id)
+    emit()
+  }, [id, active])
+  useEffect(() => () => { if (refreshing.delete(id)) emit() }, [id])
 }
 
 /** A logo loader is visible now or left a moment ago, so the next one should appear at once, without its intro. */

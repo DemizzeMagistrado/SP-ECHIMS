@@ -50,7 +50,7 @@ export default function ReplenishmentPage() {
     ? `/api/inventory/replenishment?status=${statusFilter}`
     : '/api/inventory/replenishment'
 
-  const { data, error, isLoading } = useSWR<{ requests: ReplenishmentRequest[] }>(canView ? url : null, fetcher)
+  const { data, error, isLoading } = useSWR<{ requests: ReplenishmentRequest[] }>(canView ? url : null, fetcher, { keepPreviousData: true })
   const rows = data?.requests ?? []
 
   if (!isReady) return <LogoLoader />
@@ -101,7 +101,7 @@ export default function ReplenishmentPage() {
         ))}
       </div>
 
-      {isLoading ? (
+      {isLoading && !data ? (
         <LogoLoader size="section" />
       ) : error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>

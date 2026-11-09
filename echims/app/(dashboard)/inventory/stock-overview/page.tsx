@@ -85,7 +85,7 @@ export default function StockOverviewPage() {
     return `/api/inventory/stock-overview${qs.toString() ? `?${qs}` : ''}`
   }, [itemFilter, brgyFilter])
 
-  const { data, error, isLoading } = useSWR<Payload>(isReady && canView ? url : null, fetcher)
+  const { data, error, isLoading } = useSWR<Payload>(isReady && canView ? url : null, fetcher, { keepPreviousData: true })
   const itemsSWR = useSWR<{ items: { item_id: number; item_name: string; kind: string }[] }>(canView ? '/api/inventory/items' : null, fetcher)
   const brgysSWR = useSWR<Barangay[] | { barangays: Barangay[] }>(canView ? '/api/barangays' : null, fetcher)
   const items = itemsSWR.data?.items ?? []
@@ -155,7 +155,7 @@ export default function StockOverviewPage() {
       </div>
 
       {/* Table */}
-      {isLoading ? (
+      {isLoading && !data ? (
         <div className="rounded-2xl border border-border bg-white"><LogoLoader size="section" label="Loading stock…" /></div>
       ) : error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
