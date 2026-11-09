@@ -7,10 +7,10 @@ import { useAuth } from '@/components/auth/auth-provider'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from '@/lib/offline/navigation'
 import { AuthShell } from '@/components/auth/auth-shell'
-import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
+import { Spinner } from '@/components/brand/logo-loader'
 
 export default function LoginPage() {
-  const { login } = useAuth()
+  const { login, beginEntering } = useAuth()
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -18,7 +18,6 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [offline,setOffline]=useState(false)
   const [busy,setBusy]=useState(false)
-  const [entering,setEntering]=useState(false)
   useEffect(()=>{const update=()=>setOffline(!navigator.onLine);update();window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update)}},[])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -34,7 +33,8 @@ export default function LoginPage() {
       setError(result.error)
       return
     }
-    setEntering(true)
+    // The auth overlay covers this page until the dashboard has rendered, then crossfades into it.
+    beginEntering()
     if (!navigator.onLine) { router.replace('/offline?path=%2Fdashboard'); return }
     // signInWithPassword has written the session cookie; confirm it before the server render reads it.
     await createClient().auth.getSession()
@@ -45,11 +45,6 @@ export default function LoginPage() {
 
   return (
     <AuthShell>
-      {entering && (
-        <div className="fixed inset-0 z-[100] bg-[linear-gradient(180deg,#CAF0F8_0%,#E4F6FA_40%,#F1FAFC_100%)] animate-in fade-in duration-300">
-          <LogoLoader size="page" label="Opening your dashboard…" />
-        </div>
-      )}
       <div className="auth-stagger">
         <h2 className="font-display text-3xl font-bold tracking-tight">Welcome back</h2>
         <p className="mt-2 text-[#5B6478]">{offline?'Sign in to your saved account on this device':'Sign in to your RHU account'}</p>

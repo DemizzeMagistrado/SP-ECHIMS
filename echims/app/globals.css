@@ -362,3 +362,43 @@ html {
   .logo-loader-ring { display: none; }
   .logo-loader svg { animation: logo-fade 1.2s ease-in-out 0.2s infinite alternate both; }
 }
+
+/* Loader → content handoff (components/brand/loading-gate.tsx). One easing and one length everywhere;
+   only opacity and transform animate. */
+:root { --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1); --fade: 300ms; }
+html { scrollbar-gutter: stable; }
+
+/* A loader taking over from another one already on screen: no delay, no intro. */
+.logo-loader-instant { animation: none; }
+.logo-loader-instant .logo-loader-arm,
+.logo-loader-instant .logo-loader-pop { animation: none; }
+.logo-loader-instant .logo-loader-ring { animation: logo-spin 1.8s linear infinite; }
+
+.loading-gate { position: relative; }
+/* Until it is done the gate fills the visible content area, so the loader centres there. */
+.loading-gate:not([data-state='done']) { min-height: calc(100dvh - 7rem); }
+@media (min-width: 1024px) { .loading-gate:not([data-state='done']) { min-height: calc(100dvh - 8rem); } }
+/* The loader sits over the content, so leaving never shifts layout. */
+.gate-loader { position: absolute; inset: 0 0 auto 0; z-index: 1; pointer-events: none; transition: opacity 250ms var(--ease-smooth); }
+.gate-content { transition: opacity var(--fade) var(--ease-smooth), transform var(--fade) var(--ease-smooth); }
+.loading-gate[data-state='loading'] > .gate-content { opacity: 0; transform: translateY(8px); visibility: hidden; }
+/* Hidden content lays out at full size but its entrance, chart and donut animations wait for the reveal. */
+.loading-gate[data-state='loading'] > .gate-content * { animation-play-state: paused !important; }
+.loading-gate[data-state='fading'] > .gate-loader { opacity: 0; }
+.loading-gate:not([data-state='done']) > .gate-content,
+.loading-gate[data-state='fading'] > .gate-loader { will-change: opacity, transform; }
+
+.transition-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: linear-gradient(180deg, #CAF0F8 0%, #E4F6FA 40%, #F1FAFC 100%);
+  transition: opacity var(--fade) var(--ease-smooth);
+}
+.transition-overlay[data-state='fading'] { opacity: 0; pointer-events: none; will-change: opacity; }
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --fade: 150ms; }
+  .gate-loader { transition-duration: 150ms; }
+  .loading-gate[data-state='loading'] > .gate-content { transform: none; }
+  .gate-content { transition-property: opacity; }
+}
+.transition-overlay[data-state='loading'] { animation: logo-reveal 200ms var(--ease-smooth) both; }

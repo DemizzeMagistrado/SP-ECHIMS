@@ -6,6 +6,7 @@ import { hasPermission, type Role } from '@/lib/auth/permissions'
 import { ToastProvider } from '@/components/ui/toast'
 import { DashboardShell } from '@/components/dashboard/shell'
 import { SessionGate } from '@/components/auth/session-gate'
+import { LoadingGate } from '@/components/brand/loading-gate'
 
 export default async function DashboardLayout({
   children,
@@ -28,6 +29,8 @@ export default async function DashboardLayout({
         <TopNav />
 
         <main className="flex flex-1 items-center justify-center p-8">
+          {/* Always ready: lets the sign-in overlay know this page has rendered. */}
+          <LoadingGate ready className="w-full max-w-2xl">
           <div className="w-full max-w-2xl rounded-3xl bg-white p-10 text-center shadow-xl">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#CAF0F8]">
               <svg
@@ -93,6 +96,7 @@ export default async function DashboardLayout({
               administrator approval.
             </p>
           </div>
+          </LoadingGate>
         </main>
       </div>
     )

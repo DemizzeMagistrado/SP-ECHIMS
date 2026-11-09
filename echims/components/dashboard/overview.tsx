@@ -30,7 +30,7 @@ import {
   SystemActivityWidget, UpcomingWidget, WeighingDueWidget, RevealContext, type QuickAction,
 } from './widgets'
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
-import { useMinimumLoading } from '@/components/brand/use-minimum-loading'
+import { LoadingGate } from '@/components/brand/loading-gate'
 
 type Payload = {
   role: string
@@ -153,7 +153,6 @@ export function DashboardOverview() {
     const t = window.setTimeout(() => setRevealed(true), 10_000)
     return () => window.clearTimeout(t)
   }, [armed, revealed])
-  const holding = useMinimumLoading(!revealed)
 
   if (!isReady) return <LogoLoader label="Loading dashboard…" />
   if (!role) return <div className={`${card} p-10 text-center text-brand-muted`}>Dashboard unavailable for this account.</div>
@@ -277,9 +276,9 @@ export function DashboardOverview() {
 
   return (
     <RevealContext.Provider value={report}>
-    {holding && <LogoLoader label="Loading dashboard…" />}
-    {/* display:none keeps every card mounted (and fetching) without starting its entrance animation. */}
-    <div className={holding ? 'hidden' : 'space-y-5 lg:space-y-6'}>
+    {/* Cards stay mounted (and fetching, at full size) behind the gate; their entrance plays on reveal. */}
+    <LoadingGate ready={revealed} label="Loading dashboard…" doneLabel="Dashboard loaded">
+    <div className="space-y-5 lg:space-y-6">
       {/* 1. Greeting + date range */}
       <header className="relative isolate overflow-hidden rounded-2xl bg-brand-navy px-5 py-4 text-white sm:px-6">
         <div aria-hidden className="absolute -right-24 -top-32 -z-10 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgba(8,125,185,0.6),transparent)]" />
@@ -359,6 +358,7 @@ export function DashboardOverview() {
         </div>
       )}
     </div>
+    </LoadingGate>
     </RevealContext.Provider>
   )
 }

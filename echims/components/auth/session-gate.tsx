@@ -2,7 +2,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/auth/auth-provider'
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { LoadingGate } from '@/components/brand/loading-gate'
 import { createClient } from '@/lib/supabase/client'
 
 /**
@@ -31,6 +31,6 @@ export function SessionGate({ children }: { children: ReactNode }) {
     return () => { live = false }
   }, [missing, router])
 
-  if (!isReady || signingOut || (!user && !sessionWithoutUser)) return <LogoLoader />
-  return children
+  const ready = isReady && !signingOut && Boolean(user || sessionWithoutUser)
+  return <LoadingGate ready={ready} keepMounted={false}>{children}</LoadingGate>
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { LogoLoader } from "@/components/brand/logo-loader";
+import { TransitionOverlay } from "@/components/brand/loading-gate";
 
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
@@ -110,6 +110,9 @@ type AuthContextValue = {
 
   /** True from the Log out click until the landing page is showing. Pages show the loader, never "not authorized". */
   signingOut: boolean;
+
+  /** Sign-in/registration succeeded: cover the page until the dashboard has rendered. */
+  beginEntering: () => void;
 
   login: (email: string, password: string) => Promise<{ error?: string }>;
 
@@ -361,6 +364,8 @@ const AuthContext = createContext<AuthContextValue>({
 
   signingOut: false,
 
+  beginEntering: () => undefined,
+
 });
 
 /* =========================================================
@@ -379,8 +384,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [signingOut, setSigningOut] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
-  // The sign-out overlay stays until the landing page is on screen.
-  useEffect(() => { if (signingOut && pathname === "/") setSigningOut(false); }, [signingOut, pathname]);
+  const [entering, setEntering] = useState(false);
+  // Both overlays end once their destination has rendered (see TransitionOverlay).
+  const endTransition = useCallback(() => { setEntering(false); setSigningOut(false); }, []);
 
   const supabase = createClient();
 
@@ -805,6 +811,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       signingOut,
 
+      beginEntering: () => setEntering(true),
+
     }),
 
     [isReady, supabase, user, signingOut, router],
@@ -814,11 +822,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={value}>
       {children}
-      {signingOut && (
-        <div className="fixed inset-0 z-[200] bg-[linear-gradient(180deg,#CAF0F8_0%,#E4F6FA_40%,#F1FAFC_100%)]">
-          <LogoLoader size="page" label="Signing out…" />
-        </div>
-      )}
+      <TransitionOverlay
+        show={signingOut || entering}
+        settled={signingOut ? pathname === "/" : !["/login", "/register", "/offline"].includes(pathname)}
+        awaitGate={!signingOut}
+        label={signingOut ? "Signing out…" : "Opening your dashboard…"}
+        onGone={endTransition}
+      />
     </AuthContext.Provider>
   );
 

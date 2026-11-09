@@ -7,7 +7,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import type { UserRole } from "@/lib/echims-data";
 import { createClient } from "@/lib/supabase/client";
 import { AuthShell } from "@/components/auth/auth-shell";
-import { LogoLoader, Spinner } from "@/components/brand/logo-loader";
+import { Spinner } from "@/components/brand/logo-loader";
 /* =========================================================
    LOCATION TYPES
 ========================================================= */
@@ -119,7 +119,7 @@ const STORAGE_KEY = "echims-registration-form";
 ========================================================= */
 export default function RegisterPage() {
   const router = useRouter();
-  const { register } = useAuth();
+  const { register, beginEntering } = useAuth();
   const supabase = useMemo(() => createClient(), []);
   const [form, setForm] = useState<RegistrationState>(initialForm);
   const [showPassword, setShowPassword] = useState(false);
@@ -127,7 +127,6 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [entering, setEntering] = useState(false);
   const [restored, setRestored] = useState(false);
   const [locationData, setLocationData] =
     useState<RegistrationLocations>(emptyLocations);
@@ -431,7 +430,7 @@ export default function RegisterPage() {
     }
     // signUp returned a session: the account is signed in (pending approval). Go straight to the
     // dashboard, which shows the pending state, without dropping back to the form or /login.
-    setEntering(true);
+    beginEntering();
     await createClient().auth.getSession();
     router.replace("/dashboard");
     router.refresh();
@@ -447,11 +446,6 @@ export default function RegisterPage() {
   ======================================================= */
   return (
     <AuthShell scrollable>
-      {entering && (
-        <div className="fixed inset-0 z-[100] bg-[linear-gradient(180deg,#CAF0F8_0%,#E4F6FA_40%,#F1FAFC_100%)] animate-in fade-in duration-300">
-          <LogoLoader size="page" label="Opening your account…" />
-        </div>
-      )}
           <div className="auth-stagger">
               <h2 className="font-display text-3xl font-bold tracking-tight">
                 Create an account

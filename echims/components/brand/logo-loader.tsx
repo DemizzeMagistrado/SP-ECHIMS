@@ -1,4 +1,5 @@
 import { brandIcon } from './logo'
+import { LoaderPresence } from './loader-state'
 
 // echims-mark rebuilt at 1/10 scale. Each arm's inner end is cut by the ring gap
 // (circle r=36.5 at 60,58), so no mask id is needed when many loaders share a page.
@@ -21,6 +22,8 @@ type Props = {
   /** page: full viewport. content: dashboard content area. section: a module's main table/list area. */
   size?: keyof typeof BOX
   label?: string
+  /** Taking over from a loader already on screen: no 200ms delay and no intro, so the swap is seamless. */
+  instant?: boolean
   className?: string
 }
 
@@ -28,10 +31,11 @@ type Props = {
  * Page-level loading only (routes, auth/logout transitions, offline boot, a module's main data).
  * Widgets and buttons use <Spinner>. Hidden for its first 200ms so fast loads never flash it.
  */
-export function LogoLoader({ size = 'content', label = 'Loading…', className = '' }: Props) {
+export function LogoLoader({ size = 'content', label = 'Loading…', instant = false, className = '' }: Props) {
   const px = size === 'section' ? 56 : 104
   return (
-    <div role="status" aria-live="polite" className={`logo-loader flex w-full flex-col items-center justify-center gap-4 ${BOX[size]} ${className}`}>
+    <div role="status" aria-live="polite" className={`logo-loader ${instant ? 'logo-loader-instant' : ''} flex w-full flex-col items-center justify-center gap-4 ${BOX[size]} ${className}`}>
+      <LoaderPresence instant={instant} />
       <span className="sr-only">Loading eCHIMS</span>
       <svg aria-hidden width={px} height={px} viewBox="0 0 120 120" className="overflow-visible">
         <g fill="#33446A">
