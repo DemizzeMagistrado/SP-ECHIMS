@@ -20,7 +20,7 @@ import {
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, roleModules, type UserRole } from '@/lib/echims-data'
 import { Donut, TrendBars } from './mini-charts'
-import { card, fetcher, rise, stagger, ApprovalsWidget, BarangayRankingWidget, FicWidget, MyBarangayWidget, RuleTriggersWidget, UpcomingWidget } from './widgets'
+import { card, fetcher, rise, stagger, ApprovalsWidget, BarangayRankingWidget, FicWidget, MyBarangayWidget, NutritionBreakdownWidget, RuleTriggersWidget, WeighingDueWidget, UpcomingWidget } from './widgets'
 
 type Payload = {
   role: string
@@ -142,6 +142,7 @@ export function DashboardOverview() {
   const isAdmin = role === 'Administrator'
   const isNurse = role === 'Public Health Nurse' || role === 'Rural Health Midwife'
   const isBhw = role === 'Barangay Health Worker'
+  const isBns = role === 'Barangay Nutrition Scholar'
   const panels = [
     (isAdmin || isNurse) && can('Alerts') && <RuleTriggersWidget key="rules" style={stagger(9)} />,
     (isAdmin || isNurse) && can('Vaccination') && <FicWidget key="fic" range={{ from, to }} style={stagger(10)} />,
@@ -152,6 +153,8 @@ export function DashboardOverview() {
     ),
     (isAdmin || role === 'Public Health Nurse') && <ApprovalsWidget key="approvals" showInventory={can('Inventory')} style={stagger(12)} />,
     isBhw && can('Child Profiling') && <MyBarangayWidget key="my-barangay" style={stagger(10)} />,
+    isBns && can('Nutritional Assessment') && <NutritionBreakdownWidget key="nutrition" style={stagger(9)} />,
+    isBns && can('Nutritional Assessment') && <WeighingDueWidget key="weighing" style={stagger(10)} />,
   ].filter(Boolean)
 
   return (

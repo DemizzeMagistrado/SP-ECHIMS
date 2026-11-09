@@ -297,3 +297,61 @@ export function ApprovalsWidget({ showInventory, style }: { showInventory: boole
     </WidgetShell>
   )
 }
+
+// ─── 6. Nutrition status breakdown + due for weighing ────────────────
+type NutritionData = { counts: Record<'normal' | 'underweight' | 'wasted' | 'stunted' | 'overweight', number>; assessed: number; due_weighing: number; under5: number }
+const NUTRITION_SEGMENTS = [
+  ['normal', 'Normal', '#059669'],
+  ['underweight', 'Underweight', '#D97706'],
+  ['wasted', 'Wasted', '#DC2626'],
+  ['stunted', 'Stunted', '#7C3AED'],
+  ['overweight', 'Overweight', '#0284C7'],
+] as const
+
+export function NutritionBreakdownWidget({ style }: { style?: CSSProperties }) {
+  const { data, error, isLoading } = useWidget<NutritionData>('nutrition')
+  const total = data?.assessed ?? 0
+  const summary = data ? NUTRITION_SEGMENTS.map(([k, label]) => `${label} ${data.counts[k]}`).join(', ') : ''
+  return (
+    <WidgetShell id="nutrition" title="Nutrition status" note={`Latest assessment of ${total.toLocaleString()} child${total === 1 ? '' : 'ren'}`}
+      link={{ href: '/nutrition', label: 'Records' }} style={style}
+      loading={isLoading} error={error} empty={data && total === 0 && 'No assessments recorded yet.'}>
+      {data && (
+        <>
+          <div role="img" aria-label={`Nutrition status: ${summary}`} className="flex h-4 overflow-hidden rounded-full bg-[#EEF4F7]">
+            {NUTRITION_SEGMENTS.map(([k, , color], i) => data.counts[k] > 0 && (
+              <span key={k} className="grow-x h-full" style={{ width: `${(data.counts[k] / total) * 100}%`, background: color, animationDelay: `${i * 60}ms` }} />
+            ))}
+          </div>
+          <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
+            {NUTRITION_SEGMENTS.map(([k, label, color]) => (
+              <div key={k} className="flex items-center justify-between gap-2">
+                <dt className="flex items-center gap-1.5 text-[#5B6478]"><span aria-hidden className="h-2.5 w-2.5 rounded-sm" style={{ background: color }} />{label}</dt>
+                <dd className="font-bold tabular-nums">{data.counts[k].toLocaleString()} <span className="font-normal text-[#5B6478]">{Math.round((data.counts[k] / total) * 100)}%</span></dd>
+              </div>
+            ))}
+          </dl>
+        </>
+      )}
+    </WidgetShell>
+  )
+}
+
+export function WeighingDueWidget({ style }: { style?: CSSProperties }) {
+  const { data, error, isLoading } = useWidget<NutritionData>('nutrition')
+  return (
+    <WidgetShell id="weighing" title="Due for weighing" note="Under-5s not weighed in 90 days"
+      link={{ href: '/nutrition', label: 'Record weight' }} style={style}
+      loading={isLoading} error={error} empty={data && data.under5 === 0 && 'No under-5 children in your area.'}>
+      {data && (
+        <div>
+          <p className="text-3xl font-bold leading-none tabular-nums">{data.due_weighing.toLocaleString()}</p>
+          <p className="mt-1 text-sm text-[#5B6478]">of {data.under5.toLocaleString()} children under 5 {data.due_weighing === 0 ? '· all weighed recently' : 'need a new weight'}</p>
+          <div aria-hidden className="mt-4 h-2 overflow-hidden rounded-full bg-[#EEF4F7]">
+            <span className="grow-x block h-full rounded-full bg-amber-500" style={{ width: `${(data.due_weighing / data.under5) * 100}%` }} />
+          </div>
+        </div>
+      )}
+    </WidgetShell>
+  )
+}

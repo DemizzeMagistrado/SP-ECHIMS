@@ -171,6 +171,34 @@ const widgets: Record<string, (ctx: Ctx) => Promise<unknown>> = {
     ])
     return { queues: { vaccinations, activities, batches, replenishment } }
   },
+
+  // Latest assessment per active child, one category each (the most urgent wins):
+  // wasted > stunted > underweight > overweight > normal. Also counts under-5s whose
+  // last weighing is older than 90 days (or never weighed).
+  async nutrition(ctx) {
+    const children = await rows(scoped(ctx, ctx.supabase.from('child')
+      .select('child_id, date_of_birth')
+      .eq('status', 'ACTIVE')))
+    const assessments = await byIds(children.map((c) => c.child_id), (chunk) => ctx.supabase.from('nutritional_assessment')
+      .select('child_id, assessment_date, weight_for_age, height_for_age, weight_for_height, bmi_for_age, nutritional_status')
+      .in('child_id', chunk)
+      .order('assessment_date', { ascending: false }))
+    const latest = new Map<number, Record<string, string | null>>()
+    for (const a of assessments) if (!latest.has(a.child_id)) latest.set(a.child_id, a)
+    const has = (v: unknown, codes: string[]) => codes.includes(String(v ?? '').toUpperCase())
+    const counts = { normal: 0, underweight: 0, wasted: 0, stunted: 0, overweight: 0 }
+    for (const a of latest.values()) {
+      if (has(a.weight_for_height, ['WASTED', 'SEVERELY_WASTED', 'WASTING', 'SEVERE_WASTING']) || has(a.nutritional_status, ['SAM', 'MAM'])) counts.wasted++
+      else if (has(a.height_for_age, ['STUNTED', 'SEVERELY_STUNTED'])) counts.stunted++
+      else if (has(a.weight_for_age, ['UNDERWEIGHT', 'SEVERELY_UNDERWEIGHT'])) counts.underweight++
+      else if (has(a.weight_for_height, ['OVERWEIGHT', 'OBESE', 'OBESITY']) || has(a.bmi_for_age, ['OVERWEIGHT', 'OBESE', 'OBESITY'])) counts.overweight++
+      else counts.normal++
+    }
+    // shortcut: 90-day weighing cycle is a fixed default; move to a configurable rule if programs differ.
+    const under5 = addYears(ctx.today, -5), stale = new Date(Date.parse(`${ctx.today}T00:00:00Z`) - 90 * 864e5).toISOString().slice(0, 10)
+    const dueWeighing = children.filter((c) => c.date_of_birth > under5 && !((latest.get(c.child_id)?.assessment_date ?? '') > stale)).length
+    return { counts, assessed: latest.size, due_weighing: dueWeighing, under5: children.filter((c) => c.date_of_birth > under5).length }
+  },
 }
 
 export async function GET(request: Request) {
