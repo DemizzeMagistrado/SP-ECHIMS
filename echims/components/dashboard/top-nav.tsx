@@ -168,9 +168,9 @@ export function TopNav() {
     router.push(target.href)
   }
 
-  async function handleLogout() {
-    await logout()
-    window.location.replace('/')
+  // logout() covers the page with the loader and navigates to the landing page itself.
+  function handleLogout() {
+    void logout()
   }
 
   return (

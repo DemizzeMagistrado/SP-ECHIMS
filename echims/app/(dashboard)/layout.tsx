@@ -5,6 +5,7 @@ import { getAuthorizationContext } from '@/lib/auth/authorization'
 import { hasPermission, type Role } from '@/lib/auth/permissions'
 import { ToastProvider } from '@/components/ui/toast'
 import { DashboardShell } from '@/components/dashboard/shell'
+import { SessionGate } from '@/components/auth/session-gate'
 
 export default async function DashboardLayout({
   children,
@@ -128,7 +129,7 @@ export default async function DashboardLayout({
 
             <main className="min-h-0 flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
               <div className="mx-auto w-full max-w-7xl">
-                {children}
+                <SessionGate>{children}</SessionGate>
               </div>
             </main>
           </div>

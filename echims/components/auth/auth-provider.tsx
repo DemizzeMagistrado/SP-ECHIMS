@@ -1,6 +1,8 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { LogoLoader } from "@/components/brand/logo-loader";
 
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
@@ -105,6 +107,9 @@ type AuthContextValue = {
   isReady: boolean;
 
   user: AuthUser | null;
+
+  /** True from the Log out click until the landing page is showing. Pages show the loader, never "not authorized". */
+  signingOut: boolean;
 
   login: (email: string, password: string) => Promise<{ error?: string }>;
 
@@ -354,6 +359,8 @@ const AuthContext = createContext<AuthContextValue>({
 
   logout: async () => undefined,
 
+  signingOut: false,
+
 });
 
 /* =========================================================
@@ -369,6 +376,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false);
   const userRef = useRef<AuthUser | null>(null);
   userRef.current = user;
+  const [signingOut, setSigningOut] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  // The sign-out overlay stays until the landing page is on screen.
+  useEffect(() => { if (signingOut && pathname === "/") setSigningOut(false); }, [signingOut, pathname]);
 
   const supabase = createClient();
 
@@ -496,6 +508,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const identity=await unlockOfflineLogin(email,password);
             unlockOfflineDevice();
             await saveIdentity(identity);
+            setSigningOut(false);
             setUser(identity.user);setIsReady(true);
             return {};
           } catch(error) {return {error:error instanceof Error?error.message:'Unable to sign in offline.'};}
@@ -530,6 +543,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         unlockOfflineDevice();
+        setSigningOut(false);
         try {
           const response=await fetch('/api/offline/context',{cache:'no-store',signal:AbortSignal.timeout(10000)});
           if(response.ok){
@@ -768,8 +782,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       ================================================= */
 
+      // Every Log out button calls this. The overlay covers the dashboard first, so neither the
+      // half-signed-out dashboard nor a "not authorized" message is ever visible.
       logout: async () => {
 
+        setSigningOut(true);
         lockOfflineDevice();
         setUser(null);
         if (user?.id) await forgetIdentity(user.id).catch(() => {});
@@ -779,16 +796,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           supabase.auth.signOut({ scope: "local" }).catch(() => {}),
           new Promise<void>(resolve => window.setTimeout(resolve, 1500)),
         ]);
+        if (!navigator.onLine) { window.location.replace("/"); return; }
+        router.replace("/");
+        // Drops the client router cache, so Back cannot show a cached dashboard page; the proxy sends it to /login.
+        router.refresh();
 
       },
 
+      signingOut,
+
     }),
 
-    [isReady, supabase, user],
+    [isReady, supabase, user, signingOut, router],
 
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      {signingOut && (
+        <div className="fixed inset-0 z-[200] bg-[linear-gradient(180deg,#CAF0F8_0%,#E4F6FA_40%,#F1FAFC_100%)]">
+          <LogoLoader size="page" label="Signing out…" />
+        </div>
+      )}
+    </AuthContext.Provider>
+  );
 
 }
 
