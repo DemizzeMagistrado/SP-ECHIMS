@@ -6,6 +6,7 @@ import { useAuth } from '@/components/auth/auth-provider'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { createClient } from '@/lib/supabase/client'
 import type { UserRole } from '@/lib/echims-data'
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 // INV-USR001 / INV-USR002 — Stock Overview.
 // Reads go straight to Supabase (RLS applies): PHN sees the RHU, RHM only the
@@ -188,7 +189,7 @@ export function StockOverview() {
     expired: rows.filter((r) => { const b = liveBatches(r)[0]; return !!b && daysUntil(b.expiry_date) < 0 }).length,
   }), [rows, t])
 
-  if (!isReady || !role) return <section className="rounded-xl border border-[#E5E7EB] bg-white p-10 text-center text-[#6B7280]">Loading workspace...</section>
+  if (!isReady || !role) return <section className="rounded-xl border border-[#E5E7EB] bg-white"><LogoLoader label="Loading workspace…" className="min-h-48" /></section>
 
   const toggle = (id: number) => setOpen((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const showBarangayCol = (data?.barangays.length ?? 0) > 1
@@ -270,9 +271,9 @@ export function StockOverview() {
             </tr>
           </thead>
           <tbody>
-            {!data && !loadError && [0, 1, 2, 3].map((i) => (
-              <tr key={i} className="border-b border-[#F3F4F6]"><td colSpan={colSpan} className="px-3 py-4"><div className="h-4 animate-pulse rounded bg-[#F3F4F6]" /></td></tr>
-            ))}
+            {!data && !loadError && (
+              <tr><td colSpan={colSpan} className="px-3 py-4"><LogoLoader label="Loading stock…" /></td></tr>
+            )}
             {data && !rows.length && (
               <tr><td colSpan={colSpan} className="px-4 py-12 text-center text-[#6B7280]">
                 {filtered ? 'No stock matches these filters.' : 'No stock recorded yet.'}
@@ -465,7 +466,7 @@ function StockInForm({ items, barangays, onClose, onSaved }: {
         <div className="mt-6 flex justify-end gap-3">
           <button type="button" onClick={onClose} className="rounded-lg border border-[#E5E7EB] px-4 py-2.5 text-sm font-semibold text-[#374151] hover:bg-[#F9FAFB]">Cancel</button>
           <button type="submit" disabled={saving} className="rounded-lg bg-[#0077B6] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#03045E] disabled:opacity-60">
-            {saving ? 'Saving...' : 'Save stock-in'}
+            {saving && <LogoLoader size="inline" className="mr-2" />}{saving ? 'Saving...' : 'Save stock-in'}
           </button>
         </div>
       </form>

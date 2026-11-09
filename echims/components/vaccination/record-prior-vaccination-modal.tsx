@@ -20,10 +20,11 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useEffect, useMemo, useState } from 'react'
 import useSWR from 'swr'
 import {
-  X, AlertCircle, Loader2, Syringe, Calendar, Hash, MapPin, FileText,
+  X, AlertCircle, Syringe, Calendar, Hash, MapPin, FileText,
   CheckCircle2, History,
 } from 'lucide-react'
 import { useToast } from '@/components/ui/toast'
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 type VaccineOption = {
   vaccine_id: number
@@ -185,7 +186,7 @@ export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, c
               <Syringe size={13} className="mr-1 inline" /> Vaccine *
             </label>
             {isLoading ? (
-              <div className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">Loading catalog…</div>
+              <div className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground"><span role="status" className="flex items-center gap-2"><LogoLoader size="inline" label="Loading catalog…" />Loading catalog…</span></div>
             ) : error ? (
               <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error.message}</div>
             ) : (
@@ -340,7 +341,7 @@ export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, c
               disabled={saving}
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
             >
-              {saving ? <Loader2 size={14} className="animate-spin" /> : <History size={14} />}
+              {saving ? <LogoLoader size="inline" /> : <History size={14} />}
               {saving ? 'Saving…' : 'Save prior record'}
             </button>
           </div>

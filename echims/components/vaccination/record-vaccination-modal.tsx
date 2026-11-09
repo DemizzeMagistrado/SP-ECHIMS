@@ -29,7 +29,7 @@ import useSWR from 'swr'
 
 import {
 
-  X, AlertCircle, Loader2, Syringe, Wifi, WifiOff, User, Calendar, Hash,
+  X, AlertCircle, Syringe, Wifi, WifiOff, User, Calendar, Hash,
 
   Droplet, MapPin, ChevronDown, CheckCircle2, Search,
 
@@ -42,6 +42,7 @@ import { newClientRequestId, sendOrQueueVaccination, type VaccinationPayload } f
 // NIP-USR009 — compact history preview injected under the child picker.
 
 import { VaccinationHistoryPreview } from '@/components/vaccination/vaccination-history-preview'
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 
 
@@ -671,7 +672,7 @@ export function RecordVaccinationModal({ open, onClose, onSaved, ownerId, prefil
                     {childrenSWR.error && <p role="alert" className="px-3 py-2 text-xs text-rose-700">{childrenSWR.error.message}</p>}
                     {childrenSWR.isLoading && (
 
-                      <div className="px-3 py-3 text-sm text-muted-foreground">Loading…</div>
+                      <div className="px-3 py-3 text-sm text-muted-foreground"><span role="status" className="flex items-center gap-2"><LogoLoader size="inline" label="Loading children…" />Loading children…</span></div>
 
                     )}
 
@@ -1055,7 +1056,7 @@ export function RecordVaccinationModal({ open, onClose, onSaved, ownerId, prefil
 
               >
 
-                {submitting && <Loader2 className="animate-spin" size={14} />}
+                {submitting && <LogoLoader size="inline" />}
 
                 {submitting ? 'Saving…' : 'Save as PENDING'}
 

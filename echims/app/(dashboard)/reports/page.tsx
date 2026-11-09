@@ -16,6 +16,7 @@ import {
   periodRange,
   type ReportRow,
 } from "@/lib/reports/report-utils";
+import { LogoLoader } from '@/components/brand/logo-loader'
 type Options = {
   currentUserId: string;
   role: string;
@@ -649,7 +650,7 @@ export default function ReportsPage() {
           )}
         </section>
       )}
-      {loading && <p className="text-sm">Loading reports…</p>}
+      {loading && <LogoLoader label="Loading reports…" />}
       {shown && (
         <section className="space-y-4 rounded-2xl border bg-white p-5">
           <header>

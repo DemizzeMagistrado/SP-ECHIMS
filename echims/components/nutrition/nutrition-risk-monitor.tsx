@@ -5,6 +5,7 @@ import { AlertCircle, RefreshCw } from 'lucide-react'
 import { labelClassification } from '@/lib/nutrition-history'
 import type { RiskMonitoring } from '@/lib/nutrition-risk'
 import { formatChildId } from '@/lib/formatters'
+import { LogoLoader } from '@/components/brand/logo-loader'
 export function NutritionRiskMonitor({ monitoring, error, loading, offline, onRefresh }: { monitoring?: RiskMonitoring; error?: string; loading: boolean; offline: boolean; onRefresh: () => void }) {
   const [barangay, setBarangay] = useState('All')
   const [classification, setClassification] = useState('All')
@@ -18,10 +19,10 @@ export function NutritionRiskMonitor({ monitoring, error, loading, offline, onRe
     && (severity === 'All' || row.severity === severity) && (!worsenedOnly || row.worsening.length > 0))
   const counts = monitoring?.counts
   return <section className="nutrition-no-print space-y-5" aria-label="Nutritional risk monitoring">
-    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-xl font-bold"><AlertCircle size={20} />Nutritional risk monitoring</h2><p className="mt-1 text-sm text-muted-foreground">Current risks use the latest saved assessment per active child across all years.</p></div><button type="button" disabled={loading || offline} onClick={onRefresh} className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm disabled:opacity-50"><RefreshCw size={16} className={loading ? 'animate-spin' : ''} />Refresh</button></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-xl font-bold"><AlertCircle size={20} />Nutritional risk monitoring</h2><p className="mt-1 text-sm text-muted-foreground">Current risks use the latest saved assessment per active child across all years.</p></div><button type="button" disabled={loading || offline} onClick={onRefresh} className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm disabled:opacity-50">{loading ? <LogoLoader size="inline" /> : <RefreshCw size={16} />}Refresh</button></div>
     {offline && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Offline: this is the last account-specific snapshot. Reconnect and refresh to verify current risks and assignments.</p>}
     {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}{monitoring && ' Showing the last available results; refresh successfully before treating them as current.'}</p>}
-    {loading && !monitoring ? <p role="status">Loading risk monitoring...</p> : !monitoring ? <p className="rounded-lg bg-muted p-4 text-sm">Risk monitoring data is unavailable. Refresh online after installing the updated API and SQL migration.</p> : <>
+    {loading && !monitoring ? <LogoLoader label="Loading risk monitoring…" /> : !monitoring ? <p className="rounded-lg bg-muted p-4 text-sm">Risk monitoring data is unavailable. Refresh online after installing the updated API and SQL migration.</p> : <>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">{[['At-risk children', counts!.at_risk], ['Critical', counts!.critical], ['High priority', counts!.high], ['Worsened', counts!.worsened], ['Needs review', counts!.needs_review]].map(([label, count]) => <div key={label} className="rounded-xl border border-border bg-white p-4"><p className="text-sm text-muted-foreground">{label}</p><p className="mt-1 text-2xl font-bold">{count}</p></div>)}</div>
       <p className="text-xs text-muted-foreground">Counts cover your full accessible scope. Needs review includes unavailable risk flags or incomplete latest evaluations; those children are not assumed to be normal.</p>
       <div className="flex flex-wrap gap-3 rounded-xl border border-border bg-white p-4">

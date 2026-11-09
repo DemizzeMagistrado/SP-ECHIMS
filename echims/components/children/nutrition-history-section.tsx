@@ -2,6 +2,7 @@
 import { useId, useState, type KeyboardEvent } from 'react'
 import { History, TrendingUp, AlertCircle } from 'lucide-react'
 import { labelClassification, numericValue, withHistoryComparisons, type HistoryAssessment } from '@/lib/nutrition-history'
+import { LogoLoader } from '@/components/brand/logo-loader'
 const metrics = [
   { key: 'weight', label: 'Weight', unit: 'kg', color: '#087DB9' },
   { key: 'height', label: 'Length / height', unit: 'cm', color: '#0F766E' },
@@ -153,7 +154,7 @@ export function NutritionHistorySection({ assessments, loading = false, error, o
       >
         {activeTab === tab.key && (error
           ? <div role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}{onRetry && <button type="button" onClick={onRetry} className="ml-3 underline">Retry</button>}</div>
-          : loading ? <p role="status" className="text-sm text-muted-foreground">Loading nutrition history...</p>
+          : loading ? <LogoLoader label="Loading nutrition history…" />
           : !chronological.length ? <p className="rounded-xl bg-muted/40 p-6 text-sm text-muted-foreground">No nutritional assessments recorded yet.</p>
           : tab.key === 'LATEST' ? <LatestAssessment assessment={latest} />
           : tab.key === 'HISTORY' ? <div><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><h3 className="font-semibold">Assessment history</h3><label className="text-sm">Order <select value={newestFirst ? 'newest' : 'oldest'} onChange={(event) => setNewestFirst(event.target.value === 'newest')} className="ml-2 rounded-lg border border-border bg-white px-3 py-2"><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select></label></div>

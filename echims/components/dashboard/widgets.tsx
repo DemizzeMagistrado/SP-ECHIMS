@@ -20,6 +20,7 @@ import { AlertCircle, AlertTriangle, ArrowUpRight, BellOff, Info } from 'lucide-
 import { manilaTodayYMD } from '@/lib/nip-schedule'
 import { alertDestination } from '@/lib/alerts/alert-destination'
 import { Donut } from './mini-charts'
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 export const stagger = (i: number) => ({ animationDelay: `${i * 60}ms` })
 export const rise = 'animate-in fade-in slide-in-from-bottom-3 fill-mode-both duration-500 ease-out motion-reduce:animate-none'
@@ -83,9 +84,7 @@ export function WidgetShell({ id, title, note, link, action, style, size, classN
       </div>
       <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto">
         {loading ? (
-          <div role="status" aria-label={`Loading ${title}`} className="space-y-2.5">
-            {Array.from({ length: size === 'tall' ? 5 : 3 }).map((_, i) => <div key={i} className="h-8 animate-pulse rounded-lg bg-brand-ice motion-reduce:animate-none" />)}
-          </div>
+          <LogoLoader label={`Loading ${title.toLowerCase()}…`} className="min-h-0 flex-1" />
         ) : error ? (
           <p role="alert" className="flex items-start gap-2 rounded-xl bg-danger-soft p-3 text-sm text-danger">
             <AlertCircle size={16} className="mt-0.5 shrink-0" /> {error.message}

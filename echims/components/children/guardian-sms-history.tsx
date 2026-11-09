@@ -3,6 +3,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 type Attempt = {
   simulation_id: number;
@@ -205,7 +206,7 @@ export function GuardianSmsHistory({
           </p>
         )}
         {loading && !data && (
-          <p className="text-sm text-muted-foreground">Loading SMS history…</p>
+          <LogoLoader label="Loading SMS history…" />
         )}
         {data?.reminders.length === 0 && (
           <p className="text-sm text-muted-foreground">

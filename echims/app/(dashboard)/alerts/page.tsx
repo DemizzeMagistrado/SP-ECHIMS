@@ -292,7 +292,7 @@ function EvaluationMonitoring({
 }
 export default function AlertsPage() {
   const {user,isReady}=useAuth();
-  if(!isReady)return <LogoLoader label="Checking account…" />;
+  if(!isReady)return <LogoLoader label="Checking account…" className="min-h-[50vh]" />;
   return <AlertsWorkspace key={user?user.id+':'+offlineScope(user):'signed-out'}/>;
 }
 function AlertsWorkspace() {
@@ -598,7 +598,7 @@ function AlertsWorkspace() {
         </p>
       )}
       {!authReady || loading ? (
-        <p className="text-muted-foreground">Loading…</p>
+        <LogoLoader label="Loading alerts…" className="min-h-48" />
       ) : !owner ? (
         <p>Please sign in to access alerts.</p>
       ) : null}
@@ -1097,7 +1097,7 @@ function AlertsWorkspace() {
                     onClick={() => void saveRule()}
                     className="rounded-lg bg-primary px-4 py-2 text-white disabled:opacity-50"
                   >
-                    {saving ? "Saving…" : "Confirm and save"}
+                    {saving && <LogoLoader size="inline" className="mr-2" />}{saving ? "Saving…" : "Confirm and save"}
                   </button>
                 </div>
               </>

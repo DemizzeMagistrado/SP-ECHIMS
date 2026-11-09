@@ -6,8 +6,9 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 // Reject prompts for a reason inline before confirming.
 
 import { useState } from 'react'
-import { X, AlertCircle, Loader2, CheckCircle2, XCircle, Package, Hash, MapPin, FileText, User, Calendar } from 'lucide-react'
+import { X, AlertCircle, CheckCircle2, XCircle, Package, Hash, MapPin, FileText, User, Calendar } from 'lucide-react'
 import { useToast } from '@/components/ui/toast'
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 export type BatchRequestRow = {
   stock_request_id: number
@@ -207,7 +208,7 @@ export function BatchRequestDecisionModal({ open, onClose, onDecided, request }:
                   disabled={saving}
                   className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
                 >
-                  {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                  {saving ? <LogoLoader size="inline" /> : <CheckCircle2 size={14} />}
                   {saving ? 'Approving…' : 'Approve'}
                 </button>
               </>
@@ -227,7 +228,7 @@ export function BatchRequestDecisionModal({ open, onClose, onDecided, request }:
                   disabled={saving || !reason.trim()}
                   className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
                 >
-                  {saving ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
+                  {saving ? <LogoLoader size="inline" /> : <XCircle size={14} />}
                   {saving ? 'Rejecting…' : 'Confirm reject'}
                 </button>
               </>

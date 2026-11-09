@@ -4,8 +4,9 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 // NIP-USR006 — Add / edit vaccine form modal (admin-only).
 
 import { useEffect, useMemo, useState } from 'react'
-import { X, AlertCircle, Loader2, Syringe, Hash, Droplet, MapPin, Calendar, BookOpen, Shield, Info, Link as LinkIcon } from 'lucide-react'
+import { X, AlertCircle, Syringe, Hash, Droplet, MapPin, Calendar, BookOpen, Shield, Info, Link as LinkIcon } from 'lucide-react'
 import { useToast } from '@/components/ui/toast'
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 export type VaccineCatalogRow = {
   vaccine_id: number
@@ -279,7 +280,7 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
               <div className="flex items-center justify-end gap-2">
                 <button type="button" onClick={() => setConfirming(false)} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100">Back</button>
                 <button type="button" onClick={doSave} disabled={submitting} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
-                  {submitting && <Loader2 className="animate-spin" size={14} />}
+                  {submitting && <LogoLoader size="inline" />}
                   {submitting ? 'Saving…' : `Yes, ${isEdit ? 'update' : 'create'}`}
                 </button>
               </div>

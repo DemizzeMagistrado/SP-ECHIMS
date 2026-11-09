@@ -3,6 +3,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 type Event = {
   event_id: number;
@@ -279,7 +280,7 @@ export function NutritionAdmissionPanel({
         </p>
       )}
       {loading && !data ? (
-        <p className="text-sm">Loading admission tracking…</p>
+        <LogoLoader label="Loading admission tracking…" />
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -541,7 +542,7 @@ export function NutritionAdmissionPanel({
                 disabled={busy || !online}
                 className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
-                {busy ? "Saving…" : "Save care details"}
+                {busy && <LogoLoader size="inline" className="mr-2" />}{busy ? "Saving…" : "Save care details"}
               </button>
             </footer>
           </form>

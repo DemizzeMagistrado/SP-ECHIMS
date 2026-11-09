@@ -10,12 +10,13 @@ import useSWR from 'swr'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useMemo } from 'react'
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 const BarangayMap = dynamic(() => import('@/components/geospatial/barangay-map-impl'), {
   ssr: false,
   loading: () => (
-    <div className="flex h-[560px] items-center justify-center rounded-xl border border-border bg-muted/30 text-sm text-muted-foreground">
-      Loading map…
+    <div className="h-[560px] rounded-xl border border-border bg-muted/30">
+      <LogoLoader label="Loading map…" />
     </div>
   ),
 })

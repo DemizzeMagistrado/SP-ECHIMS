@@ -69,7 +69,7 @@ export default function StockAllocationPage() {
   // every allocation is auditable via the transactions tab later.
   const recent: Txn[] = useMemo(() => [], [])
 
-  if (!isReady) return <LogoLoader />
+  if (!isReady) return <LogoLoader className="min-h-[50vh]" />
   if (!canView) {
     return (
       <div className="space-y-6">

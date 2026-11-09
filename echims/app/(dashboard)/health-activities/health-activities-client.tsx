@@ -10,7 +10,6 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock3,
-  Loader2,
   Plus,
   RefreshCw,
   Search,
@@ -376,7 +375,7 @@ function ActivityDetailsModal({
 
 export default function HealthActivitiesClient() {
  const {user,isReady}=useAuth()
- if(!isReady)return <LogoLoader label="Checking account…" />
+ if(!isReady)return <LogoLoader label="Checking account…" className="min-h-[50vh]" />
  if(!user)return <p>Please sign in to view health activities.</p>
  return <ActivityWorkspace key={user.id+':'+offlineScope(user)}/>
 }
@@ -735,9 +734,7 @@ function ActivityWorkspace() {
           </div>
 
           {loading ? (
-            <div className="flex min-h-52 items-center justify-center">
-              <Loader2 className="animate-spin text-[#087db9]" size={28} />
-            </div>
+            <LogoLoader label="Loading activities…" className="min-h-52" />
           ) : error ? (
             <div className="m-5 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
               {error}
@@ -1235,7 +1232,7 @@ function EditActivityModal({
             disabled={submitting}
             className="inline-flex items-center gap-2 rounded-full bg-[#087db9] px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-[#056d9e] disabled:opacity-50"
           >
-            {submitting && <Loader2 size={16} className="animate-spin" />}
+            {submitting && <LogoLoader size="inline" />}
             {submitting ? 'Resubmitting…' : 'Resubmit for Review'}
           </button>
         </div>
@@ -1457,10 +1454,7 @@ function UpdateStatusModal({
             className="inline-flex items-center gap-2 rounded-full bg-[#087db9] px-5 py-2 text-sm font-bold text-white hover:bg-[#056d9e] disabled:opacity-50"
           >
             {submitting && (
-              <Loader2
-                size={16}
-                className="animate-spin"
-              />
+              <LogoLoader size="inline" />
             )}
             {submitting ? 'Saving…' : 'Save status'}
           </button>
@@ -1653,7 +1647,7 @@ function RequestActivityModal({
 
           {loadingOptions && (
             <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-              <Loader2 size={14} className="animate-spin" />
+              <LogoLoader size="inline" />
               Loading your geographic scope...
             </div>
           )}
@@ -1713,7 +1707,7 @@ function RequestActivityModal({
             disabled={submitting || loadingOptions || barangays.length === 0 || Boolean(draft&&!reviewed)}
             className="inline-flex items-center justify-center gap-2 rounded-full bg-[#087db9] px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-[#056d9e] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitting && <Loader2 size={16} className="animate-spin" />}
+            {submitting && <LogoLoader size="inline" />}
             {submitting ? 'Submitting...' : draft?'Submit Reviewed Request':'Submit Request'}
           </button>}
         </div>
@@ -2059,7 +2053,7 @@ function ActionButton({
       className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
     >
       {loading ? (
-        <Loader2 size={16} className="animate-spin" />
+        <LogoLoader size="inline" />
       ) : (
         <Icon size={16} />
       )}

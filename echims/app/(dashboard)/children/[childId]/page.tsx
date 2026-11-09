@@ -469,7 +469,7 @@ export function ChildProfileView({childId}: {childId: string}) {
   );
   if (!isReady) {
     return (
-      <LogoLoader label="Loading child profile…" />
+      <LogoLoader label="Loading child profile…" className="min-h-[50vh]" />
     );
   }
   if (!canView) {
@@ -522,7 +522,7 @@ export function ChildProfileView({childId}: {childId: string}) {
       );
     }
     return (
-      <LogoLoader label="Loading child profile…" />
+      <LogoLoader label="Loading child profile…" className="min-h-[50vh]" />
     );
   }
   const {

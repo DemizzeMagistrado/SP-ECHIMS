@@ -29,6 +29,7 @@ import {
   MyBarangayWidget, NutritionBreakdownWidget, OfflineSyncWidget, QuickActionsWidget, RecentAlertsWidget,
   SystemActivityWidget, UpcomingWidget, WeighingDueWidget, type QuickAction,
 } from './widgets'
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 type Payload = {
   role: string
@@ -128,7 +129,7 @@ export function DashboardOverview() {
 
   const { data, error } = useSWR<Payload>(isReady && role ? url : null, fetcher, { keepPreviousData: true })
 
-  if (!isReady) return <div role="status" aria-label="Loading dashboard" className="h-32 animate-pulse rounded-2xl bg-brand-navy/90 motion-reduce:animate-none" />
+  if (!isReady) return <LogoLoader label="Loading dashboard…" className="min-h-[50vh]" />
   if (!role) return <div className={`${card} p-10 text-center text-brand-muted`}>Dashboard unavailable for this account.</div>
 
   const modules = roleModules[role] ?? []
@@ -202,7 +203,7 @@ export function DashboardOverview() {
       <p className="text-sm text-brand-muted">For this period and your scope</p>
       <div className={`mt-3 grid flex-1 content-center gap-3 ${showCoverage && showNutritionDonut ? 'grid-cols-2' : 'grid-cols-1'}`}>
         {!data ? (
-          <div className="mx-auto h-24 w-24 animate-pulse rounded-full bg-brand-ice motion-reduce:animate-none" />
+          <LogoLoader label="" className="min-h-0" />
         ) : (
           <>
             {showCoverage && <Donut percentage={vaccPct} label="Vaccine coverage" color="var(--tone-good)" size={104} />}
@@ -261,7 +262,7 @@ export function DashboardOverview() {
             </h1>
             <div className={`mt-2 flex flex-wrap items-center gap-2 text-sm ${rise}`} style={stagger(2)}>
               <span className="rounded-md bg-white/10 px-2 py-0.5 font-medium">{role}</span>
-              <span className="rounded-md bg-white/10 px-2 py-0.5 text-brand-mist">{data ? scopeLabel : 'Loading scope…'}</span>
+              <span className="rounded-md bg-white/10 px-2 py-0.5 text-brand-mist">{data ? scopeLabel : <LogoLoader size="inline" label="Loading scope" />}</span>
             </div>
           </div>
 
@@ -304,7 +305,7 @@ export function DashboardOverview() {
         <section aria-label="Needs attention" className={`grid grid-cols-1 gap-3 sm:grid-cols-2 xl:gap-4 ${cards.length >= 4 ? 'xl:grid-cols-4' : cards.length === 3 ? 'sm:grid-cols-3' : ''}`}>
           {cards.map((item, i) => m
             ? <AttentionCard key={item.label} item={item} metrics={m} style={stagger(i + 2)} />
-            : <div key={item.label} role="status" aria-label={`Loading ${item.label}`} className={`h-[104px] animate-pulse ${card} bg-white/70 motion-reduce:animate-none`} />)}
+            : <div key={item.label} className={`h-[104px] ${card}`}><LogoLoader label="" className="min-h-0" /></div>)}
         </section>
       )}
 
@@ -391,7 +392,7 @@ function ActivityChart({ trends, trendKey, onTrend, totals, metrics, loading, st
       </div>
       <div className="mt-6 h-[232px]">
         {loading || !trend.data ? (
-          <div role="status" aria-label="Loading chart" className="h-full animate-pulse rounded-xl bg-brand-ice motion-reduce:animate-none" />
+          <LogoLoader label="Loading chart…" className="min-h-0" />
         ) : (
           <div key={trend.key}><TrendBars data={trend.data} color={trend.color} label={trend.label} /></div>
         )}
@@ -401,7 +402,7 @@ function ActivityChart({ trends, trendKey, onTrend, totals, metrics, loading, st
           {totals.map((t) => (
             <div key={t.label} className="min-w-0">
               <dt className="flex items-start gap-1.5 text-sm leading-snug text-brand-muted"><span aria-hidden className="shrink-0 text-brand-sky">{t.icon}</span>{t.label}</dt>
-              <dd className="mt-1 h-7 text-xl font-semibold tabular-nums">{metrics ? t.value(metrics).toLocaleString() : <span className="block h-6 w-12 animate-pulse rounded bg-brand-ice motion-reduce:animate-none" />}</dd>
+              <dd className="mt-1 h-7 text-xl font-semibold tabular-nums">{metrics ? t.value(metrics).toLocaleString() : <LogoLoader size="inline" label="Loading" />}</dd>
             </div>
           ))}
         </dl>

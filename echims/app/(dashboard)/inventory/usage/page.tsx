@@ -40,7 +40,7 @@ export default function UsageLogPage() {
     })
   }, [canView])
 
-  if (!isReady) return <LogoLoader />
+  if (!isReady) return <LogoLoader className="min-h-[50vh]" />
   if (!canView) {
     return (
       <div className="space-y-6">

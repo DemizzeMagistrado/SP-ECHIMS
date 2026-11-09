@@ -24,7 +24,8 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import { useEffect, useState } from 'react'
 import useSWR from 'swr'
-import { MapPin, ChevronDown, Loader2, AlertCircle } from 'lucide-react'
+import { MapPin, ChevronDown, AlertCircle } from 'lucide-react'
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 type Item = { code: string; name: string }
 
@@ -205,7 +206,7 @@ function CascadeSelect({
         ))}
       </select>
       {disabled && !error ? (
-        <Loader2 size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-muted-foreground" />
+        <LogoLoader size="inline" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2" />
       ) : (
         <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
       )}

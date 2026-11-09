@@ -13,8 +13,9 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import useSWR from 'swr'
-import { X, Package, Hash, Calendar, MapPin, Syringe, Pill, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react'
+import { X, Package, Hash, Calendar, MapPin, Syringe, Pill, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { useToast } from '@/components/ui/toast'
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 type Item = { item_id: number; item_name: string; unit: string; kind: 'vaccine' | 'supplement'; code: string }
 type Barangay = { barangay_id: number; barangay_name: string }
@@ -215,7 +216,7 @@ export function StockInModal({ open, onClose, onSaved }: Props) {
             </button>
             <button type="submit" disabled={saving}
               className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
-              {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+              {saving ? <LogoLoader size="inline" /> : <CheckCircle2 size={14} />}
               {saving ? 'Saving…' : 'Record stock-in'}
             </button>
           </div>

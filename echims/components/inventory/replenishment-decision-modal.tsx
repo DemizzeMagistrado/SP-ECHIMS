@@ -7,8 +7,9 @@
 // request id for linkage.
 
 import { useState } from 'react'
-import { X, AlertCircle, Loader2, CheckCircle2, XCircle, Package, MapPin, User, Calendar, FileText } from 'lucide-react'
+import { X, AlertCircle, CheckCircle2, XCircle, Package, MapPin, User, Calendar, FileText } from 'lucide-react'
 import { useToast } from '@/components/ui/toast'
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 export type ReplenishmentRequest = {
   stock_request_id: number
@@ -167,7 +168,7 @@ export function ReplenishmentDecisionModal({ open, onClose, onDecided, request }
                 </button>
                 <button type="button" onClick={() => send('APPROVE')} disabled={saving}
                   className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
-                  {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                  {saving ? <LogoLoader size="inline" /> : <CheckCircle2 size={14} />}
                   {saving ? 'Approving…' : 'Approve'}
                 </button>
               </>
@@ -177,7 +178,7 @@ export function ReplenishmentDecisionModal({ open, onClose, onDecided, request }
                   className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted">Back</button>
                 <button type="button" onClick={() => send('REJECT')} disabled={saving || !reason.trim()}
                   className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60">
-                  {saving ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
+                  {saving ? <LogoLoader size="inline" /> : <XCircle size={14} />}
                   {saving ? 'Rejecting…' : 'Confirm reject'}
                 </button>
               </>

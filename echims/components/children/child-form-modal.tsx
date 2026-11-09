@@ -17,6 +17,7 @@ import { saveChildDraft, type ChildRegistrationDraft } from '@/lib/child-registr
 
 // CP-USR002 — Structured 4-level dropdown for Birth place (region → brgy).
 import { PhilippineAddressPicker } from "@/components/children/philippine-address-picker";
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 type Mode = "create" | "edit";
 type Barangay = { barangay_id: number; barangay_name: string };
@@ -605,8 +606,8 @@ export function ChildFormModal({
   if (loadingChild) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-        <div className="rounded-2xl bg-white p-10 shadow-xl text-sm text-muted-foreground">
-          Loading child record...
+        <div className="w-64 rounded-2xl bg-white p-6 shadow-xl">
+          <LogoLoader label="Loading child record…" />
         </div>
       </div>
     );
@@ -1099,6 +1100,7 @@ export function ChildFormModal({
             disabled={saving || Boolean(draft && online && !reviewed)}
             className="rounded-lg bg-primary px-5 py-2 text-white disabled:opacity-60"
           >
+            {saving && <LogoLoader size="inline" className="mr-2" />}
             {saving
               ? "Saving..."
               : mode === "edit"

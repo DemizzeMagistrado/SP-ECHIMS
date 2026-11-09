@@ -11,6 +11,7 @@ import { Syringe, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { useToast } from '@/components/ui/toast'
+import { LogoLoader } from '@/components/brand/logo-loader'
 type ScheduleEntry = {
   vaccine_code: string
   vaccine_type: string
@@ -141,7 +142,7 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
     return (
       <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-primary"><Syringe size={18} />Vaccination Schedule</h2>
-        <p className="mt-3 text-sm text-muted-foreground">Loading schedule...</p>
+        <LogoLoader label="Loading schedule…" />
       </section>
     )
   }
@@ -226,7 +227,7 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
                   disabled={submitting}
                   onClick={submitRequest}
                   className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                >{submitting ? 'Submitting...' : 'Submit for review'}</button>
+                >{submitting && <LogoLoader size="inline" className="mr-2" />}{submitting ? 'Submitting...' : 'Submit for review'}</button>
               </div>
             </div>
           )}

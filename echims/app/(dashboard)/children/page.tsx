@@ -118,7 +118,7 @@ export default function ChildHealthPage() {
   if (statusFilter !== 'all') activeChips.push({ label: `Status: ${statusFilter}`, onClear: () => setStatusFilter('all') })
 
   if (!isReady) {
-    return <LogoLoader label="Loading child profiling…" />
+    return <LogoLoader label="Loading child profiling…" className="min-h-[50vh]" />
   }
 
   return (
@@ -204,7 +204,7 @@ export default function ChildHealthPage() {
             </thead>
             <tbody className="divide-y divide-border">
               {isLoading ? (
-                <tr><td colSpan={8} className="px-5 py-8 text-center">Loading child records...</td></tr>
+                <tr><td colSpan={8} className="px-5 py-6"><LogoLoader label="Loading child records…" /></td></tr>
               ) : error ? (
                 <tr><td colSpan={8} className="px-5 py-8 text-center text-red-600">{error.message}</td></tr>
               ) : filtered.length === 0 ? (

@@ -12,8 +12,9 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import { useEffect, useState } from 'react'
 import useSWR from 'swr'
-import { X, AlertCircle, Loader2, Syringe, Hash, MapPin, Package, FileText } from 'lucide-react'
+import { X, AlertCircle, Syringe, Hash, MapPin, Package, FileText } from 'lucide-react'
 import { useToast } from '@/components/ui/toast'
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 type VaccineOption = {
   vaccine_id: number
@@ -246,7 +247,7 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
               disabled={saving}
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
             >
-              {saving ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />}
+              {saving ? <LogoLoader size="inline" /> : <Package size={14} />}
               {saving ? 'Submitting…' : 'Submit request'}
             </button>
           </div>

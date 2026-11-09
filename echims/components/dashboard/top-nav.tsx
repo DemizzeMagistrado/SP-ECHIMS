@@ -10,7 +10,7 @@ import { SystemOfflineTools } from '@/components/offline/system-offline-tools'
 //   • Notifications bell untouched (same component, same behavior)
 
 import {
-  Bell, CheckCheck, Loader2, Menu, RefreshCw, X,
+  Bell, CheckCheck, Menu, RefreshCw, X,
   Settings as SettingsIcon, LogOut, User as UserIcon,
 } from 'lucide-react'
 import {
@@ -20,6 +20,7 @@ import Link from 'next/link'
 import { useRouter } from '@/lib/offline/navigation'
 import { useAuth } from '@/components/auth/auth-provider'
 import { useShell } from './shell'
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 type Notification = {
   alert_id: number
@@ -217,7 +218,7 @@ export function TopNav() {
                   <button type="button" aria-label="Refresh" disabled={loading || saving}
                     onClick={() => void loadNotifications()}
                     className="rounded-full p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50">
-                    <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                    {loading ? <LogoLoader size="inline" /> : <RefreshCw size={16} />}
                   </button>
                   <button type="button" aria-label="Close"
                     onClick={() => { setOpen(false); bellRef.current?.focus() }}
@@ -239,9 +240,7 @@ export function TopNav() {
               )}
               <div className="max-h-[60vh] overflow-y-auto">
                 {loading && notifications.length === 0 ? (
-                  <div role="status" className="flex items-center justify-center gap-2 p-8 text-sm text-slate-500">
-                    <Loader2 size={18} className="animate-spin" /> Loading…
-                  </div>
+                  <LogoLoader label="Loading notifications…" />
                 ) : notifications.length === 0 ? (
                   <div className="p-8 text-center text-sm text-slate-500">
                     <Bell size={28} className="mx-auto mb-3 text-slate-300" />

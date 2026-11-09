@@ -44,7 +44,7 @@ export default function OfflinePage() {
   const booting = useMinimumLoading(!target || !isReady)
   const path = target?.split('?')[0] ?? '/dashboard'
   const childId = /^(?:\/children|\/child-profiling\/children)\/((?:CH-)?(?:\d{4}-)?\d+)$/i.exec(path)?.[1]
-  if (!target) return <LogoLoader fullScreen label="Opening saved page…" />
+  if (!target) return <LogoLoader size="page" label="Opening saved page…" />
   if (path === '/') return <OfflinePathContext.Provider value={path}><LandingPage/></OfflinePathContext.Provider>
   if (path === '/privacy') return <OfflinePathContext.Provider value={path}><PrivacyPage/></OfflinePathContext.Provider>
   if (path === '/terms') return <OfflinePathContext.Provider value={path}><TermsPage/></OfflinePathContext.Provider>
@@ -52,7 +52,7 @@ export default function OfflinePage() {
   if (path === '/forgot-password') return <OfflinePathContext.Provider value={path}><ForgotPasswordPage/></OfflinePathContext.Provider>
   if (path === '/reset-password') return <OfflinePathContext.Provider value={path}><ResetPasswordPage/></OfflinePathContext.Provider>
   if (path === '/login') return <OfflinePathContext.Provider value={path}>{user && <p className="p-4"><a className="font-semibold underline" href="/dashboard">Continue with this device’s signed-in account</a></p>}<LoginPage/></OfflinePathContext.Provider>
-  if (!isReady || booting) return <LogoLoader fullScreen label="Loading this device’s account…" />
+  if (!isReady || booting) return <LogoLoader size="page" label="Loading this device’s account…" />
   if (!user || user.accountStatus !== 'APPROVED') return <main className="space-y-3 p-8"><Logo size={40} /><h1 className="text-2xl font-bold">Sign in to eCHIMS</h1><p>Your device account is locked or its saved access has expired. Sign in with a previously prepared account to open its saved records and drafts.</p><a className="inline-block rounded-lg border px-4 py-2 font-semibold" href="/offline?path=%2Flogin">Sign in on this device</a><p><a className="underline" href="/">Return to landing page</a></p></main>
   let page
   if (path === '/dashboard') page = <DashboardPage/>

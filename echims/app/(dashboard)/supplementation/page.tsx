@@ -23,6 +23,7 @@ import { SupplementationMonitoringPanel } from "@/components/supplementation/sup
 import { SupplementStockRequestsPanel } from "@/components/supplementation/supplement-stock-requests-panel";
 import { SupplementationSmsPanel } from "@/components/supplementation/supplementation-sms-panel";
 import type { Session, User } from "@supabase/supabase-js";
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 type Child = {
   child_id: number;
@@ -1671,7 +1672,7 @@ export default function SupplementsPage() {
           </p>
         )
       ) : loading ? (
-        <p>Loading supplementation data…</p>
+        <LogoLoader label="Loading supplementation data…" className="min-h-48" />
       ) : data && (tab === "records" || tab === "clinical") ? (
         <div className="overflow-hidden rounded-2xl border border-border bg-white">
           <div className="flex flex-wrap justify-between gap-3 border-b border-border p-5">
@@ -2370,6 +2371,7 @@ export default function SupplementsPage() {
                 }
                 className={button}
               >
+                {saving && <LogoLoader size="inline" className="mr-2" />}
                 {saving
                   ? "Saving…"
                   : !online

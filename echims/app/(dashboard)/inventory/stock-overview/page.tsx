@@ -92,7 +92,7 @@ export default function StockOverviewPage() {
   const barangays = Array.isArray(brgysSWR.data) ? brgysSWR.data : (brgysSWR.data?.barangays ?? [])
 
   if (!isReady) {
-    return <LogoLoader />
+    return <LogoLoader className="min-h-[50vh]" />
   }
   if (!canView) {
     return (
@@ -156,7 +156,7 @@ export default function StockOverviewPage() {
 
       {/* Table */}
       {isLoading ? (
-        <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Loading stock…</div>
+        <div className="rounded-2xl border border-border bg-white"><LogoLoader label="Loading stock…" className="min-h-48" /></div>
       ) : error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
       ) : rows.length === 0 ? (

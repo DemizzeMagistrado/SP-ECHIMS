@@ -53,7 +53,7 @@ export default function ReplenishmentPage() {
   const { data, error, isLoading } = useSWR<{ requests: ReplenishmentRequest[] }>(canView ? url : null, fetcher)
   const rows = data?.requests ?? []
 
-  if (!isReady) return <LogoLoader />
+  if (!isReady) return <LogoLoader className="min-h-[50vh]" />
   if (!canView) {
     return (
       <div className="space-y-6">
@@ -102,7 +102,7 @@ export default function ReplenishmentPage() {
       </div>
 
       {isLoading ? (
-        <LogoLoader />
+        <LogoLoader className="min-h-[50vh]" />
       ) : error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
       ) : rows.length === 0 ? (

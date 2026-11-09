@@ -44,7 +44,7 @@ export default function LoginPage() {
     <AuthShell>
       {entering && (
         <div className="fixed inset-0 z-[100] bg-[linear-gradient(180deg,#CAF0F8_0%,#E4F6FA_40%,#F1FAFC_100%)] animate-in fade-in duration-300">
-          <LogoLoader fullScreen label="Opening your dashboard…" />
+          <LogoLoader size="page" label="Opening your dashboard…" />
         </div>
       )}
       <div className="auth-stagger">
