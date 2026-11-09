@@ -112,11 +112,13 @@ export function Sidebar({ role, fullName }: { role: Role; fullName: string }) {
           <div className="flex items-center justify-between gap-2 px-1">
             {/* Wordmark and icon sit on top of each other and crossfade as the rail opens or closes. */}
             <div className="relative h-10 min-w-0 flex-1 overflow-hidden">
-              <span aria-hidden={rail} className={`absolute inset-y-0 left-0 flex items-center transition-opacity duration-300 ${rail ? 'opacity-0' : 'opacity-100'}`}>
-                <Logo tone="light" size={36} priority />
+              {/* left-2 lines the wordmark up with the nav items' icon column (12px nav + 12px item padding). */}
+              <span aria-hidden={rail} className={`absolute inset-y-0 left-2 flex items-center transition-opacity duration-300 ${rail ? 'opacity-0' : 'opacity-100'}`}>
+                <Logo tone="light" size={30} priority />
               </span>
-              <span aria-hidden={!rail} className={`absolute inset-y-0 left-[5px] flex items-center transition-opacity duration-300 ${rail ? 'opacity-100' : 'opacity-0'}`}>
-                <Logo variant="icon" tone="light" size={34} />
+              {/* 6px + 16px header padding + half of 32px = 38px, the centre of the 76px rail. */}
+              <span aria-hidden={!rail} className={`absolute inset-y-0 left-[6px] flex items-center transition-opacity duration-300 ${rail ? 'opacity-100' : 'opacity-0'}`}>
+                <Logo variant="icon" tone="light" size={32} />
               </span>
             </div>
             <button
