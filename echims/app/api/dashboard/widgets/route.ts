@@ -199,6 +199,27 @@ const widgets: Record<string, (ctx: Ctx) => Promise<unknown>> = {
     const dueWeighing = children.filter((c) => c.date_of_birth > under5 && !((latest.get(c.child_id)?.assessment_date ?? '') > stale)).length
     return { counts, assessed: latest.size, due_weighing: dueWeighing, under5: children.filter((c) => c.date_of_birth > under5).length }
   },
+
+  // Batches with stock left that expire within 30 days (expired ones included,
+  // since they still need pulling from the shelf).
+  async expiring(ctx) {
+    const until = new Date(Date.parse(`${ctx.today}T00:00:00Z`) + 30 * 864e5).toISOString().slice(0, 10)
+    const data = await rows(scoped(ctx, ctx.supabase.from('inventory_batch')
+      .select('batch_id, batch_number, expiry_date, quantity_on_hand, inventory:inventory!inner(barangay_id, item:item(item_name, unit), barangay:barangay(barangay_name))')
+      .gt('quantity_on_hand', 0)
+      .lte('expiry_date', until)
+      .order('expiry_date'), 'inventory.barangay_id'))
+    return {
+      today: ctx.today,
+      batches: data.map((b) => {
+        const inv = one(b.inventory)
+        return {
+          id: b.batch_id, batch_number: b.batch_number, expiry_date: b.expiry_date, quantity: Number(b.quantity_on_hand),
+          item: one(inv?.item)?.item_name ?? 'Unknown item', unit: one(inv?.item)?.unit ?? '', barangay: one(inv?.barangay)?.barangay_name ?? null,
+        }
+      }),
+    }
+  },
 }
 
 export async function GET(request: Request) {

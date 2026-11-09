@@ -355,3 +355,33 @@ export function WeighingDueWidget({ style }: { style?: CSSProperties }) {
     </WidgetShell>
   )
 }
+
+// ─── 7. Expiring batches ─────────────────────────────────────────────
+type ExpiringData = { today: string; batches: { id: number; batch_number: string; expiry_date: string; quantity: number; item: string; unit: string; barangay: string | null }[] }
+
+export function ExpiringBatchesWidget({ style }: { style?: CSSProperties }) {
+  const { data, error, isLoading } = useWidget<ExpiringData>('expiring')
+  const list = data?.batches ?? []
+  return (
+    <WidgetShell id="expiring" title="Expiring batches" note="Stock that expires within 30 days"
+      link={{ href: '/inventory/batch-trace', label: 'Batch trace' }} style={style}
+      loading={isLoading} error={error} empty={data && list.length === 0 && 'No batches expire in the next 30 days.'}>
+      <ul className="max-h-72 divide-y divide-[#EEF4F7] overflow-y-auto pr-1">
+        {list.map((b) => {
+          const expired = b.expiry_date < (data?.today ?? '')
+          return (
+            <li key={b.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+              <div className="min-w-0">
+                <p className="truncate font-semibold">{b.item}</p>
+                <p className="truncate text-[#5B6478]">Batch {b.batch_number}{b.barangay ? ` · ${b.barangay}` : ''} · {b.quantity.toLocaleString()} {b.unit}</p>
+              </div>
+              <span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${expired ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>
+                {expired ? 'Expired' : 'Expires'} {shortDate(b.expiry_date)}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </WidgetShell>
+  )
+}

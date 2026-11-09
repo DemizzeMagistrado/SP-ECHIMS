@@ -20,7 +20,7 @@ import {
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, roleModules, type UserRole } from '@/lib/echims-data'
 import { Donut, TrendBars } from './mini-charts'
-import { card, fetcher, rise, stagger, ApprovalsWidget, BarangayRankingWidget, FicWidget, MyBarangayWidget, NutritionBreakdownWidget, RuleTriggersWidget, WeighingDueWidget, UpcomingWidget } from './widgets'
+import { card, fetcher, rise, stagger, ApprovalsWidget, BarangayRankingWidget, ExpiringBatchesWidget, FicWidget, MyBarangayWidget, NutritionBreakdownWidget, RuleTriggersWidget, WeighingDueWidget, UpcomingWidget } from './widgets'
 
 type Payload = {
   role: string
@@ -152,6 +152,7 @@ export function DashboardOverview() {
         programs={[can('Vaccination') && 'VACCINATION' as const, can('Supplementation') && 'SUPPLEMENTATION' as const].filter((p) => p !== false)} />
     ),
     (isAdmin || role === 'Public Health Nurse') && <ApprovalsWidget key="approvals" showInventory={can('Inventory')} style={stagger(12)} />,
+    isAdmin && can('Inventory') && <ExpiringBatchesWidget key="expiring" style={stagger(13)} />,
     isBhw && can('Child Profiling') && <MyBarangayWidget key="my-barangay" style={stagger(10)} />,
     isBns && can('Nutritional Assessment') && <NutritionBreakdownWidget key="nutrition" style={stagger(9)} />,
     isBns && can('Nutritional Assessment') && <WeighingDueWidget key="weighing" style={stagger(10)} />,
