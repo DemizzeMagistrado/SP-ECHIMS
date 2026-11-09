@@ -6,7 +6,8 @@
 // Logout lives in the top bar's account menu.
 
 import Link from 'next/link'
-import { usePathname } from '@/lib/offline/navigation'
+import { usePathname, useRouter } from '@/lib/offline/navigation'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Home, Baby, Syringe, Apple, Package, AlertCircle, FileText, Settings,
   Users, Activity, Boxes, X,
@@ -78,12 +79,18 @@ function initials(name: string) {
 
 export function Sidebar({ role, fullName }: { role: Role; fullName: string }) {
   const pathname = usePathname()
+  const router = useRouter()
   const { mobileOpen, setMobileOpen, collapsed } = useShell()
+  // The clicked item turns active at once; the real pathname takes over when the route commits.
+  const [clicked, setClicked] = useState<string | null>(null)
+  useEffect(() => setClicked(null), [pathname])
+  // Next prefetches visible links in production; hover/focus also covers the collapsed rail and dev.
+  const prefetch = (href: string) => { if (navigator.onLine) router.prefetch(href) }
 
   const label = roleLabels[role]
-  const groups = menuGroups
+  const groups = useMemo(() => menuGroups
     .map((g) => ({ ...g, items: g.items.filter((item) => roleModules[label].includes(item.label)) }))
-    .filter((g) => g.items.length > 0)
+    .filter((g) => g.items.length > 0), [label])
 
   // The rail only applies on desktop; the mobile drawer is always full width.
   const rail = collapsed && !mobileOpen
@@ -160,13 +167,16 @@ export function Sidebar({ role, fullName }: { role: Role; fullName: string }) {
                 {group.items.map((item) => {
                   const Icon = item.icon
                   const prefixMatch = item.matchPrefixes?.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ?? false
-                  const isActive = pathname === item.href || prefixMatch
+                  const isActive = clicked ? clicked === item.href : pathname === item.href || prefixMatch
                   return (
                     <li key={item.href}>
                       <Link
                         href={item.href}
                         title={rail ? item.label : undefined}
                         aria-current={isActive ? 'page' : undefined}
+                        onClick={(e) => { if (!e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0) setClicked(item.href) }}
+                        onMouseEnter={() => prefetch(item.href)}
+                        onFocus={() => prefetch(item.href)}
                         className={`group relative flex items-center ${rail ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90E0EF] ${
                           isActive ? 'bg-white text-[#03045E]' : 'text-white/75 hover:bg-white/[0.08] hover:text-white'
                         }`}

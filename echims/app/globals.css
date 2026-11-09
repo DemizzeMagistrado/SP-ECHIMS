@@ -402,3 +402,17 @@ html { scrollbar-gutter: stable; }
   .gate-content { transition-property: opacity; }
 }
 .transition-overlay[data-state='loading'] { animation: logo-reveal 200ms var(--ease-smooth) both; }
+
+/* Navigation progress (components/dashboard/nav-progress.tsx): appears only if a route takes over 150ms. */
+.nav-progress {
+  position: fixed; inset: 0 0 auto 0; z-index: 60; height: 2px; pointer-events: none;
+  background: var(--brand-sky); opacity: 0; transform: scaleX(0); transform-origin: left;
+}
+.nav-progress[data-state='running'] {
+  opacity: 0.6; transform: scaleX(0.85);
+  transition: transform 8s cubic-bezier(0.1, 0.6, 0.2, 1), opacity 150ms var(--ease-smooth);
+}
+.nav-progress[data-state='finishing'] {
+  opacity: 0; transform: scaleX(1);
+  transition: transform 200ms var(--ease-smooth), opacity 250ms var(--ease-smooth) 120ms;
+}
