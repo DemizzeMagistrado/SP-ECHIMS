@@ -26,6 +26,8 @@ import AlertsPage from '@/app/(dashboard)/alerts/page'
 import SettingsPage from '@/app/(dashboard)/settings/page'
 import HealthActivitiesClient from '@/app/(dashboard)/health-activities/health-activities-client'
 import { Logo } from '@/components/brand/logo'
+import { LogoLoader } from '@/components/brand/logo-loader'
+import { useMinimumLoading } from '@/components/brand/use-minimum-loading'
 import { ProfileErrorBoundary } from '@/components/offline/profile-error-boundary'
 import { SavedUserManagement } from '@/components/offline/saved-user-management'
 const roles: Record<UserRole, Role> = { Administrator:'Administrator', 'Public Health Nurse':'PHN', 'Rural Health Midwife':'RHM', 'Barangay Health Worker':'BHW', 'Barangay Nutrition Scholar':'BNS' }
@@ -39,9 +41,10 @@ export default function OfflinePage() {
     const url = new URL(requested, window.location.origin)
     setTarget(url.origin === window.location.origin && requested.startsWith('/') && !requested.startsWith('//') && url.pathname !== '/offline' ? url.pathname + url.search : '/dashboard')
   }, [])
+  const booting = useMinimumLoading(!target || !isReady)
   const path = target?.split('?')[0] ?? '/dashboard'
   const childId = /^(?:\/children|\/child-profiling\/children)\/((?:CH-)?(?:\d{4}-)?\d+)$/i.exec(path)?.[1]
-  if (!target) return <main className="p-8">Opening saved page…</main>
+  if (!target) return <LogoLoader fullScreen label="Opening saved page…" />
   if (path === '/') return <OfflinePathContext.Provider value={path}><LandingPage/></OfflinePathContext.Provider>
   if (path === '/privacy') return <OfflinePathContext.Provider value={path}><PrivacyPage/></OfflinePathContext.Provider>
   if (path === '/terms') return <OfflinePathContext.Provider value={path}><TermsPage/></OfflinePathContext.Provider>
@@ -49,7 +52,7 @@ export default function OfflinePage() {
   if (path === '/forgot-password') return <OfflinePathContext.Provider value={path}><ForgotPasswordPage/></OfflinePathContext.Provider>
   if (path === '/reset-password') return <OfflinePathContext.Provider value={path}><ResetPasswordPage/></OfflinePathContext.Provider>
   if (path === '/login') return <OfflinePathContext.Provider value={path}>{user && <p className="p-4"><a className="font-semibold underline" href="/dashboard">Continue with this device’s signed-in account</a></p>}<LoginPage/></OfflinePathContext.Provider>
-  if (!isReady) return <main className="p-8">Loading this device’s account…</main>
+  if (!isReady || booting) return <LogoLoader fullScreen label="Loading this device’s account…" />
   if (!user || user.accountStatus !== 'APPROVED') return <main className="space-y-3 p-8"><Logo size={40} /><h1 className="text-2xl font-bold">Sign in to eCHIMS</h1><p>Your device account is locked or its saved access has expired. Sign in with a previously prepared account to open its saved records and drafts.</p><a className="inline-block rounded-lg border px-4 py-2 font-semibold" href="/offline?path=%2Flogin">Sign in on this device</a><p><a className="underline" href="/">Return to landing page</a></p></main>
   let page
   if (path === '/dashboard') page = <DashboardPage/>

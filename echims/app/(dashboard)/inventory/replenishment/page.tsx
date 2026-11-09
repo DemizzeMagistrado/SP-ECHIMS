@@ -15,6 +15,7 @@ import { canPerform, type UserRole } from '@/lib/echims-data'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { ReplenishmentRequestModal } from '@/components/inventory/replenishment-request-modal'
 import { ReplenishmentDecisionModal, type ReplenishmentRequest } from '@/components/inventory/replenishment-decision-modal'
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 const fetcher = async (url: string) => {
   const r = await fetch(url)
@@ -52,7 +53,7 @@ export default function ReplenishmentPage() {
   const { data, error, isLoading } = useSWR<{ requests: ReplenishmentRequest[] }>(canView ? url : null, fetcher)
   const rows = data?.requests ?? []
 
-  if (!isReady) return <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Loading…</div>
+  if (!isReady) return <LogoLoader />
   if (!canView) {
     return (
       <div className="space-y-6">
@@ -101,7 +102,7 @@ export default function ReplenishmentPage() {
       </div>
 
       {isLoading ? (
-        <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Loading…</div>
+        <LogoLoader />
       ) : error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
       ) : rows.length === 0 ? (

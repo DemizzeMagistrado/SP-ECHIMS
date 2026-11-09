@@ -28,6 +28,7 @@ import {
 } from 'react'
 
 import HealthActivityCalendar from './health-activity-calendar'
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 /* =========================================================
    TYPES
@@ -375,7 +376,7 @@ function ActivityDetailsModal({
 
 export default function HealthActivitiesClient() {
  const {user,isReady}=useAuth()
- if(!isReady)return <p>Checking account…</p>
+ if(!isReady)return <LogoLoader label="Checking account…" />
  if(!user)return <p>Please sign in to view health activities.</p>
  return <ActivityWorkspace key={user.id+':'+offlineScope(user)}/>
 }

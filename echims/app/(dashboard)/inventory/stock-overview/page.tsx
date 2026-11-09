@@ -20,6 +20,7 @@ import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { StockInModal } from '@/components/inventory/stock-in-modal'
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 type Batch = { batch_id: number; batch_number: string; expiry_date: string; received_date: string; quantity_on_hand: number }
 type Item = { item_id: number; item_name: string; unit: string; status: string }
@@ -91,7 +92,7 @@ export default function StockOverviewPage() {
   const barangays = Array.isArray(brgysSWR.data) ? brgysSWR.data : (brgysSWR.data?.barangays ?? [])
 
   if (!isReady) {
-    return <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Loading…</div>
+    return <LogoLoader />
   }
   if (!canView) {
     return (

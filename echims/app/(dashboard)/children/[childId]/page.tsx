@@ -34,6 +34,7 @@ import { ImmunizationHistorySection } from "@/components/children/immunization-h
 import { useToast } from "@/components/ui/toast";
 import { GuardianSmsConsent } from "@/components/children/guardian-sms-consent";
 import { GuardianSmsHistory } from "@/components/children/guardian-sms-history";
+import { LogoLoader } from '@/components/brand/logo-loader'
 type ChildRow = {
   child_id: number;
   first_name: string;
@@ -468,9 +469,7 @@ export function ChildProfileView({childId}: {childId: string}) {
   );
   if (!isReady) {
     return (
-      <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">
-        Loading child profile...
-      </div>
+      <LogoLoader label="Loading child profile…" />
     );
   }
   if (!canView) {
@@ -523,9 +522,7 @@ export function ChildProfileView({childId}: {childId: string}) {
       );
     }
     return (
-      <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">
-        Loading child profile...
-      </div>
+      <LogoLoader label="Loading child profile…" />
     );
   }
   const {

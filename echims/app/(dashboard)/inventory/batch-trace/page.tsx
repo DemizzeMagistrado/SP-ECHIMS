@@ -16,6 +16,7 @@ import {
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 type TracePayload = {
   batch_number: string
@@ -64,7 +65,7 @@ export default function BatchTracePage() {
     fetcher,
   )
 
-  if (!isReady) return <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Loading…</div>
+  if (!isReady) return <LogoLoader />
   if (!canView) {
     return (
       <div className="space-y-6">

@@ -27,6 +27,7 @@ import { BatchRequestDecisionModal, type BatchRequestRow } from '@/components/va
 import { RecordVaccinationModal } from '@/components/vaccination/record-vaccination-modal'
 import { VaccineFormModal, type VaccineCatalogRow } from '@/components/vaccination/vaccine-form-modal'
 import { VaccinationSmsPanel } from '@/components/vaccination/vaccination-sms-panel'
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 /* ═════════════════════════ Shared helpers ═════════════════════════ */
 
@@ -148,7 +149,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
   const url = `/api/vaccination/records${qs ? `?${qs}` : ''}`
   const { data, error, isLoading, readOnly, savedAt } = useVaccinationView<RecordsPayload>(isReady && canView ? url : null)
 
-  if (!isReady) return <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Loading...</div>
+  if (!isReady) return <LogoLoader />
   if (!canView) return <div className="rounded-2xl border border-border bg-white p-10 text-center text-red-600">You are not authorized to view vaccination records.</div>
 
   const rows = data?.rows ?? []
@@ -483,7 +484,7 @@ function ScheduleSection() {
   const url = `/api/vaccination/schedule${qs ? `?${qs}` : ''}`
   const { data, error, isLoading, readOnly, savedAt } = useVaccinationView<SchedulePayload>(isReady && canView ? url : null)
 
-  if (!isReady) return <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Loading...</div>
+  if (!isReady) return <LogoLoader />
   if (!canView) return <div className="rounded-2xl border border-border bg-white p-10 text-center text-red-600">You are not authorized to view the vaccination schedule.</div>
 
   const rows = data?.rows ?? []
@@ -865,7 +866,7 @@ function DefaultersSection() {
     }
   }
 
-  if (!isReady) return <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Loading...</div>
+  if (!isReady) return <LogoLoader />
   if (!canView) return <div className="rounded-2xl border border-border bg-white p-10 text-center text-red-600">You are not authorized to view the defaulters list.</div>
 
   const counts = data?.counts
@@ -1190,7 +1191,7 @@ function CatalogSection() {
     }
   }
 
-  if (!isReady) return <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Loading...</div>
+  if (!isReady) return <LogoLoader />
   if (!canView) {
     return (
       <div className="space-y-6">
@@ -1541,7 +1542,7 @@ function BatchRequestsSection() {
   const [decisionTarget, setDecisionTarget] = useState<BatchRequestRow | null>(null)
 
   if (!isReady) {
-    return <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Loading…</div>
+    return <LogoLoader />
   }
   if (!canView) {
     return (
@@ -1746,7 +1747,7 @@ export default function VaccinationPage() {
   }, [pathname])
 
   if (!isReady) {
-    return <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Loading…</div>
+    return <LogoLoader />
   }
 
   // Only show tabs the current role may view

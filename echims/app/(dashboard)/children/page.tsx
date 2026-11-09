@@ -20,6 +20,7 @@ import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { ChildDraftPanel } from '@/components/children/child-draft-panel'
 import { ChildFormModal } from '@/components/children/child-form-modal'
 import { useToast } from '@/components/ui/toast'
+import { LogoLoader } from '@/components/brand/logo-loader'
 
 type Child = {
   id: string
@@ -117,7 +118,7 @@ export default function ChildHealthPage() {
   if (statusFilter !== 'all') activeChips.push({ label: `Status: ${statusFilter}`, onClear: () => setStatusFilter('all') })
 
   if (!isReady) {
-    return <div className="space-y-6"><div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Loading child profiling...</div></div>
+    return <LogoLoader label="Loading child profiling…" />
   }
 
   return (
