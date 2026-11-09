@@ -18,9 +18,9 @@ import {
   Pill, Syringe,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
-import { roleModules, type UserRole } from '@/lib/echims-data'
+import { canPerform, roleModules, type UserRole } from '@/lib/echims-data'
 import { Donut, TrendBars } from './mini-charts'
-import { card, fetcher, rise, stagger, FicWidget, RuleTriggersWidget } from './widgets'
+import { card, fetcher, rise, stagger, BarangayRankingWidget, FicWidget, MyBarangayWidget, RuleTriggersWidget } from './widgets'
 
 type Payload = {
   role: string
@@ -141,9 +141,12 @@ export function DashboardOverview() {
   // Role layout: each role gets only the widgets for its daily work.
   const isAdmin = role === 'Administrator'
   const isNurse = role === 'Public Health Nurse' || role === 'Rural Health Midwife'
+  const isBhw = role === 'Barangay Health Worker'
   const panels = [
     (isAdmin || isNurse) && can('Alerts') && <RuleTriggersWidget key="rules" style={stagger(9)} />,
     (isAdmin || isNurse) && can('Vaccination') && <FicWidget key="fic" range={{ from, to }} style={stagger(10)} />,
+    isAdmin && canPerform(role, 'Geospatial', 'view') && <BarangayRankingWidget key="ranking" style={stagger(11)} />,
+    isBhw && can('Child Profiling') && <MyBarangayWidget key="my-barangay" style={stagger(10)} />,
   ].filter(Boolean)
 
   return (

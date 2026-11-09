@@ -4,7 +4,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 // RPT-USR001 — Overview widgets. Each one loads /api/dashboard/widgets?widget=<name>
 // on its own, so a slow or failing widget never blocks the rest of the dashboard.
 
-import type { CSSProperties, ReactNode } from 'react'
+import { useState, type CSSProperties, type ReactNode } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
 import { AlertCircle, ArrowUpRight } from 'lucide-react'
@@ -167,6 +167,59 @@ export function FicWidget({ range, style }: { range: Range; style?: CSSPropertie
           </dl>
         </div>
       )}
+    </WidgetShell>
+  )
+}
+
+// ─── 3. Barangay ranking / My barangay ───────────────────────────────
+type BarangayRow = { id: number; name: string; children: number; overdue: number; at_risk: number }
+
+export function BarangayRankingWidget({ style }: { style?: CSSProperties }) {
+  const { data, error, isLoading } = useWidget<{ barangays: BarangayRow[] }>('barangays')
+  const [by, setBy] = useState<'overdue' | 'at_risk'>('overdue')
+  const top = (data?.barangays ?? []).filter((b) => b[by] > 0).sort((a, b) => b[by] - a[by]).slice(0, 5)
+  return (
+    <WidgetShell id="ranking" title="Barangays at risk" note="Top 5 by children needing follow-up"
+      link={{ href: '/geospatial', label: 'Open map' }} style={style}
+      loading={isLoading} error={error}>
+      <div role="tablist" aria-label="Rank barangays by" className="mb-3 flex gap-1 rounded-lg bg-[#F1F7FA] p-1">
+        {([['overdue', 'Overdue vaccines'], ['at_risk', 'Malnourished']] as const).map(([key, label]) => (
+          <button key={key} type="button" role="tab" aria-selected={by === key} onClick={() => setBy(key)}
+            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9] ${by === key ? 'bg-white text-[#03045E] shadow-sm' : 'text-[#5B6478] hover:text-[#03045E]'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {top.length === 0 ? (
+        <p className="rounded-xl bg-[#F8FCFD] p-4 text-center text-sm text-[#5B6478]">No barangay has {by === 'overdue' ? 'overdue vaccinations' : 'malnourished children'}.</p>
+      ) : (
+        <BarList label={`Barangays by ${by === 'overdue' ? 'overdue vaccinations' : 'malnourished children'}`}
+          color={by === 'overdue' ? '#E11D48' : '#7C3AED'}
+          items={top.map((b) => ({ key: String(b.id), label: b.name, value: b[by], hint: `${b.children.toLocaleString()} children` }))} />
+      )}
+    </WidgetShell>
+  )
+}
+
+export function MyBarangayWidget({ style }: { style?: CSSProperties }) {
+  const { data, error, isLoading } = useWidget<{ barangays: BarangayRow[] }>('barangays')
+  const list = data?.barangays ?? []
+  return (
+    <WidgetShell id="my-barangay" title="My barangay" note="Children in your assigned area"
+      link={{ href: '/child-profiling/children', label: 'Children' }} style={style}
+      loading={isLoading} error={error} empty={data && list.length === 0 && 'No barangay is assigned to you yet.'}>
+      <ul className="space-y-3">
+        {list.map((b) => (
+          <li key={b.id} className="rounded-xl bg-[#F8FCFD] p-3">
+            <p className="font-semibold">{b.name}</p>
+            <dl className="mt-2 grid grid-cols-3 gap-2 text-sm">
+              <div><dt className="text-[#5B6478]">Children</dt><dd className="text-lg font-bold tabular-nums">{b.children.toLocaleString()}</dd></div>
+              <div><dt className="text-[#5B6478]">Overdue</dt><dd className={`text-lg font-bold tabular-nums ${b.overdue ? 'text-rose-700' : ''}`}>{b.overdue.toLocaleString()}</dd></div>
+              <div><dt className="text-[#5B6478]">At risk</dt><dd className={`text-lg font-bold tabular-nums ${b.at_risk ? 'text-violet-700' : ''}`}>{b.at_risk.toLocaleString()}</dd></div>
+            </dl>
+          </li>
+        ))}
+      </ul>
     </WidgetShell>
   )
 }
