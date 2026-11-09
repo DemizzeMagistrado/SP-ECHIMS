@@ -89,29 +89,6 @@ async function count(q: PromiseLike<{ count: number | null; error: any }>) {
 }
 
 const widgets: Record<string, (ctx: Ctx) => Promise<unknown>> = {
-  // Alerts the rule engine created today (Manila), per rule type. The feed view is
-  // already scoped to the viewer; one event can reach several recipients, so count
-  // each event_key once.
-  async rules(ctx) {
-    // shortcut: reads at most 5000 of today's alerts, fine for one RHU; aggregate in SQL if a day ever exceeds that.
-    const data = await rows(ctx.supabase.from('alert_notification_feed')
-      .select('alert_id, alert_type, source_module, event_key')
-      .gte('created_at', `${ctx.today}T00:00:00+08:00`)
-      .range(0, 4999))
-    const seen = new Set<string>()
-    const groups = new Map<string, { type: string; program: string; count: number }>()
-    for (const a of data) {
-      const key = String(a.event_key ?? `id:${a.alert_id}`)
-      if (seen.has(key)) continue
-      seen.add(key)
-      const g = groups.get(a.alert_type) ?? { type: a.alert_type, program: a.source_module ?? a.alert_type, count: 0 }
-      g.count++
-      groups.set(a.alert_type, g)
-    }
-    const byRule = [...groups.values()].sort((a, b) => b.count - a.count)
-    return { total: seen.size, by_rule: byRule }
-  },
-
   // Fully Immunized Child: of the active children who turned 12 months old in the
   // period, how many had every FIC dose (approved, including prior doses) by their
   // first birthday. DOH FIC antigens: BCG, 3 Penta, 3 OPV, 1 measles-containing (MMR).
