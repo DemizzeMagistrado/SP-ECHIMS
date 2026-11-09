@@ -74,10 +74,10 @@ export function WidgetShell({ id, title, note, link, action, style, size, classN
   return (
     <section aria-labelledby={`${id}-heading`} aria-busy={loading}
       className={`${card} flex min-w-0 flex-col p-5 sm:p-6 ${size ? SIZE[size] : ''} ${rise} ${className}`} style={style}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 id={`${id}-heading`} className="truncate text-base font-semibold">{title}</h2>
-          <p className="truncate text-sm text-brand-muted">{note}</p>
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+        <div className="min-w-0 flex-[1_1_12rem]">
+          <h2 id={`${id}-heading`} className="line-clamp-2 text-base font-semibold leading-snug">{title}</h2>
+          <p className="line-clamp-2 text-sm text-brand-muted">{note}</p>
         </div>
         {link ? <CardLink {...link} /> : action}
       </div>
@@ -143,7 +143,7 @@ export function FicWidget({ range, style, size = 'tall' }: WidgetProps & { range
   // Children still needed to reach the target, so the gap reads as work, not only points.
   const needed = data ? Math.max(0, Math.ceil((data.target / 100) * data.eligible) - data.fully_immunized) : 0
   return (
-    <WidgetShell id="fic" title="Fully immunized children" note="Children who turned 1 in this period"
+    <WidgetShell id="fic" title="Fully immunized (FIC)" note="Turned 1 in this period"
       link={{ href: '/vaccination/defaulters', label: 'Defaulters' }} style={style} size={size}
       loading={isLoading} error={error} empty={data?.eligible === 0 && 'No children turned 12 months old in this period.'}>
       {data && (
@@ -182,7 +182,7 @@ export function BarangayRankingWidget({ style, size = 'tall' }: WidgetProps) {
       <div role="tablist" aria-label="Rank barangays by" className="mb-3 flex shrink-0 gap-1 rounded-lg bg-brand-ice p-1">
         {([['overdue', 'Overdue vaccines'], ['at_risk', 'Malnourished']] as const).map(([key, label]) => (
           <button key={key} type="button" role="tab" aria-selected={by === key} onClick={() => setBy(key)}
-            className={`flex-1 truncate rounded-md px-3 py-1.5 text-sm font-semibold transition-colors duration-200 ${focusRing} ${by === key ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-muted hover:text-brand-navy'}`}>
+            className={`flex-1 rounded-md leading-tight px-3 py-1.5 text-sm font-semibold transition-colors duration-200 ${focusRing} ${by === key ? 'bg-white text-brand-navy shadow-sm' : 'text-brand-muted hover:text-brand-navy'}`}>
             {label}
           </button>
         ))}
@@ -275,7 +275,7 @@ export function ApprovalsWidget({ showInventory, style, size = 'compact' }: Widg
         {items.filter((i) => i.value > 0).map((i) => (
           <li key={i.key}>
             <Link href={i.href} aria-label={`Review ${i.value} ${i.label}`} className={`-mx-2 flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm transition-colors duration-200 hover:bg-brand-ice ${focusRing}`}>
-              <span className="min-w-0 truncate font-medium">{i.label}</span>
+              <span className="min-w-0 font-medium leading-snug">{i.label}</span>
               <span className="shrink-0 rounded-md bg-warn-soft px-2 py-0.5 font-semibold tabular-nums text-warn">{i.value.toLocaleString()}</span>
             </Link>
           </li>
@@ -538,12 +538,12 @@ export type QuickAction = { label: string; href: string; icon: ReactNode }
 export function QuickActionsWidget({ actions, style }: WidgetProps & { actions: QuickAction[] }) {
   return (
     <WidgetShell id="quick-actions" title="Quick actions" note="Jump to your most-used pages" style={style} loading={false}>
-      <ul className="grid grid-cols-2 gap-2">
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-2">
         {actions.map((a) => (
           <li key={a.href}>
             <Link href={a.href} className={`flex h-full items-center gap-2.5 rounded-xl border border-brand-line px-3 py-2.5 text-sm font-medium transition-colors duration-200 hover:border-brand-aqua hover:bg-brand-ice ${focusRing}`}>
               <span aria-hidden className="shrink-0 text-brand-sky">{a.icon}</span>
-              <span className="min-w-0 truncate">{a.label}</span>
+              <span className="min-w-0 leading-snug">{a.label}</span>
             </Link>
           </li>
         ))}

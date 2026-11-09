@@ -352,8 +352,8 @@ function AttentionCard({ item, metrics, style }: { item: AttentionItem; metrics:
       <span aria-hidden className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${t.icon}`}>{item.icon}</span>
       <div className="min-w-0 flex-1">
         <p className="font-display text-2xl font-bold leading-none tabular-nums">{value.toLocaleString()}</p>
-        <p className="mt-1.5 truncate text-sm font-semibold">{item.label}</p>
-        <p className="truncate text-sm text-brand-muted">{value === 0 && !item.info ? 'Nothing to follow up' : item.note(metrics)}</p>
+        <p className="mt-1.5 line-clamp-2 text-sm font-semibold leading-snug">{item.label}</p>
+        <p className="line-clamp-2 text-sm text-brand-muted">{value === 0 && !item.info ? 'Nothing to follow up' : item.note(metrics)}</p>
       </div>
       <ArrowUpRight size={15} strokeWidth={1.5} aria-hidden className="shrink-0 self-start text-brand-muted/50 transition-[color,transform] duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-brand-sky group-focus-visible:text-brand-sky motion-reduce:transition-none" />
     </Link>
@@ -374,7 +374,7 @@ function ActivityChart({ trends, trendKey, onTrend, totals, metrics, loading, st
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 id="trend-heading" className="text-base font-semibold">Activity over time</h2>
-          <p className="text-sm text-brand-muted">{trend.note}</p>
+          <p className="line-clamp-2 text-sm text-brand-muted">{trend.note}</p>
         </div>
         {trends.length > 1 && (
           <div role="tablist" aria-label="Chart" className="flex gap-1 rounded-lg bg-brand-ice p-1">
@@ -400,7 +400,7 @@ function ActivityChart({ trends, trendKey, onTrend, totals, metrics, loading, st
         <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-brand-ice pt-5 sm:grid-cols-4">
           {totals.map((t) => (
             <div key={t.label} className="min-w-0">
-              <dt className="flex items-center gap-1.5 truncate text-sm text-brand-muted"><span aria-hidden className="shrink-0 text-brand-sky">{t.icon}</span>{t.label}</dt>
+              <dt className="flex items-start gap-1.5 text-sm leading-snug text-brand-muted"><span aria-hidden className="shrink-0 text-brand-sky">{t.icon}</span>{t.label}</dt>
               <dd className="mt-1 h-7 text-xl font-semibold tabular-nums">{metrics ? t.value(metrics).toLocaleString() : <span className="block h-6 w-12 animate-pulse rounded bg-brand-ice motion-reduce:animate-none" />}</dd>
             </div>
           ))}
