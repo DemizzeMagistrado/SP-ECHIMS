@@ -66,9 +66,13 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
     title: 'Administration',
     items: [
       { icon: Users, label: 'User Management', href: '/user-management' },
-      { icon: Settings, label: 'Settings', href: moduleRoutes.Settings, matchPrefixes: ['/settings', '/organization'] },
     ],
   },
+]
+
+// Pinned to the bottom of the panel, below the scrolling menu.
+const footerItems: MenuItem[] = [
+  { icon: Settings, label: 'Settings', href: moduleRoutes.Settings, matchPrefixes: ['/settings', '/organization'] },
 ]
 
 function initials(name: string) {
@@ -84,6 +88,7 @@ export function Sidebar({ role, fullName }: { role: Role; fullName: string }) {
   const groups = menuGroups
     .map((g) => ({ ...g, items: g.items.filter((item) => roleModules[label].includes(item.label)) }))
     .filter((g) => g.items.length > 0)
+  const footer = footerItems.filter((item) => roleModules[label].includes(item.label))
 
   // The rail only applies on desktop; the mobile drawer is always full width.
   const rail = collapsed && !mobileOpen
@@ -102,8 +107,8 @@ export function Sidebar({ role, fullName }: { role: Role; fullName: string }) {
       <aside
         id="main-sidebar"
         aria-label="Main navigation"
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-[#03045E] text-white shadow-2xl transition-[transform,width] duration-300 ease-out
-          lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0 lg:shadow-none
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col overflow-hidden rounded-r-3xl bg-[#03045E] text-white shadow-2xl transition-[transform,width] duration-300 ease-out motion-reduce:transition-none
+          lg:sticky lg:top-3 lg:z-auto lg:m-3 lg:mr-0 lg:h-[calc(100dvh-1.5rem)] lg:shrink-0 lg:self-start lg:translate-x-0 lg:rounded-3xl lg:shadow-[0_20px_44px_-24px_rgba(3,4,94,0.7)]
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
           ${rail ? 'lg:w-[76px]' : 'lg:w-64'}`}
       >
@@ -114,7 +119,7 @@ export function Sidebar({ role, fullName }: { role: Role; fullName: string }) {
               <Image src="/sidebar-logo.png" alt="eCHIMS" width={200} height={64} priority className="h-auto max-h-10 w-auto object-contain" />
             )}
             {rail && (
-              <span aria-label="eCHIMS" className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#087DB9] text-lg font-extrabold">e</span>
+              <span aria-label="eCHIMS" className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#087DB9] text-lg font-extrabold">e</span>
             )}
             <button
               type="button"
@@ -128,7 +133,7 @@ export function Sidebar({ role, fullName }: { role: Role; fullName: string }) {
 
           <div
             title={rail ? `${fullName}, ${label}` : undefined}
-            className={`mt-4 flex items-center gap-3 rounded-xl bg-white/[0.07] ${rail ? 'justify-center p-2' : 'p-3'}`}
+            className={`mt-4 flex items-center gap-3 rounded-2xl bg-white/[0.07] ${rail ? 'justify-center p-2' : 'p-3'}`}
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#087DB9] text-sm font-bold">
               {initials(fullName)}
@@ -143,7 +148,7 @@ export function Sidebar({ role, fullName }: { role: Role; fullName: string }) {
         </div>
 
         {/* Menu */}
-        <nav className="flex-1 overflow-y-auto px-3 pb-6">
+        <nav className="flex-1 overflow-y-auto px-3 pb-4">
           {groups.map((group) => (
             <div key={group.title} className="mt-4 first:mt-1">
               {rail ? (
@@ -151,38 +156,50 @@ export function Sidebar({ role, fullName }: { role: Role; fullName: string }) {
               ) : (
                 <p className="mb-1.5 px-3 text-xs font-semibold text-white/45">{group.title}</p>
               )}
-              <ul className="space-y-0.5">
-                {group.items.map((item) => {
-                  const Icon = item.icon
-                  const prefixMatch = item.matchPrefixes?.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ?? false
-                  const isActive = pathname === item.href || prefixMatch
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        title={rail ? item.label : undefined}
-                        aria-current={isActive ? 'page' : undefined}
-                        className={`group relative flex items-center ${rail ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90E0EF] ${
-                          isActive ? 'bg-white text-[#03045E]' : 'text-white/75 hover:bg-white/[0.08] hover:text-white'
-                        }`}
-                      >
-                        <span
-                          aria-hidden
-                          className={`absolute -left-3 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-[#90E0EF] transition-transform duration-300 ${
-                            isActive ? 'scale-y-100' : 'scale-y-0'
-                          }`}
-                        />
-                        <Icon size={19} strokeWidth={1.75} className={isActive ? 'text-[#087DB9]' : ''} />
-                        {!rail && <span className="truncate">{item.label}</span>}
-                      </Link>
-                    </li>
-                  )
-                })}
+              <ul className="space-y-1">
+                {group.items.map((item) => (
+                  <li key={item.href}><NavLink item={item} rail={rail} active={isActive(item, pathname)} /></li>
+                ))}
               </ul>
             </div>
           ))}
         </nav>
+
+        {footer.length > 0 && (
+          <ul className="space-y-1 border-t border-white/10 px-3 py-3">
+            {footer.map((item) => (
+              <li key={item.href}><NavLink item={item} rail={rail} active={isActive(item, pathname)} /></li>
+            ))}
+          </ul>
+        )}
       </aside>
     </>
+  )
+}
+
+function isActive(item: MenuItem, pathname: string) {
+  return pathname === item.href || (item.matchPrefixes?.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ?? false)
+}
+
+// Rail: a centered icon tile, filled sky when active. Expanded: a full-width row with a rounded pill when active.
+function NavLink({ item, rail, active }: { item: MenuItem; rail: boolean; active: boolean }) {
+  const Icon = item.icon
+  return (
+    <Link
+      href={item.href}
+      title={rail ? item.label : undefined}
+      aria-label={rail ? item.label : undefined}
+      aria-current={active ? 'page' : undefined}
+      className={`flex items-center text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90E0EF] ${
+        rail ? 'mx-auto h-11 w-11 justify-center rounded-xl' : 'gap-3 rounded-full px-3.5 py-2.5'
+      } ${
+        active
+          ? rail ? 'bg-[#087DB9] text-white shadow-[0_8px_18px_-10px_rgba(8,125,185,0.9)]' : 'bg-white text-[#03045E]'
+          : 'text-white/70 hover:bg-white/[0.08] hover:text-white'
+      }`}
+    >
+      <Icon size={19} strokeWidth={1.75} className={active && !rail ? 'text-[#087DB9]' : ''} />
+      {!rail && <span className="truncate">{item.label}</span>}
+    </Link>
   )
 }
