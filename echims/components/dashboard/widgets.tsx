@@ -91,7 +91,9 @@ export function WidgetShell({ id, title, note, link, action, style, size, classN
         {link ? <CardLink {...link} /> : action}
       </div>
       {/* The card itself carries the entrance animation (opacity held at 1), so dimming goes on this inner box. */}
-      <div className={`scroll-subtle mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto transition-opacity duration-200 ${refreshing ? 'opacity-50' : ''}`}>
+      {/* -mx-2 px-2: rows widen their hover background 8px into the card padding (-mx-2). A scroll box clips
+          anything outside it, so it gets the same 8px, keeping content aligned and hover rows unclipped. */}
+      <div className={`scroll-subtle -mx-2 mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto px-2 transition-opacity duration-200 ${refreshing ? 'opacity-50' : ''}`}>
         {loading ? (
           // Only reached when a card has no data after the page is showing; first loads stay behind the page loader.
           <div role="status" aria-label={`Loading ${title}`} className="space-y-2.5">

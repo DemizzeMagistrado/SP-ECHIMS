@@ -611,7 +611,7 @@ function AlertsWorkspace() {
         <p>Please sign in to access alerts.</p>
       ) : null}
       {/* Tab content fades in with the previous tab's height held, so the page below does not jump. */}
-      <TabPanel tabKey={tab}>
+      <TabPanel tabKey={tab} className="space-y-6">
       {data?.canConfigure && tab === "MONITORING" && (
         <div role="tabpanel" aria-label="Evaluation monitoring">
           <EvaluationMonitoring monitoring={data.monitoring} />

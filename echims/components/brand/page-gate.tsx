@@ -95,7 +95,11 @@ export function PageGate({ children }: { children: ReactNode }) {
  * content until its data is in, then fades it in (no layout jump). A slow tab shows the small
  * logo loader in the reserved space.
  */
-export function TabPanel({ tabKey, children }: { tabKey: string; children: ReactNode }) {
+export function TabPanel({ tabKey, children, className = '' }: {
+  tabKey: string; children: ReactNode
+  /** Layout for the tab's blocks (e.g. space-y-6), since they no longer sit directly in the page's stack. */
+  className?: string
+}) {
   const [pending, report] = usePending()
   const panel = useRef<HTMLDivElement>(null)
   // The first tab starts visible: its data already holds the page gate, so it appears with the page
@@ -132,7 +136,7 @@ export function TabPanel({ tabKey, children }: { tabKey: string; children: React
     <PendingContext.Provider value={report}>
       <div ref={panel} className="tab-panel" data-shown={shown} style={{ minHeight }}>
         {!shown && <div className="tab-loader"><LogoLoader size="section" /></div>}
-        <div className="tab-content" aria-hidden={!shown || undefined}>{children}</div>
+        <div className={`tab-content ${className}`} aria-hidden={!shown || undefined}>{children}</div>
       </div>
     </PendingContext.Provider>
   )
