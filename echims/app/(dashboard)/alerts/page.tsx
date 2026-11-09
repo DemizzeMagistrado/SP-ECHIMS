@@ -18,6 +18,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { offlineScope } from "@/lib/offline/fetch";
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
+import { readPageCache, writePageCache } from '@/lib/page-cache'
 type Rule = {
   rule_id: number;
   rule_name: string;
@@ -299,9 +300,10 @@ export default function AlertsPage() {
 function AlertsWorkspace() {
   const {user,isReady:authReady}=useAuth();
   const owner=user?.id??null;
-  const [data, setData] = useState<Data | null>(null);
+  // A revisit starts from the last result for this account (no loader) and refreshes it quietly.
+  const [data, setData] = useState<Data | null>(() => readPageCache<Data>(owner, "alerts:1") ?? null);
   const [loading, setLoading] = useState(false);
-  usePageLoading(!authReady || loading);
+  usePageLoading(!authReady || (loading && !data));
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [tab, setTab] = useState<
@@ -326,7 +328,8 @@ function AlertsWorkspace() {
   const load = useCallback(async () => {
     if (!owner) return;
     const token = ++sequence.current;
-    setLoading(true);
+    const cacheKey = `alerts:${page}`;
+    if (!readPageCache(owner, cacheKey)) setLoading(true);
     setError("");
     try {
       const body: Data = await jsonResponse(
@@ -341,6 +344,7 @@ function AlertsWorkspace() {
       )
         throw new Error("The response does not match the current account.");
       setData(body);
+      writePageCache(owner, cacheKey, body);
     } catch (cause) {
       if (sequence.current === token) {
         setData(null);

@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { TransitionOverlay } from "@/components/brand/loading-gate";
+import { clearPageCache } from "@/lib/page-cache";
 
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
@@ -793,6 +794,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       logout: async () => {
 
         setSigningOut(true);
+        clearPageCache();
         lockOfflineDevice();
         setUser(null);
         if (user?.id) await forgetIdentity(user.id).catch(() => {});

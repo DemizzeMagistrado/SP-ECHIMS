@@ -29,6 +29,7 @@ import {
 import HealthActivityCalendar from './health-activity-calendar'
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
+import { readPageCache, writePageCache } from '@/lib/page-cache'
 
 /* =========================================================
    TYPES
@@ -380,17 +381,23 @@ export default function HealthActivitiesClient() {
  if(!user)return <p>Please sign in to view health activities.</p>
  return <ActivityWorkspace key={user.id+':'+offlineScope(user)}/>
 }
+type ActivitiesCache = { currentUserId: string | null; activities: Activity[]; role: Role | null }
+
 function ActivityWorkspace() {
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const { user } = useAuth()
+  // A revisit starts from the last result for this account and scope, then refreshes quietly.
+  const cacheKey = user ? 'health-activities:' + offlineScope(user) : ''
+  const [cached] = useState(() => readPageCache<ActivitiesCache>(user?.id, cacheKey))
+  const [currentUserId, setCurrentUserId] = useState<string | null>(cached?.currentUserId ?? null)
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null)
   const [statusActivity, setStatusActivity] = useState<Activity | null>(null)
   const [activeTab, setActiveTab] = useState<'Requests' | 'Calendar'>('Requests')
   // NIP-USR012 — Type filter persists across Requests ↔ Calendar so switching
   // tabs never surprises the user with different data.
   const [typeFilter, setTypeFilter] = useState<string>('ALL')
-  const [activities, setActivities] = useState<Activity[]>([])
-  const [role, setRole] = useState<Role | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [activities, setActivities] = useState<Activity[]>(cached?.activities ?? [])
+  const [role, setRole] = useState<Role | null>(cached?.role ?? null)
+  const [loading, setLoading] = useState(!cached)
   usePageLoading(loading)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
@@ -403,7 +410,7 @@ function ActivityWorkspace() {
   /* LOAD ACTIVITIES */
 
   const loadActivities = useCallback(async () => {
-    setLoading(true)
+    if (!readPageCache(user?.id, cacheKey)) setLoading(true)
     setError('')
 
     try {
@@ -421,6 +428,7 @@ function ActivityWorkspace() {
       setCurrentUserId(data.currentUserId ?? null)
       setActivities(data.activities ?? [])
       setRole(data.role ?? null)
+      writePageCache<ActivitiesCache>(user?.id, cacheKey, { currentUserId: data.currentUserId ?? null, activities: data.activities ?? [], role: data.role ?? null })
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Unable to load health activities.',
@@ -428,7 +436,7 @@ function ActivityWorkspace() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [user?.id, cacheKey])
 
   useEffect(() => {
     void loadActivities()

@@ -25,6 +25,7 @@ import { SupplementationSmsPanel } from "@/components/supplementation/supplement
 import type { Session, User } from "@supabase/supabase-js";
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
+import { readPageCache, writePageCache } from '@/lib/page-cache'
 
 type Child = {
   child_id: number;
@@ -422,7 +423,7 @@ export default function SupplementsPage() {
     const user = ownerRef.current;
     if (!user) return;
     const run = ++generation.current;
-    setLoading(true);
+    if (!readPageCache(user, "supplementation")) setLoading(true);
 
     try {
       if (!navigator.onLine) {
@@ -481,6 +482,7 @@ export default function SupplementsPage() {
       };
 
       setData(prepared);
+      writePageCache(user, "supplementation", prepared);
       setCacheDate(null);
       setError("");
 
@@ -519,7 +521,9 @@ export default function SupplementsPage() {
 
       setOwner(id);
 
-      setData(null);
+      // A revisit starts from the last result for this account and refreshes it quietly.
+      const cached = readPageCache<Data>(id, "supplementation");
+      setData(cached ?? null);
 
       setDrafts([]);
 
@@ -535,7 +539,7 @@ export default function SupplementsPage() {
 
       setError("");
 
-      setLoading(Boolean(id));
+      setLoading(Boolean(id) && !cached);
 
       if (!id) {
         setError("Please sign in to access supplementation.");

@@ -1,5 +1,7 @@
 "use client";
-import { offlineFetch as fetch } from '@/lib/offline/fetch'
+import { offlineFetch as fetch, offlineScope } from '@/lib/offline/fetch'
+import { useAuth } from '@/components/auth/auth-provider'
+import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { useEffect, useRef, useState } from "react";
 import { ReportDownloadButtons } from "@/components/reports/report-download-buttons";
 import { InventoryReportFormat } from "@/components/reports/inventory-report-format";
@@ -102,15 +104,19 @@ function stamp(v: string | null) {
   );
 }
 export default function ReportsPage() {
-  const [options, setOptions] = useState<Options | null>(null),
+  const { user } = useAuth();
+  // A revisit starts from the last report list for this account and scope, then refreshes quietly.
+  const cacheKey = user ? "reports:" + offlineScope(user) : "";
+  const [cachedOptions] = useState(() => readPageCache<Options>(user?.id, cacheKey + ":1"));
+  const [options, setOptions] = useState<Options | null>(cachedOptions ?? null),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
-    [loading, setLoading] = useState(true),
+    [loading, setLoading] = useState(!cachedOptions),
     [busy, setBusy] = useState(false),
     [page, setPage] = useState(1),
     [reload, setReload] = useState(0),
     [section, setSection] = useState<"SAVED" | "PREVIEW">("SAVED"),
-    [module, setModule] = useState("CHILD"),
+    [module, setModule] = useState(() => cachedOptions && !cachedOptions.modules.includes("CHILD") ? cachedOptions.modules[0] : "CHILD"),
     [period, setPeriod] = useState("MONTHLY"),
     [range, setRange] = useState({ start: "", end: "" }),
     [barangay, setBarangay] = useState(""),
@@ -140,7 +146,7 @@ export default function ReportsPage() {
     const controller = new AbortController();
     let current = true;
     const timeout = setTimeout(() => controller.abort(), 20000);
-    setLoading(true);
+    if (!readPageCache(user?.id, cacheKey + ":" + page)) setLoading(true);
     void fetch("/api/reports?page=" + page, {
       cache: "no-store",
       signal: controller.signal,
@@ -155,6 +161,7 @@ export default function ReportsPage() {
           throw new Error("Invalid report-list response.");
         if (current) {
           setOptions(b);
+          writePageCache(user?.id, cacheKey + ":" + page, b);
           setModule((m) => (b.modules.includes(m) ? m : b.modules[0]));
           setError("");
         }
@@ -178,7 +185,7 @@ export default function ReportsPage() {
       clearTimeout(timeout);
       controller.abort();
     };
-  }, [page, reload]);
+  }, [page, reload, user?.id, cacheKey]);
   function clear() {
     generation.current++;
     request.current?.abort();
