@@ -13,7 +13,7 @@
 // sit side by side share one fixed height and columns align to the top, so a tab
 // switch, a loading state or a long list never resizes a neighbouring card.
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
 import {
@@ -27,10 +27,9 @@ import {
   card, fetcher, focusRing, rise, stagger, SIZE,
   ApprovalsWidget, BarangayRankingWidget, ExpiringBatchesWidget, FicWidget, MasterlistWidget,
   MyBarangayWidget, NutritionBreakdownWidget, OfflineSyncWidget, QuickActionsWidget, RecentAlertsWidget,
-  SystemActivityWidget, UpcomingWidget, WeighingDueWidget, RevealContext, type QuickAction,
+  SystemActivityWidget, UpcomingWidget, WeighingDueWidget, type QuickAction,
 } from './widgets'
-import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
-import { LoadingGate } from '@/components/brand/loading-gate'
+import { Spinner } from '@/components/brand/logo-loader'
 
 type Payload = {
   role: string
@@ -133,28 +132,8 @@ export function DashboardOverview() {
   const refreshing = isLoading && !!data
   const dim = `transition-opacity duration-200 ${refreshing ? 'opacity-50' : ''}`
 
-  // First load: one page loader and nothing else. Every card mounts hidden (so it fetches) and
-  // reports whether it is still on its first load; once the summary and all cards are in, they
-  // appear together and the staggered entrance plays once. Later refreshes never re-hide them.
-  const [cardsLoading, setCardsLoading] = useState<Record<string, boolean>>({})
-  const report = useCallback((id: string, loading: boolean) =>
-    setCardsLoading((c) => (c[id] === loading ? c : { ...c, [id]: loading })), [])
-  const active = isReady && Boolean(role)
-  // Cards report in their effects, which run before this one, so one render later every card has reported.
-  const [armed, setArmed] = useState(false)
-  const [revealed, setRevealed] = useState(false)
-  useEffect(() => { if (active) setArmed(true) }, [active])
-  useEffect(() => {
-    if (!revealed && armed && (data || error) && !Object.values(cardsLoading).some(Boolean)) setRevealed(true)
-  }, [revealed, armed, data, error, cardsLoading])
-  useEffect(() => {
-    if (!armed || revealed) return
-    // shortcut: a card that never answers is shown in its own loading state after 10s instead of holding the page.
-    const t = window.setTimeout(() => setRevealed(true), 10_000)
-    return () => window.clearTimeout(t)
-  }, [armed, revealed])
-
-  if (!isReady) return <LogoLoader label="Loading dashboard…" />
+  // The session gate above only renders this for a resolved user; the page gate holds it until every card has data.
+  if (!isReady) return null
   if (!role) return <div className={`${card} p-10 text-center text-brand-muted`}>Dashboard unavailable for this account.</div>
 
   const modules = roleModules[role] ?? []
@@ -275,9 +254,6 @@ export function DashboardOverview() {
   const twoColumns = main.length > 0 && side.length > 0
 
   return (
-    <RevealContext.Provider value={report}>
-    {/* Cards stay mounted (and fetching, at full size) behind the gate; their entrance plays on reveal. */}
-    <LoadingGate ready={revealed} label="Loading dashboard…" doneLabel="Dashboard loaded">
     <div className="space-y-5 lg:space-y-6">
       {/* 1. Greeting + date range */}
       <header className="relative isolate overflow-hidden rounded-2xl bg-brand-navy px-5 py-4 text-white sm:px-6">
@@ -285,7 +261,7 @@ export function DashboardOverview() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <p className={`font-serif text-base italic text-brand-aqua ${rise}`}>{greeting()}</p>
-            <h1 className={`truncate text-2xl font-bold sm:text-[1.75rem] ${rise}`} style={stagger(1)}>
+            <h1 className={`truncate text-2xl outline-none font-bold sm:text-[1.75rem] ${rise}`} style={stagger(1)}>
               {firstName ? `Welcome back, ${firstName}` : 'Welcome back'}
             </h1>
             <div className={`mt-2 flex flex-wrap items-center gap-2 text-sm ${rise}`} style={stagger(2)}>
@@ -358,8 +334,6 @@ export function DashboardOverview() {
         </div>
       )}
     </div>
-    </LoadingGate>
-    </RevealContext.Provider>
   )
 }
 

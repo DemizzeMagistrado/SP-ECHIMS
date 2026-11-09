@@ -11,13 +11,13 @@ import dynamic from 'next/dynamic'
 import useSWR from 'swr'
 import Link from 'next/link'
 import { useMemo } from 'react'
-import { LogoLoader } from '@/components/brand/logo-loader'
+import { PagePending } from '@/components/brand/page-gate'
 
 const BarangayMap = dynamic(() => import('@/components/geospatial/barangay-map-impl'), {
   ssr: false,
   loading: () => (
     <div className="h-[560px] rounded-xl border border-border bg-muted/30">
-      <LogoLoader size="section" label="Loading map…" />
+      <PagePending />
     </div>
   ),
 })

@@ -28,6 +28,7 @@ import {
 
 import HealthActivityCalendar from './health-activity-calendar'
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
+import { usePageLoading } from '@/components/brand/page-gate'
 
 /* =========================================================
    TYPES
@@ -390,6 +391,7 @@ function ActivityWorkspace() {
   const [activities, setActivities] = useState<Activity[]>([])
   const [role, setRole] = useState<Role | null>(null)
   const [loading, setLoading] = useState(true)
+  usePageLoading(loading)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')

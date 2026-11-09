@@ -17,6 +17,7 @@ import {
   type ReportRow,
 } from "@/lib/reports/report-utils";
 import { LogoLoader } from '@/components/brand/logo-loader'
+import { usePageLoading } from '@/components/brand/page-gate'
 type Options = {
   currentUserId: string;
   role: string;
@@ -120,6 +121,7 @@ export default function ReportsPage() {
     [detail, setDetail] = useState<Detail | null>(null),
     [remarks, setRemarks] = useState(""),
     [visible, setVisible] = useState(100);
+  usePageLoading(loading);
   const intent = useRef<{ signature: string; id: string } | null>(null),
     saving = useRef(false),
     active = useRef(true),

@@ -17,6 +17,7 @@ import { SmsSimulationPanel } from "@/components/alerts/sms-simulation-panel";
 import { useAuth } from "@/components/auth/auth-provider";
 import { offlineScope } from "@/lib/offline/fetch";
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
+import { usePageLoading } from '@/components/brand/page-gate'
 type Rule = {
   rule_id: number;
   rule_name: string;
@@ -300,6 +301,7 @@ function AlertsWorkspace() {
   const owner=user?.id??null;
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(false);
+  usePageLoading(!authReady || loading);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [tab, setTab] = useState<

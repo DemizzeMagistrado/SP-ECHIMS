@@ -33,6 +33,7 @@ import {
   X,
 } from "lucide-react";
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
+import { usePageLoading } from '@/components/brand/page-gate'
 type Relation<T> = T | T[] | null;
 type Barangay = {
   barangay_id: number;
@@ -1149,6 +1150,7 @@ export default function NutritionPage() {
   const [reportView, setReportView] = useState<ReportView>("Assessments");
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  usePageLoading(!authReady);
   const [online, setOnline] = useState(true);
   const [cachedResponse, setCachedResponse] =
     useState<NutritionResponse | null>(null);

@@ -15,8 +15,10 @@ type Phase = 'loading' | 'fading' | 'done'
  * keepMounted=false renders children only while ready (used where rendering early would show
  * the wrong thing, e.g. role guards with no user).
  */
-export function LoadingGate({ ready, children, label = 'Loading…', doneLabel = 'Page loaded', keepMounted = true, className = '' }: {
+export function LoadingGate({ ready, children, label = 'Loading…', doneLabel = 'Page loaded', keepMounted = true, className = '', onDone }: {
   ready: boolean; children: ReactNode; label?: string; doneLabel?: string; keepMounted?: boolean; className?: string
+  /** Runs once the content is fully shown; replaces the default focus move. */
+  onDone?: () => void
 }) {
   const overlay = useSyncExternalStore(subscribe, getOverlayUp, () => false)
   // Taking over from a loader already on screen: appear at once, no intro, no minimum.
@@ -48,10 +50,11 @@ export function LoadingGate({ ready, children, label = 'Loading…', doneLabel =
     if (phase !== 'fading') return
     const t = window.setTimeout(() => {
       setPhase('done')
-      if (shown.current) content.current?.focus({ preventScroll: true })
+      if (onDone) onDone()
+      else if (shown.current) content.current?.focus({ preventScroll: true })
     }, FADE)
     return () => window.clearTimeout(t)
-  }, [phase])
+  }, [phase, onDone])
 
   return (
     <div className={`loading-gate ${className}`} data-state={phase}>
@@ -65,7 +68,7 @@ export function LoadingGate({ ready, children, label = 'Loading…', doneLabel =
           {children}
         </div>
       )}
-      <p role="status" aria-live="polite" className="sr-only">{phase === 'done' && shown.current ? doneLabel : ''}</p>
+      {doneLabel && <p role="status" aria-live="polite" className="sr-only">{phase === 'done' && shown.current ? doneLabel : ''}</p>}
     </div>
   )
 }

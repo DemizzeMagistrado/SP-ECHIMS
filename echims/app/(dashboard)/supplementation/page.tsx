@@ -24,6 +24,7 @@ import { SupplementStockRequestsPanel } from "@/components/supplementation/suppl
 import { SupplementationSmsPanel } from "@/components/supplementation/supplementation-sms-panel";
 import type { Session, User } from "@supabase/supabase-js";
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
+import { usePageLoading } from '@/components/brand/page-gate'
 
 type Child = {
   child_id: number;
@@ -378,6 +379,7 @@ export default function SupplementsPage() {
 
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
+  usePageLoading(loading);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [online, setOnline] = useState(true);

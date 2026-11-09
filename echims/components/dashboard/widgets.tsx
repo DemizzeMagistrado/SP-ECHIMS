@@ -13,7 +13,7 @@ import { listQueuedVaccinations } from '@/lib/vaccination-offline'
 // Every widget has a fixed height for its size, so loading, empty, tab switches and
 // long lists never resize the cards beside it; long lists scroll or cap at 5 rows.
 
-import { createContext, useContext, useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
 import { AlertCircle, AlertTriangle, ArrowUpRight, BellOff, Info } from 'lucide-react'
@@ -48,8 +48,6 @@ function useWidget<T>(name: string, range?: Range) {
   return { data, error, isLoading: isLoading && !data, refreshing: isLoading && !!data }
 }
 
-/** The overview listens here so it can keep every card hidden until all of them have their first data. */
-export const RevealContext = createContext<((id: string, loading: boolean) => void) | null>(null)
 
 const humanize = (s: string) => s.toLowerCase().replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
 
@@ -80,9 +78,6 @@ type ShellProps = WidgetProps & {
 
 // Card frame with the three states every widget needs: loading, error, empty.
 export function WidgetShell({ id, title, note, link, action, style, size, className = '', loading, refreshing = false, error, empty, children }: ShellProps) {
-  const report = useContext(RevealContext)
-  useEffect(() => { report?.(id, loading) }, [report, id, loading])
-  useEffect(() => () => report?.(id, false), [report, id])
   return (
     <section aria-labelledby={`${id}-heading`} aria-busy={loading || refreshing}
       className={`${card} flex min-w-0 flex-col p-5 sm:p-6 ${size ? SIZE[size] : ''} ${rise} ${className}`} style={style}>
@@ -96,7 +91,7 @@ export function WidgetShell({ id, title, note, link, action, style, size, classN
       {/* The card itself carries the entrance animation (opacity held at 1), so dimming goes on this inner box. */}
       <div className={`scroll-subtle mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto transition-opacity duration-200 ${refreshing ? 'opacity-50' : ''}`}>
         {loading ? (
-          // Only reached when a card loads after the overview is already showing; first loads stay behind the page loader.
+          // Only reached when a card has no data after the page is showing; first loads stay behind the page loader.
           <div role="status" aria-label={`Loading ${title}`} className="space-y-2.5">
             {Array.from({ length: size === 'tall' ? 5 : 3 }).map((_, i) => <div key={i} className="h-8 animate-pulse rounded-lg bg-brand-ice motion-reduce:animate-none" />)}
           </div>
