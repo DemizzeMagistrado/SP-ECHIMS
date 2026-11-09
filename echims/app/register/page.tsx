@@ -7,6 +7,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import type { UserRole } from "@/lib/echims-data";
 import { createClient } from "@/lib/supabase/client";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { LogoLoader } from "@/components/brand/logo-loader";
 /* =========================================================
    LOCATION TYPES
 ========================================================= */
@@ -126,6 +127,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [entering, setEntering] = useState(false);
   const [restored, setRestored] = useState(false);
   const [locationData, setLocationData] =
     useState<RegistrationLocations>(emptyLocations);
@@ -414,19 +416,25 @@ export default function RegisterPage() {
       barangay_ids: isRHM ? form.barangay_ids : [],
       password: form.password,
     });
-    setLoading(false);
     if (result.error) {
+      setLoading(false);
       setError(result.error);
       return;
     }
     sessionStorage.removeItem(STORAGE_KEY);
     if (result.needsEmailConfirmation) {
+      setLoading(false);
       setSuccess(
         "Registration submitted. Please check your email and confirm your account.",
       );
       return;
     }
-    router.push("/login");
+    // signUp returned a session: the account is signed in (pending approval). Go straight to the
+    // dashboard, which shows the pending state, without dropping back to the form or /login.
+    setEntering(true);
+    await createClient().auth.getSession();
+    router.replace("/dashboard");
+    router.refresh();
   }
   /* =======================================================
      STYLES
@@ -439,6 +447,11 @@ export default function RegisterPage() {
   ======================================================= */
   return (
     <AuthShell scrollable>
+      {entering && (
+        <div className="fixed inset-0 z-[100] bg-[linear-gradient(180deg,#CAF0F8_0%,#E4F6FA_40%,#F1FAFC_100%)] animate-in fade-in duration-300">
+          <LogoLoader size="page" label="Opening your account…" />
+        </div>
+      )}
           <div className="auth-stagger">
               <h2 className="font-display text-3xl font-bold tracking-tight">
                 Create an account
@@ -687,7 +700,7 @@ export default function RegisterPage() {
                     </div>
                     {locationLoading && (
                       <p className="text-xs text-gray-500">
-                        Loading workplace options...
+                        <span role="status" className="flex items-center gap-2"><LogoLoader size="inline" label="Loading workplace options…" />Loading workplace options…</span>
                       </p>
                     )}
                     {locationError && (
@@ -876,6 +889,7 @@ export default function RegisterPage() {
                   disabled={loading}
                   className="h-12 w-full rounded-lg bg-[#087DB9] px-5 font-semibold text-white shadow-sm shadow-[#087DB9]/30 transition-colors hover:bg-[#056d9e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                 >
+                  {loading && <LogoLoader size="inline" label="Creating account" className="mr-2" />}
                   {loading ? "Creating account…" : "Create account"}
                 </button>
               </form>

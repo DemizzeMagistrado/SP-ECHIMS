@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
@@ -367,6 +367,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
 
   const [isReady, setIsReady] = useState(false);
+  const userRef = useRef<AuthUser | null>(null);
+  userRef.current = user;
 
   const supabase = createClient();
 
@@ -458,7 +460,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: listener } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
       // Do not await Supabase operations inside its auth callback.
       if (event === 'SIGNED_OUT') { if (!navigator.onLine && !isOfflineLocked()) window.setTimeout(() => { if(mounted) void loadUser(null); }, 0); else { generation++; void clearActiveIdentity().catch(() => {}); if(mounted){setUser(null);setIsReady(true);} } }
-      else window.setTimeout(() => { if(mounted) void loadUser(session?.user??null); },0);
+      else {
+        // A new sign-in (not the token refresh or tab-focus SIGNED_IN for the same user) holds pages
+        // on their loader until the profile resolves, instead of rendering a signed-out view.
+        if (event === 'SIGNED_IN' && session?.user.id !== userRef.current?.id && mounted) setIsReady(false);
+        window.setTimeout(() => { if(mounted) void loadUser(session?.user??null); },0);
+      }
     });
     const storageChanged = () => { if (isOfflineLocked()) { generation++; if(mounted){setUser(null);setIsReady(true);} } };
     window.addEventListener('storage', storageChanged);

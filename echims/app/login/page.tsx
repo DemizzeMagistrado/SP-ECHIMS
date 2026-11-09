@@ -1,14 +1,17 @@
 'use client'
 
 import Link from 'next/link'
-import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 import { FormEvent, useState, useEffect } from 'react'
 import { useAuth } from '@/components/auth/auth-provider'
+import { createClient } from '@/lib/supabase/client'
+import { useRouter } from '@/lib/offline/navigation'
 import { AuthShell } from '@/components/auth/auth-shell'
 import { LogoLoader } from '@/components/brand/logo-loader'
 
 export default function LoginPage() {
   const { login } = useAuth()
+  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -24,20 +27,20 @@ export default function LoginPage() {
     if(busy)return
     setBusy(true)
     let result: {error?:string}
-    try{result=await login(email,password)}catch{result={error:'Unable to sign in. Check your connection or saved offline account.'}}finally{setBusy(false)}
+    try{result=await login(email,password)}catch{result={error:'Unable to sign in. Check your connection or saved offline account.'}}
     if (result.error) {
+      // Only an error re-enables the form; on success it stays busy until the dashboard replaces this page.
+      setBusy(false)
       setError(result.error)
       return
     }
-    // Hard navigation (not router.push) so the dashboard mounts with the auth cookie
-    // already visible to getUser()/SSR. router.push races the just-written session
-    // cookie — on the first try the layout sees isReady=true, user=null, and bounces
-    // back to /login; a second attempt works only because the cookie is finally there.
-    // Cover the page with the dashboard's opening color first, so the hard navigation
-    // reads as one continuous transition instead of a blank flash.
     setEntering(true)
-    const target=navigator.onLine?'/dashboard':'/offline?path=%2Fdashboard'
-    window.setTimeout(()=>window.location.assign(target),280)
+    if (!navigator.onLine) { router.replace('/offline?path=%2Fdashboard'); return }
+    // signInWithPassword has written the session cookie; confirm it before the server render reads it.
+    await createClient().auth.getSession()
+    router.replace('/dashboard')
+    // Inside the offline shell the router's refresh is a full reload, which would cancel the navigation.
+    if (window.location.pathname !== '/offline') router.refresh()
   }
 
   return (
@@ -70,7 +73,7 @@ export default function LoginPage() {
         <label className="flex w-fit items-center gap-2 text-sm text-[#5B6478]"><input type="checkbox" className="h-4 w-4 accent-[#087DB9]" />Remember me</label>
         {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 animate-in fade-in slide-in-from-top-1 duration-200">{error}</p>}
         <button type="submit" disabled={busy} className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#087DB9] font-semibold text-white shadow-sm shadow-[#087DB9]/30 transition-colors hover:bg-[#056d9e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70">
-          {busy && <Loader2 size={18} aria-hidden className="animate-spin" />}
+          {busy && <LogoLoader size="inline" label="Signing in" />}
           {busy?'Signing in…':offline?'Sign in offline':'Sign in'}
         </button>
       </form>
