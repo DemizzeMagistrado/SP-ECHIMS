@@ -21,9 +21,10 @@ import { manilaTodayYMD } from '@/lib/nip-schedule'
 import { alertDestination } from '@/lib/alerts/alert-destination'
 import { Donut } from './mini-charts'
 
-// Whole entrance under ~500ms: 35ms steps capped at 6 (210ms) + a 300ms rise.
-export const stagger = (i: number) => ({ animationDelay: `${Math.min(i, 6) * 35}ms` })
-export const rise = 'animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:slide-in-from-bottom-0 motion-reduce:duration-150'
+// Pages enter as blocks (see .page-gate in globals.css), not card by card. Kept as no-ops so
+// call sites stay unchanged.
+export const stagger = (_i: number) => ({})
+export const rise = ''
 export const card = 'rounded-2xl border border-brand-line bg-white'
 export const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-sky'
 

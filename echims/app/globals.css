@@ -416,3 +416,20 @@ html { scrollbar-gutter: stable; }
   opacity: 0; transform: scaleX(1);
   transition: transform 200ms var(--ease-smooth), opacity 250ms var(--ease-smooth) 120ms;
 }
+
+/* Page transitions. Only the content area moves; the sidebar and top bar stay in the layout.
+   Exit: the current page fades out as soon as a link is clicked (NavProgress sets data-navigating). */
+html[data-navigating] .page-gate { opacity: 0; transition: opacity 120ms var(--ease-smooth); }
+/* Enter: the page's top-level blocks rise as one group, header first, ~40ms apart (whole entrance < 400ms).
+   backwards fill: no transform remains afterwards, so fixed-position modals keep using the viewport. */
+@keyframes block-rise { from { opacity: 0; transform: translateY(6px); } }
+.page-gate > .gate-content > * > * { animation: block-rise 250ms var(--ease-smooth) backwards; }
+.page-gate > .gate-content > * > :nth-child(2) { animation-delay: 40ms; }
+.page-gate > .gate-content > * > :nth-child(3) { animation-delay: 80ms; }
+.page-gate > .gate-content > * > :nth-child(n + 4) { animation-delay: 120ms; }
+:root { --fade: 250ms; }
+@media (prefers-reduced-motion: reduce) {
+  :root { --fade: 120ms; }
+  @keyframes block-rise { from { opacity: 0; } }
+  .page-gate > .gate-content > * > * { animation-duration: 120ms; animation-delay: 0ms !important; }
+}

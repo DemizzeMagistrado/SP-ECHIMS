@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 // Shared timing for every loader → content handoff.
 export const SHOW_DELAY = 200 // fast loads never show the loader
 export const MIN_SHOWN = 400 // once shown, it stays this long so it never blinks
-export const FADE = 300 // crossfade length; CSS uses the same value
+export const FADE = 250 // crossfade length; matches --fade in globals.css
 
 // Small shared store: which logo loaders are on screen, which gates still wait for data,
 // and whether a full-screen transition overlay (sign-in / sign-out) is up.
