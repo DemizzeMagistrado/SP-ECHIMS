@@ -101,6 +101,8 @@ type HouseholdRow = {
   household_id: number;
   household_no: string | null;
   family_serial_no?: string | null;
+  water_source_type?: string | null;
+  toilet_facility_type?: string | null;
   household_address: string | null;
   purok: string | null;
   is_4ps_member: boolean | null;
@@ -809,8 +811,8 @@ export function ChildProfileView({childId}: {childId: string}) {
             />
             <InfoRow label="RHU" value={rhu?.rhu_name || "—"} />
             <InfoRow label="4Ps member" value={household ? (household.is_4ps_member ? "Yes" : "No") : "—"} />
-            <InfoRow label="Water source" value={profile?.water_source_type || "—"} />
-            <InfoRow label="Toilet facility" value={profile?.toilet_facility_type || "—"} />
+            <InfoRow label="Water source" value={household?.water_source_type || profile?.water_source_type || "—"} />
+            <InfoRow label="Toilet facility" value={household?.toilet_facility_type || profile?.toilet_facility_type || "—"} />
           </dl>
           <div id="household-members" className="mt-4 scroll-mt-24 border-t border-border pt-4">
             <h3 className="text-sm font-semibold text-brand-navy">

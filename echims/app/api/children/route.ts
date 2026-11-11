@@ -149,7 +149,7 @@ export async function GET(request: Request) {
         ? auth.supabase
             .from("household")
             .select(
-              "household_id, household_no, family_serial_no, household_address, purok, is_4ps_member",
+              "household_id, household_no, family_serial_no, household_address, purok, is_4ps_member, water_source_type, toilet_facility_type",
             )
             .eq("household_id", child.household_id)
             .maybeSingle()
@@ -318,6 +318,9 @@ export async function POST(request: Request) {
         purok: String(household.purok ?? "").trim() || null,
         is_4ps_member: Boolean(household.is_4ps_member),
         barangay_id: barangayId,
+        // Water/toilet belong to the household (same as the offline upload path).
+        water_source_type: String(body.water_source_type ?? "").trim() || null,
+        toilet_facility_type: String(body.toilet_facility_type ?? "").trim() || null,
       })
       .select("household_id")
       .single();

@@ -76,19 +76,27 @@ DROP TRIGGER IF EXISTS echims_assign_family_serial_no ON public.household;
 -- Backfill. The household information guard requires a signed-in encoder for any update, so it
 -- is paused for this one statement (this transaction only).
 ALTER TABLE public.household DISABLE TRIGGER echims_guard_household_information;
-WITH numbered AS (
+-- Numbering continues after any FSN already issued in the barangay, so a re-run never reuses one.
+WITH issued AS (
+  SELECT barangay_id, max(((pg_catalog.regexp_match(family_serial_no,'-([0-9]+)$'))[1])::integer) AS top
+    FROM public.household WHERE family_serial_no IS NOT NULL GROUP BY barangay_id
+), numbered AS (
   SELECT h.household_id, h.barangay_id,
-         pg_catalog.row_number() OVER (PARTITION BY h.barangay_id ORDER BY h.household_id) AS n
-    FROM public.household h WHERE h.family_serial_no IS NULL
+         COALESCE(i.top,0) + pg_catalog.row_number() OVER (PARTITION BY h.barangay_id ORDER BY h.household_id) AS n
+    FROM public.household h LEFT JOIN issued i ON i.barangay_id=h.barangay_id
+   WHERE h.family_serial_no IS NULL
 )
 UPDATE public.household h
    SET family_serial_no=public.echims_fsn_prefix(x.barangay_id)||'-'||pg_catalog.lpad(x.n::text,4,'0')
   FROM numbered x WHERE x.household_id=h.household_id;
 ALTER TABLE public.household ENABLE TRIGGER echims_guard_household_information;
 
-INSERT INTO public.household_fsn_counter(barangay_id,last_number)
-SELECT barangay_id, count(*) FROM public.household GROUP BY barangay_id
-ON CONFLICT (barangay_id) DO UPDATE SET last_number=EXCLUDED.last_number;
+-- Seed each barangay's counter with the highest number issued (not a count: deleted households
+-- would make a count too low and the next FSN would collide). Never lowers an existing counter.
+INSERT INTO public.household_fsn_counter AS c(barangay_id,last_number)
+SELECT barangay_id, max(((pg_catalog.regexp_match(family_serial_no,'-([0-9]+)$'))[1])::integer)
+  FROM public.household GROUP BY barangay_id
+ON CONFLICT (barangay_id) DO UPDATE SET last_number=GREATEST(c.last_number,EXCLUDED.last_number);
 
 CREATE TRIGGER echims_assign_family_serial_no BEFORE INSERT OR UPDATE ON public.household
  FOR EACH ROW EXECUTE FUNCTION public.echims_assign_family_serial_no();

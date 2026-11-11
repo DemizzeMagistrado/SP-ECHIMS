@@ -84,7 +84,7 @@ export function householdAttributes(list: Member[], field: string) {
       m.household.household_id ?? m.child.household_id ?? "unknown",
     );
     if (!map.has(id)) map.set(id, { h: m.household, values: new Set() });
-    const raw = m.profile[field];
+    const raw = m.household[field] ?? m.profile[field];
     if (typeof raw === "string" && raw.trim())
       map.get(id)!.values.add(raw.trim());
   }
@@ -168,8 +168,8 @@ export const registerSections: { title: string; columns: { label: string; cell: 
       { label: "Household No.", cell: (m) => value(m.household.household_no ?? m.household.household_id ?? m.child.household_id) },
       { label: "Barangay", cell: (m) => value(m.household.barangay_name ?? m.child.barangay_name) },
       { label: "4Ps", cell: (m) => fourPs(m.household) },
-      { label: "Water source", cell: (m) => value(m.profile.water_source_type) },
-      { label: "Toilet facility", cell: (m) => value(m.profile.toilet_facility_type) },
+      { label: "Water source", cell: (m) => value(m.household.water_source_type ?? m.profile.water_source_type) },
+      { label: "Toilet facility", cell: (m) => value(m.household.toilet_facility_type ?? m.profile.toilet_facility_type) },
     ],
   },
 ];

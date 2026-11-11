@@ -1,8 +1,7 @@
 -- CP-REV01 §1 — Child / Guardian / Household sections.
 -- Additive: new nullable child columns for the DOH Child Immunization Record card (birth weight,
 -- birth height, mother's and father's name). Existing rows are unchanged.
--- echims_submit_child (offline draft upload) now also saves these, the informant (who gave the
--- guardian/household details) and the structured medical history the online form sends.
+-- echims_submit_child (offline draft upload) now also saves these four columns.
 BEGIN;
 
 ALTER TABLE public.child ADD COLUMN IF NOT EXISTS birth_weight_kg numeric(4,2);
@@ -20,8 +19,9 @@ ALTER TABLE public.child DROP CONSTRAINT IF EXISTS chk_child_parent_names;
 ALTER TABLE public.child ADD CONSTRAINT chk_child_parent_names
   CHECK (pg_catalog.length(COALESCE(mother_name,'')) <= 200 AND pg_catalog.length(COALESCE(father_name,'')) <= 200);
 
--- Same body as 20261015_safe_offline_submission.sql, plus the new child columns, informant and
--- medical_history_structured. Validation, scope checks and idempotency are unchanged.
+-- Based on the LIVE function (which already has the 2026-11-11 changes made outside this repo:
+-- household water/toilet, retired education input, informant, structured medical history), with
+-- only the four new child columns added to the child insert. Nothing else changes.
 CREATE OR REPLACE FUNCTION public.echims_submit_child(p_request_id uuid,p_payload jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path=public AS $$
 DECLARE
@@ -61,6 +61,7 @@ BEGIN
     OR pg_catalog.upper(COALESCE(p_payload->>'sex','')) NOT IN ('MALE','FEMALE') THEN
   RAISE EXCEPTION 'Complete child details with a valid birth date within 0–59 months.' USING ERRCODE='22023';
  END IF;
+ -- Serialize this child's natural identity to avoid concurrent duplicate registrations.
  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('ECHIMS:CHILD-NAME:'||brgy||':'||pg_catalog.lower(v_first)||':'||pg_catalog.lower(v_last)||':'||dob,0));
  hh:=NULLIF(pg_catalog.regexp_replace(COALESCE(p_payload->>'household_id',''),'^.*-',''),'')::bigint;
  IF hh IS NULL AND pg_catalog.jsonb_typeof(h)='object' THEN
@@ -72,8 +73,8 @@ BEGIN
     SELECT 1 FROM public.household x WHERE x.barangay_id=brgy AND x.household_no=pg_catalog.btrim(h->>'household_no')) THEN
    RAISE EXCEPTION 'This household number already exists. Select the existing household.' USING ERRCODE='23505';
   END IF;
-  INSERT INTO public.household(household_no,household_address,purok,is_4ps_member,barangay_id)
-   VALUES(NULLIF(pg_catalog.btrim(h->>'household_no'),''),pg_catalog.btrim(h->>'household_address'),NULLIF(pg_catalog.btrim(h->>'purok'),''),COALESCE((h->>'is_4ps_member')::boolean,false),brgy)
+  INSERT INTO public.household(household_no,household_address,purok,is_4ps_member,barangay_id,water_source_type,toilet_facility_type)
+   VALUES(NULLIF(pg_catalog.btrim(h->>'household_no'),''),pg_catalog.btrim(h->>'household_address'),NULLIF(pg_catalog.btrim(h->>'purok'),''),COALESCE((h->>'is_4ps_member')::boolean,false),brgy,CASE WHEN h ? 'water_source_type' THEN h->>'water_source_type' ELSE p_payload->>'water_source_type' END,CASE WHEN h ? 'toilet_facility_type' THEN h->>'toilet_facility_type' ELSE p_payload->>'toilet_facility_type' END) /* shared household 20261111 */
    RETURNING household_id INTO hh;
  END IF;
  IF hh IS NULL OR NOT EXISTS(SELECT 1 FROM public.household x WHERE x.household_id=hh AND x.barangay_id=brgy) THEN
@@ -104,11 +105,8 @@ BEGIN
    NULLIF(p_payload->>'birth_weight_kg','')::numeric,NULLIF(p_payload->>'birth_height_cm','')::numeric,
    NULLIF(pg_catalog.btrim(p_payload->>'mother_name'),''),NULLIF(pg_catalog.btrim(p_payload->>'father_name'),''),actor,p_request_id,payload)
  RETURNING child_id INTO child_key;
- INSERT INTO public.child_profile_record(child_id,profiling_date,recorded_by,relationship_to_household_head,civil_status,educational_attainment,religion,ethnicity,philhealth_id_number,philhealth_membership_type,philhealth_category,medical_history,medical_history_structured,last_menstrual_period,water_source_type,toilet_facility_type,informant_name,informant_relationship)
- VALUES(child_key,today,actor,NULLIF(p_payload->>'relationship_to_household_head',''),NULLIF(p_payload->>'civil_status',''),NULLIF(p_payload->>'educational_attainment',''),NULLIF(p_payload->>'religion',''),NULLIF(p_payload->>'ethnicity',''),NULLIF(p_payload->>'philhealth_id_number',''),NULLIF(p_payload->>'philhealth_membership_type',''),NULLIF(p_payload->>'philhealth_category',''),NULLIF(p_payload->>'medical_history',''),
-   CASE WHEN pg_catalog.jsonb_typeof(p_payload->'medical_history_structured')='object' THEN p_payload->'medical_history_structured' END,
-   NULLIF(p_payload->>'last_menstrual_period','')::date,NULLIF(p_payload->>'water_source_type',''),NULLIF(p_payload->>'toilet_facility_type',''),
-   NULLIF(pg_catalog.btrim(p_payload->>'informant_name'),''),NULLIF(pg_catalog.btrim(p_payload->>'informant_relationship'),''));
+ INSERT INTO public.child_profile_record(child_id,profiling_date,recorded_by,relationship_to_household_head,civil_status,educational_attainment,religion,ethnicity,philhealth_id_number,philhealth_membership_type,philhealth_category,medical_history,last_menstrual_period,water_source_type,toilet_facility_type,informant_name,informant_relationship,medical_history_structured)
+ VALUES(child_key,today,actor,NULLIF(p_payload->>'relationship_to_household_head',''),NULLIF(p_payload->>'civil_status',''),NULL::text /* education input retired 20261111 */,NULLIF(p_payload->>'religion',''),NULLIF(p_payload->>'ethnicity',''),NULLIF(p_payload->>'philhealth_id_number',''),NULLIF(p_payload->>'philhealth_membership_type',''),NULLIF(p_payload->>'philhealth_category',''),NULLIF(p_payload->>'medical_history',''),NULLIF(p_payload->>'last_menstrual_period','')::date,NULL::text,NULL::text,p_payload->>'informant_name',p_payload->>'informant_relationship',NULLIF(p_payload->'medical_history_structured','null'::jsonb)) /* informant fields 20261111 */ /* structured history 20261111 */;
  RETURN pg_catalog.jsonb_build_object('child_id',child_key,'idempotent',false);
 END $$;
 REVOKE ALL ON FUNCTION public.echims_submit_child(uuid,jsonb) FROM PUBLIC,anon;
