@@ -1,4 +1,6 @@
 'use client'
+import { EmptyState } from '@/components/ui/empty-state'
+import { BarChart3 } from 'lucide-react'
 
 // RPT-USR001 — Lightweight charts for the dashboard, no chart library.
 //   • Donut — one percentage, arc draws in on mount
@@ -38,9 +40,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 export function TrendBars({ data, color = 'var(--brand-sky)', label }: { data: { month: string; count: number }[]; color?: string; label: string }) {
   if (data.length === 0) {
     return (
-      <div className="flex h-48 items-center justify-center rounded-xl bg-[#F8FCFD] text-sm text-[#5B6478]">
-        No records in this date range.
-      </div>
+      <EmptyState icon={BarChart3} title="No records in this date range" description="Try a wider date range." className="h-48 rounded-xl bg-[#F8FCFD]" />
     )
   }
   const max = Math.max(1, ...data.map((d) => d.count))

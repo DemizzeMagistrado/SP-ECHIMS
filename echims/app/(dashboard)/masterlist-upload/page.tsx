@@ -8,6 +8,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { toast } from '@/components/ui/toast'
+import { EmptyState } from '@/components/ui/empty-state'
+import { FileSpreadsheet } from 'lucide-react'
 
 type Batch = {
   batch_id: number
@@ -293,7 +295,7 @@ export default function MasterlistUploadPage() {
                     </tr>
                   ))}
                   {filtered.length === 0 && (
-                    <tr><td colSpan={9} className="py-6 text-center text-muted-foreground">No rows in this tab.</td></tr>
+                    <tr><td colSpan={9}><EmptyState icon={FileSpreadsheet} title="No rows in this tab" description="Rows with this status will appear here." /></td></tr>
                   )}
                 </tbody>
               </table>

@@ -13,7 +13,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useMemo, useState } from 'react'
 import useSWR from 'swr'
 import Link from 'next/link'
-import { Plus, Search, X } from 'lucide-react'
+import { Plus, Search, X, SearchX, Baby } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
@@ -21,6 +21,7 @@ import { ChildDraftPanel } from '@/components/children/child-draft-panel'
 import { ChildFormModal } from '@/components/children/child-form-modal'
 import { toast } from '@/components/ui/toast'
 import { LogoLoader } from '@/components/brand/logo-loader'
+import { EmptyState } from '@/components/ui/empty-state'
 
 type Child = {
   id: string
@@ -207,8 +208,10 @@ export default function ChildHealthPage() {
               ) : error ? (
                 <tr><td colSpan={8} className="px-5 py-8 text-center text-red-600">{error.message}</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={8} className="px-5 py-8 text-center text-muted-foreground">
-                  {anyFilterActive ? 'No children match the current filters. Try broadening your search or clearing filters.' : 'No children have been registered yet.'}
+                <tr><td colSpan={8}>
+                  {anyFilterActive
+                    ? <EmptyState icon={SearchX} title="No children match these filters" description="Try a broader search or clear the filters." />
+                    : <EmptyState icon={Baby} title="No children registered yet" description="Registered children will be listed here." />}
                 </td></tr>
               ) : filtered.map((c) => (
                 <tr key={c.id}>

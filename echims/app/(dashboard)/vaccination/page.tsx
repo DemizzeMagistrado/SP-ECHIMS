@@ -16,7 +16,8 @@ import { usePathname } from '@/lib/offline/navigation'
 import {
   Plus, Package, AlertCircle, Hash, MapPin, CalendarClock, CheckCircle2, Clock, XCircle,
   Pencil, Power, Syringe, Eye, History, ChevronDown, ChevronRight, BookOpen, Shield, Info,
-  ExternalLink, Filter, UserPlus, ArrowRight, Users, Search, Download, Calendar as CalendarIcon,
+  ExternalLink, Filter, ArrowRight, Users, Search, Download, Calendar as CalendarIcon,
+  CalendarX,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
@@ -30,6 +31,7 @@ import { VaccinationSmsPanel } from '@/components/vaccination/vaccination-sms-pa
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { TabPanel } from '@/components/brand/page-gate'
 import { TabIndicator } from '@/components/dashboard/tab-indicator'
+import { EmptyState } from '@/components/ui/empty-state'
 
 /* ═════════════════════════ Shared helpers ═════════════════════════ */
 
@@ -261,22 +263,16 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
       ) : error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
       ) : rows.length === 0 ? (
-        <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-sky-200 bg-white p-10 text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-sky-100 text-primary">
-            <Syringe size={22} />
-          </div>
-          <h2 className="mt-4 font-semibold text-foreground">
-            {statusFilter ? `No ${RECORD_STATUS_META[statusFilter as keyof typeof RECORD_STATUS_META]?.label.toLowerCase()} records.` : 'No vaccination records yet'}
-          </h2>
-          <p className="mt-1 max-w-md text-sm text-muted-foreground">
-            {canCreate
-              ? 'Click Add new record to log an administered dose. Records save as PENDING for PHN approval.'
-              : 'Vaccination records in your scope will appear here once BHWs or RHMs start logging administered shots.'}
-          </p>
-          <button type="button" onClick={onGoToSchedule} className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
-            Go to Schedule tab <ArrowRight size={14} />
-          </button>
-        </div>
+        <EmptyState
+          size="page"
+          icon={Syringe}
+          title={statusFilter ? `No ${RECORD_STATUS_META[statusFilter as keyof typeof RECORD_STATUS_META]?.label.toLowerCase()} records` : 'No vaccination records yet'}
+          description={canCreate
+            ? 'Use “Add new record” to log an administered dose. Records save as pending for PHN approval.'
+            : 'Records in your scope will appear here once BHWs or RHMs log administered doses.'}
+          action={<button type="button" onClick={onGoToSchedule} className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">Go to Schedule tab <ArrowRight size={14} /></button>}
+          className="min-h-64 rounded-2xl border border-dashed border-sky-200 bg-white"
+        />
       ) : (
         <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
           <div className="overflow-x-auto">
@@ -631,7 +627,7 @@ function ScheduleSection() {
                 <tr><td colSpan={6} className="px-5 py-10 text-center text-red-600">{error.message}</td></tr>
               )}
               {!isLoading && !error && rows.length === 0 && (
-                <tr><td colSpan={6} className="px-5 py-10 text-center text-muted-foreground">No schedule requests match these filters.</td></tr>
+                <tr><td colSpan={6}><EmptyState icon={CalendarX} title="No schedule requests match these filters" description="Try a different status or barangay." /></td></tr>
               )}
               {rows.map((row) => {
                 const c = one(row.child)
@@ -943,15 +939,13 @@ function DefaultersSection() {
       ) : error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
       ) : groups.length === 0 ? (
-        <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/40 p-10 text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-            <UserPlus size={22} />
-          </div>
-          <h2 className="mt-4 font-semibold text-foreground">No defaulters in your scope</h2>
-          <p className="mt-1 max-w-md text-sm text-muted-foreground">
-            Every child is up to date on their vaccinations for the current filters. Nice work!
-          </p>
-        </div>
+        <EmptyState
+          size="page"
+          icon={CheckCircle2}
+          title="No defaulters right now"
+          description="Every child in these filters is up to date on their vaccinations."
+          className="min-h-64 rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/40"
+        />
       ) : (
         <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
           <div className="overflow-x-auto">
@@ -1253,13 +1247,7 @@ function CatalogSection() {
       ) : error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
       ) : rows.length === 0 ? (
-        <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-sky-200 bg-white p-10 text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-sky-100 text-primary">
-            <Syringe size={22} />
-          </div>
-          <h2 className="mt-4 font-semibold text-foreground">No vaccines in the catalog yet</h2>
-          <p className="mt-1 max-w-md text-sm text-muted-foreground">Click Add new vaccine to seed your first DOH entry.</p>
-        </div>
+        <EmptyState size="page" icon={Syringe} title="No vaccines in the catalog yet" description="Use “Add new vaccine” to add your first DOH entry." className="min-h-64 rounded-2xl border border-dashed border-sky-200 bg-white" />
       ) : (
         <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
           <div className="overflow-x-auto">
@@ -1616,17 +1604,13 @@ function BatchRequestsSection() {
       ) : error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
       ) : rows.length === 0 ? (
-        <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-sky-200 bg-white p-10 text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-sky-100 text-primary">
-            <Package size={22} />
-          </div>
-          <h2 className="mt-4 font-semibold text-foreground">
-            {statusFilter ? `No ${BATCH_STATUS_META[statusFilter]?.label.toLowerCase() ?? statusFilter.toLowerCase()} requests` : 'No batch requests yet'}
-          </h2>
-          <p className="mt-1 max-w-md text-sm text-muted-foreground">
-            {canCreate ? 'Click New request to submit a batch request.' : 'Nothing to review right now.'}
-          </p>
-        </div>
+        <EmptyState
+          size="page"
+          icon={Package}
+          title={statusFilter ? `No ${BATCH_STATUS_META[statusFilter]?.label.toLowerCase() ?? statusFilter.toLowerCase()} requests` : 'No batch requests yet'}
+          description={canCreate ? 'Use “New request” to submit a batch request.' : 'Nothing to review right now.'}
+          className="min-h-64 rounded-2xl border border-dashed border-sky-200 bg-white"
+        />
       ) : (
         <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
           <div className="overflow-x-auto">

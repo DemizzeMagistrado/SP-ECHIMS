@@ -10,6 +10,7 @@ import {
   Plus,
   RefreshCw,
   Settings,
+  History,
 } from "lucide-react";
 import Link from "next/link";
 import { alertDestination } from "@/lib/alerts/alert-destination";
@@ -20,6 +21,7 @@ import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { TabIndicator } from '@/components/dashboard/tab-indicator'
+import { EmptyState } from '@/components/ui/empty-state'
 type Rule = {
   rule_id: number;
   rule_name: string;
@@ -921,11 +923,12 @@ function AlertsWorkspace() {
             <tbody className="divide-y">
               {data.audit.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="p-6 text-center text-muted-foreground"
-                  >
-                    No rule changes recorded yet.
+                  <td colSpan={5}>
+                    <EmptyState
+                      icon={History}
+                      title="No rule changes recorded yet"
+                      description="Edits to alert rules will be logged here."
+                    />
                   </td>
                 </tr>
               ) : (

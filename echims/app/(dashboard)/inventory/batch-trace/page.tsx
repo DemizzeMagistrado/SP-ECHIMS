@@ -17,6 +17,7 @@ import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { LogoLoader } from '@/components/brand/logo-loader'
+import { EmptyState } from '@/components/ui/empty-state'
 
 type TracePayload = {
   batch_number: string
@@ -175,7 +176,7 @@ export default function BatchTracePage() {
               <MapPin size={14} /> Barangay distribution
             </h2>
             {data.batches.length === 0 ? (
-              <p className="text-sm italic text-muted-foreground">No active batches with this number.</p>
+              <EmptyState icon={Package} title="No active batches with this number" description="Check the batch number and search again." />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[600px] text-left text-sm">
@@ -213,7 +214,7 @@ export default function BatchTracePage() {
           <section className="rounded-2xl border border-border bg-white p-6">
             <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold"><Clock size={14} /> Transactions (stock-in · allocations · usage/waste)</h2>
             {data.transactions.length === 0 ? (
-              <p className="text-sm italic text-muted-foreground">No transactions recorded.</p>
+              <EmptyState icon={Clock} title="No transactions recorded" description="Stock-in, allocation and usage entries for this batch appear here." />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[720px] text-left text-sm">
@@ -256,7 +257,7 @@ export default function BatchTracePage() {
           <section className="rounded-2xl border border-border bg-white p-6">
             <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold"><Users size={14} /> Children who received this batch</h2>
             {data.vaccinations.length === 0 && data.supplementations.length === 0 ? (
-              <p className="text-sm italic text-muted-foreground">No children associated with this batch yet.</p>
+              <EmptyState icon={Users} title="No children received this batch yet" description="Doses given from this batch will be listed here." />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[720px] text-left text-sm">

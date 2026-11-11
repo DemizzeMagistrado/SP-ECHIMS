@@ -1,11 +1,12 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { AlertCircle, RefreshCw } from 'lucide-react'
+import { AlertCircle, RefreshCw, SearchX, CheckCircle2 } from 'lucide-react'
 import { labelClassification } from '@/lib/nutrition-history'
 import type { RiskMonitoring } from '@/lib/nutrition-risk'
 import { formatChildId } from '@/lib/formatters'
 import { Spinner } from '@/components/brand/logo-loader'
+import { EmptyState } from '@/components/ui/empty-state'
 export function NutritionRiskMonitor({ monitoring, error, loading, offline, onRefresh }: { monitoring?: RiskMonitoring; error?: string; loading: boolean; offline: boolean; onRefresh: () => void }) {
   const [barangay, setBarangay] = useState('All')
   const [classification, setClassification] = useState('All')
@@ -37,7 +38,7 @@ export function NutritionRiskMonitor({ monitoring, error, loading, offline, onRe
         <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${row.severity === 'CRITICAL' ? 'bg-red-100 text-red-800' : row.severity === 'HIGH' ? 'bg-orange-100 text-orange-800' : 'bg-amber-100 text-amber-800'}`}>{row.severity}</span></td>
         <td className="min-w-[230px] px-4 py-3">{row.worsening.length ? <><span className="rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-800">Worsened</span>{row.worsening.map((item) => <p key={item.label} className="mt-1 text-xs">{item.label}: {labelClassification(item.previous)} → {labelClassification(item.current)}</p>)}<p className="mt-1 text-xs text-muted-foreground">Compared with #{row.previous_assessment_id} · {row.previous_date}</p></> : <span className="text-xs text-muted-foreground">{row.previous_assessment_id ? 'No comparable worsening detected' : 'No earlier assessment date'}</span>}</td>
         <td className="px-4 py-3"><Link href={`/child-profiling/children/${row.child_id}`} className="whitespace-nowrap text-primary underline">View child record</Link></td>
-      </tr>)}{!visible.length && <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">{records.length ? 'No at-risk children match these filters.' : 'No children with a recorded current risk in your scope.'}</td></tr>}</tbody></table></div>
+      </tr>)}{!visible.length && <tr><td colSpan={7}>{records.length ? <EmptyState icon={SearchX} title="No at-risk children match these filters" description="Try a different barangay or risk type." /> : <EmptyState icon={CheckCircle2} title="No children at risk right now" description="No child in your scope has a recorded current risk." />}</td></tr>}</tbody></table></div>
       <p className="text-xs text-muted-foreground">Priority uses active alert-rule settings with a medium monitoring baseline. Worsening compares valid saved classifications from the same evaluator version and an earlier assessment date.</p>
     </>}
   </section>

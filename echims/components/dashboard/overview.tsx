@@ -31,6 +31,7 @@ import {
 } from './widgets'
 import { Spinner } from '@/components/brand/logo-loader'
 import { TabIndicator } from './tab-indicator'
+import { EmptyState } from '@/components/ui/empty-state'
 
 type Payload = {
   role: string
@@ -215,7 +216,7 @@ export function DashboardOverview() {
             {showNutritionDonut && (nb && nb.total > 0 ? (
               <Donut percentage={Math.round((nb.at_risk / nb.total) * 100)} label={`At risk · ${nb.at_risk} of ${nb.total}`} color="var(--tone-nutrition)" size={104} />
             ) : (
-              <p className="flex items-center justify-center rounded-xl bg-brand-ice/60 p-3 text-center text-sm text-brand-muted">No assessments yet.</p>
+              <EmptyState icon={Apple} title="No assessments yet" description="Nutrition risk appears after the first assessment." className="rounded-xl bg-brand-ice/60 !py-4" />
             ))}
           </>
         )}

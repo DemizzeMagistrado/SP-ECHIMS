@@ -4,7 +4,7 @@ import { useAuth } from '@/components/auth/auth-provider'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Plus, Package, X, AlertTriangle } from "lucide-react";
+import { Plus, Package, X, AlertTriangle, SearchX, ClipboardList } from "lucide-react";
 import {
   latestNutrition,
   nutritionReview,
@@ -27,6 +27,7 @@ import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { toast } from '@/components/ui/toast'
+import { EmptyState } from '@/components/ui/empty-state'
 
 type Child = {
   child_id: number;
@@ -1721,12 +1722,7 @@ export default function SupplementsPage() {
               <tbody className="divide-y divide-border">
                 {records.length === 0 ? (
                   <tr>
-                    <td
-                      colSpan={9}
-                      className="p-8 text-center text-muted-foreground"
-                    >
-                      No saved entries match this view.
-                    </td>
+                    <td colSpan={9}><EmptyState icon={SearchX} title="No saved entries match this view" description="Try a different filter or date range." /></td>
                   </tr>
                 ) : (
                   records.map((r) => {
@@ -1816,9 +1812,7 @@ export default function SupplementsPage() {
             prove administration or course completion.
           </p>
           {data.plans.length === 0 ? (
-            <p className="py-6 text-muted-foreground">
-              No documented supply plans yet.
-            </p>
+            <EmptyState icon={ClipboardList} title="No supply plans yet" description="Registered supply plans will be listed here." />
           ) : (
             data.plans.map((p) => {
               const used = data.records
@@ -1883,14 +1877,7 @@ export default function SupplementsPage() {
                 <tbody className="divide-y divide-border">
                   {data.inventory.length === 0 ? (
                     <tr>
-                      <td
-                        colSpan={6}
-                        className="p-8 text-center text-muted-foreground"
-                      >
-                        No stock yet. RHM can request stock above. Available
-                        batches will be supplied through PHN-approved Inventory
-                        allocation.
-                      </td>
+                      <td colSpan={6}><EmptyState icon={Package} title="No supplement stock yet" description="RHM can request stock above. Batches arrive through PHN-approved Inventory allocation." /></td>
                     </tr>
                   ) : (
                     data.inventory.flatMap((i) => {

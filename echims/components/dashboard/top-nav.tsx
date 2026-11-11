@@ -12,6 +12,7 @@ import { SystemOfflineTools } from '@/components/offline/system-offline-tools'
 import {
   Bell, CheckCheck, Menu, RefreshCw, X,
   Settings as SettingsIcon, LogOut, User as UserIcon,
+  BellOff,
 } from 'lucide-react'
 import {
   useCallback, useEffect, useId, useRef, useState,
@@ -21,6 +22,7 @@ import { useRouter } from '@/lib/offline/navigation'
 import { useAuth } from '@/components/auth/auth-provider'
 import { useShell } from './shell'
 import { Spinner } from '@/components/brand/logo-loader'
+import { EmptyState } from '@/components/ui/empty-state'
 
 type Notification = {
   alert_id: number
@@ -242,10 +244,9 @@ export function TopNav() {
                 {loading && notifications.length === 0 ? (
                   <Spinner showLabel label="Loading notifications…" className="w-full justify-center py-6 text-sm text-muted-foreground" />
                 ) : notifications.length === 0 ? (
-                  <div className="p-8 text-center text-sm text-slate-500">
-                    <Bell size={28} className="mx-auto mb-3 text-slate-300" />
-                    {error ? 'Notifications could not be loaded.' : 'No notifications yet.'}
-                  </div>
+                  error
+                    ? <EmptyState icon={BellOff} title="Notifications could not be loaded" description="Check your connection and open this menu again." />
+                    : <EmptyState icon={Bell} title="You're all caught up" description="New notifications will appear here." />
                 ) : (
                   <ul className="divide-y divide-slate-100">
                     {notifications.map((item) => (

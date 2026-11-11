@@ -3,9 +3,10 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, SearchX, CalendarClock } from 'lucide-react'
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
+import { EmptyState } from '@/components/ui/empty-state'
 
 type Status =
   | 'UPCOMING'
@@ -323,13 +324,10 @@ export function SupplementationMonitoringPanel({
                 <tbody className="divide-y divide-border">
                   {!filtered.length ? (
                     <tr>
-                      <td
-                        colSpan={6}
-                        className="p-8 text-center text-muted-foreground"
-                      >
+                      <td colSpan={6}>
                         {rows.length
-                          ? 'No tracked schedules match these filters.'
-                          : 'No saved administration schedules to monitor yet.'}
+                          ? <EmptyState icon={SearchX} title="No tracked schedules match these filters" description="Try a different status or barangay." />
+                          : <EmptyState icon={CalendarClock} title="No schedules to monitor yet" description="Saved administration schedules will be tracked here." />}
                       </td>
                     </tr>
                   ) : (

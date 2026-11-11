@@ -20,6 +20,8 @@ import {
 } from "@/lib/reports/report-utils";
 import { LogoLoader } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
+import { EmptyState } from '@/components/ui/empty-state'
+import { FileText, SearchX } from 'lucide-react'
 type Options = {
   currentUserId: string;
   role: string;
@@ -470,9 +472,7 @@ export default function ReportsPage() {
                 ))}
                 {!options.reports.length && (
                   <tr>
-                    <td colSpan={6} className="p-6 text-center">
-                      No saved reports in your scope.
-                    </td>
+                    <td colSpan={6}><EmptyState icon={FileText} title="No saved reports yet" description="Reports you generate and save will appear here." /></td>
                   </tr>
                 )}
               </tbody>
@@ -853,9 +853,7 @@ export default function ReportsPage() {
                     ))}
                     {shown.rows.length === 0 && (
                       <tr>
-                        <td colSpan={fields.length} className="p-6 text-center">
-                          No matching records.
-                        </td>
+                        <td colSpan={fields.length}><EmptyState icon={SearchX} title="No matching records" description="Try a different period or filter." /></td>
                       </tr>
                     )}
                   </tbody>

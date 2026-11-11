@@ -2,9 +2,10 @@
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { X, HeartPulse } from "lucide-react";
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
+import { EmptyState } from '@/components/ui/empty-state'
 
 type Event = {
   event_id: number;
@@ -306,12 +307,7 @@ export function NutritionAdmissionPanel({
             <tbody className="divide-y divide-border">
               {rows.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={7}
-                    className="p-6 text-center text-muted-foreground"
-                  >
-                    No care entries in this view.
-                  </td>
+                  <td colSpan={7}><EmptyState icon={HeartPulse} title="No care entries in this view" description="Try a different status or filter." /></td>
                 </tr>
               ) : (
                 rows.map((r) => (

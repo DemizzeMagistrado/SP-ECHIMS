@@ -13,11 +13,12 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 //   - Empty / loading / error states
 import { useMemo, useState } from 'react'
 import useSWR from 'swr'
-import { Syringe, Printer, AlertCircle, CheckCircle2, Clock, CalendarClock, Filter, Plus, History } from 'lucide-react'
+import { Syringe, Printer, AlertCircle, CheckCircle2, Clock, CalendarClock, Filter, Plus, History, SearchX } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { RecordPriorVaccinationModal } from '@/components/vaccination/record-prior-vaccination-modal'
 import { Spinner } from '@/components/brand/logo-loader'
+import { EmptyState } from '@/components/ui/empty-state'
 type DoseStatus = 'COMPLETE' | 'DUE' | 'OVERDUE' | 'UPCOMING'
 type DoseRow = {
   dose_number: number
@@ -219,9 +220,7 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
             </div>
             {/* Table */}
             {rows.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                No doses match the current filters.
-              </div>
+              <EmptyState icon={SearchX} title="No doses match these filters" description="Try a different status or vaccine." className="rounded-xl border border-dashed border-border" />
             ) : (
               <div className="overflow-hidden rounded-xl border border-border">
                 <div className="overflow-x-auto">

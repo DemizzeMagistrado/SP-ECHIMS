@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Package, X } from "lucide-react";
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
+import { EmptyState } from '@/components/ui/empty-state'
 type Product = { supplement_id: number; name: string; unit: string };
 type Barangay = {
   barangay_id: number;
@@ -352,12 +353,7 @@ export function SupplementStockRequestsPanel({
                     (r) => filter === "ALL" || r.status === filter,
                   ).length === 0 ? (
                     <tr>
-                      <td
-                        colSpan={7}
-                        className="p-6 text-center text-muted-foreground"
-                      >
-                        No requests in this view.
-                      </td>
+                      <td colSpan={7}><EmptyState icon={Package} title="No requests in this view" description="Try a different status filter." /></td>
                     </tr>
                   ) : (
                     data.requests

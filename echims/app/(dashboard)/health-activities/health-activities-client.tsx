@@ -31,6 +31,7 @@ import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { toast } from '@/components/ui/toast'
+import { EmptyState } from '@/components/ui/empty-state'
 
 /* =========================================================
    TYPES
@@ -647,9 +648,7 @@ function ActivityWorkspace() {
             </p>
 
             {upcomingActivities.length === 0 ? (
-              <p className="mt-4 text-sm text-slate-500">
-                No upcoming approved activities match your filters.
-              </p>
+              <EmptyState icon={CalendarDays} title="No upcoming approved activities" description="None match your current filters." />
             ) : (
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {upcomingActivities.map((activity) => (
@@ -825,15 +824,7 @@ function ActivityWorkspace() {
               </div>
 
               {filteredActivities.length === 0 ? (
-                <div className="px-5 py-14 text-center">
-                  <CalendarDays className="mx-auto text-slate-300" size={40} />
-                  <h3 className="mt-4 font-semibold text-slate-800">
-                    No health activities found
-                  </h3>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Scheduled health activities will appear here.
-                  </p>
-                </div>
+                <EmptyState size="page" icon={CalendarDays} title="No health activities found" description="Scheduled health activities will appear here." />
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[940px] text-left">

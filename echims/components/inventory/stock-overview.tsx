@@ -1,12 +1,13 @@
 'use client'
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, ChevronDown, ChevronRight, PackagePlus, X } from 'lucide-react'
+import { CheckCircle2, ChevronDown, ChevronRight, PackagePlus, X, SearchX, Package } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { createClient } from '@/lib/supabase/client'
 import type { UserRole } from '@/lib/echims-data'
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
+import { EmptyState } from '@/components/ui/empty-state'
 
 // INV-USR001 / INV-USR002 — Stock Overview.
 // Reads go straight to Supabase (RLS applies): PHN sees the RHU, RHM only the
@@ -275,9 +276,10 @@ export function StockOverview() {
               <tr><td colSpan={colSpan} className="px-3 py-4"><LogoLoader size="section" label="Loading stock…" /></td></tr>
             )}
             {data && !rows.length && (
-              <tr><td colSpan={colSpan} className="px-4 py-12 text-center text-[#6B7280]">
-                {filtered ? 'No stock matches these filters.' : 'No stock recorded yet.'}
-                {!filtered && data.canStockIn ? ' Use “Record stock-in” to add the first batch.' : ''}
+              <tr><td colSpan={colSpan}>
+                {filtered
+                  ? <EmptyState icon={SearchX} title="No stock matches these filters" description="Try a different item, barangay or status." />
+                  : <EmptyState icon={Package} title="No stock recorded yet" description={data.canStockIn ? 'Use “Record stock-in” to add the first batch.' : 'Stock will appear here once the PHN records a stock-in.'} />}
               </td></tr>
             )}
             {rows.map((r) => {

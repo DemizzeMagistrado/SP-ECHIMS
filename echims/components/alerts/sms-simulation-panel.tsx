@@ -3,6 +3,8 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useEffect, useState } from "react";
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
+import { EmptyState } from '@/components/ui/empty-state'
+import { MessageSquare } from 'lucide-react'
 type Queue = {
   notification_id: number;
   child_id: number;
@@ -141,9 +143,7 @@ export function SmsSimulationPanel({ ownerId }: { ownerId: string }) {
           <tbody className="divide-y divide-border">
             {queue.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-3 py-5 text-muted-foreground">
-                  No SMS queue rows match this program.
-                </td>
+                <td colSpan={4}><EmptyState icon={MessageSquare} title="No queued SMS for this program" description="Reminders waiting to send will appear here." /></td>
               </tr>
             ) : (
               queue.map((row) => (
@@ -187,9 +187,7 @@ export function SmsSimulationPanel({ ownerId }: { ownerId: string }) {
           <tbody className="divide-y divide-border">
             {attempts.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-3 py-5 text-muted-foreground">
-                  No simulation attempts match this program.
-                </td>
+                <td colSpan={5}><EmptyState icon={MessageSquare} title="No simulation attempts yet" description="Simulated sends for this program will be logged here." /></td>
               </tr>
             ) : (
               attempts.map((row) => (

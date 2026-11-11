@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
+import { EmptyState } from '@/components/ui/empty-state'
+import { MessageSquare } from 'lucide-react'
 
 type Attempt = {
   simulation_id: number;
@@ -211,9 +213,7 @@ export function GuardianSmsHistory({
           <Spinner showLabel label="Loading SMS history…" className="w-full justify-center py-6 text-sm text-muted-foreground" />
         )}
         {data?.reminders.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            No SMS reminders recorded for this child and guardian.
-          </p>
+          <EmptyState icon={MessageSquare} title="No SMS reminders yet" description="Reminders sent to this guardian about this child will appear here." />
         )}
         {data?.reminders.map((reminder) => {
           const latest = reminder.simulation_attempts[0];

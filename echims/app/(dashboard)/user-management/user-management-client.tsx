@@ -1,5 +1,5 @@
 'use client'
-import { X } from 'lucide-react'
+import { X, UserX } from 'lucide-react'
 import { UserActions } from '@/components/user-management/user-actions'
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
@@ -9,6 +9,7 @@ import {
   useEffect,
   useState,
 } from 'react'
+import { EmptyState } from '@/components/ui/empty-state'
 
 /* =========================================================
    TYPES
@@ -779,12 +780,7 @@ export default function UserManagementClient({
               {filteredUsers.length ===
               0 ? (
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="px-6 py-12 text-center text-sm text-gray-500"
-                  >
-                    No users found.
-                  </td>
+                  <td colSpan={5}><EmptyState icon={UserX} title="No users match your search" description="Try a different name, role or status." /></td>
                 </tr>
               ) : (
                 filteredUsers.map(

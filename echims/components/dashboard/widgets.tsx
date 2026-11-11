@@ -21,6 +21,7 @@ import { manilaTodayYMD } from '@/lib/nip-schedule'
 import { alertDestination } from '@/lib/alerts/alert-destination'
 import { Donut } from './mini-charts'
 import { TabIndicator } from './tab-indicator'
+import { EmptyState } from '@/components/ui/empty-state'
 
 // Pages enter as blocks (see .page-gate in globals.css), not card by card. Kept as no-ops so
 // call sites stay unchanged.
@@ -104,7 +105,7 @@ export function WidgetShell({ id, title, note, link, action, style, size, classN
             <AlertCircle size={16} className="mt-0.5 shrink-0" /> {error.message}
           </p>
         ) : empty ? (
-          <p className="flex flex-1 items-center justify-center rounded-xl bg-brand-ice/60 p-4 text-center text-sm text-brand-muted">{empty}</p>
+          <EmptyState title={empty} className="flex-1 rounded-xl bg-brand-ice/60 !py-6" />
         ) : children}
       </div>
     </section>

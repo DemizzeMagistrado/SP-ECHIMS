@@ -15,12 +15,14 @@ import { useMemo, useState } from 'react'
 import useSWR, { mutate as globalMutate } from 'swr'
 import {
   Plus, Package, AlertCircle, CheckCircle2, Clock, CalendarClock, Hash, MapPin, Syringe, Pill, AlertTriangle,
+  Layers,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { StockInModal } from '@/components/inventory/stock-in-modal'
 import { LogoLoader } from '@/components/brand/logo-loader'
+import { EmptyState } from '@/components/ui/empty-state'
 
 type Batch = { batch_id: number; batch_number: string; expiry_date: string; received_date: string; quantity_on_hand: number }
 type Item = { item_id: number; item_name: string; unit: string; status: string }
@@ -160,15 +162,13 @@ export default function StockOverviewPage() {
       ) : error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
       ) : rows.length === 0 ? (
-        <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-sky-200 bg-white p-10 text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-sky-100 text-primary">
-            <Package size={22} />
-          </div>
-          <h2 className="mt-4 font-semibold text-foreground">No stock to show</h2>
-          <p className="mt-1 max-w-md text-sm text-muted-foreground">
-            {isPhn ? 'Click “Record stock-in” to receive your first shipment.' : 'Ask the PHN to record a stock-in for this barangay.'}
-          </p>
-        </div>
+        <EmptyState
+          size="page"
+          icon={Package}
+          title="No stock to show"
+          description={isPhn ? 'Use “Record stock-in” to receive your first shipment.' : 'Ask the PHN to record a stock-in for this barangay.'}
+          className="min-h-64 rounded-2xl border border-dashed border-sky-200 bg-white"
+        />
       ) : (
         <div className="space-y-3">
           {rows.map((inv) => {
@@ -222,7 +222,7 @@ export default function StockOverviewPage() {
                     </thead>
                     <tbody className="divide-y divide-border">
                       {inv.batches.length === 0 ? (
-                        <tr><td colSpan={5} className="px-5 py-6 text-center text-xs italic text-muted-foreground">No batches recorded yet.</td></tr>
+                        <tr><td colSpan={5}><EmptyState icon={Layers} title="No batches recorded yet" description="Batches appear here after a stock-in." /></td></tr>
                       ) : inv.batches.map((batch) => {
                         const tone = expiryTone(batch.expiry_date)
                         const days = daysUntil(batch.expiry_date)

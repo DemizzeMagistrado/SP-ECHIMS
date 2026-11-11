@@ -16,6 +16,7 @@ import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { ReplenishmentRequestModal } from '@/components/inventory/replenishment-request-modal'
 import { ReplenishmentDecisionModal, type ReplenishmentRequest } from '@/components/inventory/replenishment-decision-modal'
 import { LogoLoader } from '@/components/brand/logo-loader'
+import { EmptyState } from '@/components/ui/empty-state'
 
 const fetcher = async (url: string) => {
   const r = await fetch(url)
@@ -106,12 +107,13 @@ export default function ReplenishmentPage() {
       ) : error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
       ) : rows.length === 0 ? (
-        <div className="flex min-h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-sky-200 bg-white p-10 text-center text-muted-foreground">
-          <PackagePlus size={28} className="text-primary" />
-          <p className="mt-3 text-sm">
-            {isRhm ? 'No replenishment requests yet. Click “New request” to submit one.' : 'No requests in this view.'}
-          </p>
-        </div>
+        <EmptyState
+          size="page"
+          icon={PackagePlus}
+          title={isRhm ? 'No replenishment requests yet' : 'No requests in this view'}
+          description={isRhm ? 'Use “New request” to ask for more stock.' : 'Requests from midwives will appear here.'}
+          className="rounded-2xl border border-dashed border-sky-200 bg-white"
+        />
       ) : (
         <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
           <div className="overflow-x-auto">

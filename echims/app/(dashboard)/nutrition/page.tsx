@@ -31,9 +31,11 @@ import {
   RefreshCw,
   Printer,
   X,
+  SearchX,
 } from "lucide-react";
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
+import { EmptyState } from '@/components/ui/empty-state'
 type Relation<T> = T | T[] | null;
 type Barangay = {
   barangay_id: number;
@@ -2505,12 +2507,7 @@ export default function NutritionPage() {
                   ))}
                   {data && visible.length === 0 && (
                     <tr>
-                      <td
-                        colSpan={20}
-                        className="px-5 py-10 text-center text-sm text-muted-foreground"
-                      >
-                        No assessments match this view.
-                      </td>
+                      <td colSpan={20}><EmptyState icon={SearchX} title="No assessments match this view" description="Try a different filter or date range." /></td>
                     </tr>
                   )}
                 </tbody>

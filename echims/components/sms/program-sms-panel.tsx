@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
+import { EmptyState } from '@/components/ui/empty-state'
+import { MessageSquare } from 'lucide-react'
 
 type Program = "VACCINATION" | "SUPPLEMENTATION";
 type MessageType = "UPCOMING" | "OVERDUE";
@@ -360,12 +362,7 @@ export function ProgramSmsPanel({
                 <tbody className="divide-y divide-border">
                   {rows.length === 0 ? (
                     <tr>
-                      <td
-                        colSpan={6}
-                        className="px-3 py-5 text-muted-foreground"
-                      >
-                        No valid saved follow-ups match these filters.
-                      </td>
+                      <td colSpan={6}><EmptyState icon={MessageSquare} title="No follow-ups match these filters" description="Saved follow-ups with a valid number will appear here." /></td>
                     </tr>
                   ) : (
                     rows.map((row) => (
