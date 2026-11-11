@@ -182,6 +182,7 @@ export function recordToForm(d: { child?: Row | null; guardian?: Row | null; pro
     philhealth_category: str(profile.philhealth_category),
     ...fromStructured(profile.medical_history_structured, profile.medical_history),
     last_menstrual_period: str(profile.last_menstrual_period),
+    household_revision: str(d.household?.information_revision),
     water_source_type: str(d.household?.water_source_type ?? profile.water_source_type),
     toilet_facility_type: str(d.household?.toilet_facility_type ?? profile.toilet_facility_type),
     informant_name: str(profile.informant_name), informant_relationship: str(profile.informant_relationship),

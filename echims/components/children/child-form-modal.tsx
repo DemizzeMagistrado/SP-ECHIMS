@@ -17,6 +17,7 @@ import { RecordConflict } from '@/components/children/record-conflict'
 import { PhilippineAddressPicker } from "@/components/children/philippine-address-picker";
 import { Spinner } from '@/components/brand/logo-loader'
 import { Button } from '@/components/ui/button'
+import { toast } from '@/components/ui/toast'
 import { Checkbox, DateInput, Field, Input, Select, Textarea } from '@/components/ui/form'
 import { cn } from '@/lib/utils'
 import { canPerform, type UserRole } from '@/lib/echims-data'
@@ -221,8 +222,9 @@ export function ChildFormModal({
           const saved = recordToForm(await latest.json());
           const { merged, conflicts } = mergeEdit(loaded.current, values, saved);
           if (conflicts.length) { setConflict({ kind: "edit", rows: conflicts, saved, merged }); return; }
-          values = merged;
-          setForm(merged);
+          // Their changes are merged in, so check against the household revision saved now.
+          values = { ...merged, household_revision: saved.household_revision ?? "" };
+          setForm(values);
         }
       }
       // Edit sends null so clearing every condition also clears the saved value.
@@ -268,6 +270,7 @@ export function ChildFormModal({
       const d = await r.json().catch(() => ({}));
       if (r.status === 409 && d.duplicate) { await showDuplicate(values); return; }
       if (!r.ok) throw new Error(d.error || "The child record was not saved. Check your connection and try again.");
+      if (d.warning) toast.warning(d.warning);
       setConflict(null);
       onSaved();
     } catch (e) {

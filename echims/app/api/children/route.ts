@@ -68,6 +68,41 @@ function embedded<T>(value: T | T[] | null | undefined): T | null {
 function invalid(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
+/**
+ * Water source / toilet belong to the household. Saves them through the database's
+ * echims_update_household_information (RLS-scoped, audited, revision-checked) only when they
+ * differ from what is saved. Returns an error message, or null when saved or unchanged.
+ * `expectedRevision` is the revision the form loaded; omit it to use the current one.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function saveHouseholdFacilities(supabase: any, householdId: number, body: Record<string, unknown>, expectedRevision?: number) {
+  const fields = ["water_source_type", "toilet_facility_type"] as const;
+  if (!fields.some((f) => body[f] !== undefined)) return null;
+  const current = await supabase
+    .from("household")
+    .select("water_source_type, toilet_facility_type, information_revision")
+    .eq("household_id", householdId)
+    .maybeSingle();
+  if (current.error || !current.data) return "The household's water and toilet details could not be checked. Refresh and try again.";
+  const changes: Record<string, string | null> = {};
+  for (const f of fields) {
+    if (body[f] === undefined) continue;
+    const next = String(body[f] ?? "").trim() || null;
+    if (next !== (current.data[f] ?? null)) changes[f] = next;
+  }
+  if (!Object.keys(changes).length) return null;
+  const { error } = await supabase.rpc("echims_update_household_information", {
+    p_household_id: householdId,
+    p_expected_revision: Number.isSafeInteger(expectedRevision) ? expectedRevision : current.data.information_revision,
+    p_changes: changes,
+  });
+  if (!error) return null;
+  return error.code === "40001"
+    ? "Someone else changed this household's water or toilet details while you were editing. Reopen the profile to see their changes, then edit again."
+    : error.code === "42501"
+      ? "You can't change this household's water and toilet details. Your account may not be assigned to its barangay."
+      : "The household's water and toilet details were not saved. Try again.";
+}
 export async function GET(request: Request) {
   const auth = await session("view");
   if (!auth)
@@ -149,7 +184,7 @@ export async function GET(request: Request) {
         ? auth.supabase
             .from("household")
             .select(
-              "household_id, household_no, family_serial_no, household_address, purok, is_4ps_member, water_source_type, toilet_facility_type",
+              "household_id, household_no, family_serial_no, household_address, purok, is_4ps_member, water_source_type, toilet_facility_type, information_revision",
             )
             .eq("household_id", child.household_id)
             .maybeSingle()
@@ -432,8 +467,6 @@ export async function POST(request: Request) {
     "ethnicity",
     "philhealth_membership_type",
     "philhealth_category",
-    "water_source_type",
-    "toilet_facility_type",
     "medical_history",
     "medical_history_structured",
     "last_menstrual_period",
@@ -457,6 +490,11 @@ export async function POST(request: Request) {
         "Child saved, but profiling details could not be saved.",
         500,
       );
+  }
+  if (!household) {
+    const facilityError = await saveHouseholdFacilities(auth.supabase, householdId, body);
+    if (facilityError)
+      return NextResponse.json({ child_id: inserted.data.child_id, warning: `Child registered. ${facilityError}` }, { status: 201 });
   }
   return NextResponse.json(
     { child_id: inserted.data.child_id },
@@ -606,8 +644,6 @@ export async function PATCH(request: Request) {
     "philhealth_id_number",
     "philhealth_membership_type",
     "philhealth_category",
-    "water_source_type",
-    "toilet_facility_type",
     "medical_history",
     "medical_history_structured",
     "last_menstrual_period",
@@ -664,6 +700,14 @@ export async function PATCH(request: Request) {
         "Child updated, but profiling details were not saved. Your account may not be assigned to this child's barangay.",
         403,
       );
+    }
+  }
+  if (body && (body.water_source_type !== undefined || body.toilet_facility_type !== undefined)) {
+    const linked = await auth.supabase.from("child").select("household_id").eq("child_id", childId).maybeSingle();
+    if (linked.data?.household_id) {
+      const revision = body.household_revision === undefined || body.household_revision === "" ? undefined : Number(body.household_revision);
+      const facilityError = await saveHouseholdFacilities(auth.supabase, Number(linked.data.household_id), body, revision);
+      if (facilityError) return invalid(`Child details saved, but ${facilityError.charAt(0).toLowerCase()}${facilityError.slice(1)}`, 409);
     }
   }
   if (changingGuardianContact) {
