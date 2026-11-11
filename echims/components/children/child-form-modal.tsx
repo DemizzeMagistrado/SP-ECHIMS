@@ -451,7 +451,6 @@ export function ChildFormModal({
                   />
                 </div>
                 {choice("relationship_to_household_head", "Relationship to household head")}
-                {choice("civil_status", "Civil status")}
                 {choice("religion", "Religion")}
                 {choice("ethnicity", "Ethnicity")}
               </div>

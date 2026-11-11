@@ -20,7 +20,6 @@ export const emptyChildForm: ChildForm = {
   first_name: '', middle_name: '', last_name: '', date_of_birth: '', sex: '', birth_place: '',
   birth_weight_kg: '', birth_height_cm: '',
   relationship_to_household_head: '', relationship_to_household_head_other: '',
-  civil_status: '', civil_status_other: '',
   religion: '', religion_other: '', ethnicity: '', ethnicity_other: '',
   philhealth_id_number: '', philhealth_membership_type: '', philhealth_membership_type_other: '',
   philhealth_category: '', philhealth_category_other: '',
@@ -38,7 +37,7 @@ export const emptyChildForm: ChildForm = {
 }
 
 export const otherAwareFields = [
-  'relationship_to_household_head', 'civil_status', 'religion', 'ethnicity',
+  'relationship_to_household_head', 'religion', 'ethnicity',
   'philhealth_membership_type', 'philhealth_category', 'water_source_type', 'toilet_facility_type',
 ] as const
 
@@ -48,7 +47,6 @@ export const options = {
     'Grandfather', 'Aunt', 'Uncle', 'Brother-in-Law', 'Sister-in-Law', 'Mother-in-Law', 'Father-in-Law',
     'Grandson', 'Granddaughter', 'Cousin', 'Step-Sibling', 'Step-Child', 'Son/Daughter-in-Law', 'Other',
   ],
-  civil_status: ['Single', 'Married', 'Live-in', 'Widow/er', 'Separated', 'Cohabitation', 'Other'],
   religion: [
     'Roman Catholic', 'Christian', 'Iglesia ni Cristo', 'Catholic', 'Islam', 'Baptist', 'Born Again Christian',
     'Buddhism', 'Church of God', "Jehovah's Witness", 'Protestant', 'Seventh Day Adventist', 'LDS-Mormons',
@@ -175,7 +173,6 @@ export function recordToForm(d: { child?: Row | null; guardian?: Row | null; pro
     barangay_id: str(child.barangay_id), household_id: str(child.household_id), guardian_id: str(child.guardian_id),
     guardian_contact_number: str(guardian?.contact_number),
     relationship_to_household_head: str(profile.relationship_to_household_head),
-    civil_status: str(profile.civil_status),
     religion: str(profile.religion), ethnicity: str(profile.ethnicity),
     philhealth_id_number: str(profile.philhealth_id_number),
     philhealth_membership_type: str(profile.philhealth_membership_type),
@@ -193,7 +190,7 @@ export function recordToForm(d: { child?: Row | null; guardian?: Row | null; pro
 export const FIELD_LABELS: Record<string, string> = {
   first_name: 'First name', middle_name: 'Middle name', last_name: 'Last name', date_of_birth: 'Date of birth',
   sex: 'Sex', birth_place: 'Place of birth', birth_weight_kg: 'Birth weight (kg)', birth_height_cm: 'Birth height (cm)',
-  relationship_to_household_head: 'Relationship to household head', civil_status: 'Civil status', religion: 'Religion',
+  relationship_to_household_head: 'Relationship to household head', religion: 'Religion',
   ethnicity: 'Ethnicity', philhealth_membership_type: 'PhilHealth membership', philhealth_id_number: 'PhilHealth ID',
   philhealth_category: 'PhilHealth category', medical_codes: 'Medical history', medical_others: 'Medical history (other)',
   medical_history_notes: 'Medical notes', mother_name: 'Mother', father_name: 'Father',

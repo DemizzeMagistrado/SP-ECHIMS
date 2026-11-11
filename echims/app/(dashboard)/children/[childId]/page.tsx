@@ -77,7 +77,6 @@ type Profile = {
   profile_record_id: number;
   profiling_date: string | null;
   relationship_to_household_head: string | null;
-  civil_status: string | null;
   religion: string | null;
   ethnicity: string | null;
   philhealth_id_number: string | null;
@@ -724,7 +723,6 @@ export function ChildProfileView({childId}: {childId: string}) {
           </div>
           <div className="divide-y divide-border">
             <InfoRow label="Relationship to household head" value={profile?.relationship_to_household_head || "—"} />
-            <InfoRow label="Civil status" value={profile?.civil_status || "—"} />
             <InfoRow label="Religion" value={profile?.religion || "—"} />
             <InfoRow label="Ethnicity" value={profile?.ethnicity || "—"} />
             <InfoRow

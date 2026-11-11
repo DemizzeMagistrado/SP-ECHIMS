@@ -462,7 +462,6 @@ export async function POST(request: Request) {
     );
   const profileFields = [
     "relationship_to_household_head",
-    "civil_status",
     "religion",
     "ethnicity",
     "philhealth_membership_type",
@@ -638,7 +637,6 @@ export async function PATCH(request: Request) {
   // added so edits to the PhilHealth ID actually persist.
   const profileFields = [
     "relationship_to_household_head",
-    "civil_status",
     "religion",
     "ethnicity",
     "philhealth_id_number",
