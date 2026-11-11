@@ -18,7 +18,7 @@ export const emptyChildForm: ChildForm = {
   first_name: '', middle_name: '', last_name: '', date_of_birth: '', sex: '', birth_place: '',
   birth_weight_kg: '', birth_height_cm: '',
   relationship_to_household_head: '', relationship_to_household_head_other: '',
-  civil_status: '', civil_status_other: '', educational_attainment: '', educational_attainment_other: '',
+  civil_status: '', civil_status_other: '',
   religion: '', religion_other: '', ethnicity: '', ethnicity_other: '',
   philhealth_id_number: '', philhealth_membership_type: '', philhealth_membership_type_other: '',
   philhealth_category: '', philhealth_category_other: '',
@@ -36,7 +36,7 @@ export const emptyChildForm: ChildForm = {
 }
 
 export const otherAwareFields = [
-  'relationship_to_household_head', 'civil_status', 'educational_attainment', 'religion', 'ethnicity',
+  'relationship_to_household_head', 'civil_status', 'religion', 'ethnicity',
   'philhealth_membership_type', 'philhealth_category', 'water_source_type', 'toilet_facility_type',
 ] as const
 
@@ -47,20 +47,14 @@ export const options = {
     'Grandson', 'Granddaughter', 'Cousin', 'Step-Sibling', 'Step-Child', 'Son/Daughter-in-Law', 'Other',
   ],
   civil_status: ['Single', 'Married', 'Live-in', 'Widow/er', 'Separated', 'Cohabitation', 'Other'],
-  educational_attainment: [
-    'Pre-school', 'Elementary Undergraduate', 'Elementary Student', 'Elementary Graduate',
-    'High School Undergraduate', 'High School Student', 'High School Graduate', 'Senior High School',
-    'ALS - Alternative Learning System', 'College Undergraduate', 'College Student', 'College Graduate',
-    'Post Graduate/Masteral/Doctorate', 'Vocational Course', 'N/A', 'Other',
-  ],
   religion: [
     'Roman Catholic', 'Christian', 'Iglesia ni Cristo', 'Catholic', 'Islam', 'Baptist', 'Born Again Christian',
     'Buddhism', 'Church of God', "Jehovah's Witness", 'Protestant', 'Seventh Day Adventist', 'LDS-Mormons',
     'Evangelical', 'Pentecostal', 'Unknown', 'Other',
   ],
   ethnicity: ['IP', 'Non-IP', 'Other'],
-  philhealth_membership_type: ['Member', 'Dependent', 'Unknown', 'Other'],
-  philhealth_category: ['Direct Contributors', 'Indirect Contributors', 'Unknown', 'Other'],
+  philhealth_membership_type: ['Member', 'Dependent', 'N/A', 'No PhilHealth', 'Other'],
+  philhealth_category: ['Direct Contributors', 'Indirect Contributors', 'Other'],
   water_source_type: ['Level 1', 'Level 2', 'Level 3', 'Unknown', 'Other'],
   toilet_facility_type: [
     'Pour/flush toilet connected to septic tank',
@@ -70,6 +64,9 @@ export const options = {
   ],
   guardian_relationship_to_child: ['Mother', 'Father', 'Grandparent', 'Other Relative', 'Legal Guardian'],
 }
+
+/** No PhilHealth number or category applies to these memberships. */
+export const NO_PHILHEALTH = new Set(['N/A', 'No PhilHealth'])
 
 export function monthsOld(date: string) {
   const birth = new Date(`${date}T00:00:00Z`)

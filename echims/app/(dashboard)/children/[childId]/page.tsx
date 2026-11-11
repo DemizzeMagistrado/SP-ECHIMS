@@ -27,6 +27,7 @@ import {
 import { useAuth } from "@/components/auth/auth-provider";
 import { canPerform, type UserRole } from "@/lib/echims-data";
 import { formatChildId } from "@/lib/formatters";
+import { NO_PHILHEALTH } from "@/lib/children/profile-fields";
 import { ChildFormModal } from "@/components/children/child-form-modal";
 import { ChangeStatusModal } from "@/components/children/change-status-modal";
 import { VaccinationScheduleSection } from "@/components/children/vaccination-schedule-section";
@@ -71,7 +72,6 @@ type Profile = {
   profiling_date: string | null;
   relationship_to_household_head: string | null;
   civil_status: string | null;
-  educational_attainment: string | null;
   religion: string | null;
   ethnicity: string | null;
   philhealth_id_number: string | null;
@@ -636,15 +636,15 @@ export function ChildProfileView({childId}: {childId: string}) {
           <div className="divide-y divide-border">
             <InfoRow label="Relationship to household head" value={profile?.relationship_to_household_head || "—"} />
             <InfoRow label="Civil status" value={profile?.civil_status || "—"} />
-            <InfoRow label="Educational attainment" value={profile?.educational_attainment || "—"} />
             <InfoRow label="Religion" value={profile?.religion || "—"} />
             <InfoRow label="Ethnicity" value={profile?.ethnicity || "—"} />
-            <InfoRow label="PhilHealth ID" value={profile?.philhealth_id_number || "—"} />
             <InfoRow
-              label="PhilHealth membership"
-              value={profile?.philhealth_membership_type
-                ? `${profile.philhealth_membership_type}${profile.philhealth_category ? ` (${profile.philhealth_category})` : ""}`
-                : "—"}
+              label="PhilHealth"
+              value={!profile?.philhealth_membership_type
+                ? <span className="text-warn">Not recorded — needs review</span>
+                : NO_PHILHEALTH.has(profile.philhealth_membership_type)
+                  ? profile.philhealth_membership_type
+                  : [profile.philhealth_membership_type, profile.philhealth_id_number, profile.philhealth_category].filter(Boolean).join(" · ")}
             />
             <InfoRow label="Medical history" value={profile?.medical_history || "—"} />
           </div>

@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox, DateInput, Field, Input, Select, Textarea } from '@/components/ui/form'
 import { cn } from '@/lib/utils'
 import {
-  STEPS, classificationForDob, emptyChildForm, options, otherAwareFields, validateStep,
+  NO_PHILHEALTH, STEPS, classificationForDob, emptyChildForm, options, otherAwareFields, validateStep,
   type ChildForm, type StepKey,
 } from '@/lib/children/profile-fields'
 
@@ -37,6 +37,19 @@ const fetcher = async (url: string) => {
   if (!response.ok) throw new Error(data.error || "Unable to load records.");
   return data;
 };
+
+/** A saved value that is not one of the options was typed under "Other": show it that way. */
+function withOtherSplit(form: ChildForm): ChildForm {
+  const next = { ...form };
+  for (const field of otherAwareFields) {
+    const value = String(next[field] ?? "");
+    if (value && !(options[field] as readonly string[]).includes(value)) {
+      next[field] = "Other";
+      next[`${field}_other`] = value;
+    }
+  }
+  return next;
+}
 
 const grid = "grid gap-4 sm:grid-cols-2 lg:grid-cols-3";
 const wide = "sm:col-span-2 lg:col-span-3";
@@ -106,7 +119,7 @@ export function ChildFormModal({
           ? `${[guardian.first_name, guardian.middle_name, guardian.last_name].filter(Boolean).join(" ")}${guardian.relationship_to_child ? ` (${guardian.relationship_to_child})` : ""}` : "");
         setOriginalGuardianContact(guardian?.contact_number ?? "");
         const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
-        setForm({
+        setForm(withOtherSplit({
           ...emptyChildForm,
           first_name: str(child.first_name), middle_name: str(child.middle_name), last_name: str(child.last_name),
           date_of_birth: str(child.date_of_birth),
@@ -117,7 +130,7 @@ export function ChildFormModal({
           barangay_id: str(child.barangay_id), household_id: str(child.household_id), guardian_id: str(child.guardian_id),
           guardian_contact_number: guardian?.contact_number ?? "",
           relationship_to_household_head: str(profile.relationship_to_household_head),
-          civil_status: str(profile.civil_status), educational_attainment: str(profile.educational_attainment),
+          civil_status: str(profile.civil_status),
           religion: str(profile.religion), ethnicity: str(profile.ethnicity),
           philhealth_id_number: str(profile.philhealth_id_number),
           philhealth_membership_type: str(profile.philhealth_membership_type),
@@ -126,7 +139,7 @@ export function ChildFormModal({
           last_menstrual_period: str(profile.last_menstrual_period),
           water_source_type: str(profile.water_source_type), toilet_facility_type: str(profile.toilet_facility_type),
           informant_name: str(profile.informant_name), informant_relationship: str(profile.informant_relationship),
-        });
+        }));
       } catch (e) {
         if (!cancelled) setMessage(e instanceof Error ? e.message : "Unable to load child record.");
       } finally {
@@ -180,6 +193,10 @@ export function ChildFormModal({
     const resolved: Record<string, string> = {};
     for (const field of otherAwareFields) {
       if (source[field] === "Other") resolved[field] = String(source[`${field}_other`] ?? "").trim() || "Other";
+    }
+    if (NO_PHILHEALTH.has(String(source.philhealth_membership_type))) {
+      resolved.philhealth_id_number = "";
+      resolved.philhealth_category = "";
     }
     const conditions: string[] = [];
     if (source.has_hypertension) conditions.push("Hypertension");
@@ -336,15 +353,39 @@ export function ChildFormModal({
                 </div>
                 {choice("relationship_to_household_head", "Relationship to household head")}
                 {choice("civil_status", "Civil status")}
-                {choice("educational_attainment", "Educational attainment")}
                 {choice("religion", "Religion")}
                 {choice("ethnicity", "Ethnicity")}
               </div>
               <SubHeading>PhilHealth</SubHeading>
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-semibold text-brand-navy">Membership</legend>
+                <div className="flex flex-wrap gap-2">
+                  {options.philhealth_membership_type.map((item) => (
+                    <label key={item} className={cn(
+                      "cursor-pointer rounded-full border px-3 py-1.5 text-sm font-medium transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring",
+                      str("philhealth_membership_type") === item ? "border-primary bg-primary text-white" : "border-border bg-white hover:bg-muted",
+                    )}>
+                      <input type="radio" name="philhealth_membership_type" value={item} className="sr-only"
+                        checked={str("philhealth_membership_type") === item}
+                        onChange={() => set("philhealth_membership_type", item)} />
+                      {item}
+                    </label>
+                  ))}
+                </div>
+                {!str("philhealth_membership_type") && mode === "edit" && (
+                  <p className="text-xs text-warn">Not recorded — needs review. Ask the guardian at this visit.</p>
+                )}
+              </fieldset>
               <div className={grid}>
-                {choice("philhealth_membership_type", "Membership type")}
-                {text("philhealth_id_number", "PhilHealth ID")}
-                {choice("philhealth_category", "Category")}
+                {str("philhealth_membership_type") === "Other" && (
+                  <Field label="Membership (specify)">
+                    <Input value={str("philhealth_membership_type_other")} onChange={(e) => set("philhealth_membership_type_other", e.target.value)} />
+                  </Field>
+                )}
+                {!NO_PHILHEALTH.has(str("philhealth_membership_type")) && (<>
+                  {text("philhealth_id_number", "PhilHealth ID")}
+                  {choice("philhealth_category", "Category")}
+                </>)}
               </div>
               <SubHeading>Medical history</SubHeading>
               <fieldset className="space-y-3">
@@ -485,7 +526,9 @@ export function ChildFormModal({
                 ["Place of birth", str("birth_place")],
                 ["Birth weight", str("birth_weight_kg") && `${str("birth_weight_kg")} kg`],
                 ["Birth height", str("birth_height_cm") && `${str("birth_height_cm")} cm`],
-                ["PhilHealth", [str("philhealth_membership_type"), str("philhealth_id_number"), str("philhealth_category")].filter(Boolean).join(" · ")],
+                ["PhilHealth", NO_PHILHEALTH.has(str("philhealth_membership_type"))
+                  ? str("philhealth_membership_type")
+                  : [str("philhealth_membership_type") === "Other" ? str("philhealth_membership_type_other") || "Other" : str("philhealth_membership_type"), str("philhealth_id_number"), str("philhealth_category")].filter(Boolean).join(" · ")],
                 ["Medical history", resolveOthers(form).medical_history],
               ]} />
               <ReviewCard title="Guardian Information" onEdit={() => goTo(1)} rows={[
