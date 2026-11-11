@@ -22,6 +22,7 @@ import { Spinner } from '@/components/brand/logo-loader'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Select } from '@/components/ui/form'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { Button } from '@/components/ui/button'
 type DoseStatus = 'COMPLETE' | 'DUE' | 'OVERDUE' | 'UPCOMING'
 type DoseRow = {
   dose_number: number
@@ -142,22 +143,13 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
         </div>
         <div className="flex flex-wrap items-center gap-2 print:hidden">
           {canAddPrior && (
-            <button
-              type="button"
-              onClick={() => setPriorModalOpen(true)}
-              className="inline-flex items-center gap-1.5 self-start rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 transition-colors hover:bg-amber-100"
-              title="Record a vaccination given before eCHIMS enrollment (Baby Book, prior RHU, etc.)"
-            >
-              <Plus size={14} /> Add past vaccination
-            </button>
+            <Button variant="secondary" size="sm" onClick={() => setPriorModalOpen(true)} title="Record a vaccination given before eCHIMS enrollment (Baby Book, prior RHU, etc.)">
+              <Plus size={14} aria-hidden="true" /> Add past vaccination
+            </Button>
           )}
-          <button
-            type="button"
-            onClick={handlePrint}
-            className="inline-flex items-center gap-1.5 self-start rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
-          >
-            <Printer size={14} /> Print
-          </button>
+          <Button variant="secondary" size="sm" onClick={handlePrint}>
+            <Printer size={14} aria-hidden="true" /> Print
+          </Button>
         </div>
       </div>
       {/* Body */}

@@ -1,4 +1,6 @@
 'use client'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { RefreshCw } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import useSWR from 'swr'
@@ -57,7 +59,10 @@ export function SupplementationHistorySection({childId}:{childId:number}){
   return <section className="overflow-hidden rounded-2xl border border-border bg-white">
     <div className="flex flex-wrap items-center justify-between gap-3 border-b p-5">
       <div><h2 className="text-lg font-semibold text-primary">Supplementation</h2><p className="mt-1 text-sm text-muted-foreground">Saved doses, supplies, plans and scheduled follow-up</p></div>
-      <div className="flex gap-3"><button type="button" onClick={()=>void mutate()} className="text-sm text-primary underline">Refresh</button><Link className="text-sm font-medium text-primary underline" href={reviewHref}>{data?.permissions?.record||data?.permissions?.clinical?'Review / Record':'Review supplementation'}</Link></div>
+      <div className="flex flex-wrap items-center gap-2 print:hidden">
+        <Button variant="secondary" size="sm" onClick={()=>void mutate()}><RefreshCw size={14} aria-hidden="true"/>Refresh</Button>
+        <Link className={buttonVariants({variant:'secondary',size:'sm'})} href={reviewHref}>{data?.permissions?.record||data?.permissions?.clinical?'Review / Record':'Review supplementation'}</Link>
+      </div>
     </div>
     <TabBar className="border-b p-3" label="Supplementation sections" group="supplementation-history" value={tab} onChange={setTab}
       items={(Object.keys(labels) as Array<keyof typeof labels>).map((key) => ({ value: key, label: labels[key] }))} />
