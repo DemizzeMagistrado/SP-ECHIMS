@@ -24,6 +24,14 @@ calendar Month/Week/Day) are not tabs and keep their own look.
 <FilterChips label="Filter alerts" value={filter} onChange={setFilter} options={[{ value: 'all', label: 'All' }, …]} />
 ```
 
+## StatCard — `stat-card.tsx`
+Summary count: white card, muted label, big number with the tone on the number only
+(`default` · `good` · `warn` · `danger` · `info` · `nutrition`), optional `hint` and `icon`. Pass
+`onClick` + `pressed` when the card doubles as a filter. Row: `grid grid-cols-2 gap-4 md:grid-cols-4`.
+```tsx
+<StatCard label="Critical" value={summary.critical} tone="danger" />
+```
+
 ## PageHeader — `page-header.tsx`
 Display-font title, one-line muted subtitle, `actions` on the right (wrap below on mobile). No breadcrumbs.
 ```tsx
