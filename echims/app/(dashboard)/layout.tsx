@@ -7,6 +7,7 @@ import { DashboardShell } from '@/components/dashboard/shell'
 import { SessionGate } from '@/components/auth/session-gate'
 import { NavProgress } from '@/components/dashboard/nav-progress'
 import { LoadingGate } from '@/components/brand/loading-gate'
+import { CommandPalette } from '@/components/dashboard/command-palette'
 
 export default async function DashboardLayout({
   children,
@@ -121,6 +122,7 @@ export default async function DashboardLayout({
   return (
       <DashboardShell>
         <NavProgress />
+        <CommandPalette />
         {/* Same sky tone as the sign-in page, so arriving after login feels continuous */}
         <div className={`brand flex min-h-screen items-stretch bg-[linear-gradient(180deg,#CAF0F8_0%,#E4F6FA_40%,#F1FAFC_100%)] bg-fixed text-[#03045E] animate-in fade-in duration-500`}>
           <Sidebar

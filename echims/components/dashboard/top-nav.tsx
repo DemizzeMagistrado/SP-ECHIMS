@@ -24,6 +24,7 @@ import { useShell } from './shell'
 import { Spinner } from '@/components/brand/logo-loader'
 import { EmptyState } from '@/components/ui/empty-state'
 import { OfflineBanner } from '@/components/offline/offline-banner'
+import { SearchButton } from './command-palette'
 
 type Notification = {
   alert_id: number
@@ -192,6 +193,7 @@ export function TopNav() {
       </div>
 
       <div className="flex items-center gap-3 sm:gap-4">
+        {inShell && <SearchButton />}
         <SystemOfflineTools />
 
         {/* Notifications */}
