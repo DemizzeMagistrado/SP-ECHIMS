@@ -1,6 +1,9 @@
+'use client'
+
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { Logo } from '@/components/brand/logo'
+import { useAuth } from '@/components/auth/auth-provider'
 
 export const primaryAction = 'inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring'
 export const secondaryAction = 'inline-flex items-center justify-center gap-2 rounded-lg border border-brand-line bg-white px-5 py-2.5 text-sm font-semibold text-brand-navy hover:bg-brand-ice focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring'
@@ -26,6 +29,9 @@ export function StatusPage({ code, title, message, actions, area = 'page' }: {
   )
 }
 
-export function HomeLink({ signedIn }: { signedIn: boolean }) {
+/** "Back to dashboard" when signed in, otherwise "Back to home". Pass signedIn to skip the session lookup. */
+export function HomeLink({ signedIn }: { signedIn?: boolean }) {
+  const { user } = useAuth()
+  signedIn ??= Boolean(user)
   return <Link href={signedIn ? '/dashboard' : '/'} className={primaryAction}>{signedIn ? 'Back to dashboard' : 'Back to home'}</Link>
 }
