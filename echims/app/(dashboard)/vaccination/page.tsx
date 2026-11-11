@@ -16,7 +16,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from '@/lib/offline/navigation'
 import {
   Plus, Package, AlertCircle, Hash, MapPin, CalendarClock, CheckCircle2, Clock, XCircle,
-  Pencil, Power, Syringe, Eye, History, ChevronDown, ChevronRight, BookOpen, Shield, Info,
+  Pencil, Power, Syringe, Eye, History, BookOpen, Shield, Info,
   ExternalLink, ArrowRight, Users, Search, Download, Calendar as CalendarIcon,
   CalendarX,
 } from 'lucide-react'
@@ -888,6 +888,8 @@ function CatalogSection() {
       return next
     })
   }
+  const [search, setSearch] = useState('')
+  const [activeFilter, setActiveFilter] = useState<'all' | 'ACTIVE' | 'INACTIVE'>('all')
 
   function openCreate() { setEditing(null); setModalOpen(true) }
   function openEdit(v: VaccineCatalogRow) { setEditing(v); setModalOpen(true) }
@@ -933,184 +935,117 @@ function CatalogSection() {
     )
   }
 
-  const rows = data?.vaccines ?? []
+  const allRows = data?.vaccines ?? []
+  const q = search.trim().toLowerCase()
+  const rows = allRows.filter((v) => {
+    const item = one(v.item)
+    const isActive = item?.status === 'ACTIVE'
+    return (!q || [item?.item_name, v.vaccine_type, item?.description].some((x) => x?.toLowerCase().includes(q)))
+      && (activeFilter === 'all' || (activeFilter === 'ACTIVE') === isActive)
+  })
+  const allOpen = rows.length > 0 && rows.every((v) => expanded.has(v.vaccine_id))
+  const noneOpen = rows.every((v) => !expanded.has(v.vaccine_id))
+  const setAll = (open: boolean) => setExpanded(open ? new Set(rows.map((v) => v.vaccine_id)) : new Set())
 
   return (
     <div className="space-y-6">
+      <VaccinationSnapshotNotice savedAt={savedAt} readOnly={readOnly} />
       <PageHeader
         title="NIP Vaccine Catalog"
-        subtitle="Maintain the DOH immunization catalog and schedule rules. Every change is logged."
-        actions={<>
-          {isAdmin && (
-            <Button
-              onClick={openCreate}
-            >
-              <Plus size={17} /> Add new vaccine
-            </Button>
-          )}
-        </>}
+        subtitle="The DOH immunization catalog and schedule rules. Open a vaccine for eligibility and guidelines; every change is logged."
+        actions={isAdmin && (
+          <Button onClick={openCreate}><Plus size={17} aria-hidden="true" /> Add new vaccine</Button>
+        )}
       />
 
-      {/* Read-only banner for non-admin viewers (e.g. PHN, RHM, BHW) */}
       {!isAdmin && (
-        <div className="flex items-start gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
-          <Eye size={16} className="mt-0.5 shrink-0" />
-          <span>
-            <strong>Read-only view.</strong> Click any row to see DOH eligibility, contraindications, and guidelines before administering a dose. Only administrators can add, edit, or deactivate vaccines.
-          </span>
-        </div>
-      )}
-      {/* NIP-USR011 — expand hint (admin view too, so they discover guidelines live here) */}
-      {isAdmin && rows.length > 0 && (
-        <div className="flex items-start gap-2 rounded-xl border border-sky-100 bg-sky-50/60 px-4 py-2.5 text-xs text-sky-900">
-          <BookOpen size={14} className="mt-0.5 shrink-0" />
-          <span>
-            Click any row to view DOH Guidelines & Eligibility inline. Edit via the vaccine form.
-          </span>
+        <div className="flex items-start gap-2 rounded-xl border border-brand-blue/20 bg-brand-ice px-4 py-3 text-sm text-brand-navy">
+          <Eye size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+          <span><strong>Read-only view.</strong> Only administrators can add, edit or deactivate vaccines.</span>
         </div>
       )}
 
       {isLoading ? (
-        <div className="rounded-2xl border border-border bg-white"><LogoLoader size="section" label="Loading catalog…" /></div>
-      ) : error ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
-      ) : rows.length === 0 ? (
-        <EmptyState size="page" icon={Syringe} title="No vaccines in the catalog yet" description="Use “Add new vaccine” to add your first DOH entry." className="min-h-64 rounded-2xl border border-dashed border-sky-200 bg-white" />
-      ) : (
-        <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            {/* NIP-USR011 — table-layout: fixed + explicit column widths on <thead>
-                so that expanding a Guidelines row doesn't force the browser to
-                recalculate column widths and shift sibling collapsed rows.
-                Column widths sum to 100% of the min-w-[1100px] canvas. */}
-            <table className="w-full min-w-[1100px] text-left text-sm" style={{ tableLayout: 'fixed' }}>
-              {/* Column widths (left to right): caret · Vaccine · Code · Schedule
-                  · Administration · Status · Last change · Actions (admin only).
-                  Comments live out here — JSX comments INSIDE <colgroup> become
-                  whitespace text nodes that break React hydration. */}
-              <colgroup>
-                <col style={{ width: '40px' }} />
-                <col style={{ width: '22%' }} />
-                <col style={{ width: '7%' }} />
-                <col style={{ width: '17%' }} />
-                <col style={{ width: '14%' }} />
-                <col style={{ width: '9%' }} />
-                <col style={{ width: '14%' }} />
-                {isAdmin && <col style={{ width: '17%' }} />}
-              </colgroup>
-              <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  {/* Caret column — click anywhere on the row to expand Guidelines. */}
-                  <th className="px-3 py-4 font-semibold"></th>
-                  <th className="px-5 py-4 font-semibold">Vaccine</th>
-                  <th className="px-5 py-4 font-semibold">Code</th>
-                  <th className="px-5 py-4 font-semibold">Schedule</th>
-                  <th className="px-5 py-4 font-semibold">Administration</th>
-                  <th className="px-5 py-4 font-semibold">Status</th>
-                  <th className="px-5 py-4 font-semibold">Last change</th>
-                  {isAdmin && <th className="px-5 py-4 font-semibold">Actions</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {rows.map((v) => {
-                  const item = one(v.item)
-                  const active = item?.status === 'ACTIVE'
-                  const isOpen = expanded.has(v.vaccine_id)
-                  const colSpan = isAdmin ? 8 : 7
-                  return (
-                    <React.Fragment key={v.vaccine_id}>
-                      <tr
-                        className={`${active ? 'hover:bg-muted/40' : 'bg-slate-50/60'} cursor-pointer`}
-                        onClick={() => toggleExpanded(v.vaccine_id)}
-                        aria-expanded={isOpen}
-                      >
-                        <td className="px-3 py-4 align-top">
-                          <span className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted">
-                            {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 align-top">
-                          {/* break-words lets long vaccine names wrap instead of
-                              widening the column. */}
-                          <div className="font-semibold text-foreground break-words">{item?.item_name ?? '—'}</div>
-                          {item?.description && <div className="mt-0.5 text-xs text-muted-foreground break-words">{item.description}</div>}
-                        </td>
-                        <td className="px-5 py-4"><span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold text-slate-700">{v.vaccine_type}</span></td>
-                        <td className="px-5 py-4 text-xs text-muted-foreground">
-                          <div><strong className="text-foreground">{v.total_doses}</strong> dose{v.total_doses === 1 ? '' : 's'}</div>
-                          <div>from day <strong className="text-foreground">{v.min_age_days}</strong>{v.interval_days ? ` · +${v.interval_days}d each` : ''}</div>
-                          {v.target_age && <div className="mt-0.5 italic">{v.target_age}</div>}
-                        </td>
-                        <td className="px-5 py-4 text-xs text-muted-foreground">
-                          {v.dose_volume && <div>{v.dose_volume}</div>}
-                          {v.route && <div>{v.route}</div>}
-                        </td>
-                        <td className="px-5 py-4">
-                          {active ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
-                              <CheckCircle2 size={11} /> Active
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700">
-                              <AlertCircle size={11} /> Inactive
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-5 py-4 text-xs text-muted-foreground">
-                          {v.latest_change ? (
-                            <>
-                              <div className="flex items-center gap-1"><History size={11} /> {v.latest_change.action.toLowerCase()}</div>
-                              <div>{formatTimestamp(v.latest_change.changed_at)}</div>
-                            </>
-                          ) : (
-                            <>
-                              <div>Last updated</div>
-                              <div>{formatTimestamp(v.updated_at)}</div>
-                            </>
-                          )}
-                        </td>
-                        {isAdmin && (
-                          <td className="px-5 py-4">
-                            {/* Admin actions — stopPropagation so clicking a button doesn't
-                                also toggle the row expansion. */}
-                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                              <Button variant="secondary" size="sm"
-                                onClick={() => openEdit(v)}
-                              >
-                                <Pencil size={12} /> Edit
-                              </Button>
-                              <button
-                                onClick={() => toggleActive(v, !active)}
-                                disabled={togglingId === v.vaccine_id}
-                                className={`inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-60 ${
-                                  active ? 'border-rose-600 text-rose-700 hover:bg-rose-50' : 'border-emerald-600 text-emerald-700 hover:bg-emerald-50'
-                                }`}
-                              >
-                                <Power size={12} /> {active ? 'Deactivate' : 'Reactivate'}
-                              </button>
-                            </div>
-                          </td>
-                        )}
-                      </tr>
-
-                      {/* NIP-USR011 — Inline Guidelines row. Rendered only when expanded
-                          so the catalog stays scannable at a glance. */}
-                      {isOpen && (
-                        <tr className="bg-sky-50/40">
-                          <td className="px-3 py-0 align-top"></td>
-                          <td colSpan={colSpan - 1} className="px-5 py-4">
-                            <GuidelinesPanel vaccine={v} isAdmin={isAdmin} onEdit={() => openEdit(v)} />
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  )
-                })}
-              </tbody>
-            </table>
+        <LogoLoader size="section" label="Loading catalog…" />
+      ) : error && !data ? (
+        <div role="alert" className="rounded-2xl border border-danger/20 bg-danger-soft p-4 text-sm text-danger">{error.message}</div>
+      ) : allRows.length === 0 ? (
+        <EmptyState size="page" icon={Syringe} title="No vaccines in the catalog yet" description={isAdmin ? 'Use “Add new vaccine” to add your first DOH entry.' : 'An administrator has not added vaccines yet.'} className="min-h-64 rounded-2xl border border-dashed border-border bg-white" />
+      ) : (<>
+        <div className="space-y-3 rounded-2xl border border-border bg-white p-4">
+          <div className="grid gap-3 sm:grid-cols-[1fr_200px]">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} aria-hidden="true" />
+              <Input aria-label="Search vaccines" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name or code…" className="pl-9" />
+            </div>
+            <Select aria-label="Status" value={activeFilter} onChange={(e) => setActiveFilter(e.target.value as 'all' | 'ACTIVE' | 'INACTIVE')}>
+              <option value="all">All vaccines</option>
+              <option value="ACTIVE">Active</option>
+              <option value="INACTIVE">Inactive</option>
+            </Select>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground">{rows.length} of {allRows.length} vaccines</span>
+            {rows.length > 1 && <ExpandCollapseAll allOpen={allOpen} noneOpen={noneOpen} onSet={setAll} />}
           </div>
         </div>
-      )}
+
+        <div key={`${q}|${activeFilter}`} className="animate-in fade-in duration-150 motion-reduce:animate-none">
+          {rows.length === 0 ? (
+            <EmptyState icon={Syringe} title="No vaccines match these filters" description="Try another name, code or status." className="rounded-2xl border border-dashed border-border" />
+          ) : (
+            <ul className="space-y-2.5">
+              {rows.map((v) => {
+                const item = one(v.item)
+                const active = item?.status === 'ACTIVE'
+                const open = expanded.has(v.vaccine_id)
+                return (
+                  <AccordionCard
+                    key={v.vaccine_id}
+                    id={`catalog-${v.vaccine_id}`}
+                    open={open}
+                    onToggle={() => toggleExpanded(v.vaccine_id)}
+                    className={active ? undefined : 'opacity-80'}
+                    header={<>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold text-brand-navy">{item?.item_name ?? v.vaccine_type}</span>
+                          <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-slate-700">{v.vaccine_type}</span>
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {v.total_doses} dose{v.total_doses === 1 ? '' : 's'} · from day {v.min_age_days}{v.interval_days ? `, +${v.interval_days} days each` : ''}{v.target_age ? ` · ${v.target_age}` : ''}
+                        </span>
+                      </span>
+                      <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                        <span className="text-xs text-muted-foreground">{[v.dose_volume, v.route].filter(Boolean).join(' · ') || '—'}</span>
+                        <StatusBadge status={active ? 'active' : 'inactive'} label={active ? 'Active' : 'Inactive'} />
+                      </span>
+                    </>}
+                  >
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <History size={12} aria-hidden="true" />
+                          {v.latest_change ? `Last change: ${v.latest_change.action.toLowerCase()} · ${formatTimestamp(v.latest_change.changed_at)}` : `Last updated ${formatTimestamp(v.updated_at)}`}
+                        </span>
+                        {isAdmin && (
+                          <span className="flex flex-wrap gap-2">
+                            <Button variant="secondary" size="sm" onClick={() => openEdit(v)}><Pencil size={12} aria-hidden="true" /> Edit</Button>
+                            <Button variant="secondary" size="sm" className={active ? 'text-danger' : 'text-good'} loading={togglingId === v.vaccine_id} onClick={() => toggleActive(v, !active)}>
+                              <Power size={12} aria-hidden="true" /> {active ? 'Deactivate' : 'Reactivate'}
+                            </Button>
+                          </span>
+                        )}
+                      </div>
+                      <GuidelinesPanel vaccine={v} isAdmin={isAdmin} onEdit={() => openEdit(v)} />
+                    </div>
+                  </AccordionCard>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      </>)}
 
       <VaccineFormModal
         open={modalOpen && !readOnly}
