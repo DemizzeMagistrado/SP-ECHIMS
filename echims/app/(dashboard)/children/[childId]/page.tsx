@@ -22,7 +22,6 @@ import {
   Home,
   ArrowRightLeft,
   History,
-  AlertCircle,
   Printer,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -31,7 +30,6 @@ import { formatChildId } from "@/lib/formatters";
 import { ChildFormModal } from "@/components/children/child-form-modal";
 import { ChangeStatusModal } from "@/components/children/change-status-modal";
 import { VaccinationScheduleSection } from "@/components/children/vaccination-schedule-section";
-import { ImmunizationHistorySection } from "@/components/children/immunization-history-section";
 import { toast } from '@/components/ui/toast'
 import { GuardianSmsConsent } from "@/components/children/guardian-sms-consent";
 import { GuardianSmsHistory } from "@/components/children/guardian-sms-history";

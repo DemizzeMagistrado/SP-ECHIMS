@@ -24,7 +24,6 @@ import {
 import { SupplementationMonitoringPanel } from "@/components/supplementation/supplementation-monitoring-panel";
 import { SupplementStockRequestsPanel } from "@/components/supplementation/supplement-stock-requests-panel";
 import { SupplementationSmsPanel } from "@/components/supplementation/supplementation-sms-panel";
-import type { Session, User } from "@supabase/supabase-js";
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
 import { readPageCache, writePageCache } from '@/lib/page-cache'

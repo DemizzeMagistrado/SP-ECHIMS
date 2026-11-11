@@ -12,7 +12,7 @@ import { useState } from 'react'
 import useSWR from 'swr'
 import {
   Search, Package, Hash, MapPin, CalendarClock, AlertCircle, Download, Users, Syringe, Pill,
-  CheckCircle2, Clock, XCircle, Send,
+  CheckCircle2, Clock, Send,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'

@@ -4,7 +4,6 @@ import { reportScopeLabel } from "@/lib/reports/report-scope-label";
 import { useState } from "react";
 import { isValidatedReport } from "@/lib/reports/report-output-client";
 import Link from "next/link";
-import { Printer } from "lucide-react";
 import type { ReportRow } from "@/lib/reports/report-utils";
 type Relation<T> = T | T[] | null;
 type Barangay = {

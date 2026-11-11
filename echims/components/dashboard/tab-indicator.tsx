@@ -6,14 +6,13 @@ import { useLayoutEffect, useRef } from 'react'
 const last = new Map<string, string>()
 
 /**
- * Marks the active tab ([aria-selected="true"] or [aria-current="page"]) of its parent, which must
- * be position: relative. line: a 2px bar under the tab that moves with translate + scaleX.
- * pill: a background behind pill/segmented tabs (give the tab buttons `relative z-10` and no active
- * background); it slides with translate and takes the new tab's size without animating it, so its
- * corners never stretch.
+ * Sliding background behind the active tab ([aria-selected="true"] or [aria-current="page"]) of its
+ * parent, which must be position: relative. Give the tab buttons `relative z-10` and no active
+ * background. It slides with translate and takes the new tab's size without animating it, so its
+ * corners never stretch. Module tabs use it through components/ui/module-tabs.tsx.
  */
-export function TabIndicator({ group, activeKey, variant = 'line', className = '' }: {
-  group: string; activeKey: string; variant?: 'line' | 'pill'; className?: string
+export function TabIndicator({ group, activeKey, className = '' }: {
+  group: string; activeKey: string; className?: string
 }) {
   const bar = useRef<HTMLSpanElement>(null)
 
@@ -24,10 +23,8 @@ export function TabIndicator({ group, activeKey, variant = 'line', className = '
     const place = (animate: boolean) => {
       const tab = list.querySelector<HTMLElement>('[aria-selected="true"], [aria-current="page"]')
       if (!tab) { el.style.opacity = '0'; return }
-      const to = variant === 'pill'
-        ? `translate(${tab.offsetLeft}px, ${tab.offsetTop}px)`
-        : `translate(${tab.offsetLeft}px, ${tab.offsetTop + tab.offsetHeight - 2}px) scaleX(${tab.offsetWidth})`
-      if (variant === 'pill') { el.style.width = `${tab.offsetWidth}px`; el.style.height = `${tab.offsetHeight}px` }
+      const to = `translate(${tab.offsetLeft}px, ${tab.offsetTop}px)`
+      el.style.width = `${tab.offsetWidth}px`; el.style.height = `${tab.offsetHeight}px`
       el.style.transition = animate ? '' : 'none'
       el.style.opacity = '1'
       el.style.transform = to
@@ -48,7 +45,7 @@ export function TabIndicator({ group, activeKey, variant = 'line', className = '
     const ro = new ResizeObserver(() => { if (initial) { initial = false; return } place(false) })
     ro.observe(list)
     return () => ro.disconnect()
-  }, [group, activeKey, variant])
+  }, [group, activeKey])
 
-  return <span ref={bar} aria-hidden className={`${variant === 'pill' ? 'tab-pill' : 'tab-indicator'} ${className}`} />
+  return <span ref={bar} aria-hidden className={`tab-pill ${className}`} />
 }

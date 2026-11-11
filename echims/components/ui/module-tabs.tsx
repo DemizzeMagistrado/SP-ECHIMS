@@ -81,7 +81,7 @@ export function TabBar<T extends string>({ items, value, onChange, label, group,
             {item.label}
           </button>
         ))}
-        <TabIndicator group={group ?? label} activeKey={value} variant="pill" className="rounded-lg bg-primary" />
+        <TabIndicator group={group ?? label} activeKey={value} className="rounded-lg bg-primary" />
       </div>
     </div>
   )

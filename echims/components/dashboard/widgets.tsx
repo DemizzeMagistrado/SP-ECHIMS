@@ -16,7 +16,7 @@ import { listQueuedVaccinations } from '@/lib/vaccination-offline'
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
-import { AlertCircle, AlertTriangle, ArrowUpRight, BellOff, Info } from 'lucide-react'
+import { AlertCircle, AlertTriangle, ArrowUpRight, Info } from 'lucide-react'
 import { manilaTodayYMD } from '@/lib/nip-schedule'
 import { alertDestination } from '@/lib/alerts/alert-destination'
 import { Donut } from './mini-charts'
@@ -200,7 +200,7 @@ export function BarangayRankingWidget({ style, size = 'tall' }: WidgetProps) {
             {label}
           </button>
         ))}
-        <TabIndicator group="barangay-ranking" activeKey={by} variant="pill" className="rounded-md bg-white shadow-sm" />
+        <TabIndicator group="barangay-ranking" activeKey={by} className="rounded-md bg-white shadow-sm" />
       </div>
       {top.length === 0 ? (
         <p className="flex flex-1 items-center justify-center rounded-xl bg-brand-ice/60 p-4 text-center text-sm text-brand-muted">No barangay has {what}.</p>

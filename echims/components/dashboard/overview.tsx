@@ -393,7 +393,7 @@ function ActivityChart({ trends, trendKey, onTrend, totals, metrics, loading, di
                 {t.label}
               </button>
             ))}
-            <TabIndicator group="overview-chart" activeKey={trend.key} variant="pill" className="rounded-md bg-white shadow-sm" />
+            <TabIndicator group="overview-chart" activeKey={trend.key} className="rounded-md bg-white shadow-sm" />
           </div>
         )}
       </div>
