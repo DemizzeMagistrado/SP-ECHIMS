@@ -14,7 +14,8 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 //   - Empty / loading / error states
 import { useMemo, useState } from 'react'
 import useSWR from 'swr'
-import { Syringe, Printer, AlertCircle, Ban, CheckCircle2, ChevronDown, ChevronsDown, ChevronsUp, Clock, CalendarClock, Plus, History, SearchX } from 'lucide-react'
+import { Syringe, Printer, AlertCircle, Ban, CheckCircle2, Clock, CalendarClock, Plus, History, SearchX } from 'lucide-react'
+import { AccordionCard, ExpandCollapseAll } from '@/components/ui/accordion-card'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { RecordPriorVaccinationModal } from '@/components/vaccination/record-prior-vaccination-modal'
@@ -239,16 +240,7 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
                   </Select>
                 </label>
               </div>
-              {groups.length > 1 && (
-                <div className="flex justify-end gap-2">
-                  <Button variant="secondary" size="sm" onClick={() => setAll(true)} disabled={allOpen}>
-                    <ChevronsDown size={14} aria-hidden="true" />Expand all
-                  </Button>
-                  <Button variant="secondary" size="sm" onClick={() => setAll(false)} disabled={noneOpen}>
-                    <ChevronsUp size={14} aria-hidden="true" />Collapse all
-                  </Button>
-                </div>
-              )}
+              {groups.length > 1 && <ExpandCollapseAll allOpen={allOpen} noneOpen={noneOpen} onSet={setAll} />}
             </div>
             {/* Vaccines: one card each. Changing a filter fades the list in; open states persist. */}
             <div key={`${vaccineFilter}|${statusFilter}`} className="animate-in fade-in duration-150 motion-reduce:animate-none">
@@ -258,19 +250,13 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
               <ul className="space-y-2.5">
                 {groups.map((g) => {
                   const open = isOpen(g.code)
-                  const panelId = `nip-${childId}-${g.code}`
                   return (
-                    <li key={g.code} className={`overflow-hidden rounded-xl border transition-colors duration-200 ${open ? 'border-primary/25 shadow-sm' : 'border-border'}`}>
-                      <button
-                        type="button"
-                        aria-expanded={open}
-                        aria-controls={panelId}
-                        onClick={() => setOpenOverride((o) => ({ ...o, [g.code]: !open }))}
-                        className={`flex w-full cursor-pointer flex-wrap items-center gap-x-4 gap-y-1.5 border-l-4 px-4 py-3 text-left transition-colors duration-200 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring ${
-                          open ? 'border-l-primary bg-brand-ice' : 'border-l-transparent bg-white hover:bg-brand-ice/50'
-                        }`}
-                      >
-                        <ChevronDown size={16} aria-hidden="true" className={`shrink-0 text-brand-muted transition-transform duration-200 ease-out motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} />
+                    <AccordionCard
+                      key={g.code}
+                      id={`nip-${childId}-${g.code}`}
+                      open={open}
+                      onToggle={() => setOpenOverride((o) => ({ ...o, [g.code]: !open }))}
+                      header={<>
                         <span className="min-w-0 flex-1">
                           <span className="block font-semibold text-brand-navy">{g.name}</span>
                           <span className="block text-xs text-muted-foreground">{g.route} · {g.dose_volume}</span>
@@ -290,11 +276,8 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
                               : g.state === 'NOT_ELIGIBLE' ? 'Past the age limit' : 'All doses given'}
                           </span>
                         </span>
-                      </button>
-                      {/* Height (grid rows 0fr → 1fr) and opacity animate together; instant with reduced motion. */}
-                      <div id={panelId} className={`grid transition-[grid-template-rows,opacity] duration-[220ms] ease-out motion-reduce:transition-none ${open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
-                        <div className="overflow-hidden" inert={!open}>
-                          <div className="border-t border-primary/15 bg-slate-50 px-3 py-3 sm:px-4">
+                      </>}
+                    >
                             {/* Desktop: compact table */}
                             <table className="hidden w-full text-left text-sm sm:table">
                               <thead>
@@ -346,10 +329,7 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
                                 )
                               })}
                             </ul>
-                          </div>
-                        </div>
-                      </div>
-                    </li>
+                    </AccordionCard>
                   )
                 })}
               </ul>

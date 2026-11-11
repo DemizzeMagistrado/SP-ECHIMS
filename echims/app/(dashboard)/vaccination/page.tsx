@@ -17,7 +17,7 @@ import { usePathname, useRouter } from '@/lib/offline/navigation'
 import {
   Plus, Package, AlertCircle, Hash, MapPin, CalendarClock, CheckCircle2, Clock, XCircle,
   Pencil, Power, Syringe, Eye, History, ChevronDown, ChevronRight, BookOpen, Shield, Info,
-  ExternalLink, Filter, ArrowRight, Users, Search, Download, Calendar as CalendarIcon,
+  ExternalLink, ArrowRight, Users, Search, Download, Calendar as CalendarIcon,
   CalendarX,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
@@ -29,15 +29,16 @@ import { BatchRequestDecisionModal, type BatchRequestRow } from '@/components/va
 import { RecordVaccinationModal } from '@/components/vaccination/record-vaccination-modal'
 import { VaccineFormModal, type VaccineCatalogRow } from '@/components/vaccination/vaccine-form-modal'
 import { VaccinationSmsPanel } from '@/components/vaccination/vaccination-sms-panel'
-import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
+import { LogoLoader } from '@/components/brand/logo-loader'
 import { TabPanel } from '@/components/brand/page-gate'
 import { TabBar } from '@/components/ui/module-tabs'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { AccordionCard, ExpandCollapseAll } from '@/components/ui/accordion-card'
 import { DataTable } from '@/components/ui/data-table'
 
 /* ═════════════════════════ Shared helpers ═════════════════════════ */
@@ -629,8 +630,9 @@ function DefaultersSection() {
 
   const [statusFilter, setStatusFilter] = useState<'' | 'OVERDUE' | 'DUE'>('OVERDUE')
   const [vaccineFilter, setVaccineFilter] = useState<string>('')
-  const [expanded, setExpanded] = useState<Set<number>>(new Set())
-  const [expandAll, setExpandAll] = useState<boolean>(false)
+  const [search, setSearch] = useState('')
+  // Open state per child; untouched cards start closed (long lists stay scannable).
+  const [openOverride, setOpenOverride] = useState<Record<number, boolean>>({})
 
   const qs = useMemo(() => {
     const p = new URLSearchParams()
@@ -640,7 +642,7 @@ function DefaultersSection() {
   }, [statusFilter, vaccineFilter])
 
   const url = `/api/vaccination/defaulters${qs ? `?${qs}` : ''}`
-  const { data, error, isLoading, readOnly, savedAt } = useVaccinationView<DefaultersPayload>(isReady && canView ? url : null)
+  const { data, error, isLoading, refreshing, readOnly, savedAt } = useVaccinationView<DefaultersPayload>(isReady && canView ? url : null)
 
   // Group the flat defaulter list by child
   const groups = useMemo<ChildGroup[]>(() => {
@@ -673,223 +675,146 @@ function DefaultersSection() {
     })
   }, [data])
 
-  function toggleRow(childId: number) {
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(childId)) next.delete(childId); else next.add(childId)
-      return next
-    })
-  }
-
-  function toggleAll() {
-    if (expandAll) {
-      setExpanded(new Set())
-      setExpandAll(false)
-    } else {
-      setExpanded(new Set(groups.map((g) => g.child_id)))
-      setExpandAll(true)
-    }
-  }
+  const shown = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return q ? groups.filter((g) => g.child_name.toLowerCase().includes(q) || (g.barangay_name ?? '').toLowerCase().includes(q)) : groups
+  }, [groups, search])
+  const isOpen = (id: number) => openOverride[id] ?? false
+  const allOpen = shown.length > 0 && shown.every((g) => isOpen(g.child_id))
+  const noneOpen = shown.every((g) => !isOpen(g.child_id))
+  const setAll = (open: boolean) => setOpenOverride(Object.fromEntries(shown.map((g) => [g.child_id, open])))
 
   if (!isReady) return <LogoLoader />
   if (!canView) return <div className="rounded-2xl border border-border bg-white p-10 text-center text-red-600">You are not authorized to view the defaulters list.</div>
 
   const counts = data?.counts
+  // Both API statuses are past the due date: OVERDUE is past the grace period ("Missed"),
+  // DUE is within it ("Recently missed"). Wording only; the rules are unchanged.
+  const missedLabel = (st: 'DUE' | 'OVERDUE') => (st === 'OVERDUE' ? 'Missed' : 'Recently missed')
 
   return (
     <div className="space-y-6">
       <VaccinationSnapshotNotice savedAt={savedAt} readOnly={readOnly} />
-      {/* Header */}
       <PageHeader
         title="Vaccination: Defaulters"
-        subtitle={<>Children with vaccinations past their due date. Click a row to see which doses are missed. {data && ( <> Grace period is <strong>{data.grace_period_days} days</strong> — doses past that are flagged as OVERDUE.</> )}</>}
+        subtitle={<>Children with vaccine doses past their due date{data ? <> · missed more than {data.grace_period_days} days ago is &ldquo;Missed&rdquo;, sooner is &ldquo;Recently missed&rdquo;</> : null}.</>}
       />
 
-      {/* Summary tiles */}
-      {counts && (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <SummaryTile icon={<AlertCircle size={16} />} label="Overdue doses" value={counts.overdue} tone="rose" />
-          <SummaryTile icon={<Clock size={16} />} label="Due doses" value={counts.due} tone="amber" />
-          <SummaryTile icon={<Users size={16} />} label="Children affected" value={counts.unique_children_affected} tone="sky" />
-          <SummaryTile icon={<Syringe size={16} />} label="Children in scope" value={counts.total_children_in_scope} tone="slate" />
-        </div>
-      )}
-
-      {/* Filters */}
-      <fieldset disabled={readOnly}>
-
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-white p-4 shadow-sm">
-        <Filter size={14} className="text-muted-foreground" />
-        <Select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as '' | 'OVERDUE' | 'DUE')}
-        >
-          <option value="">All (DUE + OVERDUE)</option>
-          <option value="OVERDUE">Overdue only</option>
-          <option value="DUE">Due only</option>
-        </Select>
-        <Select
-          value={vaccineFilter}
-          onChange={(e) => setVaccineFilter(e.target.value)}
-        >
-          <option value="">All vaccines</option>
-          {NIP_CATALOG.map((v) => (
-            <option key={v.code} value={v.code}>{v.vaccine_type}</option>
-          ))}
-        </Select>
-        {groups.length > 0 && (
-          <Button variant="secondary" size="sm"
-            onClick={toggleAll}
-          >
-            {expandAll ? 'Collapse all' : 'Expand all'}
-          </Button>
-        )}
-        {counts && counts.total_matched > counts.total_shown && (
-          <span className="ml-auto text-xs text-muted-foreground">
-            Showing {counts.total_shown} of {counts.total_matched} doses — narrow filters to see more.
-          </span>
-        )}
-      </div>
-
-            </fieldset>
-{/* Table or empty state */}
       {isLoading ? (
-        <div className="rounded-2xl border border-border bg-white"><LogoLoader size="section" label="Loading defaulters…" /></div>
-      ) : error ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
-      ) : groups.length === 0 ? (
-        <EmptyState
-          size="page"
-          icon={CheckCircle2}
-          title="No defaulters right now"
-          description="Every child in these filters is up to date on their vaccinations."
-          className="min-h-64 rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/40"
-        />
-      ) : (
-        <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px] text-left text-sm">
-              <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="w-10 px-3 py-4"></th>
-                  <th className="px-5 py-4 font-semibold">Child</th>
-                  <th className="px-5 py-4 font-semibold">Barangay</th>
-                  <th className="px-5 py-4 font-semibold">Missed doses</th>
-                  <th className="px-5 py-4 font-semibold">Worst overdue</th>
-                  <th className="px-5 py-4 font-semibold">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {groups.map((g) => {
-                  const isOpen = expanded.has(g.child_id)
-                  return (
-                    <Fragment key={g.child_id}>
-                      {/* Parent row — one per child */}
-                      <tr
-                        className="cursor-pointer transition-colors hover:bg-muted/40"
-                        onClick={() => toggleRow(g.child_id)}
-                      >
-                        <td className="px-3 py-4 align-middle">
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); toggleRow(g.child_id) }}
-                            className="flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-slate-100 hover:text-foreground"
-                            aria-label={isOpen ? 'Collapse' : 'Expand'}
-                          >
-                            {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                          </button>
-                        </td>
-                        <td className="px-5 py-4">
-                          <Link
-                            href={`/child-profiling/children/${g.child_id}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="font-semibold text-primary hover:underline"
-                          >
-                            {g.child_name}
-                          </Link>
-                          <div className="text-xs text-muted-foreground">DOB {formatYmd(g.date_of_birth)}</div>
-                        </td>
-                        <td className="px-5 py-4 text-muted-foreground">{g.barangay_name ?? '—'}</td>
-                        <td className="px-5 py-4">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            {g.overdue_count > 0 && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">
-                                <AlertCircle size={11} /> {g.overdue_count} overdue
-                              </span>
-                            )}
-                            {g.due_count > 0 && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
-                                <Clock size={11} /> {g.due_count} due
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-5 py-4">
-                          <span className={`font-semibold ${g.worst_days_overdue > 60 ? 'text-rose-700' : g.worst_days_overdue > 30 ? 'text-amber-700' : 'text-muted-foreground'}`}>
-                            {g.worst_days_overdue} {g.worst_days_overdue === 1 ? 'day' : 'days'}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4">
-                          <Link
-                            href={`/child-profiling/children/${g.child_id}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 rounded-lg border border-primary px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/5"
-                          >
-                            View child <ArrowRight size={12} />
-                          </Link>
-                        </td>
-                      </tr>
-
-                      {/* Expanded detail — per-dose rows under this child */}
-                      {isOpen && (
-                        <tr className="bg-slate-50/70">
-                          <td colSpan={6} className="px-6 py-4">
-                            <div className="overflow-hidden rounded-xl border border-border bg-white">
-                              <table className="w-full text-left text-xs">
-                                <thead className="bg-muted/60 text-[10px] uppercase tracking-wide text-muted-foreground">
-                                  <tr>
-                                    <th className="px-4 py-2 font-semibold">Vaccine</th>
-                                    <th className="px-4 py-2 font-semibold">Dose</th>
-                                    <th className="px-4 py-2 font-semibold">Due date</th>
-                                    <th className="px-4 py-2 font-semibold">Days past due</th>
-                                    <th className="px-4 py-2 font-semibold">Status</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border">
-                                  {g.doses.map((d, idx) => (
-                                    <tr key={`${g.child_id}-${d.vaccine_code}-${d.dose_number}-${idx}`}>
-                                      <td className="px-4 py-2 font-medium text-foreground">{d.vaccine_type}</td>
-                                      <td className="px-4 py-2 text-muted-foreground">Dose {d.dose_number}</td>
-                                      <td className="px-4 py-2 text-muted-foreground">{formatYmd(d.due_date)}</td>
-                                      <td className="px-4 py-2">
-                                        <span className={`font-semibold ${d.days_overdue > 60 ? 'text-rose-700' : d.days_overdue > 30 ? 'text-amber-700' : 'text-muted-foreground'}`}>
-                                          {d.days_overdue} {d.days_overdue === 1 ? 'day' : 'days'}
-                                        </span>
-                                      </td>
-                                      <td className="px-4 py-2">
-                                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                                          d.status === 'OVERDUE' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
-                                        }`}>
-                                          {d.status === 'OVERDUE' ? <AlertCircle size={10} /> : <Clock size={10} />}
-                                          {d.status === 'OVERDUE' ? 'Overdue' : 'Due'}
-                                        </span>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
-                  )
-                })}
-              </tbody>
-            </table>
+        <LogoLoader size="section" label="Loading defaulters…" />
+      ) : error && !data ? (
+        <div role="alert" className="rounded-2xl border border-danger/20 bg-danger-soft p-4 text-sm text-danger">{error.message}</div>
+      ) : (<>
+        {counts && (
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <SummaryTile icon={<AlertCircle size={16} aria-hidden="true" />} label="Missed doses" value={counts.overdue} tone="rose" />
+            <SummaryTile icon={<Clock size={16} aria-hidden="true" />} label="Recently missed" value={counts.due} tone="amber" />
+            <SummaryTile icon={<Users size={16} aria-hidden="true" />} label="Children affected" value={counts.unique_children_affected} tone="sky" />
+            <SummaryTile icon={<Syringe size={16} aria-hidden="true" />} label="Children in scope" value={counts.total_children_in_scope} tone="slate" />
           </div>
+        )}
+
+        <fieldset disabled={readOnly} className="space-y-3 rounded-2xl border border-border bg-white p-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_220px_220px]">
+            <div className="relative sm:col-span-2 lg:col-span-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} aria-hidden="true" />
+              <Input aria-label="Search children" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by child or barangay…" className="pl-9" />
+            </div>
+            <Select aria-label="Missed status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as '' | 'OVERDUE' | 'DUE')}>
+              <option value="">All missed doses</option>
+              <option value="OVERDUE">Missed (past grace period)</option>
+              <option value="DUE">Recently missed</option>
+            </Select>
+            <Select aria-label="Vaccine" value={vaccineFilter} onChange={(e) => setVaccineFilter(e.target.value)}>
+              <option value="">All vaccines</option>
+              {NIP_CATALOG.map((v) => <option key={v.code} value={v.code}>{v.vaccine_type}</option>)}
+            </Select>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground">
+              {counts && counts.total_matched > counts.total_shown ? `Showing ${counts.total_shown} of ${counts.total_matched} doses — narrow the filters to see more.` : `${shown.length} ${shown.length === 1 ? 'child' : 'children'}`}
+            </span>
+            {shown.length > 1 && <ExpandCollapseAll allOpen={allOpen} noneOpen={noneOpen} onSet={setAll} />}
+          </div>
+        </fieldset>
+
+        <div key={`${statusFilter}|${vaccineFilter}`} className={`animate-in fade-in duration-150 motion-reduce:animate-none ${refreshing ? 'opacity-60 transition-opacity' : ''}`}>
+          {shown.length === 0 ? (
+            <EmptyState
+              icon={CheckCircle2}
+              title={search.trim() ? 'No children match this search' : 'No missed doses right now'}
+              description={search.trim() ? 'Try another name or barangay.' : 'Every child in these filters is up to date on their vaccinations.'}
+              className="rounded-2xl border border-dashed border-good/30 bg-good-soft/40"
+            />
+          ) : (
+            <ul className="space-y-2.5">
+              {shown.map((g) => {
+                const open = isOpen(g.child_id)
+                return (
+                  <AccordionCard
+                    key={g.child_id}
+                    id={`defaulter-${g.child_id}`}
+                    open={open}
+                    onToggle={() => setOpenOverride((o) => ({ ...o, [g.child_id]: !open }))}
+                    header={<>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-semibold text-brand-navy">{g.child_name}</span>
+                        <span className="block text-xs text-muted-foreground">{g.barangay_name ?? '—'} · Born {formatYmd(g.date_of_birth)}</span>
+                      </span>
+                      <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                        {g.overdue_count > 0 && <StatusBadge status="missed" tone="danger" label={`${g.overdue_count} missed`} />}
+                        {g.due_count > 0 && <StatusBadge status="recently-missed" tone="warn" label={`${g.due_count} recently missed`} />}
+                        <span className="text-xs text-muted-foreground sm:w-36 sm:text-right">
+                          Longest <span className={`font-semibold ${g.worst_days_overdue > 60 ? 'text-danger' : g.worst_days_overdue > 30 ? 'text-warn' : 'text-brand-navy'}`}>{g.worst_days_overdue} {g.worst_days_overdue === 1 ? 'day' : 'days'}</span>
+                        </span>
+                      </span>
+                    </>}
+                  >
+                    <div className="mb-2 flex justify-end">
+                      <Link href={`/child-profiling/children/${g.child_id}`} className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
+                        View child <ArrowRight size={12} aria-hidden="true" />
+                      </Link>
+                    </div>
+                    <table className="hidden w-full text-left text-sm sm:table">
+                      <thead>
+                        <tr className="text-[11px] uppercase tracking-wide text-brand-muted">
+                          <th className="pb-2 pr-3 font-medium">Vaccine</th>
+                          <th className="pb-2 pr-3 font-medium">Dose</th>
+                          <th className="pb-2 pr-3 font-medium">Due date</th>
+                          <th className="pb-2 pr-3 font-medium">Missed for</th>
+                          <th className="pb-2 text-right font-medium">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/60">
+                        {g.doses.map((d, idx) => (
+                          <tr key={`${d.vaccine_code}-${d.dose_number}-${idx}`}>
+                            <td className="py-2.5 pr-3 font-medium text-brand-navy">{d.vaccine_type}</td>
+                            <td className="py-2.5 pr-3 text-muted-foreground">Dose {d.dose_number}</td>
+                            <td className="py-2.5 pr-3 text-muted-foreground">{formatYmd(d.due_date)}</td>
+                            <td className="py-2.5 pr-3 text-muted-foreground">{d.days_overdue} {d.days_overdue === 1 ? 'day' : 'days'}</td>
+                            <td className="py-2.5 text-right"><StatusBadge status={d.status} tone={d.status === 'OVERDUE' ? 'danger' : 'warn'} label={missedLabel(d.status)} /></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <ul className="space-y-2 sm:hidden">
+                      {g.doses.map((d, idx) => (
+                        <li key={`${d.vaccine_code}-${d.dose_number}-${idx}`} className="rounded-lg bg-white p-3 text-sm ring-1 ring-border/70">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-medium text-brand-navy">{d.vaccine_type} · Dose {d.dose_number}</span>
+                            <StatusBadge status={d.status} tone={d.status === 'OVERDUE' ? 'danger' : 'warn'} label={missedLabel(d.status)} />
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">Due {formatYmd(d.due_date)} · missed for {d.days_overdue} {d.days_overdue === 1 ? 'day' : 'days'}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </AccordionCard>
+                )
+              })}
+            </ul>
+          )}
         </div>
-      )}
+      </>)}
     </div>
   )
 }
