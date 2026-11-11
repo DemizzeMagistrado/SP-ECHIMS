@@ -360,7 +360,7 @@ export default function SettingsPage() {
 
       {/* Save Button */}
       <div className="flex justify-end">
-        <Button type="submit">
+        <Button>
           <Save size={20} />
           Save Changes
         </Button>

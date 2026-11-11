@@ -470,7 +470,7 @@ export default function ReportsPage() {
             </table>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="secondary" size="sm" type="submit"
+            <Button variant="secondary" size="sm"
               disabled={page === 1 || busy || loading}
               onClick={() => {
                 clear();
@@ -481,7 +481,7 @@ export default function ReportsPage() {
               Previous
             </Button>
             <span>Page {page}</span>
-            <Button variant="secondary" size="sm" type="submit"
+            <Button variant="secondary" size="sm"
               disabled={page * 50 >= options.total || busy || loading}
               onClick={() => {
                 clear();

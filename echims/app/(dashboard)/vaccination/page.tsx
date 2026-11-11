@@ -394,7 +394,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
             </label>
 
             <div className="mt-6 flex justify-end gap-3">
-              <Button variant="secondary" type="submit"
+              <Button variant="secondary"
                 onClick={() => { setReviewing(null); setReviewRemarks('') }}
                
               >Cancel</Button>
@@ -718,7 +718,7 @@ function ScheduleSection() {
             </label>
 
             <div className="mt-6 flex justify-end gap-3">
-              <Button variant="secondary" type="submit"
+              <Button variant="secondary"
                 onClick={() => { setReviewing(null); setReviewAction(null); setReviewRemarks('') }}
                
               >Cancel</Button>
@@ -1319,7 +1319,7 @@ function CatalogSection() {
                             {/* Admin actions — stopPropagation so clicking a button doesn't
                                 also toggle the row expansion. */}
                             <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                              <Button variant="secondary" size="sm" type="submit"
+                              <Button variant="secondary" size="sm"
                                 onClick={() => openEdit(v)}
                               >
                                 <Pencil size={12} /> Edit

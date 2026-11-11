@@ -134,7 +134,7 @@ export default function ChildHealthPage() {
         subtitle="Register and monitor children aged 0–59 months."
         actions={<>
           {canRegister && (
-            <Button type="submit" onClick={() => setRegisterOpen(true)}>
+            <Button onClick={() => setRegisterOpen(true)}>
               <Plus size={20} />Register Child
             </Button>
           )}

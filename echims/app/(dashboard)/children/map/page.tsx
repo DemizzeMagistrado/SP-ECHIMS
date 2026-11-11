@@ -83,7 +83,7 @@ export default function ChildrenMapPage() {
         title="Child Profiling · Map"
         subtitle="Where your registered children live. Polygons show per-barangay counts."
         actions={<>
-          <Button variant="secondary" size="sm" type="submit"
+          <Button variant="secondary" size="sm"
             onClick={() => mutate()}
           >
             Refresh

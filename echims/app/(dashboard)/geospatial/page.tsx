@@ -139,7 +139,7 @@ export default function GeospatialMapPage() {
           )}
         </>}
         actions={
-          <Button variant="secondary" size="sm" type="submit"
+          <Button variant="secondary" size="sm"
             onClick={() => mutate()}
           >
             Refresh

@@ -268,7 +268,7 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
           {!confirming ? (
             <div className="flex items-center justify-end gap-2">
               <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel</button>
-              <Button type="submit" onClick={requestSave}>
+              <Button onClick={requestSave}>
                 {isEdit ? 'Review changes' : 'Review new vaccine'}
               </Button>
             </div>

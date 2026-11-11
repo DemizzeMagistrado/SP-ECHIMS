@@ -157,7 +157,7 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
             </label>
           </div>
           <div className="mt-4 flex justify-end gap-2">
-            <Button variant="secondary" size="sm" type="submit"
+            <Button variant="secondary" size="sm"
               onClick={() => {
                 setEditing(false)
                 setDraft({
@@ -171,7 +171,7 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
             >
               <X size={14} /> Cancel
             </Button>
-            <Button size="sm" type="submit"
+            <Button size="sm"
               onClick={save}
               disabled={busy}
             >
@@ -183,7 +183,7 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
 
       {!editing && (
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-4">
-          <Button variant="secondary" size="sm" type="submit"
+          <Button variant="secondary" size="sm"
             onClick={() => {
               setDraft({
                 fullName: user.full_name,

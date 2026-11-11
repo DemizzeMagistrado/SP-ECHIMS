@@ -256,10 +256,10 @@ export default function MasterlistUploadPage() {
                 ))}
               </div>
               <div className="flex gap-2">
-                <Button variant="secondary" size="sm" type="submit" onClick={reset}>
+                <Button variant="secondary" size="sm" onClick={reset}>
                   Cancel
                 </Button>
-                <Button size="sm" type="submit"
+                <Button size="sm"
                   onClick={doImport}
                   disabled={importing || (batch.error_count ?? 0) > 0 || (batch.valid_count ?? 0) === 0}
                 >
@@ -339,7 +339,7 @@ export default function MasterlistUploadPage() {
               View imported children
             </Link>
             {(batch.error_count ?? 0) + (batch.skipped_count ?? 0) > 0 && (
-              <Button variant="secondary" type="submit"
+              <Button variant="secondary"
                 onClick={() => {
                   const blob = new Blob([errorReportCsv()], { type: 'text/csv;charset=utf-8' })
                   const url = URL.createObjectURL(blob)
@@ -352,7 +352,7 @@ export default function MasterlistUploadPage() {
                 Download error report
               </Button>
             )}
-            <Button variant="secondary" type="submit" onClick={reset}>
+            <Button variant="secondary" onClick={reset}>
               Upload another file
             </Button>
           </div>
@@ -432,8 +432,8 @@ function EditModal({ row, onClose, onSave }: { row: StagingRow; onClose: () => v
           ))}
         </div>
         <div className="mt-4 flex justify-end gap-2">
-          <Button variant="secondary" size="sm" type="submit" onClick={onClose}>Cancel</Button>
-          <Button size="sm" type="submit" onClick={() => onSave(draft)}>Save & re-validate</Button>
+          <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
+          <Button size="sm" onClick={() => onSave(draft)}>Save & re-validate</Button>
         </div>
       </div>
     </div>
