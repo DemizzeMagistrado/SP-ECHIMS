@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import useSWR from 'swr'
 import { X, Package, Hash, Calendar, MapPin, Syringe, Pill, AlertCircle, CheckCircle2 } from 'lucide-react'
-import { useToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
 
 type Item = { item_id: number; item_name: string; unit: string; kind: 'vaccine' | 'supplement'; code: string }
@@ -44,7 +44,6 @@ function today(): string {
 type Props = { open: boolean; onClose: () => void; onSaved?: () => void }
 
 export function StockInModal({ open, onClose, onSaved }: Props) {
-  const { showToast } = useToast()
   const itemsSWR = useSWR<{ items: Item[] }>(open ? '/api/inventory/items' : null, fetcher)
   const brgysSWR = useSWR<{ barangays: Barangay[] } | Barangay[]>(open ? '/api/barangays' : null, fetcher)
 
@@ -101,7 +100,7 @@ export function StockInModal({ open, onClose, onSaved }: Props) {
       })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(d.error || `Save failed (HTTP ${r.status}).`)
-      showToast({ type: 'success', message: `${qty} ${selectedItem?.unit ?? 'unit(s)'} of ${selectedItem?.item_name ?? 'item'} received into stock.` })
+      toast.success(`${qty} ${selectedItem?.unit ?? 'unit(s)'} of ${selectedItem?.item_name ?? 'item'} received into stock.`)
       onSaved?.()
       onClose()
     } catch (err) {

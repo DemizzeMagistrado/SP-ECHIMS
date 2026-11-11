@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { toast } from '@/components/ui/toast'
 
 type Batch = {
   batch_id: number
@@ -116,8 +117,6 @@ export default function MasterlistUploadPage() {
       method: 'DELETE', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ staging_id: stagingId }),
     })
-    if (!res.ok) { setError((await res.json()).error ?? 'Delete failed.'); return }
-    await Promise.all([refreshRows(), refreshBatch()])
   }
 
   async function doImport() {

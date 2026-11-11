@@ -23,7 +23,7 @@ import {
   X, AlertCircle, Syringe, Calendar, Hash, MapPin, FileText,
   CheckCircle2, History,
 } from 'lucide-react'
-import { useToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
 
 type VaccineOption = {
@@ -65,7 +65,6 @@ const SOURCE_PRESETS = [
 ] as const
 
 export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, childName }: Props) {
-  const { showToast } = useToast()
   const { data, error, isLoading } = useSWR<{ vaccines: VaccineOption[] }>(
     open ? '/api/vaccines' : null,
     fetcher,
@@ -136,7 +135,7 @@ export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, c
       })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(d.error || `Save failed (HTTP ${r.status}).`)
-      showToast({ type: 'success', message: `Prior ${selectedVaccine?.vaccine_type ?? 'vaccine'} dose ${dose} saved for ${childName}.` })
+      toast.success(`Prior ${selectedVaccine?.vaccine_type ?? 'vaccine'} dose ${dose} saved for ${childName}.`)
       onSaved?.()
       onClose()
     } catch (err) {

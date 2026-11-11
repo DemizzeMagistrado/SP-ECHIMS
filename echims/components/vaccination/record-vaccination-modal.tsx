@@ -35,7 +35,7 @@ import {
 
 } from 'lucide-react'
 
-import { useToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 
 import { newClientRequestId, sendOrQueueVaccination, type VaccinationPayload } from '@/lib/vaccination-offline'
 
@@ -191,7 +191,6 @@ function Required() {
 
 export function RecordVaccinationModal({ open, onClose, onSaved, ownerId, prefillChildId }: Props) {
 
-  const { showToast } = useToast()
 
   const [isOnline, setIsOnline] = useState(true)
 
@@ -453,7 +452,7 @@ export function RecordVaccinationModal({ open, onClose, onSaved, ownerId, prefil
 
     if (res.ok) {
 
-      showToast({ type: 'success', message: res.idempotent ? 'Record already synced.' : 'Record saved. Pending PHN approval.' })
+      toast.success(res.idempotent ? 'Record already synced.' : 'Record saved. Pending PHN approval.')
 
       onSaved(); onClose(); return
 
@@ -461,7 +460,7 @@ export function RecordVaccinationModal({ open, onClose, onSaved, ownerId, prefil
 
     if (res.queued) {
 
-      showToast({ type: 'success', message: res.error })
+      toast.info(res.error ?? 'Saved offline. It will sync when you are back online.')
 
       onSaved(); onClose(); return
 

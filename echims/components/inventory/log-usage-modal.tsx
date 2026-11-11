@@ -13,7 +13,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import useSWR from 'swr'
 import { X, Package, Hash, MapPin, AlertCircle, PackageMinus, Trash2, WifiOff, CheckCircle2 } from 'lucide-react'
-import { useToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 import { newClientRequestId, sendOrQueueUsage } from '@/lib/inventory-offline'
 import { Spinner } from '@/components/brand/logo-loader'
 
@@ -39,7 +39,6 @@ function one<T>(v: T | T[] | null | undefined): T | null {
 type Props = { open: boolean; onClose: () => void; onSaved?: () => void }
 
 export function LogUsageModal({ open, onClose, onSaved }: Props) {
-  const { showToast } = useToast()
   const invSWR = useSWR<{ inventories: InventoryRow[] }>(open ? '/api/inventory/stock-overview' : null, fetcher)
 
   const [batchId, setBatchId] = useState('')
@@ -100,9 +99,9 @@ export function LogUsageModal({ open, onClose, onSaved }: Props) {
       })
       const label = selected ? `${qty} ${one(selected.inv.item)?.unit ?? ''} of ${one(selected.inv.item)?.item_name ?? 'item'} (batch ${selected.batch.batch_number})` : `${qty} units`
       if (r.sent) {
-        showToast({ type: 'success', message: `${subtype === 'USAGE' ? 'Usage' : 'Waste'} logged: ${label}.` })
+        toast.success(`${subtype === 'USAGE' ? 'Usage' : 'Waste'} logged: ${label}.`)
       } else {
-        showToast({ type: 'success', message: `Offline — queued ${subtype.toLowerCase()} entry. It will auto-sync when the connection is back.` })
+        toast.info(`Offline — queued ${subtype.toLowerCase()} entry. It will auto-sync when the connection is back.`)
       }
       onSaved?.()
       onClose()

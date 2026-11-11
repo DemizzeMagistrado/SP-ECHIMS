@@ -8,7 +8,7 @@
 
 import { useState } from 'react'
 import { X, AlertCircle, CheckCircle2, XCircle, Package, MapPin, User, Calendar, FileText } from 'lucide-react'
-import { useToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
 
 export type ReplenishmentRequest = {
@@ -46,7 +46,6 @@ function stripReqMarker(s: string | null): string {
 }
 
 export function ReplenishmentDecisionModal({ open, onClose, onDecided, request }: Props) {
-  const { showToast } = useToast()
   const [mode, setMode] = useState<'review' | 'reject'>('review')
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
@@ -73,12 +72,9 @@ export function ReplenishmentDecisionModal({ open, onClose, onDecided, request }
       })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`)
-      showToast({
-        type: 'success',
-        message: decision === 'APPROVE'
+      toast.success(decision === 'APPROVE'
           ? `Request #${request!.stock_request_id} approved — use Stock Allocation to fulfill it.`
-          : `Request #${request!.stock_request_id} rejected.`,
-      })
+          : `Request #${request!.stock_request_id} rejected.`)
       onDecided?.()
       setMode('review'); setReason(''); setFormError('')
       onClose()

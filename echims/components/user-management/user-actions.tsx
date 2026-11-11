@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { Pencil, Trash2, Save, X, AlertTriangle, ShieldAlert } from 'lucide-react'
 import { Spinner } from '@/components/brand/logo-loader'
+import { toast } from '@/components/ui/toast'
 
 type UserRow = {
   user_id: string
@@ -51,7 +52,7 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error ?? 'Unable to save changes.')
-      setMsg({ kind: 'ok', text: 'Profile updated.' })
+      toast.success('Profile updated.')
       setEditing(false)
       onChanged?.()
     } catch (err) {
@@ -75,9 +76,7 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
       setConfirmingDelete(false)
       onChanged?.()
     } catch (err) {
-      setMsg({ kind: 'err', text: err instanceof Error ? err.message : 'Delete failed.' })
-    } finally {
-      setBusy(false)
+      toast.error(err instanceof Error ? err.message : 'Delete failed.')
     }
   }
 

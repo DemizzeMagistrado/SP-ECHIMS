@@ -13,7 +13,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useEffect, useState } from 'react'
 import useSWR from 'swr'
 import { X, AlertCircle, Syringe, Hash, MapPin, Package, FileText } from 'lucide-react'
-import { useToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
 
 type VaccineOption = {
@@ -41,7 +41,6 @@ function one<T>(v: T | T[] | null | undefined): T | null {
 }
 
 export function BatchRequestModal({ open, onClose, onSaved }: Props) {
-  const { showToast } = useToast()
   const vaccinesSWR = useSWR<{ vaccines: VaccineOption[] }>(open ? '/api/vaccines' : null, fetcher)
   const barangaysSWR = useSWR<{ barangays: BarangayOption[] } | BarangayOption[]>(open ? '/api/barangays' : null, fetcher)
 
@@ -90,7 +89,7 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
       })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(d.error || `Save failed (HTTP ${r.status}).`)
-      showToast({ type: 'success', message: `Batch request #${d.stock_request_id} submitted — awaiting PHN review.` })
+      toast.success(`Batch request #${d.stock_request_id} submitted — awaiting PHN review.`)
       onSaved?.()
       onClose()
     } catch (err) {

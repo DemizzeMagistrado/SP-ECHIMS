@@ -1,77 +1,94 @@
 'use client'
 
-// Lightweight toast system. Fixed to the lower-right of the viewport.
-// Usage:
-//   <ToastProvider>...</ToastProvider>   // mount once near the root
-//   const { showToast } = useToast()
-//   showToast({ type: 'success', message: 'Changes saved' })
-//   showToast({ type: 'error', message: 'Save failed: ...' })
-// Toasts auto-dismiss after 4s. User can dismiss manually by clicking X.
+// App-wide toasts. <Toaster /> is mounted once in the root layout; call the helpers from anywhere
+// (components, event handlers, plain modules):
+//   toast.success('Changes saved')
+//   toast.error('Save failed: …')      // stays until closed
+//   toast.info('…'), toast.warning('…')
+// Bottom-right on desktop, top-center on mobile. At most 3 on screen; the oldest drops first.
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
-import { CheckCircle2, XCircle, X } from 'lucide-react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
+import { AlertTriangle, CheckCircle2, Info, X, XCircle } from 'lucide-react'
 
-type ToastType = 'success' | 'error'
-type Toast = { id: number; type: ToastType; message: string }
+type Variant = 'success' | 'error' | 'info' | 'warning'
+type Toast = { id: number; variant: Variant; message: string }
+type Options = { durationMs?: number }
 
-type ToastContextValue = {
-  showToast: (toast: { type: ToastType; message: string; durationMs?: number }) => void
+const MAX = 3
+let toasts: Toast[] = []
+let nextId = 0
+const listeners = new Set<() => void>()
+const timers = new Map<number, number>()
+
+function emit() { listeners.forEach((l) => l()) }
+
+function dismiss(id: number) {
+  window.clearTimeout(timers.get(id))
+  timers.delete(id)
+  toasts = toasts.filter((t) => t.id !== id)
+  emit()
 }
 
-const ToastContext = createContext<ToastContextValue | null>(null)
-
-export function useToast() {
-  const context = useContext(ToastContext)
-  if (!context) throw new Error('useToast must be used within <ToastProvider>')
-  return context
+function show(variant: Variant, message: string, { durationMs }: Options = {}) {
+  const id = ++nextId
+  toasts = [...toasts, { id, variant, message }]
+  while (toasts.length > MAX) dismiss(toasts[0].id)
+  // Errors stay until closed unless a duration is given.
+  const duration = durationMs ?? (variant === 'error' ? 0 : 4000)
+  if (duration > 0) timers.set(id, window.setTimeout(() => dismiss(id), duration))
+  emit()
+  return id
 }
 
-export function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [toasts, setToasts] = useState<Toast[]>([])
-  const nextId = useRef(0)
+export const toast = {
+  success: (message: string, options?: Options) => show('success', message, options),
+  error: (message: string, options?: Options) => show('error', message, options),
+  info: (message: string, options?: Options) => show('info', message, options),
+  warning: (message: string, options?: Options) => show('warning', message, options),
+  dismiss,
+}
 
-  const dismiss = useCallback((id: number) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id))
-  }, [])
+const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l) } }
+const getToasts = () => toasts
+const noToasts: Toast[] = []
 
-  const showToast = useCallback<ToastContextValue['showToast']>((input) => {
-    const id = ++nextId.current
-    setToasts((prev) => [...prev, { id, type: input.type, message: input.message }])
-    const duration = input.durationMs ?? 4000
-    window.setTimeout(() => dismiss(id), duration)
-  }, [dismiss])
+const STYLES: Record<Variant, { icon: typeof Info; box: string; icon_: string }> = {
+  success: { icon: CheckCircle2, box: 'border-good/20 bg-good-soft', icon_: 'text-good' },
+  error: { icon: XCircle, box: 'border-danger/20 bg-danger-soft', icon_: 'text-danger' },
+  warning: { icon: AlertTriangle, box: 'border-warn/20 bg-warn-soft', icon_: 'text-warn' },
+  info: { icon: Info, box: 'border-brand-sky/20 bg-brand-ice', icon_: 'text-brand-sky' },
+}
 
+export function Toaster() {
+  const list = useSyncExternalStore(subscribe, getToasts, () => noToasts)
   return (
-    <ToastContext.Provider value={{ showToast }}>
-      {children}
-      {/* Toast stack — fixed to lower-right, newest on top */}
-      <div className="pointer-events-none fixed bottom-6 right-6 z-[100] flex max-w-sm flex-col-reverse gap-3">
-        {toasts.map((toast) => (
-          <ToastCard key={toast.id} toast={toast} onDismiss={() => dismiss(toast.id)} />
-        ))}
-      </div>
-    </ToastContext.Provider>
+    <div
+      aria-live="polite"
+      className="pointer-events-none fixed inset-x-4 top-4 z-[100] flex flex-col items-center gap-2 sm:inset-x-auto sm:top-auto sm:bottom-6 sm:right-6 sm:flex-col-reverse sm:items-end sm:gap-3"
+    >
+      {list.map((t) => <ToastCard key={t.id} toast={t} />)}
+    </div>
   )
 }
 
-function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
-  // Slight entry animation using Tailwind — scale + fade in
+function ToastCard({ toast: t }: { toast: Toast }) {
   const [visible, setVisible] = useState(false)
   useEffect(() => { setVisible(true) }, [])
-
-  const styles = toast.type === 'success'
-    ? { icon: <CheckCircle2 size={20} className="text-emerald-600" />, border: 'border-emerald-200', bg: 'bg-white', ring: 'ring-emerald-100' }
-    : { icon: <XCircle size={20} className="text-red-600" />, border: 'border-red-200', bg: 'bg-white', ring: 'ring-red-100' }
-
+  const { icon: Icon, box, icon_ } = STYLES[t.variant]
   return (
     <div
-      role="alert"
-      className={`pointer-events-auto flex min-w-[280px] items-start gap-3 rounded-xl border ${styles.border} ${styles.bg} px-4 py-3 shadow-lg ring-4 ${styles.ring} transition-all duration-200 ${visible ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'}`}
+      role={t.variant === 'error' ? 'alert' : 'status'}
+      className={`pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border px-4 py-3 text-brand-navy shadow-[0_8px_24px_-8px_rgba(3,4,94,0.18)] transition-all duration-200 motion-reduce:transition-none sm:min-w-[300px] ${box} ${visible ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'}`}
     >
-      <div className="shrink-0 pt-0.5">{styles.icon}</div>
-      <p className="flex-1 text-sm font-medium text-foreground">{toast.message}</p>
-      <button type="button" onClick={onDismiss} aria-label="Dismiss" className="shrink-0 text-muted-foreground hover:text-foreground">
-        <X size={16} />
+      <Icon size={20} aria-hidden="true" className={`mt-px shrink-0 ${icon_}`} />
+      <p className="flex-1 text-sm font-medium">{t.message}</p>
+      <button
+        type="button"
+        onClick={() => dismiss(t.id)}
+        aria-label="Dismiss notification"
+        className="-m-1 shrink-0 rounded-md p-1 text-brand-muted hover:bg-black/5 hover:text-brand-navy focus-visible:outline-2 focus-visible:outline-ring"
+      >
+        <X size={16} aria-hidden="true" />
       </button>
     </div>
   )

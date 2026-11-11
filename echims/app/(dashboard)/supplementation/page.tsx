@@ -26,6 +26,7 @@ import type { Session, User } from "@supabase/supabase-js";
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
+import { toast } from '@/components/ui/toast'
 
 type Child = {
   child_id: number;
@@ -952,6 +953,7 @@ export default function SupplementsPage() {
     try {
       await deleteSupplementDraft(user, draft.requestId);
       await refreshDrafts();
+      toast.success("Local draft discarded.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to discard draft.");
     }

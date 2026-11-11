@@ -30,6 +30,7 @@ import HealthActivityCalendar from './health-activity-calendar'
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
+import { toast } from '@/components/ui/toast'
 
 /* =========================================================
    TYPES

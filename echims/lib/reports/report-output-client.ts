@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "@/components/ui/toast";
 export type OutputApproval = {
   reportId?: number;
   status?: string;
@@ -15,7 +16,7 @@ export function canOutput(meta: OutputApproval) {
 }
 export async function printApprovedReport(meta: OutputApproval) {
   if (!canOutput(meta)) {
-    window.alert("PHN validation is required before printing.");
+    toast.warning("PHN validation is required before printing.");
     return;
   }
   try {
@@ -30,7 +31,7 @@ export async function printApprovedReport(meta: OutputApproval) {
       throw new Error("Report changed. Refresh and review it again.");
     window.print();
   } catch (error) {
-    window.alert(
+    toast.error(
       error instanceof Error
         ? error.message
         : "Unable to verify report approval.",

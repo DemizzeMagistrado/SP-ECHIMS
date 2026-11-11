@@ -3,7 +3,6 @@ import { Sidebar } from '@/components/dashboard/sidebar'
 import { TopNav } from '@/components/dashboard/top-nav'
 import { getAuthorizationContext } from '@/lib/auth/authorization'
 import { hasPermission, type Role } from '@/lib/auth/permissions'
-import { ToastProvider } from '@/components/ui/toast'
 import { DashboardShell } from '@/components/dashboard/shell'
 import { SessionGate } from '@/components/auth/session-gate'
 import { NavProgress } from '@/components/dashboard/nav-progress'
@@ -120,7 +119,6 @@ export default async function DashboardLayout({
   }
 
   return (
-    <ToastProvider>
       <DashboardShell>
         <NavProgress />
         {/* Same sky tone as the sign-in page, so arriving after login feels continuous */}
@@ -141,6 +139,5 @@ export default async function DashboardLayout({
           </div>
         </div>
       </DashboardShell>
-    </ToastProvider>
   )
 }

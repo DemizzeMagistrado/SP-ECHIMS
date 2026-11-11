@@ -31,7 +31,7 @@ import { ChildFormModal } from "@/components/children/child-form-modal";
 import { ChangeStatusModal } from "@/components/children/change-status-modal";
 import { VaccinationScheduleSection } from "@/components/children/vaccination-schedule-section";
 import { ImmunizationHistorySection } from "@/components/children/immunization-history-section";
-import { useToast } from "@/components/ui/toast";
+import { toast } from '@/components/ui/toast'
 import { GuardianSmsConsent } from "@/components/children/guardian-sms-consent";
 import { GuardianSmsHistory } from "@/components/children/guardian-sms-history";
 import { LogoLoader } from '@/components/brand/logo-loader'
@@ -458,7 +458,6 @@ export function ChildProfileView({childId}: {childId: string}) {
   // without the user leaving the page.
   const [editOpen, setEditOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
-  const { showToast } = useToast();
   // Movement history — loaded alongside the main profile. Updates whenever the user
   // marks a status change via the ChangeStatusModal (we mutate() this on save).
   const { data: movements, mutate: mutateMovements } = useSWR<MovementRow[]>(
@@ -830,9 +829,9 @@ export function ChildProfileView({childId}: {childId: string}) {
             // Re-fetch the profile so every section (personal info, guardian, history)
             // re-renders with the saved values. User stays on this page.
             mutate();
-            showToast({ type: "success", message: "Changes saved" });
+            toast.success("Changes saved");
           }}
-          onError={(message) => showToast({ type: "error", message })}
+          onError={(message) => toast.error(message)}
         />
       )}
       {statusOpen && canEdit && (
@@ -846,9 +845,9 @@ export function ChildProfileView({childId}: {childId: string}) {
             // Refetch both the profile (status chip updates) and movement history (new row).
             mutate();
             mutateMovements();
-            showToast({ type: "success", message: "Status updated" });
+            toast.success("Status updated");
           }}
-          onError={(message) => showToast({ type: "error", message })}
+          onError={(message) => toast.error(message)}
         />
       )}
     </div>

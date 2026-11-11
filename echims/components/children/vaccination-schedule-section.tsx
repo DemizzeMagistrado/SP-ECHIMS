@@ -10,7 +10,7 @@ import useSWR from 'swr'
 import { Syringe, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
-import { useToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
 import { TabIndicator } from '@/components/dashboard/tab-indicator'
 import { TabPanel } from '@/components/brand/page-gate'
@@ -90,7 +90,6 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
     isReady && canView ? `/api/children/${childId}/vaccination-schedule` : null,
     fetcher,
   )
-  const { showToast } = useToast()
   const [submitting, setSubmitting] = useState(false)
   const [remarks, setRemarks] = useState('')
   // Proposed service date. Pre-fills to the nearest overdue dose (or today if all are
@@ -107,7 +106,7 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
   }
   async function submitRequest() {
     if (!proposedDate) {
-      showToast({ type: 'error', message: 'Please pick a target service date.' })
+      toast.error('Please pick a target service date.')
       return
     }
     setSubmitting(true)
@@ -119,13 +118,13 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
       })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(d.error || `Request failed (HTTP ${r.status}).`)
-      showToast({ type: 'success', message: 'Schedule request submitted for review' })
+      toast.success('Schedule request submitted for review')
       setShowForm(false)
       setRemarks('')
       setProposedDate('')
       mutate()
     } catch (err) {
-      showToast({ type: 'error', message: err instanceof Error ? err.message : 'Unable to submit the request.' })
+      toast.error(err instanceof Error ? err.message : 'Unable to submit the request.')
     } finally {
       setSubmitting(false)
     }

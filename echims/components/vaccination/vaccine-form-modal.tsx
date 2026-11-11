@@ -5,7 +5,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import { useEffect, useMemo, useState } from 'react'
 import { X, AlertCircle, Syringe, Hash, Droplet, MapPin, Calendar, BookOpen, Shield, Info, Link as LinkIcon } from 'lucide-react'
-import { useToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
 
 export type VaccineCatalogRow = {
@@ -40,7 +40,6 @@ function one<T>(v: T | T[] | null | undefined): T | null {
 }
 
 export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
-  const { showToast } = useToast()
   const isEdit = Boolean(editing)
 
   const [itemName, setItemName] = useState('')
@@ -139,7 +138,7 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
       })
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Save failed.')
-      showToast({ type: 'success', message: isEdit ? 'Vaccine updated.' : 'Vaccine created.' })
+      toast.success(isEdit ? 'Vaccine updated.' : 'Vaccine created.')
       onSaved()
       onClose()
     } catch (err) {

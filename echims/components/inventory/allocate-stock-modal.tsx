@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import useSWR from 'swr'
 import { X, ArrowRight, MapPin, Package, Hash, AlertCircle, Send } from 'lucide-react'
-import { useToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
 
 type Barangay = { barangay_id: number; barangay_name: string }
@@ -51,7 +51,6 @@ function newRequestId(): string {
 type Props = { open: boolean; onClose: () => void; onSaved?: () => void }
 
 export function AllocateStockModal({ open, onClose, onSaved }: Props) {
-  const { showToast } = useToast()
   const invSWR = useSWR<{ inventories: InventoryRow[] }>(open ? '/api/inventory/stock-overview' : null, fetcher)
   const brgysSWR = useSWR<{ barangays: Barangay[] } | Barangay[]>(open ? '/api/barangays' : null, fetcher)
 
@@ -131,7 +130,7 @@ export function AllocateStockModal({ open, onClose, onSaved }: Props) {
       const d = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(d.error || `Save failed (HTTP ${r.status}).`)
       const itemName = selectedBatch ? one(selectedBatch.inv.item)?.item_name ?? 'item' : 'item'
-      showToast({ type: 'success', message: `${qty} ${itemName} (batch ${selectedBatch?.batch.batch_number}) allocated.` })
+      toast.success(`${qty} ${itemName} (batch ${selectedBatch?.batch.batch_number}) allocated.`)
       onSaved?.()
       onClose()
     } catch (err) {

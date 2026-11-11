@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import useSWR from 'swr'
 import { X, Package, MapPin, AlertCircle, PackagePlus } from 'lucide-react'
-import { useToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
 
 type Item = { item_id: number; item_name: string; unit: string; kind: string }
@@ -35,7 +35,6 @@ function newRequestId(): string {
 type Props = { open: boolean; onClose: () => void; onSaved?: () => void }
 
 export function ReplenishmentRequestModal({ open, onClose, onSaved }: Props) {
-  const { showToast } = useToast()
   const itemsSWR = useSWR<{ items: Item[] }>(open ? '/api/inventory/items' : null, fetcher)
   const brgysSWR = useSWR<Barangay[] | { barangays: Barangay[] }>(open ? '/api/barangays' : null, fetcher)
   const invSWR = useSWR<{ inventories: Inventory[] }>(open ? '/api/inventory/stock-overview' : null, fetcher)
@@ -88,7 +87,7 @@ export function ReplenishmentRequestModal({ open, onClose, onSaved }: Props) {
       })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`)
-      showToast({ type: 'success', message: `Replenishment request #${d.stock_request_id} submitted — awaiting PHN review.` })
+      toast.success(`Replenishment request #${d.stock_request_id} submitted — awaiting PHN review.`)
       onSaved?.()
       onClose()
     } catch (err) {

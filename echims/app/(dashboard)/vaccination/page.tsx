@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
-import { useToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 import { NIP_CATALOG } from '@/lib/nip-schedule'
 import { BatchRequestModal } from '@/components/vaccination/batch-request-modal'
 import { BatchRequestDecisionModal, type BatchRequestRow } from '@/components/vaccination/batch-request-decision-modal'
@@ -132,7 +132,6 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
   const { user, isReady } = useAuth()
   const role = user?.role as UserRole | undefined
   const canView = role ? canPerform(role, 'Vaccination', 'view') : false
-  const { showToast } = useToast()
 
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
@@ -167,7 +166,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
   async function submitReview() {
     if (readOnly || !navigator.onLine || !reviewing) return
     if (reviewing.action === 'REJECT' && !reviewRemarks.trim()) {
-      showToast({ type: 'error', message: 'A reason is required when rejecting a record.' })
+      toast.error('A reason is required when rejecting a record.')
       return
     }
     setSubmittingReview(true)
@@ -183,12 +182,12 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
       })
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Unable to submit the review.')
-      showToast({ type: 'success', message: `Record ${reviewing.action === 'APPROVE' ? 'approved' : 'rejected'}.` })
+      toast.success(`Record ${reviewing.action === 'APPROVE' ? 'approved' : 'rejected'}.`)
       setReviewing(null)
       setReviewRemarks('')
       revalidateVaccination('/api/vaccination/records')
     } catch (err) {
-      showToast({ type: 'error', message: err instanceof Error ? err.message : 'Review failed.' })
+      toast.error(err instanceof Error ? err.message : 'Review failed.')
     } finally {
       setSubmittingReview(false)
     }
@@ -248,7 +247,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
           <button
             type="button"
             className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/5"
-            onClick={() => alert('Export shipping in a later ticket.')}
+            onClick={() => toast.info('CSV export is coming in a later update.')}
           >
             <Download size={16} /> Export CSV
           </button>
@@ -463,7 +462,6 @@ function ScheduleSection() {
   const { user, isReady } = useAuth()
   const role = user?.role as UserRole | undefined
   const canView = role ? canPerform(role, 'Vaccination Schedule', 'view') : false
-  const { showToast } = useToast()
 
   const [status, setStatus] = useState<string>('PENDING')
   const [q, setQ] = useState('')
@@ -504,7 +502,7 @@ function ScheduleSection() {
   async function submitReview() {
     if (readOnly || !navigator.onLine || !reviewing || !reviewAction) return
     if (reviewAction === 'REJECT' && !reviewRemarks.trim()) {
-      showToast({ type: 'error', message: 'A reason is required when rejecting a request.' })
+      toast.error('A reason is required when rejecting a request.')
       return
     }
     setSubmitting(true)
@@ -520,13 +518,13 @@ function ScheduleSection() {
       })
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Unable to submit the review.')
-      showToast({ type: 'success', message: `Request ${reviewAction === 'APPROVE' ? 'approved' : 'rejected'}.` })
+      toast.success(`Request ${reviewAction === 'APPROVE' ? 'approved' : 'rejected'}.`)
       setReviewing(null)
       setReviewAction(null)
       setReviewRemarks('')
       revalidateVaccination(url)
     } catch (err) {
-      showToast({ type: 'error', message: err instanceof Error ? err.message : 'Unable to submit the review.' })
+      toast.error(err instanceof Error ? err.message : 'Unable to submit the review.')
     } finally {
       setSubmitting(false)
     }
@@ -1146,7 +1144,6 @@ function CatalogSection() {
   // Admin edits; PHN reads. Everyone else is 403.
   const administrator = role === 'Administrator'
   const canView = role ? canPerform(role, 'NIP Catalog', 'view') : false
-  const { showToast } = useToast()
 
   const { data, error, isLoading, readOnly, savedAt } = useVaccinationView<CatalogPayload>(isReady && canView ? '/api/vaccines/catalog' : null)
   const isAdmin = administrator && !readOnly
@@ -1184,10 +1181,10 @@ function CatalogSection() {
       })
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Toggle failed.')
-      showToast({ type: 'success', message: `${v.vaccine_type} ${nextActive ? 'reactivated' : 'deactivated'}.` })
+      toast.success(`${v.vaccine_type} ${nextActive ? 'reactivated' : 'deactivated'}.`)
       revalidateVaccination('/api/vaccines/catalog')
     } catch (err) {
-      showToast({ type: 'error', message: err instanceof Error ? err.message : 'Toggle failed.' })
+      toast.error(err instanceof Error ? err.message : 'Toggle failed.')
     } finally {
       setTogglingId(null)
     }

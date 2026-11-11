@@ -19,7 +19,7 @@ import { canPerform, type UserRole } from '@/lib/echims-data'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { ChildDraftPanel } from '@/components/children/child-draft-panel'
 import { ChildFormModal } from '@/components/children/child-form-modal'
-import { useToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 import { LogoLoader } from '@/components/brand/logo-loader'
 
 type Child = {
@@ -88,7 +88,6 @@ export default function ChildHealthPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
 
   const [registerOpen, setRegisterOpen] = useState(false)
-  const { showToast } = useToast()
 
   const records = children ?? []
   const filtered = useMemo(() => {
@@ -240,14 +239,14 @@ export default function ChildHealthPage() {
       {registerOpen && canRegister && (
         <ChildFormModal
           mode="create"
-          onDraftSaved={() => {setRegisterOpen(false);showToast({type: 'success', message: 'Child draft saved on this device. Review it before uploading when online.'})}}
+          onDraftSaved={() => {setRegisterOpen(false);toast.success('Child draft saved on this device. Review it before uploading when online.')}}
           onClose={() => setRegisterOpen(false)}
           onSaved={() => {
             setRegisterOpen(false)
             mutate()
-            showToast({ type: 'success', message: 'Child registered successfully' })
+            toast.success('Child registered successfully')
           }}
-          onError={(message) => showToast({ type: 'error', message })}
+          onError={(message) => toast.error(message)}
         />
       )}
     </div>

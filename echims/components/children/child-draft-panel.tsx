@@ -5,6 +5,7 @@ import { offlineScope } from '@/lib/offline/fetch'
 import { listChildDrafts,deleteChildDraft,type ChildRegistrationDraft } from '@/lib/child-registration-drafts'
 import { submitSafeDraft } from '@/lib/offline/safe-submit'
 import { ChildFormModal } from './child-form-modal'
+import { toast } from '@/components/ui/toast'
 export function ChildDraftPanel({onUploaded}:{onUploaded:()=>void}){
   const {user}=useAuth(),scope=user?offlineScope(user):''
   const [rows,setRows]=useState<ChildRegistrationDraft[]>([]),[selected,setSelected]=useState<ChildRegistrationDraft|null>(null),[error,setError]=useState('')

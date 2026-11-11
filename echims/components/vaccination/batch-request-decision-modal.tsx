@@ -7,7 +7,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import { useState } from 'react'
 import { X, AlertCircle, CheckCircle2, XCircle, Package, Hash, MapPin, FileText, User, Calendar } from 'lucide-react'
-import { useToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
 
 export type BatchRequestRow = {
@@ -48,7 +48,6 @@ function formatDate(ts: string | null | undefined): string {
 }
 
 export function BatchRequestDecisionModal({ open, onClose, onDecided, request }: Props) {
-  const { showToast } = useToast()
   const [mode, setMode] = useState<'review' | 'reject'>('review')
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
@@ -83,7 +82,7 @@ export function BatchRequestDecisionModal({ open, onClose, onDecided, request }:
       const msg = decision === 'APPROVE'
         ? `Request #${request!.stock_request_id} approved. ${d.warning ?? 'Inventory updated.'}`
         : `Request #${request!.stock_request_id} rejected.`
-      showToast({ type: 'success', message: msg })
+      toast.success(msg)
       onDecided?.()
       // Reset local UI
       setMode('review'); setReason(''); setFormError('')
