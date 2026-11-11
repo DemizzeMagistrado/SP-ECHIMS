@@ -5,7 +5,7 @@ brand tokens in `app/globals.css` (navy/sky palette, `good`/`warn`/`danger`/`nut
 Inter body, Plus Jakarta Sans titles).
 
 Already mounted once in `app/layout.tsx`: `<Toaster/>`, `<ConfirmHost/>`, `<ArrowKeyTabs/>`.
-The dashboard layout adds the command palette (Ctrl+K), skip link, offline banner and `<PrintHeader/>`.
+The dashboard layout adds the skip link, offline banner and `<PrintHeader/>`.
 
 ## PageHeader — `page-header.tsx`
 Top of every module page. Breadcrumbs come from the route + sidebar + module tabs (shown only when
