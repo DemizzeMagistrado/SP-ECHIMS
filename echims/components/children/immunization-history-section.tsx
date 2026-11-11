@@ -14,7 +14,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 //   - Empty / loading / error states
 import { useMemo, useState } from 'react'
 import useSWR from 'swr'
-import { Syringe, Printer, AlertCircle, CheckCircle2, Clock, CalendarClock, Filter, Plus, History, SearchX } from 'lucide-react'
+import { Syringe, Printer, AlertCircle, CheckCircle2, ChevronDown, Clock, CalendarClock, Filter, Plus, History, SearchX } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { RecordPriorVaccinationModal } from '@/components/vaccination/record-prior-vaccination-modal'
@@ -50,10 +50,10 @@ type Payload = {
   counts: { complete: number; due: number; overdue: number; upcoming: number }
 }
 const STATUS_META: Record<DoseStatus, { label: string; icon: React.ReactNode }> = {
-  COMPLETE: { label: 'Complete', icon: <CheckCircle2 size={12} /> },
-  DUE: { label: 'Due', icon: <Clock size={12} /> },
-  OVERDUE: { label: 'Overdue', icon: <AlertCircle size={12} /> },
-  UPCOMING: { label: 'Upcoming', icon: <CalendarClock size={12} /> },
+  COMPLETE: { label: 'Completed', icon: <CheckCircle2 size={12} aria-hidden="true" /> },
+  DUE: { label: 'Due', icon: <Clock size={12} aria-hidden="true" /> },
+  OVERDUE: { label: 'Missed', icon: <AlertCircle size={12} aria-hidden="true" /> },
+  UPCOMING: { label: 'Pending', icon: <CalendarClock size={12} aria-hidden="true" /> },
 }
 const fetcher = async (url: string) => {
   const r = await fetch(url)
@@ -99,6 +99,28 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
         return a.dose_number - b.dose_number
       })
   }, [data, vaccineFilter, statusFilter])
+  const groups = useMemo(() => {
+    const byCode = new Map<string, { code: string; name: string; route: string; dose_volume: string; total: number; doses: typeof rows }>()
+    for (const r of rows) {
+      const v = data?.vaccine_status.find((x) => x.code === r.vaccine_code)
+      if (!byCode.has(r.vaccine_code)) byCode.set(r.vaccine_code, { code: r.vaccine_code, name: r.vaccine_type, route: r.route, dose_volume: r.dose_volume, total: v?.total_doses ?? 0, doses: [] })
+      byCode.get(r.vaccine_code)!.doses.push(r)
+    }
+    return [...byCode.values()].map((g) => {
+      const all = data?.vaccine_status.find((x) => x.code === g.code)?.doses ?? g.doses
+      const done = all.filter((d) => d.status === 'COMPLETE').length
+      const total = g.total || all.length
+      const missed = all.some((d) => d.status === 'OVERDUE')
+      const next = all.filter((d) => d.status !== 'COMPLETE').sort((a, b) => a.due_date.localeCompare(b.due_date))[0] ?? null
+      const state: 'COMPLETED' | 'MISSED' | 'PENDING' = done >= total ? 'COMPLETED' : missed ? 'MISSED' : 'PENDING'
+      return { ...g, done, total, state, next, isNextDue: data?.next_due?.vaccine_code === g.code }
+    })
+  }, [rows, data])
+  // Short lists start open; longer ones start closed except vaccines that need action.
+  const defaultOpen = useMemo(() => new Set(groups.filter((g) => groups.length <= 5 || g.state === 'MISSED' || g.isNextDue).map((g) => g.code)), [groups])
+  const [openOverride, setOpenOverride] = useState<Record<string, boolean>>({})
+  const isOpen = (code: string) => openOverride[code] ?? defaultOpen.has(code)
+  const setAll = (open: boolean) => setOpenOverride(Object.fromEntries(groups.map((g) => [g.code, open])))
   function handlePrint() {
     if (typeof window !== 'undefined') window.print()
   }
@@ -169,7 +191,7 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
                   <p className={`text-xs font-semibold uppercase tracking-wide ${
                     data.next_due.status === 'OVERDUE' ? 'text-rose-700' : 'text-amber-800'
                   }`}>
-                    Next due {data.next_due.status === 'OVERDUE' ? '(overdue)' : ''}
+                    {data.next_due.status === 'OVERDUE' ? 'Missed dose' : 'Next due'}
                   </p>
                   <p className="mt-1 text-sm font-semibold text-foreground">
                     {data.next_due.vaccine_type} — Dose {data.next_due.dose_number}
@@ -186,7 +208,7 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
                 </div>
                 <div className="flex-1">
                   <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">All caught up</p>
-                  <p className="mt-1 text-sm text-muted-foreground">No overdue or due doses right now.</p>
+                  <p className="mt-1 text-sm text-muted-foreground">No missed or due doses right now.</p>
                 </div>
               </div>
             )}
@@ -194,8 +216,8 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <SummaryTile label="Complete" value={data.counts.complete} tone="emerald" />
               <SummaryTile label="Due" value={data.counts.due} tone="amber" />
-              <SummaryTile label="Overdue" value={data.counts.overdue} tone="rose" />
-              <SummaryTile label="Upcoming" value={data.counts.upcoming} tone="slate" />
+              <SummaryTile label="Missed" value={data.counts.overdue} tone="rose" />
+              <SummaryTile label="Pending" value={data.counts.upcoming} tone="slate" />
             </div>
             {/* Filters */}
             <div className="flex flex-wrap items-center gap-2 print:hidden">
@@ -218,57 +240,90 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
                   <option key={s} value={s}>{STATUS_META[s].label}</option>
                 ))}
               </Select>
+              {groups.length > 1 && (
+                <div className="ml-auto flex gap-1">
+                  <button type="button" onClick={() => setAll(true)} className="rounded-md px-2 py-1 text-xs font-semibold text-primary hover:bg-brand-ice focus-visible:outline-2 focus-visible:outline-ring">Expand all</button>
+                  <button type="button" onClick={() => setAll(false)} className="rounded-md px-2 py-1 text-xs font-semibold text-primary hover:bg-brand-ice focus-visible:outline-2 focus-visible:outline-ring">Collapse all</button>
+                </div>
+              )}
             </div>
             {/* Table */}
             {rows.length === 0 ? (
               <EmptyState icon={SearchX} title="No doses match these filters" description="Try a different status or vaccine." className="rounded-xl border border-dashed border-border" />
             ) : (
-              <div className="overflow-hidden rounded-xl border border-border">
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[720px] text-left text-sm">
-                    <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
-                      <tr>
-                        <th className="px-4 py-3 font-semibold">Vaccine</th>
-                        <th className="px-4 py-3 font-semibold">Dose</th>
-                        <th className="px-4 py-3 font-semibold">Due date</th>
-                        <th className="px-4 py-3 font-semibold">Given</th>
-                        <th className="px-4 py-3 font-semibold">Batch</th>
-                        <th className="px-4 py-3 font-semibold">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {rows.map((r) => {
-                        const meta = STATUS_META[r.status]
-                        return (
-                          <tr key={`${r.vaccine_code}-${r.dose_number}`} className="hover:bg-muted/30">
-                            <td className="px-4 py-3">
-                              <div className="font-semibold text-foreground">{r.vaccine_type}</div>
-                              <div className="text-xs text-muted-foreground">{r.route} · {r.dose_volume}</div>
-                            </td>
-                            <td className="px-4 py-3 text-muted-foreground">Dose {r.dose_number}</td>
-                            <td className="px-4 py-3 text-muted-foreground">{formatDate(r.due_date)}</td>
-                            <td className="px-4 py-3 text-foreground">
-                              {formatDate(r.given_date)}
-                              {r.is_prior && (
-                                <span
-                                  className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800"
-                                  title={r.prior_source ? `Source: ${r.prior_source}` : 'Back-filled from paper record'}
-                                >
-                                  <History size={10} /> Prior
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-muted-foreground">{r.batch_number ?? '—'}</td>
-                            <td className="px-4 py-3">
-                              <StatusBadge status={r.status} label={meta.label} icon={meta.icon} />
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+                {groups.map((g) => {
+                  const open = isOpen(g.code)
+                  const panelId = `nip-${childId}-${g.code}`
+                  return (
+                    <li key={g.code}>
+                      <button
+                        type="button"
+                        aria-expanded={open}
+                        aria-controls={panelId}
+                        onClick={() => setOpenOverride((o) => ({ ...o, [g.code]: !open }))}
+                        className="flex w-full flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-3 text-left transition-colors hover:bg-brand-ice/60 focus-visible:bg-brand-ice/60 focus-visible:outline-none"
+                      >
+                        <ChevronDown size={16} aria-hidden="true" className={`shrink-0 text-brand-muted transition-transform motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block font-semibold text-brand-navy">{g.name}</span>
+                          <span className="block text-xs text-muted-foreground">{g.route} · {g.dose_volume}</span>
+                        </span>
+                        <span className="text-sm tabular-nums text-brand-navy"><span className="font-semibold">{g.done}/{g.total}</span> <span className="text-muted-foreground">doses</span></span>
+                        <StatusBadge
+                          status={g.state.toLowerCase()}
+                          tone={g.state === 'COMPLETED' ? 'good' : g.state === 'MISSED' ? 'danger' : 'info'}
+                          label={g.state === 'COMPLETED' ? 'Completed' : g.state === 'MISSED' ? 'Missed' : 'Pending'}
+                        />
+                        <span className="w-full text-xs text-muted-foreground sm:w-36 sm:text-right">
+                          {g.next ? <>Next due <span className="font-medium text-brand-navy">{formatDate(g.next.due_date)}</span></> : 'All doses given'}
+                        </span>
+                      </button>
+                      {/* grid-rows 0fr → 1fr animates the height; no animation with reduced motion. */}
+                      <div id={panelId} className={`grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+                        <div className="overflow-hidden" inert={!open}>
+                          <div className="overflow-x-auto border-t border-border bg-brand-ice/30">
+                            <table className="w-full min-w-[640px] text-left text-sm">
+                              <thead className="text-xs uppercase tracking-wide text-muted-foreground">
+                                <tr>
+                                  <th className="px-4 py-2 font-semibold">Dose</th>
+                                  <th className="px-4 py-2 font-semibold">Due date</th>
+                                  <th className="px-4 py-2 font-semibold">Given</th>
+                                  <th className="px-4 py-2 font-semibold">Batch</th>
+                                  <th className="px-4 py-2 font-semibold">Site / remarks</th>
+                                  <th className="px-4 py-2 font-semibold">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border/70">
+                                {g.doses.map((r) => {
+                                  const meta = STATUS_META[r.status]
+                                  return (
+                                    <tr key={r.dose_number}>
+                                      <td className="px-4 py-2.5 text-brand-navy">Dose {r.dose_number}</td>
+                                      <td className="px-4 py-2.5 text-muted-foreground">{formatDate(r.due_date)}</td>
+                                      <td className="px-4 py-2.5 text-foreground">
+                                        {formatDate(r.given_date)}
+                                        {r.is_prior && (
+                                          <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-warn-soft px-2 py-0.5 text-[10px] font-semibold text-warn" title={r.prior_source ? `Source: ${r.prior_source}` : 'Back-filled from paper record'}>
+                                            <History size={10} aria-hidden="true" /> Prior
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-muted-foreground">{r.batch_number ?? '—'}</td>
+                                      <td className="px-4 py-2.5 text-muted-foreground">{[r.vaccination_site, r.is_prior && r.prior_source ? `From ${r.prior_source}` : null].filter(Boolean).join(' · ') || '—'}</td>
+                                      <td className="px-4 py-2.5"><StatusBadge status={r.status} label={meta.label} icon={meta.icon} /></td>
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
             )}
           </>
         )}
