@@ -41,6 +41,7 @@ import { LogoLoader } from '@/components/brand/logo-loader'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { CHILD_ID_HELP, FSN_HELP, InfoTip } from '@/components/ui/info-tip'
 type ChildRow = {
   child_id: number;
   first_name: string;
@@ -656,12 +657,12 @@ export function ChildProfileView({childId}: {childId: string}) {
             </div>
             <div>
               <dl className="flex flex-wrap gap-2 text-xs">
-                <div className="rounded-lg bg-white px-2.5 py-1 ring-1 ring-border">
-                  <dt className="inline font-medium text-muted-foreground">Child ID </dt>
+                <div className="flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 ring-1 ring-border">
+                  <dt className="inline-flex items-center gap-1 font-medium text-muted-foreground">Child ID <InfoTip label="About Child ID">{CHILD_ID_HELP}</InfoTip></dt>
                   <dd className="inline font-mono font-semibold text-brand-navy">{child.child_code ?? formatChildId(child.child_id, child.registration_date)}</dd>
                 </div>
-                <div className="rounded-lg bg-white px-2.5 py-1 ring-1 ring-border" title="Family no. on the Child Immunization Record card">
-                  <dt className="inline font-medium text-muted-foreground">Family Serial No. </dt>
+                <div className="flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 ring-1 ring-border">
+                  <dt className="inline-flex items-center gap-1 font-medium text-muted-foreground">Family Serial Number (FSN) <InfoTip label="About the Family Serial Number (FSN)">{FSN_HELP}</InfoTip></dt>
                   <dd className="inline font-mono font-semibold text-brand-navy">{household?.family_serial_no ?? "—"}</dd>
                 </div>
               </dl>
@@ -793,7 +794,7 @@ export function ChildProfileView({childId}: {childId: string}) {
           icon={<Home size={18} />}
         >
           <dl className="divide-y divide-border">
-            <InfoRow label="Family Serial No." value={household?.family_serial_no ? <span className="font-mono font-semibold">{household.family_serial_no}</span> : "—"} />
+            <InfoRow label="Family Serial Number (FSN)" value={household?.family_serial_no ? <span className="font-mono font-semibold">{household.family_serial_no}</span> : "—"} />
             <InfoRow
               label="Household no."
               value={household ? (household.household_no ? `HH-${household.household_no}` : `HH-${household.household_id}`) : "—"}

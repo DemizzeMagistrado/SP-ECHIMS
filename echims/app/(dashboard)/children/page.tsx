@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/form'
 import { DataTable, type Column } from '@/components/ui/data-table'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { CHILD_ID_HELP, FSN_HELP, InfoTip } from '@/components/ui/info-tip'
 import { monthsOld } from '@/lib/children/profile-fields'
 
 type Child = {
@@ -100,7 +101,7 @@ export default function ChildHealthPage() {
   }
 
   const columns: Column<Child>[] = [
-    { key: 'id', header: 'Child ID', cell: (c) => <span className="font-mono text-xs font-semibold text-brand-navy">{c.id}</span>, sortValue: (c) => c.id },
+    { key: 'id', header: 'Child ID', headerExtra: <InfoTip label="About Child ID">{CHILD_ID_HELP}</InfoTip>, cell: (c) => <span className="font-mono text-xs font-semibold text-brand-navy">{c.id}</span>, sortValue: (c) => c.id },
     {
       key: 'name', header: 'Name', sortValue: (c) => c.name,
       cell: (c) => (
@@ -112,7 +113,7 @@ export default function ChildHealthPage() {
     { key: 'age', header: 'Age', cell: (c) => `${Math.max(0, monthsOld(c.dob))} mos`, sortValue: (c) => monthsOld(c.dob), align: 'right' },
     { key: 'barangay', header: 'Barangay', cell: (c) => barangayName(c.barangay), sortValue: (c) => barangayName(c.barangay) },
     {
-      key: 'fsn', header: 'FSN / Household', sortValue: (c) => c.familySerialNo,
+      key: 'fsn', header: 'FSN / Household', headerExtra: <InfoTip label="About the Family Serial Number (FSN)" align="end">{FSN_HELP}</InfoTip>, sortValue: (c) => c.familySerialNo,
       cell: (c) => (
         <div>
           {c.familySerialNo ? (

@@ -18,6 +18,7 @@ import { PhilippineAddressPicker } from "@/components/children/philippine-addres
 import { Spinner } from '@/components/brand/logo-loader'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/toast'
+import { CHILD_ID_HELP, FSN_HELP, InfoTip } from '@/components/ui/info-tip'
 import { MOBILE_HINT, formatPhMobile, normalizePhMobile, toLocalMobileDigits } from '@/lib/phone'
 import { Checkbox, DateInput, Field, Input, Select, Textarea } from '@/components/ui/form'
 import { cn } from '@/lib/utils'
@@ -82,6 +83,8 @@ export function ChildFormModal({
   const [householdQuery, setHouseholdQuery] = useState("");
   const [guardianQuery, setGuardianQuery] = useState("");
   const [message, setMessage] = useState("");
+  /** Generated identifiers, for the review step (not form fields: they can't be edited). */
+  const [codes, setCodes] = useState({ childCode: "", fsn: "" });
   const [conflict, setConflict] = useState<Conflict | null>(null);
   const [saving, setSaving] = useState(false);
   const [loadingChild, setLoadingChild] = useState(mode === "edit");
@@ -120,6 +123,7 @@ export function ChildFormModal({
         setOriginalGuardianContact(normalizePhMobile(guardian?.contact_number) ?? guardian?.contact_number ?? "");
         const values = recordToForm(d);
         loaded.current = values;
+        setCodes({ childCode: d.child?.child_code ?? "", fsn: household?.family_serial_no ?? "" });
         setForm(values);
       } catch (e) {
         if (!cancelled) setMessage(e instanceof Error ? e.message : "Unable to load child record.");
@@ -593,7 +597,7 @@ export function ChildFormModal({
                     <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-56 overflow-auto rounded-lg border border-border bg-white shadow-lg">
                       {householdMatches.length > 0 ? householdMatches.map((h) => (
                         <button key={h.household_id} type="button"
-                          onClick={() => { set("household_id", String(h.household_id)); setHouseholdQuery(`${h.household_no} — ${h.household_address}`); }}
+                          onClick={() => { set("household_id", String(h.household_id)); setHouseholdQuery(`${h.household_no} — ${h.household_address}`); setCodes((c) => ({ ...c, fsn: h.family_serial_no ?? "" })); }}
                           className="block w-full px-3 py-2 text-left text-sm hover:bg-muted">
                           {h.household_no} — {h.household_address}
                           {h.family_serial_no && <span className="block font-mono text-xs text-muted-foreground">{h.family_serial_no}</span>}
@@ -627,6 +631,8 @@ export function ChildFormModal({
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">Check everything before saving. Use Edit to go back to a section.</p>
               <ReviewCard title="Child Information" onEdit={() => goTo(0)} rows={[
+                [<span key="l" className="inline-flex items-center gap-1">Child ID <InfoTip label="About Child ID">{CHILD_ID_HELP}</InfoTip></span>,
+                  codes.childCode || "Assigned automatically when the record is saved"],
                 ["Name", [str("first_name"), str("middle_name"), str("last_name")].filter(Boolean).join(" ")],
                 ["Sex", str("sex")], ["Date of birth", str("date_of_birth")], ["Age group", classificationForDob(str("date_of_birth"))],
                 ["Place of birth", str("birth_place")],
@@ -646,6 +652,8 @@ export function ChildFormModal({
                 ["Information provided by", [str("informant_name"), str("informant_relationship")].filter(Boolean).join(" · ")],
               ]} />
               <ReviewCard title="Household Information" onEdit={() => goTo(2)} rows={[
+                [<span key="l" className="inline-flex items-center gap-1">Family Serial Number (FSN) <InfoTip label="About the Family Serial Number (FSN)">{FSN_HELP}</InfoTip></span>,
+                  newHousehold ? "Assigned automatically when the household is saved" : form.household_id ? codes.fsn : ""],
                 ["Barangay", barangayName ?? ""], ["Child’s address", str("address")],
                 ["Household", newHousehold
                   ? `New: ${[str("household_no"), str("household_address"), str("purok") && `Purok ${str("purok")}`].filter(Boolean).join(" · ")}${form.is_4ps_member ? " · 4Ps" : ""}`
@@ -735,7 +743,7 @@ function SubHeading({ children }: { children: ReactNode }) {
   return <h4 className="border-t border-border pt-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{children}</h4>;
 }
 
-function ReviewCard({ title, rows, onEdit }: { title: string; rows: [string, string | false | undefined][]; onEdit: () => void }) {
+function ReviewCard({ title, rows, onEdit }: { title: string; rows: [ReactNode, string | false | undefined][]; onEdit: () => void }) {
   return (
     <section className="rounded-2xl border border-border p-4">
       <div className="mb-2 flex items-center justify-between">
@@ -743,8 +751,8 @@ function ReviewCard({ title, rows, onEdit }: { title: string; rows: [string, str
         <button type="button" onClick={onEdit} className="text-sm font-medium text-primary underline-offset-4 hover:underline">Edit</button>
       </div>
       <dl className="grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-[180px_1fr]">
-        {rows.map(([label, value]) => (
-          <div key={label} className="contents">
+        {rows.map(([label, value], i) => (
+          <div key={i} className="contents">
             <dt className="text-muted-foreground">{label}</dt>
             <dd className="text-foreground">{value || <span className="text-muted-foreground">Not provided</span>}</dd>
           </div>

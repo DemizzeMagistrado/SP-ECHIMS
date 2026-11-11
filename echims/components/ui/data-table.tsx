@@ -16,6 +16,8 @@ export type Column<T> = {
   key: string
   header: ReactNode
   cell: (row: T) => ReactNode
+  /** Shown after the header (outside the sort button), e.g. an <InfoTip>. */
+  headerExtra?: ReactNode
   /** Makes the column sortable. */
   sortValue?: (row: T) => string | number | null | undefined
   align?: 'left' | 'right'
@@ -47,6 +49,7 @@ export function DataTable<T>({
   const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null)
   const [size, setSize] = useState(initialSize)
   const [page, setPage] = useState(0)
+
 
   const sorted = useMemo(() => {
     if (!sort) return rows
@@ -101,6 +104,7 @@ export function DataTable<T>({
                             {active ? (sort.dir === 'asc' ? <ArrowUp size={13} aria-hidden="true" /> : <ArrowDown size={13} aria-hidden="true" />) : <ArrowUpDown size={13} aria-hidden="true" className="opacity-50" />}
                           </button>
                         ) : c.header}
+                        {c.headerExtra && <span className="ml-1 inline-flex align-middle">{c.headerExtra}</span>}
                       </th>
                     )
                   })}
