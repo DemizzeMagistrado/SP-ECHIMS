@@ -23,6 +23,7 @@ import {
   ArrowRightLeft,
   History,
   Printer,
+  Scale,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { canPerform, type UserRole } from "@/lib/echims-data";
@@ -37,7 +38,9 @@ import { toast } from '@/components/ui/toast'
 import { GuardianSmsConsent } from "@/components/children/guardian-sms-consent";
 import { GuardianSmsHistory } from "@/components/children/guardian-sms-history";
 import { LogoLoader } from '@/components/brand/logo-loader'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
+import { StatusBadge } from '@/components/ui/status-badge'
 type ChildRow = {
   child_id: number;
   first_name: string;
@@ -428,6 +431,52 @@ function SectionCard({
     </section>
   );
 }
+const badgeTone = { danger: "danger", warning: "warn", success: "good", default: "neutral" } as const;
+/** Latest assessment summary for the Child Information card: date, each indicator, comments. */
+function LatestNutrition({ record, canAdd, canOpenModule }: { record: Assessment | null; canAdd: boolean; canOpenModule: boolean }) {
+  const indicators: [string, string | null | undefined][] = record ? [
+    ["Weight-for-age", record.weight_for_age],
+    ["Height-for-age", record.height_for_age],
+    ["Weight-for-height", record.weight_for_height],
+    ["BMI-for-age", record.bmi_for_age],
+    ["MUAC", record.muac_status],
+  ] : [];
+  return (
+    <section aria-labelledby="latest-nutrition-title" className="mt-5 border-t border-border pt-5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h3 id="latest-nutrition-title" className="font-semibold text-brand-navy">
+          Latest nutritional assessment{record && <span className="font-normal text-muted-foreground"> · {formatDate(record.assessment_date)}</span>}
+        </h3>
+        {record && <a href="#nutrition-history" className="text-sm font-medium text-primary underline-offset-4 hover:underline">Full nutrition history</a>}
+      </div>
+      {!record ? (
+        <EmptyState
+          size="section"
+          icon={Scale}
+          title="No nutritional assessment yet"
+          description="Weigh and measure the child to record the first assessment."
+          action={canAdd ? <Link href="/nutritional-assessment/records" className={buttonVariants({ variant: "secondary", size: "sm" })}>Add assessment</Link> : undefined}
+        />
+      ) : (
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {indicators.filter(([, v]) => v).map(([label, v]) => (
+              <StatusBadge key={label} status={String(v)} tone={badgeTone[statusTone(String(v))]} label={<><span className="font-normal opacity-80">{label}:</span> {classificationLabel(v)}</>} />
+            ))}
+            {indicators.every(([, v]) => !v) && <StatusBadge status="pending" tone="neutral" label="Indicators not yet evaluated" />}
+          </div>
+          <div className="rounded-xl bg-brand-ice/60 px-4 py-3 text-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Comments</p>
+            <p className="mt-1 whitespace-pre-line text-foreground">{record.remarks?.trim() || "No comments were recorded with this assessment."}</p>
+          </div>
+          {canOpenModule && canAdd && (
+            <Link href="/nutritional-assessment/records" className="inline-block text-sm font-medium text-primary underline-offset-4 hover:underline">Record a new assessment</Link>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
 // Accept database IDs, formatted display IDs, and links from older child lists.
 function parseChildRouteId(value: string): number {
   const match = /^(?:E?CH-)?(?:\d{4}-)?(\d+)$/i.exec(value.trim());
@@ -454,6 +503,9 @@ export function ChildProfileView({childId}: {childId: string}) {
   );
   const canEdit = Boolean(
     role && isApproved && canPerform(role, "Child Profiling", "edit"),
+  );
+  const canAddNutrition = Boolean(
+    role && isApproved && canPerform(role, "Nutritional Assessment", "create"),
   );
   const canViewNutrition = Boolean(
     role && isApproved && canPerform(role, "Nutritional Assessment", "view"),
@@ -664,6 +716,11 @@ export function ChildProfileView({childId}: {childId: string}) {
             />
           </div>
         </dl>
+        <LatestNutrition
+          record={latestNutrition}
+          canAdd={canAddNutrition}
+          canOpenModule={canViewNutrition}
+        />
       </SectionCard>
       <div className="grid gap-6 lg:grid-cols-2">
         <SectionCard
@@ -739,7 +796,9 @@ export function ChildProfileView({childId}: {childId: string}) {
       <VaccinationScheduleSection childId={child.child_id} />
 
       {/* Nutritional assessment history */}
-      <NutritionHistorySection assessments={assessments ?? []} />
+      <div id="nutrition-history" className="scroll-mt-24">
+        <NutritionHistorySection assessments={assessments ?? []} />
+      </div>
       {/* Full saved administration, dispensing, plans and due dates. */}
       <SupplementationHistorySection childId={child.child_id} />
 
