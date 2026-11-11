@@ -34,6 +34,8 @@ type Props<T> = {
   /** A refetch is running behind rows already on screen. */
   refreshing?: boolean
   onRowClick?: (row: T) => void
+  /** Accessible name for an openable row, e.g. "Open Juan Dela Cruz's profile". */
+  rowLabel?: (row: T) => string
   /** 0 turns pagination off. */
   pageSize?: number
   /** scroll = horizontal scroll on narrow screens; cards = one card per row below sm. */
@@ -44,12 +46,28 @@ type Props<T> = {
 const PAGE_SIZES = [10, 25, 50, 100]
 
 export function DataTable<T>({
-  rows, columns, rowKey, caption, toolbar, empty, refreshing = false, onRowClick, pageSize: initialSize = 25, mobile = 'scroll', className,
+  rows, columns, rowKey, caption, toolbar, empty, refreshing = false, onRowClick, rowLabel, pageSize: initialSize = 25, mobile = 'scroll', className,
 }: Props<T>) {
   const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null)
   const [size, setSize] = useState(initialSize)
   const [page, setPage] = useState(0)
 
+  // Openable rows: whole row clicks, Enter/Space from the keyboard, but links/buttons inside the
+  // row keep their own action.
+  const openable = 'group cursor-pointer outline-none hover:bg-brand-ice/70 hover:shadow-[0_2px_8px_-4px_rgba(3,4,94,0.18)] focus-visible:bg-brand-ice/70 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring active:bg-brand-ice'
+  const rowProps = (row: T) => onRowClick ? {
+    tabIndex: 0,
+    'aria-label': rowLabel?.(row),
+    onClick: (e: React.MouseEvent) => {
+      if ((e.target as HTMLElement).closest('a,button,input,select,textarea,label')) return
+      onRowClick(row)
+    },
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return
+      e.preventDefault()
+      onRowClick(row)
+    },
+  } : {}
 
   const sorted = useMemo(() => {
     if (!sort) return rows
@@ -108,18 +126,26 @@ export function DataTable<T>({
                       </th>
                     )
                   })}
+                  {onRowClick && <th scope="col" className="sticky top-0 z-[1] w-16 border-b border-brand-line bg-brand-ice"><span className="sr-only">Open</span></th>}
                 </tr>
               </thead>
               <tbody>
                 {visible.map((row) => (
                   <tr
                     key={rowKey(row)}
-                    onClick={onRowClick ? () => onRowClick(row) : undefined}
-                    className={cn('transition-colors hover:bg-brand-ice/60 [&:last-child>td]:border-b-0', onRowClick && 'cursor-pointer')}
+                    {...rowProps(row)}
+                    className={cn('transition-colors [&:last-child>td]:border-b-0', onRowClick ? openable : 'hover:bg-brand-ice/60')}
                   >
-                    {columns.map((c) => (
-                      <td key={c.key} className={cn('border-b border-brand-line/70 px-4 py-3.5 align-middle text-brand-navy', align(c), c.className)}>{c.cell(row)}</td>
+                    {columns.map((c, i) => (
+                      <td key={c.key} className={cn('border-b border-brand-line/70 px-4 py-3.5 align-middle text-brand-navy', i === 0 && onRowClick && 'border-l-[3px] border-l-transparent group-hover:border-l-primary group-focus-visible:border-l-primary', align(c), c.className)}>{c.cell(row)}</td>
                     ))}
+                    {onRowClick && (
+                      <td className="border-b border-brand-line/70 px-3 text-right align-middle">
+                        <span aria-hidden="true" className="inline-flex items-center gap-0.5 text-xs font-semibold text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                          View <ChevronRight size={14} />
+                        </span>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -129,7 +155,8 @@ export function DataTable<T>({
           {mobile === 'cards' && (
             <ul className="divide-y divide-brand-line sm:hidden">
               {visible.map((row) => (
-                <li key={rowKey(row)} onClick={onRowClick ? () => onRowClick(row) : undefined} className={cn('space-y-1.5 p-4', onRowClick && 'cursor-pointer active:bg-brand-ice/60')}>
+                <li key={rowKey(row)} {...rowProps(row)} className={cn('relative space-y-1.5 p-4', onRowClick && cn(openable, 'pr-10'))}>
+                  {onRowClick && <ChevronRight size={18} aria-hidden="true" className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-muted group-hover:text-primary" />}
                   {columns.map((c) => (
                     <div key={c.key} className="flex items-start justify-between gap-4 text-sm">
                       <span className="text-xs font-semibold uppercase tracking-wide text-brand-muted">{c.header}</span>

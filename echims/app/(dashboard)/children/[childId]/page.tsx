@@ -24,6 +24,7 @@ import {
   History,
   Printer,
   Scale,
+  ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { canPerform, type UserRole } from "@/lib/echims-data";
@@ -820,15 +821,24 @@ export function ChildProfileView({childId}: {childId: string}) {
             {siblings.length === 0 ? (
               <p className="mt-1 text-sm text-muted-foreground">No other registered children in this household.</p>
             ) : (
-              <ul className="mt-2 divide-y divide-border">
+              <ul className="mt-2 space-y-1">
                 {siblings.map((sib) => (
-                  <li key={sib.child_id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                    <Link href={`/child-profiling/children/${sib.child_id}`} className="font-medium text-brand-navy underline-offset-4 hover:underline">
-                      {sib.first_name} {sib.last_name}
+                  <li key={sib.child_id}>
+                    {/* The whole row is the link: tinted on hover/focus, accent bar, "View" hint. */}
+                    <Link
+                      href={`/child-profiling/children/${sib.child_id}`}
+                      className="group flex items-center justify-between gap-3 rounded-lg border-l-[3px] border-transparent px-3 py-2 text-sm transition-colors hover:border-primary hover:bg-brand-ice/70 focus-visible:border-primary focus-visible:bg-brand-ice/70 focus-visible:outline-2 focus-visible:outline-ring active:bg-brand-ice"
+                    >
+                      <span>
+                        <span className="font-medium text-brand-navy">{sib.first_name} {sib.last_name}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          <span className="font-mono">{sib.child_code ?? ""}</span> · Born {formatDate(sib.date_of_birth)}
+                        </span>
+                      </span>
+                      <span aria-hidden="true" className="inline-flex items-center gap-0.5 text-xs font-semibold text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                        View <ChevronRight size={14} />
+                      </span>
                     </Link>
-                    <span className="text-xs text-muted-foreground">
-                      <span className="font-mono">{sib.child_code ?? ""}</span> · Born {formatDate(sib.date_of_birth)}
-                    </span>
                   </li>
                 ))}
               </ul>

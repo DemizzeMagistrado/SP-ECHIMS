@@ -155,6 +155,7 @@ export default function ChildHealthPage() {
           refreshing={isLoading}
           mobile="cards"
           onRowClick={(c) => router.push(`/child-profiling/children/${c.child_id}`)}
+          rowLabel={(c) => `Open ${c.name}'s profile`}
           empty={anyFilter
             ? { icon: SearchX, title: 'No children match these filters', description: 'Try a broader search or clear the filters.', action: <Button variant="secondary" size="sm" onClick={clearFilters}>Clear filters</Button> }
             : { icon: Baby, title: 'No children registered yet', description: canRegister ? 'Use Register Child to add the first child in your area.' : 'Registered children in your area will be listed here.' }}

@@ -538,7 +538,7 @@ export function ChildFormModal({
                             setOriginalGuardianContact(normalizePhMobile(g.contact_number) ?? g.contact_number ?? "");
                             setGuardianQuery(`${g.first_name} ${g.last_name}${g.relationship_to_child ? ` (${g.relationship_to_child})` : ""}`);
                           }}
-                          className="block w-full px-3 py-2 text-left text-sm hover:bg-muted">
+                          className="block w-full border-l-[3px] border-transparent px-3 py-2 text-left text-sm hover:border-primary hover:bg-brand-ice/70 focus-visible:border-primary focus-visible:bg-brand-ice/70 focus-visible:outline-none active:bg-brand-ice">
                           {g.first_name} {g.last_name}{g.relationship_to_child ? ` (${g.relationship_to_child})` : ""}
                         </button>
                       )) : <p className="px-3 py-2 text-xs text-muted-foreground">No guardian found. Tick “Register new guardian” below.</p>}
@@ -598,7 +598,7 @@ export function ChildFormModal({
                       {householdMatches.length > 0 ? householdMatches.map((h) => (
                         <button key={h.household_id} type="button"
                           onClick={() => { set("household_id", String(h.household_id)); setHouseholdQuery(`${h.household_no} — ${h.household_address}`); setCodes((c) => ({ ...c, fsn: h.family_serial_no ?? "" })); }}
-                          className="block w-full px-3 py-2 text-left text-sm hover:bg-muted">
+                          className="block w-full border-l-[3px] border-transparent px-3 py-2 text-left text-sm hover:border-primary hover:bg-brand-ice/70 focus-visible:border-primary focus-visible:bg-brand-ice/70 focus-visible:outline-none active:bg-brand-ice">
                           {h.household_no} — {h.household_address}
                           {h.family_serial_no && <span className="block font-mono text-xs text-muted-foreground">{h.family_serial_no}</span>}
                         </button>
