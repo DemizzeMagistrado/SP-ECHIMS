@@ -7,7 +7,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useId, useState } from 'react'
 import { ImmunizationHistorySection } from '@/components/children/immunization-history-section'
 import useSWR from 'swr'
-import { Syringe, AlertCircle, Clock } from 'lucide-react'
+import { Syringe, AlertCircle, CheckCircle2, Clock } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { toast } from '@/components/ui/toast'
@@ -78,7 +78,7 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
   )
   const [submitting, setSubmitting] = useState(false)
   const [remarks, setRemarks] = useState('')
-  // Proposed service date. Pre-fills to the nearest overdue dose (or today if all are
+  // Proposed service date. Pre-fills to the nearest missed dose (or today if all are
   // future) so the BHW/RHM doesn't have to type one from scratch.
   const [proposedDate, setProposedDate] = useState('')
   const [showForm, setShowForm] = useState(false)
@@ -134,8 +134,11 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
     )
   }
   const today = new Date().toISOString().slice(0, 10)
-  const upcomingCount = data.preview.filter((e) => e.recommended_date >= today).length
-  const overdueCount = data.preview.filter((e) => e.recommended_date < today).length
+  const pendingCount = data.preview.filter((e) => e.recommended_date >= today).length
+  const missed = data.preview.filter((e) => e.recommended_date < today)
+  // Longest-missed dose: earliest recommended date among the missed ones.
+  const longest = missed.reduce<typeof missed[number] | null>((a, e) => (!a || e.recommended_date < a.recommended_date ? e : a), null)
+  const longestDays = longest ? daysBetween(longest.recommended_date, today) : 0
   return (
     <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -153,20 +156,20 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
           {data.latest_request && <StatusBadge status={data.latest_request.status} label={data.latest_request.status === 'PENDING' ? 'Pending review' : undefined} dot />}
         </div>
       </div>
-      {/* Status summary bar */}
-      <div className="mb-4 grid grid-cols-3 gap-3 text-sm">
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-          <p className="text-xs font-medium text-amber-800">Overdue</p>
-          <p className="mt-0.5 text-xl font-bold text-amber-900">{overdueCount}</p>
+      {/* Summary: missed doses first (with the longest-missed dose), then counts. */}
+      <div className={`mb-4 rounded-xl border p-4 ${missed.length ? 'border-danger/20 bg-danger-soft' : 'border-good/20 bg-good-soft'}`}>
+        <p className={`flex flex-wrap items-center gap-2 text-sm font-semibold ${missed.length ? 'text-danger' : 'text-good'}`}>
+          {missed.length ? <AlertCircle size={16} aria-hidden="true" /> : <CheckCircle2 size={16} aria-hidden="true" />}
+          {missed.length
+            ? `${missed.length} missed dose${missed.length === 1 ? '' : 's'}${longest ? ` · longest: ${longest.vaccine_type} ${longest.dose_number}, ${longestDays} day${longestDays === 1 ? '' : 's'}` : ''}`
+            : 'No missed doses'}
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <StatusBadge status="missed" tone={missed.length ? 'danger' : 'neutral'} label={`${missed.length} missed`} />
+          <StatusBadge status="pending" tone="info" label={`${pendingCount} pending`} />
+          <StatusBadge status="given" tone="good" label={`${data.excluded_count} already given`} />
         </div>
-        <div className="rounded-lg border border-sky-200 bg-sky-50 p-3">
-          <p className="text-xs font-medium text-sky-800">Upcoming</p>
-          <p className="mt-0.5 text-xl font-bold text-sky-900">{upcomingCount}</p>
-        </div>
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-          <p className="text-xs font-medium text-emerald-800">Already given</p>
-          <p className="mt-0.5 text-xl font-bold text-emerald-900">{data.excluded_count}</p>
-        </div>
+        {missed.length > 0 && <p className="mt-2 text-xs text-brand-muted">Schedule the missed doses at the next vaccination session. Doses are listed below by recommended date.</p>}
       </div>
       {/* Request form or button (BHW/RHM only; hidden when a PENDING request already exists) */}
       {canRequest && (!data.latest_request || data.latest_request.status !== 'PENDING') && (
@@ -248,17 +251,11 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
                     <td className="px-4 py-3 text-sm">{formatDate(entry.recommended_date)}</td>
                     <td className="px-4 py-3 text-sm">
                       {overdue ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">
-                          <AlertCircle size={12} />{Math.abs(diff)} day{Math.abs(diff) === 1 ? '' : 's'} overdue
-                        </span>
+                        <StatusBadge status="missed" tone="danger" icon={<AlertCircle size={12} aria-hidden="true" />} label={`Missed · ${Math.abs(diff)} day${Math.abs(diff) === 1 ? '' : 's'}`} />
                       ) : soon ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                          <Clock size={12} />Due in {diff} day{diff === 1 ? '' : 's'}
-                        </span>
+                        <StatusBadge status="pending" tone="warn" icon={<Clock size={12} aria-hidden="true" />} label={diff === 0 ? 'Pending · due today' : `Pending · due in ${diff} day${diff === 1 ? '' : 's'}`} />
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-700">
-                          <Clock size={12} />In {diff} days
-                        </span>
+                        <StatusBadge status="pending" tone="info" icon={<Clock size={12} aria-hidden="true" />} label={`Pending · in ${diff} days`} />
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{entry.route}</td>

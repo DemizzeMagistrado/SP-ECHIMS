@@ -1,3 +1,5 @@
+import { fromStructured } from './medical-history'
+
 // Child Profiling form model: the three sections (Child → Guardian → Household), their option
 // lists and per-step validation. Shared by the registration/edit form, the profile page and drafts.
 // The child is the one registered; guardian and household details are given by the parent or
@@ -140,4 +142,83 @@ export function validateStep(step: StepKey, f: ChildForm, ctx: StepContext): Rec
     if (ctx.newHousehold && !s('household_address')) e.household_address = 'Enter the household address.'
   }
   return e
+}
+
+/** A saved value that is not one of the options was typed under "Other": show it that way. */
+function withOtherSplit(form: ChildForm): ChildForm {
+  const next = { ...form }
+  for (const field of otherAwareFields) {
+    const value = String(next[field] ?? '')
+    if (value && !(options[field] as readonly string[]).includes(value)) {
+      next[field] = 'Other'
+      next[`${field}_other`] = value
+    }
+  }
+  return next
+}
+
+type Row = Record<string, unknown>
+/** GET /api/children?childId= payload → form values (the edit form and conflict checks use this). */
+export function recordToForm(d: { child?: Row | null; guardian?: Row | null; profile?: Row | null }): ChildForm {
+  const child = d.child ?? {}
+  const guardian = d.guardian ?? null
+  const profile = d.profile ?? {}
+  const str = (v: unknown) => (v === null || v === undefined ? '' : String(v))
+  return withOtherSplit({
+    ...emptyChildForm,
+    first_name: str(child.first_name), middle_name: str(child.middle_name), last_name: str(child.last_name),
+    date_of_birth: str(child.date_of_birth),
+    sex: child.sex === "MALE" ? "Male" : child.sex === "FEMALE" ? "Female" : "",
+    birth_place: str(child.birth_place), address: str(child.address),
+    birth_weight_kg: str(child.birth_weight_kg), birth_height_cm: str(child.birth_height_cm),
+    mother_name: str(child.mother_name), father_name: str(child.father_name),
+    barangay_id: str(child.barangay_id), household_id: str(child.household_id), guardian_id: str(child.guardian_id),
+    guardian_contact_number: str(guardian?.contact_number),
+    relationship_to_household_head: str(profile.relationship_to_household_head),
+    civil_status: str(profile.civil_status),
+    religion: str(profile.religion), ethnicity: str(profile.ethnicity),
+    philhealth_id_number: str(profile.philhealth_id_number),
+    philhealth_membership_type: str(profile.philhealth_membership_type),
+    philhealth_category: str(profile.philhealth_category),
+    ...fromStructured(profile.medical_history_structured, profile.medical_history),
+    last_menstrual_period: str(profile.last_menstrual_period),
+    water_source_type: str(profile.water_source_type), toilet_facility_type: str(profile.toilet_facility_type),
+    informant_name: str(profile.informant_name), informant_relationship: str(profile.informant_relationship),
+  })
+}
+
+/** Labels for comparing two versions of a record field by field. */
+export const FIELD_LABELS: Record<string, string> = {
+  first_name: 'First name', middle_name: 'Middle name', last_name: 'Last name', date_of_birth: 'Date of birth',
+  sex: 'Sex', birth_place: 'Place of birth', birth_weight_kg: 'Birth weight (kg)', birth_height_cm: 'Birth height (cm)',
+  relationship_to_household_head: 'Relationship to household head', civil_status: 'Civil status', religion: 'Religion',
+  ethnicity: 'Ethnicity', philhealth_membership_type: 'PhilHealth membership', philhealth_id_number: 'PhilHealth ID',
+  philhealth_category: 'PhilHealth category', medical_codes: 'Medical history', medical_others: 'Medical history (other)',
+  medical_history_notes: 'Medical notes', mother_name: 'Mother', father_name: 'Father',
+  guardian_id: 'Present guardian', guardian_contact_number: 'Guardian contact number',
+  informant_name: 'Informant', informant_relationship: 'Informant relationship',
+  barangay_id: 'Barangay', address: "Child's address", household_id: 'Household',
+  water_source_type: 'Water source', toilet_facility_type: 'Toilet facility',
+}
+
+export type FieldChange = { field: string; label: string; yours: string; saved: string }
+
+/**
+ * Three-way merge for an edit: `base` = values when the form opened, `mine` = the form now,
+ * `saved` = the record as saved now. Fields only someone else changed are taken from `saved`;
+ * fields both changed to different values are conflicts.
+ */
+export function mergeEdit(base: ChildForm, mine: ChildForm, saved: ChildForm) {
+  const merged: ChildForm = { ...mine }
+  const conflicts: FieldChange[] = []
+  const v = (f: ChildForm, k: string) => String(f[k] ?? '').trim()
+  for (const field of Object.keys(FIELD_LABELS)) {
+    for (const key of [field, `${field}_other`]) {
+      if (v(saved, key) === v(base, key)) continue
+      if (v(mine, key) === v(base, key)) merged[key] = saved[key] ?? ''
+      else if (v(mine, key) !== v(saved, key))
+        conflicts.push({ field: key, label: FIELD_LABELS[field] + (key === field ? '' : ' (specify)'), yours: v(mine, key), saved: v(saved, key) })
+    }
+  }
+  return { merged, conflicts }
 }

@@ -12,20 +12,27 @@ import { Check, X } from "lucide-react";
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineScope } from '@/lib/offline/fetch'
 import { submitSafeDraft } from '@/lib/offline/safe-submit'
-import { saveChildDraft, type ChildRegistrationDraft } from '@/lib/child-registration-drafts'
+import { deleteChildDraft, saveChildDraft, type ChildRegistrationDraft } from '@/lib/child-registration-drafts'
+import { RecordConflict } from '@/components/children/record-conflict'
 import { PhilippineAddressPicker } from "@/components/children/philippine-address-picker";
 import { Spinner } from '@/components/brand/logo-loader'
 import { Button } from '@/components/ui/button'
 import { Checkbox, DateInput, Field, Input, Select, Textarea } from '@/components/ui/form'
 import { cn } from '@/lib/utils'
+import { canPerform, type UserRole } from '@/lib/echims-data'
 import {
-  NO_PHILHEALTH, STEPS, classificationForDob, emptyChildForm, options, otherAwareFields, upgradeLegacyDraft, validateStep,
-  type ChildForm, type StepKey,
+  FIELD_LABELS, NO_PHILHEALTH, STEPS, classificationForDob, emptyChildForm, mergeEdit, options, otherAwareFields, recordToForm, upgradeLegacyDraft, validateStep,
+  type ChildForm, type FieldChange, type StepKey,
 } from '@/lib/children/profile-fields'
-import { describeMedicalHistory, fromStructured, toStructured } from '@/lib/children/medical-history'
+import { describeMedicalHistory, toStructured } from '@/lib/children/medical-history'
 import { MedicalHistoryPicker, useMedicalHistoryOptions } from '@/components/children/medical-history-picker'
 
 type Mode = "create" | "edit";
+type Conflict =
+  | { kind: "edit"; rows: FieldChange[]; saved: ChildForm; merged: ChildForm }
+  | { kind: "duplicate"; rows: FieldChange[]; saved: ChildForm; merged: ChildForm; savedId: number; savedCode: string };
+/** Household, guardian and barangay links are never copied between records. */
+const LINK_FIELDS = ["household_id", "guardian_id", "barangay_id"];
 type Barangay = { barangay_id: number; barangay_name: string };
 type Guardian = {
   guardian_id: number; first_name: string; middle_name: string | null; last_name: string;
@@ -39,19 +46,6 @@ const fetcher = async (url: string) => {
   if (!response.ok) throw new Error(data.error || "Unable to load records.");
   return data;
 };
-
-/** A saved value that is not one of the options was typed under "Other": show it that way. */
-function withOtherSplit(form: ChildForm): ChildForm {
-  const next = { ...form };
-  for (const field of otherAwareFields) {
-    const value = String(next[field] ?? "");
-    if (value && !(options[field] as readonly string[]).includes(value)) {
-      next[field] = "Other";
-      next[`${field}_other`] = value;
-    }
-  }
-  return next;
-}
 
 const grid = "grid gap-4 sm:grid-cols-2 lg:grid-cols-3";
 const wide = "sm:col-span-2 lg:col-span-3";
@@ -86,9 +80,12 @@ export function ChildFormModal({
   const [householdQuery, setHouseholdQuery] = useState("");
   const [guardianQuery, setGuardianQuery] = useState("");
   const [message, setMessage] = useState("");
+  const [conflict, setConflict] = useState<Conflict | null>(null);
   const [saving, setSaving] = useState(false);
   const [loadingChild, setLoadingChild] = useState(mode === "edit");
   const body = useRef<HTMLDivElement>(null);
+  /** Values as loaded for editing, to detect someone else saving meanwhile. */
+  const loaded = useRef<ChildForm | null>(null);
   const { data: medicalOptions } = useMedicalHistoryOptions();
 
   const { data: barangays } = useSWR<Barangay[]>("/api/barangays", fetcher);
@@ -112,37 +109,16 @@ export function ChildFormModal({
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || "Unable to load child record.");
         if (cancelled) return;
-        const child = d.child ?? {};
         const guardian = d.guardian ?? null;
-        const profile = d.profile ?? {};
         const household = d.household ?? null;
         setHouseholdQuery(household
           ? `${household.household_no ?? `HH-${household.household_id}`}${household.household_address ? ` — ${household.household_address}` : ""}` : "");
         setGuardianQuery(guardian
           ? `${[guardian.first_name, guardian.middle_name, guardian.last_name].filter(Boolean).join(" ")}${guardian.relationship_to_child ? ` (${guardian.relationship_to_child})` : ""}` : "");
         setOriginalGuardianContact(guardian?.contact_number ?? "");
-        const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
-        setForm(withOtherSplit({
-          ...emptyChildForm,
-          first_name: str(child.first_name), middle_name: str(child.middle_name), last_name: str(child.last_name),
-          date_of_birth: str(child.date_of_birth),
-          sex: child.sex === "MALE" ? "Male" : child.sex === "FEMALE" ? "Female" : "",
-          birth_place: str(child.birth_place), address: str(child.address),
-          birth_weight_kg: str(child.birth_weight_kg), birth_height_cm: str(child.birth_height_cm),
-          mother_name: str(child.mother_name), father_name: str(child.father_name),
-          barangay_id: str(child.barangay_id), household_id: str(child.household_id), guardian_id: str(child.guardian_id),
-          guardian_contact_number: guardian?.contact_number ?? "",
-          relationship_to_household_head: str(profile.relationship_to_household_head),
-          civil_status: str(profile.civil_status),
-          religion: str(profile.religion), ethnicity: str(profile.ethnicity),
-          philhealth_id_number: str(profile.philhealth_id_number),
-          philhealth_membership_type: str(profile.philhealth_membership_type),
-          philhealth_category: str(profile.philhealth_category),
-          ...fromStructured(profile.medical_history_structured, profile.medical_history),
-          last_menstrual_period: str(profile.last_menstrual_period),
-          water_source_type: str(profile.water_source_type), toilet_facility_type: str(profile.toilet_facility_type),
-          informant_name: str(profile.informant_name), informant_relationship: str(profile.informant_relationship),
-        }));
+        const values = recordToForm(d);
+        loaded.current = values;
+        setForm(values);
       } catch (e) {
         if (!cancelled) setMessage(e instanceof Error ? e.message : "Unable to load child record.");
       } finally {
@@ -226,47 +202,73 @@ export function ChildFormModal({
     if (current !== "review") { next(); return; }
     if (!validateAll()) return;
     if (mode === 'create' && !navigator.onLine) { await saveLocalDraft(); return }
+    await save(form);
+  }
+
+  /** Saves `values`. Edits are first merged with anything saved meanwhile (unless already resolved). */
+  async function save(values: ChildForm, resolvedConflict = false) {
     setMessage("");
     setSaving(true);
     try {
-      // Edit sends null so clearing every condition also clears the saved value.
-      const resolved = { ...resolveOthers(form), medical_history_structured: toStructured(form) ?? (mode === "edit" ? null : undefined) };
       if (mode === 'create' && draft) {
         if (!user) throw new Error('Sign in before uploading this draft.')
         if (draft.status === 'UNCERTAIN') throw new Error('Check the server records for this child before resolving this upload. Do not submit it again.')
         if (!reviewed) throw new Error('Tick the review confirmation before uploading the draft.')
       }
+      if (mode === "edit" && childId && loaded.current && !resolvedConflict) {
+        const latest = await fetch(`/api/children?childId=${childId}`, { cache: "no-store" });
+        if (latest.ok) {
+          const saved = recordToForm(await latest.json());
+          const { merged, conflicts } = mergeEdit(loaded.current, values, saved);
+          if (conflicts.length) { setConflict({ kind: "edit", rows: conflicts, saved, merged }); return; }
+          values = merged;
+          setForm(merged);
+        }
+      }
+      // Edit sends null so clearing every condition also clears the saved value.
+      const resolved = { ...resolveOthers(values), medical_history_structured: toStructured(values) ?? (mode === "edit" ? null : undefined) };
+      const contactNow = mode === "edit" && Boolean(values.guardian_id) &&
+        String(values.guardian_contact_number ?? "").trim() !== originalGuardianContact.trim();
       let r: Response;
       if (mode === "edit" && childId) {
         r = await fetch("/api/children", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            child_id: childId, ...form, ...resolved,
-            guardian_contact_number: contactChanged ? str("guardian_contact_number").trim() : undefined,
+            child_id: childId, ...values, ...resolved,
+            guardian_contact_number: contactNow ? String(values.guardian_contact_number).trim() : undefined,
           }),
         });
       } else {
         const payload = {
-          ...form, ...resolved,
+          ...values, ...resolved,
           new_household: newHousehold ? {
-            household_no: form.household_no, household_address: form.household_address,
-            purok: form.purok, is_4ps_member: form.is_4ps_member,
+            household_no: values.household_no, household_address: values.household_address,
+            purok: values.purok, is_4ps_member: values.is_4ps_member,
           } : undefined,
           new_guardian: newGuardian ? {
-            first_name: form.guardian_first_name, middle_name: form.guardian_middle_name,
-            last_name: form.guardian_last_name, contact_number: form.guardian_contact_number,
-            address: form.guardian_address, relationship_to_child: form.guardian_relationship_to_child,
+            first_name: values.guardian_first_name, middle_name: values.guardian_middle_name,
+            last_name: values.guardian_last_name, contact_number: values.guardian_contact_number,
+            address: values.guardian_address, relationship_to_child: values.guardian_relationship_to_child,
           } : undefined,
         };
         if (draft) {
-          await submitSafeDraft('CHILD', { ...draft, form: { ...form }, newGuardian, newHousehold }, payload)
+          try {
+            await submitSafeDraft('CHILD', { ...draft, form: { ...values }, newGuardian, newHousehold }, payload)
+          } catch (error) {
+            if ((error as { code?: string }).code === '23505' && /already registered/i.test(String((error as Error).message))) {
+              await showDuplicate(values); return
+            }
+            throw error
+          }
           onSaved(); return
         }
         r = await fetch("/api/children", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       }
       const d = await r.json().catch(() => ({}));
+      if (r.status === 409 && d.duplicate) { await showDuplicate(values); return; }
       if (!r.ok) throw new Error(d.error || "The child record was not saved. Check your connection and try again.");
+      setConflict(null);
       onSaved();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "The child record was not saved.";
@@ -274,6 +276,59 @@ export function ChildFormModal({
       onError?.(msg);
     } finally {
       setSaving(false);
+    }
+  }
+
+  /** A saved child has the same name and birth date: load it to compare with what was entered. */
+  async function showDuplicate(values: ChildForm) {
+    const same = (a: unknown, b: unknown) => String(a ?? "").trim().toLowerCase() === String(b ?? "").trim().toLowerCase();
+    const list = await fetch("/api/children", { cache: "no-store" }).then((r) => (r.ok ? r.json() : [])).catch(() => []);
+    const match = (Array.isArray(list) ? list : []).find((c: { name?: string; dob?: string }) =>
+      c.dob === values.date_of_birth && same(c.name?.split(" ")[0], values.first_name) && same(c.name?.split(" ").pop(), values.last_name)) as
+      { child_id: number; id: string; name: string } | undefined;
+    if (!match) {
+      setMessage("A child with the same name and birth date is already registered in this household. Search the children list for that record before registering again.");
+      return;
+    }
+    const record = await fetch(`/api/children?childId=${match.child_id}`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    const saved = record ? recordToForm(record) : { ...emptyChildForm };
+    const rows = Object.entries(FIELD_LABELS)
+      .filter(([k]) => !LINK_FIELDS.includes(k))
+      .map(([field, label]) => ({ field, label, yours: String(values[field] ?? "").trim(), saved: String(saved[field] ?? "").trim() }))
+      .filter((r) => r.yours || r.saved);
+    setConflict({ kind: "duplicate", rows, saved, merged: values, savedId: match.child_id, savedCode: match.id });
+  }
+
+  /** Duplicate, "Keep mine": copy what was entered onto the saved record, keeping its household and guardian links. */
+  async function keepMineOnSaved(c: Extract<Conflict, { kind: "duplicate" }>) {
+    setSaving(true);
+    setMessage("");
+    try {
+      const values: ChildForm = { ...c.saved };
+      for (const [k, v] of Object.entries(c.merged)) if (String(v ?? "").trim() && !LINK_FIELDS.includes(k)) values[k] = v;
+      const resolved = { ...resolveOthers(values), medical_history_structured: toStructured(values) ?? null };
+      const r = await fetch("/api/children", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ child_id: c.savedId, ...values, ...resolved, household_id: undefined, guardian_id: undefined, barangay_id: undefined, guardian_contact_number: undefined }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "The saved record could not be updated.");
+      if (draft) await deleteChildDraft(draft);
+      onSaved();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "The saved record could not be updated.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  /** Duplicate, "Keep saved": leave the saved record as it is and drop this registration. */
+  async function keepSaved() {
+    try {
+      if (draft) await deleteChildDraft(draft);
+      onSaved();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "The draft could not be removed from this device.");
     }
   }
 
@@ -304,6 +359,13 @@ export function ChildFormModal({
     </Field>
   );
 
+  const canEditChildren = Boolean(user?.role && canPerform(user.role as UserRole, "Child Profiling", "edit"));
+  /** Human-readable value for the comparison table. */
+  const showValue = (field: string, value: string) => {
+    if (field === "medical_codes")
+      return value.split("|").filter(Boolean).map((c) => medicalOptions?.conditions.find((x) => x.code === c)?.label ?? c).join("; ");
+    return value;
+  };
   const barangayName = barangays?.find((b) => String(b.barangay_id) === str("barangay_id"))?.barangay_name;
 
   return (
@@ -326,7 +388,43 @@ export function ChildFormModal({
             </p>
           )}
 
-          {current === "child" && (
+          {conflict && (
+            <RecordConflict
+              title={conflict.kind === "edit"
+                ? "Someone else saved changes to this child while you were editing"
+                : `This child is already registered (${conflict.savedCode})`}
+              description={conflict.kind === "edit"
+                ? "The fields below were changed both by you and in the saved record. Your other changes, and theirs, are kept either way."
+                : "A child with the same name and birth date already exists in this household, so a second record was not created. Compare the details and choose what to keep."}
+              rows={conflict.rows.map((r) => ({ ...r, yours: showValue(r.field, r.yours), saved: showValue(r.field, r.saved) }))}
+              note={conflict.kind === "duplicate" && draft ? "Keep saved removes this draft from the device. Review lets you correct the details if this is a different child." : undefined}
+              actions={conflict.kind === "edit" ? (<>
+                <Button loading={saving} onClick={() => void save(conflict.merged, true)}>Keep mine</Button>
+                <Button variant="secondary" disabled={saving} onClick={() => {
+                  const values = { ...conflict.merged };
+                  for (const r of conflict.rows) values[r.field] = conflict.saved[r.field] ?? "";
+                  void save(values, true);
+                }}>Keep saved</Button>
+                <Button variant="ghost" disabled={saving} onClick={() => {
+                  loaded.current = conflict.saved;
+                  setForm(conflict.merged);
+                  setConflict(null);
+                  goTo(0);
+                  setMessage("Your version is in the form and the saved values are shown above. Correct anything needed, then save again.");
+                }}>Review</Button>
+              </>) : (<>
+                {canEditChildren && <Button loading={saving} onClick={() => void keepMineOnSaved(conflict)}>Keep mine (update saved record)</Button>}
+                <Button variant="secondary" disabled={saving} onClick={() => void keepSaved()}>Keep saved</Button>
+                <Button variant="ghost" disabled={saving} onClick={() => {
+                  setConflict(null);
+                  goTo(0);
+                  setMessage(`Correct the child's details if this is a different child from ${conflict.savedCode}.`);
+                }}>Review</Button>
+              </>)}
+            />
+          )}
+
+          {!conflict && current === "child" && (
             <StepSection title="Child Information" subtitle="Details of the child being registered.">
               <div className={grid}>
                 {text("first_name", "First name", { required: true })}
@@ -402,7 +500,7 @@ export function ChildFormModal({
             </StepSection>
           )}
 
-          {current === "guardian" && (
+          {!conflict && current === "guardian" && (
             <StepSection title="Guardian Information" subtitle="Given by the parent or guardian and encoded by the health worker.">
               <div className={grid}>
                 {text("mother_name", "Mother’s name", { hint: "Full name, as on the immunization card" })}
@@ -464,7 +562,7 @@ export function ChildFormModal({
             </StepSection>
           )}
 
-          {current === "household" && (
+          {!conflict && current === "household" && (
             <StepSection title="Household Information" subtitle="Where the child lives. Siblings in the same household share its Family Serial Number.">
               <div className={grid}>
                 <Field label="Barangay" required error={errors.barangay_id}>
@@ -516,7 +614,7 @@ export function ChildFormModal({
             </StepSection>
           )}
 
-          {current === "review" && (
+          {!conflict && current === "review" && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">Check everything before saving. Use Edit to go back to a section.</p>
               <ReviewCard title="Child Information" onEdit={() => goTo(0)} rows={[
@@ -559,7 +657,7 @@ export function ChildFormModal({
           <div>
             {step > 0 && <Button variant="ghost" onClick={() => goTo(step - 1)}>Back</Button>}
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className={cn("flex flex-wrap gap-2", conflict && "hidden")}>
             {mode === 'create' && <Button variant="secondary" disabled={saving} onClick={saveLocalDraft}>Save draft on device</Button>}
             <Button variant="secondary" onClick={onClose}>Cancel</Button>
             {current !== "review" ? (
