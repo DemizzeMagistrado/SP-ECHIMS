@@ -171,6 +171,8 @@ type ProfilePayload = {
   vaccinations: Vaccination[];
   assessments: Assessment[];
   supplementations: Supplementation[];
+  siblings?: { child_id: number; child_code: string | null; first_name: string; last_name: string; date_of_birth: string; status: string | null }[];
+  openAlertCount?: number | null;
 };
 const fetcher = async (url: string) => {
   const response = await fetch(url, { cache: "no-store" });
@@ -504,6 +506,7 @@ export function ChildProfileView({childId}: {childId: string}) {
   const canEdit = Boolean(
     role && isApproved && canPerform(role, "Child Profiling", "edit"),
   );
+  const canViewAlerts = Boolean(role && isApproved && canPerform(role, "Alerts", "view"));
   const canAddNutrition = Boolean(
     role && isApproved && canPerform(role, "Nutritional Assessment", "create"),
   );
@@ -597,6 +600,8 @@ export function ChildProfileView({childId}: {childId: string}) {
     household,
     rhu,
     assessments,
+    siblings = [],
+    openAlertCount,
   } = data;
   const fullName = [child.first_name, child.middle_name, child.last_name]
     .filter(Boolean)
@@ -680,6 +685,24 @@ export function ChildProfileView({childId}: {childId: string}) {
           </div>
         </div>
       </section>
+      <nav aria-label="Related records" className="print-hide flex flex-wrap gap-2">
+        {[
+          { href: "#vaccination-schedule", label: "Vaccination schedule" },
+          { href: "#nutrition-history", label: "Nutrition history" },
+          { href: "#supplementation", label: "Supplementation" },
+          { href: "#household-members", label: `Household members (${siblings.length})` },
+        ].map((l) => (
+          <a key={l.href} href={l.href} className={buttonVariants({ variant: "secondary", size: "sm" })}>{l.label}</a>
+        ))}
+        {canViewAlerts && (
+          <Link href="/alerts" className={buttonVariants({ variant: "secondary", size: "sm" })}>
+            Alerts
+            {typeof openAlertCount === "number" && openAlertCount > 0 && (
+              <StatusBadge status="open" tone="danger" label={`${openAlertCount} open`} className="py-0.5" />
+            )}
+          </Link>
+        )}
+      </nav>
       {/* The three profiling sections, in the same order as the registration form. */}
       <SectionCard
         title="Child Information"
@@ -789,18 +812,43 @@ export function ChildProfileView({childId}: {childId: string}) {
             <InfoRow label="Water source" value={profile?.water_source_type || "—"} />
             <InfoRow label="Toilet facility" value={profile?.toilet_facility_type || "—"} />
           </dl>
+          <div id="household-members" className="mt-4 scroll-mt-24 border-t border-border pt-4">
+            <h3 className="text-sm font-semibold text-brand-navy">
+              Household members <span className="font-normal text-muted-foreground">· same Family Serial No.</span>
+            </h3>
+            {siblings.length === 0 ? (
+              <p className="mt-1 text-sm text-muted-foreground">No other registered children in this household.</p>
+            ) : (
+              <ul className="mt-2 divide-y divide-border">
+                {siblings.map((sib) => (
+                  <li key={sib.child_id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                    <Link href={`/child-profiling/children/${sib.child_id}`} className="font-medium text-brand-navy underline-offset-4 hover:underline">
+                      {sib.first_name} {sib.last_name}
+                    </Link>
+                    <span className="text-xs text-muted-foreground">
+                      <span className="font-mono">{sib.child_code ?? ""}</span> · Born {formatDate(sib.date_of_birth)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </SectionCard>
       </div>
       {/* NIP-USR001 — Vaccination Schedule request + preview. Computed from DOB + NIP
           catalog, already-administered doses excluded. BHW/RHM can request, PHN reviews. */}
-      <VaccinationScheduleSection childId={child.child_id} />
+      <div id="vaccination-schedule" className="scroll-mt-24">
+        <VaccinationScheduleSection childId={child.child_id} />
+      </div>
 
       {/* Nutritional assessment history */}
       <div id="nutrition-history" className="scroll-mt-24">
         <NutritionHistorySection assessments={assessments ?? []} />
       </div>
       {/* Full saved administration, dispensing, plans and due dates. */}
-      <SupplementationHistorySection childId={child.child_id} />
+      <div id="supplementation" className="scroll-mt-24">
+        <SupplementationHistorySection childId={child.child_id} />
+      </div>
 
       {/* Movement history — only renders when at least one movement is on file.
           Shows chronological audit trail of status changes (MOVED/LOST/RETURNED/TRANSFERRED). */}

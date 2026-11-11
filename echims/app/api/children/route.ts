@@ -78,7 +78,7 @@ export async function GET(request: Request) {
   let query = auth.supabase
     .from("child")
     .select(
-      "child_id, first_name, middle_name, last_name, date_of_birth, sex, birth_place, address, registration_date, status, household_id, barangay_id, guardian_id, birth_weight_kg, birth_height_cm, mother_name, father_name, child_code, household:household(household_no, family_serial_no)",
+      "child_id, first_name, middle_name, last_name, date_of_birth, sex, birth_place, address, registration_date, status, household_id, barangay_id, guardian_id, birth_weight_kg, birth_height_cm, mother_name, father_name, child_code, household:household(household_no, family_serial_no), guardian:guardian(first_name, middle_name, last_name)",
     )
     .order("child_id", { ascending: false });
   if (childId) query = query.eq("child_id", childId);
@@ -96,7 +96,7 @@ export async function GET(request: Request) {
     const found = rows[0];
     if (!found) return invalid("Child could not be found.", 404);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { household: _embedded, ...child } = found;
+    const { household: _household, guardian: _guardian, ...child } = found;
     // Fan out all related-record queries in parallel. The vaccination/nutrition/supplementation
     // calls return full history (ordered newest first) so the profile view can render it;
     // the barangay/household/rhu calls hydrate the names the UI shows next to IDs.
@@ -109,6 +109,8 @@ export async function GET(request: Request) {
       vaccinations,
       assessments,
       supplementations,
+      siblings,
+      openAlerts,
     ] = await Promise.all([
       child.guardian_id
         ? auth.supabase
@@ -174,6 +176,19 @@ export async function GET(request: Request) {
         )
         .eq("child_id", child.child_id)
         .order("supplementation_date", { ascending: false }),
+      // Household members: other children sharing this household (and so its FSN).
+      auth.supabase
+        .from("child")
+        .select("child_id, child_code, first_name, last_name, date_of_birth, status")
+        .eq("household_id", child.household_id)
+        .neq("child_id", child.child_id)
+        .order("date_of_birth"),
+      // Open alerts about this child that the signed-in worker can see (RLS-scoped feed).
+      auth.supabase
+        .from("alert_notification_feed")
+        .select("alert_id", { count: "exact", head: true })
+        .eq("child_id", child.child_id)
+        .neq("status", "RESOLVED"),
     ]);
     if (latestAssessment.error || assessments.error)
       return invalid(
@@ -202,6 +217,9 @@ export async function GET(request: Request) {
       vaccinations: vaccinations.data ?? [],
       assessments: withHistoryComparisons(assessments.data ?? []),
       supplementations: supplementations.data ?? [],
+      // Related-record extras never fail the profile.
+      siblings: siblings.error ? [] : (siblings.data ?? []),
+      openAlertCount: openAlerts.error ? null : (openAlerts.count ?? 0),
     });
   }
   const assessments = await auth.supabase
@@ -235,6 +253,9 @@ export async function GET(request: Request) {
       child_id: child.child_id,
       id: child.child_code ?? formatChildId(child.child_id, child.registration_date),
       familySerialNo: embedded(child.household)?.family_serial_no ?? "",
+      householdNo: embedded(child.household)?.household_no ?? "",
+      guardianName: [embedded(child.guardian)?.first_name, embedded(child.guardian)?.last_name].filter(Boolean).join(" "),
+      motherName: child.mother_name ?? "",
       householdNumber: child.household_id
         ? formatHouseholdId(child.household_id, null)
         : "",
