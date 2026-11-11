@@ -20,6 +20,7 @@ import { RecordPriorVaccinationModal } from '@/components/vaccination/record-pri
 import { Spinner } from '@/components/brand/logo-loader'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Select } from '@/components/ui/form'
+import { StatusBadge } from '@/components/ui/status-badge'
 type DoseStatus = 'COMPLETE' | 'DUE' | 'OVERDUE' | 'UPCOMING'
 type DoseRow = {
   dose_number: number
@@ -47,11 +48,11 @@ type Payload = {
   next_due: ({ vaccine_code: string; vaccine_type: string } & DoseRow) | null
   counts: { complete: number; due: number; overdue: number; upcoming: number }
 }
-const STATUS_META: Record<DoseStatus, { label: string; chip: string; icon: React.ReactNode }> = {
-  COMPLETE: { label: 'Complete', chip: 'bg-emerald-100 text-emerald-800', icon: <CheckCircle2 size={12} /> },
-  DUE: { label: 'Due', chip: 'bg-amber-100 text-amber-800', icon: <Clock size={12} /> },
-  OVERDUE: { label: 'Overdue', chip: 'bg-rose-100 text-rose-800', icon: <AlertCircle size={12} /> },
-  UPCOMING: { label: 'Upcoming', chip: 'bg-slate-100 text-slate-700', icon: <CalendarClock size={12} /> },
+const STATUS_META: Record<DoseStatus, { label: string; icon: React.ReactNode }> = {
+  COMPLETE: { label: 'Complete', icon: <CheckCircle2 size={12} /> },
+  DUE: { label: 'Due', icon: <Clock size={12} /> },
+  OVERDUE: { label: 'Overdue', icon: <AlertCircle size={12} /> },
+  UPCOMING: { label: 'Upcoming', icon: <CalendarClock size={12} /> },
 }
 const fetcher = async (url: string) => {
   const r = await fetch(url)
@@ -260,9 +261,7 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
                             </td>
                             <td className="px-4 py-3 text-muted-foreground">{r.batch_number ?? '—'}</td>
                             <td className="px-4 py-3">
-                              <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${meta.chip}`}>
-                                {meta.icon} {meta.label}
-                              </span>
+                              <StatusBadge status={r.status} label={meta.label} icon={meta.icon} />
                             </td>
                           </tr>
                         )

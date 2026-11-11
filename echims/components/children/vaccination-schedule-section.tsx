@@ -16,6 +16,7 @@ import { TabIndicator } from '@/components/dashboard/tab-indicator'
 import { TabPanel } from '@/components/brand/page-gate'
 import { Button } from '@/components/ui/button'
 import { DateInput, Textarea } from '@/components/ui/form'
+import { StatusBadge } from '@/components/ui/status-badge'
 type ScheduleEntry = {
   vaccine_code: string
   vaccine_type: string
@@ -63,23 +64,6 @@ function daysBetween(a: string, b: string) {
   const da = new Date(`${a}T00:00:00Z`)
   const db = new Date(`${b}T00:00:00Z`)
   return Math.round((db.getTime() - da.getTime()) / 86400000)
-}
-function StatusBadge({ status }: { status: NonNullable<LatestRequest>['status'] }) {
-  const map = {
-    PENDING: { label: 'Pending review', icon: Clock, cls: 'bg-amber-50 text-amber-700 ring-amber-200' },
-    APPROVED: { label: 'Approved', icon: CheckCircle2, cls: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
-    REJECTED: { label: 'Rejected', icon: XCircle, cls: 'bg-red-50 text-red-700 ring-red-200' },
-    NEEDS_REVISION: { label: 'Needs revision', icon: AlertCircle, cls: 'bg-amber-50 text-amber-700 ring-amber-200' },
-    ONGOING: { label: 'Ongoing', icon: Clock, cls: 'bg-sky-50 text-sky-700 ring-sky-200' },
-    COMPLETED: { label: 'Completed', icon: CheckCircle2, cls: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
-    CANCELLED: { label: 'Cancelled', icon: XCircle, cls: 'bg-muted text-muted-foreground ring-border' },
-  }[status]
-  const Icon = map.icon
-  return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${map.cls}`}>
-      <Icon size={14} />{map.label}
-    </span>
-  )
 }
 function VaccinationScheduleContent({ childId }: { childId: number }) {
   const { user, isReady } = useAuth()
@@ -166,7 +150,7 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {data.latest_request && <StatusBadge status={data.latest_request.status} />}
+          {data.latest_request && <StatusBadge status={data.latest_request.status} label={data.latest_request.status === 'PENDING' ? 'Pending review' : undefined} dot />}
         </div>
       </div>
       {/* Status summary bar */}

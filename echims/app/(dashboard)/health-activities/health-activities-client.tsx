@@ -35,6 +35,7 @@ import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
+import { StatusBadge } from '@/components/ui/status-badge'
 
 /* =========================================================
    TYPES
@@ -235,26 +236,6 @@ function getTodayString() {
    STATUS BADGE
 ========================================================= */
 
-function StatusBadge({ status }: { status: ActivityStatus }) {
-  const styles: Record<ActivityStatus, string> = {
-    PENDING: 'bg-amber-50 text-amber-700 ring-amber-200',
-    APPROVED: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-    REJECTED: 'bg-rose-50 text-rose-700 ring-rose-200',
-    ONGOING: 'bg-blue-50 text-blue-700 ring-blue-200',
-    COMPLETED: 'bg-slate-100 text-slate-700 ring-slate-200',
-    CANCELLED: 'bg-gray-100 text-gray-600 ring-gray-200',
-    NEEDS_REVISION: 'bg-orange-50 text-orange-700 ring-orange-200',
-  }
-
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${styles[status]}`}
-    >
-      <span className="size-1.5 rounded-full bg-current" />
-      {STATUS_LABELS[status] ?? status}
-    </span>
-  )
-}
 
 /* =========================================================
    DETAILS MODAL
@@ -322,7 +303,7 @@ function ActivityDetailsModal({
             Schedule #{activity.schedule_id}
           </p>
 
-          <StatusBadge status={activity.status} />
+          <StatusBadge status={activity.status} label={STATUS_LABELS[activity.status] ?? activity.status} dot />
         </div>
 
         <dl className="grid gap-4 rounded-xl bg-slate-50 p-4 sm:grid-cols-2">
@@ -674,7 +655,7 @@ function ActivityWorkspace() {
                     </p>
 
                     <div className="mt-3">
-                      <StatusBadge status={activity.status} />
+                      <StatusBadge status={activity.status} label={STATUS_LABELS[activity.status] ?? activity.status} dot />
                     </div>
                   </button>
                 ))}
@@ -889,7 +870,7 @@ function ActivityWorkspace() {
                             </td>
 
                             <td className="px-4 py-4">
-                              <StatusBadge status={activity.status} />
+                              <StatusBadge status={activity.status} label={STATUS_LABELS[activity.status] ?? activity.status} dot />
 
                               {activity.conflict_status === 'DETECTED' && (
                                 <p className="mt-2 flex items-center gap-1 text-xs font-medium text-amber-700">
@@ -1364,7 +1345,7 @@ function UpdateStatusModal({
           </p>
 
           <div className="mt-3">
-            <StatusBadge status={activity.status} />
+            <StatusBadge status={activity.status} label={STATUS_LABELS[activity.status] ?? activity.status} dot />
           </div>
         </div>
 
@@ -1805,7 +1786,7 @@ function ReviewActivityModal({
               </p>
             </div>
 
-            <StatusBadge status={activity.status} />
+            <StatusBadge status={activity.status} label={STATUS_LABELS[activity.status] ?? activity.status} dot />
           </div>
         </div>
 

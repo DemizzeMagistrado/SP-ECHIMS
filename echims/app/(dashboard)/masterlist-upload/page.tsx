@@ -14,6 +14,7 @@ import { FileSpreadsheet } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/form'
+import { StatusBadge } from '@/components/ui/status-badge'
 
 type Batch = {
   batch_id: number
@@ -293,7 +294,7 @@ export default function MasterlistUploadPage() {
                   {filtered.map((r) => (
                     <tr key={r.staging_id} className="border-b border-border/40 last:border-0">
                       <td className="py-2 pr-3 font-mono text-[10px] text-muted-foreground">{r.row_number}</td>
-                      <td className="py-2 pr-3"><StatusChip status={r.status} /></td>
+                      <td className="py-2 pr-3"><StatusBadge status={r.status} className="text-[10px]" /></td>
                       <td className="py-2 pr-3">{r.raw.child_first_name} {r.raw.child_last_name}</td>
                       <td className="py-2 pr-3">{r.normalized.child_sex || r.raw.child_sex}</td>
                       <td className="py-2 pr-3">{r.raw.child_date_of_birth}</td>
@@ -404,17 +405,6 @@ function SummaryChip({ label, value, tone, onClick }: { label: string; value: nu
   )
 }
 
-function StatusChip({ status }: { status: StagingRow['status'] }) {
-  const map: Record<StagingRow['status'], string> = {
-    VALID: 'bg-emerald-100 text-emerald-800',
-    ERROR: 'bg-rose-100 text-rose-800',
-    DUPLICATE: 'bg-amber-100 text-amber-800',
-    PENDING: 'bg-gray-100 text-gray-700',
-    IMPORTED: 'bg-emerald-200 text-emerald-900',
-    SKIPPED: 'bg-gray-200 text-gray-700',
-  }
-  return <span className={'rounded-full px-2 py-0.5 text-[10px] font-semibold ' + map[status]}>{status}</span>
-}
 
 function EditModal({ row, onClose, onSave }: { row: StagingRow; onClose: () => void; onSave: (patch: Record<string, string>) => void }) {
   const [draft, setDraft] = useState<Record<string, string>>({ ...row.raw })

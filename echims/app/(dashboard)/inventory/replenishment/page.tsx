@@ -19,6 +19,7 @@ import { LogoLoader } from '@/components/brand/logo-loader'
 import { DataTable } from '@/components/ui/data-table'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
+import { StatusBadge } from '@/components/ui/status-badge'
 
 const fetcher = async (url: string) => {
   const r = await fetch(url)
@@ -31,11 +32,11 @@ function one<T>(v: T | T[] | null | undefined): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v
 }
 
-const STATUS_META: Record<string, { label: string; chip: string; icon: React.ReactNode }> = {
-  PENDING:   { label: 'Pending',   chip: 'bg-amber-100 text-amber-800',   icon: <Clock size={11} /> },
-  APPROVED:  { label: 'Approved',  chip: 'bg-emerald-100 text-emerald-800', icon: <CheckCircle2 size={11} /> },
-  REJECTED:  { label: 'Rejected',  chip: 'bg-rose-100 text-rose-800',     icon: <XCircle size={11} /> },
-  COMPLETED: { label: 'Completed', chip: 'bg-sky-100 text-sky-800',       icon: <CheckCircle2 size={11} /> },
+const STATUS_META: Record<string, { label: string; icon: React.ReactNode }> = {
+  PENDING:   { label: 'Pending',   icon: <Clock size={11} /> },
+  APPROVED:  { label: 'Approved', icon: <CheckCircle2 size={11} /> },
+  REJECTED:  { label: 'Rejected',     icon: <XCircle size={11} /> },
+  COMPLETED: { label: 'Completed',       icon: <CheckCircle2 size={11} /> },
 }
 
 export default function ReplenishmentPage() {
@@ -125,7 +126,7 @@ export default function ReplenishmentPage() {
             { key: 'requested', header: 'Requested', sortValue: (r) => r.request_date, cell: (r) => <span className="text-xs text-muted-foreground"><CalendarClock size={10} className="mr-1 inline" aria-hidden="true" />{r.request_date}</span> },
             { key: 'status', header: 'Status', sortValue: (r) => r.status, cell: (r) => {
               const meta = STATUS_META[r.status] ?? STATUS_META.PENDING
-              return <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${meta.chip}`}>{meta.icon} {meta.label}</span>
+              return <StatusBadge status={r.status} label={meta.label} icon={meta.icon} />
             } },
             { key: 'action', header: <span className="sr-only">Action</span>, cell: (r) => (
               <Button size="sm" variant={isPhn && r.status === 'PENDING' ? 'primary' : 'secondary'} onClick={() => setDecisionTarget(r)}>

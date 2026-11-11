@@ -36,6 +36,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
+import { StatusBadge } from '@/components/ui/status-badge'
 
 /* ═════════════════════════ Shared helpers ═════════════════════════ */
 
@@ -117,9 +118,9 @@ type RecordsPayload = {
 }
 
 const RECORD_STATUS_META = {
-  PENDING: { label: 'Pending', chip: 'bg-amber-100 text-amber-800' },
-  APPROVED: { label: 'Approved', chip: 'bg-emerald-100 text-emerald-800' },
-  REJECTED: { label: 'Rejected', chip: 'bg-rose-100 text-rose-800' },
+  PENDING: { label: 'Pending' },
+  APPROVED: { label: 'Approved' },
+  REJECTED: { label: 'Rejected' },
 } as const
 
 function userName(u: UserRef | null) { return u?.full_name || (u ? u.user_id.slice(0, 6) : '—') }
@@ -311,9 +312,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
                       <td className="px-5 py-4 text-muted-foreground">{row.batch_number ?? '—'}</td>
                       <td className="px-5 py-4 text-muted-foreground">{recorderName(r)}</td>
                       <td className="px-5 py-4">
-                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${meta.chip}`}>
-                          {meta.label}
-                        </span>
+                        <StatusBadge status={row.status} label={meta.label} />
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex flex-wrap items-center gap-2">
@@ -445,14 +444,14 @@ type SchedulePayload = {
   role: UserRole
 }
 
-const SCHEDULE_STATUS_META: Record<ScheduleRow['status'], { label: string; bg: string; fg: string }> = {
-  PENDING: { label: 'Pending', bg: 'bg-amber-100', fg: 'text-amber-700' },
-  APPROVED: { label: 'Approved', bg: 'bg-emerald-100', fg: 'text-emerald-700' },
-  REJECTED: { label: 'Rejected', bg: 'bg-rose-100', fg: 'text-rose-700' },
-  NEEDS_REVISION: { label: 'Needs revision', bg: 'bg-orange-100', fg: 'text-orange-700' },
-  ONGOING: { label: 'Ongoing', bg: 'bg-sky-100', fg: 'text-sky-700' },
-  COMPLETED: { label: 'Completed', bg: 'bg-teal-100', fg: 'text-teal-700' },
-  CANCELLED: { label: 'Cancelled', bg: 'bg-slate-200', fg: 'text-slate-700' },
+const SCHEDULE_STATUS_META: Record<ScheduleRow['status'], { label: string }> = {
+  PENDING: { label: 'Pending' },
+  APPROVED: { label: 'Approved' },
+  REJECTED: { label: 'Rejected' },
+  NEEDS_REVISION: { label: 'Needs revision' },
+  ONGOING: { label: 'Ongoing' },
+  COMPLETED: { label: 'Completed' },
+  CANCELLED: { label: 'Cancelled' },
 }
 
 function ScheduleSection() {
@@ -647,9 +646,7 @@ function ScheduleSection() {
                       {new Date(row.schedule_date + 'T00:00:00').toLocaleDateString()}
                     </td>
                     <td className="px-5 py-4">
-                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${meta.bg} ${meta.fg}`}>
-                        {meta.label}
-                      </span>
+                      <StatusBadge status={row.status} label={meta.label} />
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2">
@@ -1496,12 +1493,12 @@ type BatchPayload = {
   can_approve: boolean
 }
 
-const BATCH_STATUS_META: Record<string, { label: string; chip: string; icon: React.ReactNode }> = {
-  PENDING: { label: 'Pending', chip: 'bg-amber-100 text-amber-800', icon: <Clock size={11} /> },
-  APPROVED: { label: 'Approved', chip: 'bg-emerald-100 text-emerald-800', icon: <CheckCircle2 size={11} /> },
-  REJECTED: { label: 'Rejected', chip: 'bg-rose-100 text-rose-800', icon: <XCircle size={11} /> },
-  COMPLETED: { label: 'Completed', chip: 'bg-sky-100 text-sky-800', icon: <CheckCircle2 size={11} /> },
-  CANCELLED: { label: 'Cancelled', chip: 'bg-slate-200 text-slate-700', icon: <XCircle size={11} /> },
+const BATCH_STATUS_META: Record<string, { label: string; icon: React.ReactNode }> = {
+  PENDING: { label: 'Pending', icon: <Clock size={11} /> },
+  APPROVED: { label: 'Approved', icon: <CheckCircle2 size={11} /> },
+  REJECTED: { label: 'Rejected', icon: <XCircle size={11} /> },
+  COMPLETED: { label: 'Completed', icon: <CheckCircle2 size={11} /> },
+  CANCELLED: { label: 'Cancelled', icon: <XCircle size={11} /> },
 }
 
 function BatchRequestsSection() {
@@ -1640,9 +1637,7 @@ function BatchRequestsSection() {
                         <div className="flex items-center gap-1"><CalendarClock size={10} /> {formatYmd(r.request_date)}</div>
                       </td>
                       <td className="px-5 py-4">
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${meta.chip}`}>
-                          {meta.icon} {meta.label}
-                        </span>
+                        <StatusBadge status={r.status} label={meta.label} icon={meta.icon} />
                       </td>
                       <td className="px-5 py-4">
                         {canApprove && isPending ? (
