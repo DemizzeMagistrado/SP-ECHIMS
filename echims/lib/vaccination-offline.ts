@@ -1,4 +1,5 @@
 'use client'
+import {reportSync} from '@/lib/offline/refresh'
 import { createClient } from '@/lib/supabase/client'
 import { loadActiveIdentity, isOfflineLocked } from '@/lib/offline/store'
 export type VaccinationPayload={child_id:number;vaccine_id:number;dose_number:number;vaccination_date:string;batch_number:string|null;vaccination_site:string|null;remarks:string|null;schedule_id:number|null;client_request_id:string}
@@ -92,6 +93,6 @@ export async function drainQueue(ownerId:string):Promise<{sent:number;failed:num
   if(navigator.locks)return navigator.locks.request('echims-vaccination-sync',{ifAvailable:true},lock=>lock?drain():Promise.resolve({sent:0,failed:0}))
   return drain()
  })()
- try{return await draining}finally{draining=null}
+ try{const result=await draining;reportSync(result.sent,result.failed);return result}finally{draining=null}
 }
 export async function retryVaccinationDraft(ownerId:string,requestId:string){const row=(await listQueuedVaccinations(ownerId)).find(x=>x.requestId===requestId);if(!row)throw new Error('Draft not found for this account.');return sendOrQueueVaccination(ownerId,row.payload,{childName:row.childName,vaccineLabel:row.vaccineLabel})}

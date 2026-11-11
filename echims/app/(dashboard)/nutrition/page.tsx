@@ -39,6 +39,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/form'
+import { reportSync } from '@/lib/offline/refresh'
 type Relation<T> = T | T[] | null;
 type Barangay = {
   barangay_id: number;
@@ -1534,6 +1535,7 @@ export default function NutritionPage() {
           window.clearTimeout(timeout);
         }
       }
+      reportSync(saved, failures.length);
       if (ownerRef.current === id) {
         await refreshQueue(id);
         if (saved > 0) {
@@ -1547,6 +1549,7 @@ export default function NutritionPage() {
       failures.push(
         syncError instanceof Error ? syncError.message : "Sync did not finish.",
       );
+      reportSync(0, failures.length);
       if (ownerRef.current === id)
         setStorageError(
           syncError instanceof Error

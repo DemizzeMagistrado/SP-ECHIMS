@@ -23,6 +23,7 @@ import { useAuth } from '@/components/auth/auth-provider'
 import { useShell } from './shell'
 import { Spinner } from '@/components/brand/logo-loader'
 import { EmptyState } from '@/components/ui/empty-state'
+import { OfflineBanner } from '@/components/offline/offline-banner'
 
 type Notification = {
   alert_id: number
@@ -176,7 +177,8 @@ export function TopNav() {
   }
 
   return (
-    <div className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-[#03045E]/[0.07] bg-white/90 px-4 backdrop-blur-md sm:px-6 lg:px-8">
+    <div className="sticky top-0 z-30">
+    <div className="flex h-16 items-center justify-between gap-3 border-b border-[#03045E]/[0.07] bg-white/90 px-4 backdrop-blur-md sm:px-6 lg:px-8">
       <div className="flex min-w-0 items-center gap-2">
         {inShell && (
           <button type="button" onClick={toggleMenu} aria-controls="main-sidebar"
@@ -319,6 +321,8 @@ export function TopNav() {
           )}
         </div>
       </div>
+    </div>
+    <OfflineBanner />
     </div>
   )
 }

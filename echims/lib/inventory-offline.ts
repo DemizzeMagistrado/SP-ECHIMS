@@ -12,6 +12,7 @@
 // with backoff), promote to a Service Worker + IndexedDB like
 // lib/vaccination-offline.ts does for NIP-USR003.
 
+import { reportSync } from '@/lib/offline/refresh'
 export type UsagePayload = {
   source_batch_id: number
   quantity: number
@@ -117,5 +118,6 @@ export async function replayQueuedUsage(): Promise<{ sent: number; kept: number 
     }
   }
   writeQueue(remaining)
+  reportSync(sent, remaining.length)
   return { sent, kept: remaining.length }
 }
