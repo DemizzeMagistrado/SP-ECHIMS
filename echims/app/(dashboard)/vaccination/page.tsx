@@ -31,7 +31,7 @@ import { VaccineFormModal, type VaccineCatalogRow } from '@/components/vaccinati
 import { VaccinationSmsPanel } from '@/components/vaccination/vaccination-sms-panel'
 import { LogoLoader } from '@/components/brand/logo-loader'
 import { TabPanel } from '@/components/brand/page-gate'
-import { TabBar } from '@/components/ui/module-tabs'
+import { FilterChips, TabBar } from '@/components/ui/module-tabs'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
@@ -1186,8 +1186,9 @@ function BatchRequestsSection() {
     ? `/api/vaccination/batch-requests?status=${statusFilter}`
     : '/api/vaccination/batch-requests'
 
-  const { data, error, isLoading, readOnly, savedAt } = useVaccinationView<BatchPayload>(isReady && canView ? url : null)
+  const { data, error, isLoading, refreshing, readOnly, savedAt } = useVaccinationView<BatchPayload>(isReady && canView ? url : null)
   const [createOpen, setCreateOpen] = useState(false)
+  const [search, setSearch] = useState('')
   const [decisionTarget, setDecisionTarget] = useState<BatchRequestRow | null>(null)
 
   if (!isReady) {
@@ -1208,9 +1209,13 @@ function BatchRequestsSection() {
     )
   }
 
-  const rows = data?.requests ?? []
+  const allRows = data?.requests ?? []
+  const q = search.trim().toLowerCase()
+  const rows = q ? allRows.filter((r) => [one(r.item)?.item_name, one(r.vaccine)?.vaccine_type, r.batch_number, one(r.target_barangay)?.barangay_name, String(r.stock_request_id)]
+    .some((x) => x?.toLowerCase().includes(q))) : allRows
   const canCreate = !readOnly && (data?.can_create ?? false)
   const canApprove = !readOnly && (data?.can_approve ?? false)
+  const count = (st: string) => allRows.filter((r) => r.status === st).length
 
   function refresh() {
     revalidateVaccination(url)
@@ -1218,125 +1223,79 @@ function BatchRequestsSection() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      <VaccinationSnapshotNotice savedAt={savedAt} readOnly={readOnly} />
       <PageHeader
         title="Vaccine Batch Requests"
-        subtitle={<>RHM requests vaccine batches for a target barangay. PHN reviews and approves — approval auto-adds the dose count to that barangay&rsquo;s inventory.</>}
-        actions={<>
-          {canCreate && (
-            <Button
-              onClick={() => setCreateOpen(true)}
-            >
-              <Plus size={17} /> New request
-            </Button>
-          )}
-        </>}
+        subtitle={<>RHMs request vaccine batches for a barangay; the PHN reviews them. Approval adds the doses to that barangay&rsquo;s inventory.</>}
+        actions={canCreate && <Button onClick={() => setCreateOpen(true)}><Plus size={17} aria-hidden="true" /> New request</Button>}
       />
 
-      {/* Filter chips */}
-      <fieldset disabled={readOnly}>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Filter:</span>
-        {(['', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((s) => (
-          <button
-            key={s || 'all'}
-            type="button"
-            onClick={() => setStatusFilter(s)}
-            className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-              statusFilter === s
-                ? 'bg-primary text-white'
-                : 'bg-white text-muted-foreground ring-1 ring-border hover:bg-muted'
-            }`}
-          >
-            {s === '' ? 'All' : BATCH_STATUS_META[s]?.label ?? s}
-          </button>
-        ))}
-      </div>
-
-            </fieldset>
-{/* List */}
       {isLoading ? (
-        <div className="rounded-2xl border border-border bg-white"><LogoLoader size="section" label="Loading requests…" /></div>
-      ) : error ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
-      ) : rows.length === 0 ? (
-        <EmptyState
-          size="page"
-          icon={Package}
-          title={statusFilter ? `No ${BATCH_STATUS_META[statusFilter]?.label.toLowerCase() ?? statusFilter.toLowerCase()} requests` : 'No batch requests yet'}
-          description={canCreate ? 'Use “New request” to submit a batch request.' : 'Nothing to review right now.'}
-          className="min-h-64 rounded-2xl border border-dashed border-sky-200 bg-white"
-        />
-      ) : (
-        <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-left text-sm">
-              <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-5 py-4 font-semibold">#</th>
-                  <th className="px-5 py-4 font-semibold">Vaccine · Batch</th>
-                  <th className="px-5 py-4 font-semibold">Qty</th>
-                  <th className="px-5 py-4 font-semibold">Target Barangay</th>
-                  <th className="px-5 py-4 font-semibold">Requested</th>
-                  <th className="px-5 py-4 font-semibold">Status</th>
-                  <th className="px-5 py-4 font-semibold">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {rows.map((r) => {
-                  const item = one(r.item)
-                  const vaccine = one(r.vaccine)
-                  const barangay = one(r.target_barangay)
-                  const meta = BATCH_STATUS_META[r.status] ?? BATCH_STATUS_META.PENDING
-                  const isPending = r.status === 'PENDING'
-                  const vaccineName = item?.item_name ?? vaccine?.vaccine_type ?? '—'
-                  return (
-                    <tr key={r.stock_request_id} className="hover:bg-muted/40">
-                      <td className="px-5 py-4 font-mono text-xs text-muted-foreground">#{r.stock_request_id}</td>
-                      <td className="px-5 py-4">
-                        <div className="font-semibold text-foreground">{vaccineName}</div>
-                        <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                          <Hash size={10} /> {r.batch_number ?? '—'}
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 text-foreground">
-                        <strong>{r.requested_quantity}</strong> <span className="text-xs text-muted-foreground">{item?.unit ?? 'dose(s)'}</span>
-                      </td>
-                      <td className="px-5 py-4 text-muted-foreground">
-                        <div className="flex items-center gap-1"><MapPin size={11} /> {barangay?.barangay_name ?? '—'}</div>
-                      </td>
-                      <td className="px-5 py-4 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1"><CalendarClock size={10} /> {formatYmd(r.request_date)}</div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <StatusBadge status={r.status} label={meta.label} icon={meta.icon} />
-                      </td>
-                      <td className="px-5 py-4">
-                        {canApprove && isPending ? (
-                          <Button variant="secondary" size="sm"
-                            disabled={readOnly}
-                            onClick={() => setDecisionTarget(r)}
-                          >
-                            Review
-                          </Button>
-                        ) : (
-                          <Button variant="secondary" size="sm"
-                            disabled={readOnly}
-                            onClick={() => setDecisionTarget(r)}
-                          >
-                            View
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+        <LogoLoader size="section" label="Loading requests…" />
+      ) : error && !data ? (
+        <div role="alert" className="rounded-2xl border border-danger/20 bg-danger-soft p-4 text-sm text-danger">{error.message}</div>
+      ) : (<>
+        {!statusFilter && (
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <StatCard label="Requests" value={allRows.length} />
+            <StatCard label="Pending review" value={count('PENDING')} tone="warn" />
+            <StatCard label="Approved" value={count('APPROVED')} tone="good" />
+            <StatCard label="Rejected" value={count('REJECTED')} tone="danger" />
           </div>
-        </div>
-      )}
+        )}
+        <DataTable
+          rows={rows}
+          rowKey={(r) => r.stock_request_id}
+          caption="Vaccine batch requests"
+          refreshing={refreshing}
+          mobile="cards"
+          onRowClick={readOnly ? undefined : (r) => setDecisionTarget(r)}
+          rowLabel={(r) => `Open request #${r.stock_request_id}`}
+          toolbar={
+            <fieldset disabled={readOnly} className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <FilterChips
+                label="Filter by status"
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={(['', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((st) => ({ value: st, label: st === '' ? 'All' : BATCH_STATUS_META[st]?.label ?? st }))}
+              />
+              <div className="relative lg:w-72">
+                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} aria-hidden="true" />
+                <Input aria-label="Search requests" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search vaccine, batch or barangay…" className="pl-9" />
+              </div>
+            </fieldset>
+          }
+          empty={{
+            icon: Package,
+            title: q ? 'No requests match this search' : statusFilter ? `No ${BATCH_STATUS_META[statusFilter]?.label.toLowerCase() ?? statusFilter.toLowerCase()} requests` : 'No batch requests yet',
+            description: canCreate ? 'Use “New request” to submit a batch request.' : 'Nothing to review right now.',
+          }}
+          columns={[
+            { key: 'id', header: '#', sortValue: (r) => r.stock_request_id, cell: (r) => <span className="font-mono text-xs text-muted-foreground">#{r.stock_request_id}</span> },
+            {
+              key: 'vaccine', header: 'Vaccine · Batch', sortValue: (r) => one(r.item)?.item_name ?? one(r.vaccine)?.vaccine_type ?? '',
+              cell: (r) => (
+                <div>
+                  <div className="font-semibold text-brand-navy">{one(r.item)?.item_name ?? one(r.vaccine)?.vaccine_type ?? '—'}</div>
+                  <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground"><Hash size={10} aria-hidden="true" /> {r.batch_number ?? '—'}</div>
+                </div>
+              ),
+            },
+            { key: 'qty', header: 'Qty', align: 'right', sortValue: (r) => r.requested_quantity, cell: (r) => <span><strong>{r.requested_quantity}</strong> <span className="text-xs text-muted-foreground">{one(r.item)?.unit ?? 'dose(s)'}</span></span> },
+            { key: 'barangay', header: 'Target barangay', sortValue: (r) => one(r.target_barangay)?.barangay_name ?? '', cell: (r) => <span className="flex items-center gap-1 text-muted-foreground"><MapPin size={11} aria-hidden="true" /> {one(r.target_barangay)?.barangay_name ?? '—'}</span> },
+            { key: 'requested', header: 'Requested', sortValue: (r) => r.request_date, cell: (r) => <span className="flex items-center gap-1 text-xs text-muted-foreground"><CalendarClock size={10} aria-hidden="true" /> {formatYmd(r.request_date)}</span> },
+            { key: 'status', header: 'Status', sortValue: (r) => r.status, cell: (r) => { const meta = BATCH_STATUS_META[r.status] ?? BATCH_STATUS_META.PENDING; return <StatusBadge status={r.status} label={meta.label} icon={meta.icon} /> } },
+            {
+              key: 'action', header: 'Action',
+              cell: (r) => (
+                <Button variant="secondary" size="sm" disabled={readOnly} onClick={() => setDecisionTarget(r)}>
+                  {canApprove && r.status === 'PENDING' ? 'Review' : 'View'}
+                </Button>
+              ),
+            },
+          ]}
+        />
+      </>)}
 
       {/* Modals */}
       <BatchRequestModal
