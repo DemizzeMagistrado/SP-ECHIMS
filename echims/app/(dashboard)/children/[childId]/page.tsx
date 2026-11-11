@@ -23,6 +23,7 @@ import {
   ArrowRightLeft,
   History,
   AlertCircle,
+  Printer,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { canPerform, type UserRole } from "@/lib/echims-data";
@@ -555,8 +556,12 @@ export function ChildProfileView({childId}: {childId: string}) {
           <ArrowLeft size={16} />
           Back to Children
         </Link>
-        {canEdit && (
           <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={() => window.print()}>
+              <Printer size={16} aria-hidden="true" />
+              Print
+            </Button>
+            {canEdit && (<>
             <button
               type="button"
               onClick={() => setStatusOpen(true)}
@@ -566,15 +571,13 @@ export function ChildProfileView({childId}: {childId: string}) {
               Change status
             </button>
             <Button variant="secondary"
-             
               onClick={() => setEditOpen(true)}
-             
             >
               <Pencil size={16} />
               Edit profile
             </Button>
+            </>)}
           </div>
-        )}
       </div>
       {/* Hero card: child identity + quick status chips */}
       <section className="rounded-2xl border border-border bg-gradient-to-r from-primary/5 to-sky-50 p-6 shadow-sm">

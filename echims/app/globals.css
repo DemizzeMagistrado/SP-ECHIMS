@@ -461,3 +461,20 @@ html[data-navigating] .page-gate { opacity: 0; transition: opacity 120ms var(--e
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
+
+/* Print: content only, full width, black on white. Report outputs bring their own print rules on top. */
+@media print {
+  @page { margin: 12mm; }
+  html, body, .brand { background: #fff !important; color: #000 !important; }
+  #main-sidebar, .app-topbar, .nav-progress, .print-hide,
+  button, [data-slot='button'], [data-arrow-nav], [role='tablist'], nav[aria-label='Breadcrumb'], nav[aria-label='Table pages'],
+  input, select, textarea, fieldset, dialog, a[href='#main-content'] { display: none !important; }
+  #main-content { padding: 0 !important; }
+  #main-content > div { max-width: none !important; }
+  .brand * { color: #000 !important; box-shadow: none !important; text-shadow: none !important; }
+  .scroll-subtle, .overflow-x-auto, .overflow-auto { overflow: visible !important; max-height: none !important; }
+  tr, li, .rounded-xl, .rounded-2xl, .rounded-3xl { break-inside: avoid; }
+  thead { display: table-header-group; }
+  h1, h2, h3 { break-after: avoid; }
+  a { text-decoration: none !important; }
+}

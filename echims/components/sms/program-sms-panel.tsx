@@ -261,10 +261,8 @@ export function ProgramSmsPanel({
           </p>
         </div>
         <Button variant="secondary"
-         
           disabled={loading || busy || !online}
           onClick={() => setReload((old) => old + 1)}
-         
         >
           Refresh
         </Button>
@@ -307,7 +305,6 @@ export function ProgramSmsPanel({
                 <Input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                 
                 />
               </label>
               <label className="space-y-1 text-xs">
@@ -315,7 +312,6 @@ export function ProgramSmsPanel({
                 <Select
                   value={filter}
                   onChange={(event) => setFilter(event.target.value)}
-                 
                 >
                   {["ALL", "UPCOMING", "DUE_TODAY", "OVERDUE"].map((value) => (
                     <option key={value} value={value}>
@@ -327,19 +323,15 @@ export function ProgramSmsPanel({
               <label className="space-y-1 text-xs">
                 <span>Due from</span>
                 <DateInput
-                 
                   value={from}
                   onChange={(event) => setFrom(event.target.value)}
-                 
                 />
               </label>
               <label className="space-y-1 text-xs">
                 <span>Due through</span>
                 <DateInput
-                 
                   value={to}
                   onChange={(event) => setTo(event.target.value)}
-                 
                 />
               </label>
             </div>
@@ -467,10 +459,8 @@ export function ProgramSmsPanel({
                   <>
                     <div className="flex flex-wrap items-center gap-3">
                       <Button
-                       
                         disabled={!ready}
                         onClick={() => void send("SIMULATED_SENT")}
-                       
                       >
                         {busy && <Spinner className="mr-2" />}
                         {busy

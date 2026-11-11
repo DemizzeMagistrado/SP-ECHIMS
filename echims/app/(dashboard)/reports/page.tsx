@@ -383,9 +383,7 @@ export default function ReportsPage() {
               : "Report options have not loaded yet."}
           </p>
           <Button variant="secondary"
-           
             disabled={busy}
-           
             onClick={() => setReload((v) => v + 1)}
           >
             Retry loading reports
@@ -403,9 +401,7 @@ export default function ReportsPage() {
               Saved report versions ({options.total})
             </h2>
             <Button variant="secondary"
-             
               disabled={busy || loading}
-             
               onClick={() => setReload((v) => v + 1)}
             >
               Refresh
@@ -546,7 +542,6 @@ export default function ReportsPage() {
               Start
               <DateInput
                 disabled={busy}
-               
                 className="mt-1"
                 value={range.start}
                 onChange={(e) => {
@@ -560,7 +555,6 @@ export default function ReportsPage() {
               End
               <DateInput
                 disabled={busy}
-               
                 className="mt-1"
                 value={range.end}
                 onChange={(e) => {
@@ -595,7 +589,6 @@ export default function ReportsPage() {
               <Select
                 disabled={busy}
                 aria-label="Inventory view"
-               
                 value={inventoryView}
                 onChange={(e) => {
                   clear();
@@ -608,7 +601,6 @@ export default function ReportsPage() {
               <Select
                 disabled={busy}
                 aria-label="Item type"
-               
                 value={itemType}
                 onChange={(e) => {
                   clear();
@@ -622,9 +614,7 @@ export default function ReportsPage() {
             </div>
           )}
           <Button variant="secondary"
-           
             disabled={loading || busy || !range.start || !range.end}
-           
             onClick={() => void loadView()}
           >
             View Preview
@@ -643,9 +633,7 @@ export default function ReportsPage() {
                 />
               </label>
               <Button
-               
                 disabled={busy || loading}
-               
                 onClick={() => void write("GENERATE")}
               >
                 Generate and Submit to PHN
@@ -788,17 +776,13 @@ export default function ReportsPage() {
               </label>
               <div className="flex gap-2">
                 <Button
-                 
                   disabled={busy || loading}
-                 
                   onClick={() => void write("VALIDATE")}
                 >
                   Validate Report
                 </Button>
                 <Button variant="secondary"
-                 
                   disabled={busy || loading}
-                 
                   onClick={() => void write("RETURN")}
                 >
                   Return with Remarks
@@ -808,9 +792,7 @@ export default function ReportsPage() {
           )}
           {detail?.canRegenerate && (
             <Button variant="secondary"
-             
               disabled={busy || loading}
-             
               onClick={() => void write("GENERATE", true)}
             >
               Generate New Version
@@ -856,8 +838,6 @@ export default function ReportsPage() {
               </div>
               {visible < shown.rows.length && (
                 <Button variant="secondary"
-                 
-                 
                   onClick={() => setVisible((v) => v + 100)}
                 >
                   Show more ({visible} of {shown.rows.length})

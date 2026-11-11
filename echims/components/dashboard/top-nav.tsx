@@ -178,7 +178,7 @@ export function TopNav() {
   }
 
   return (
-    <div className="sticky top-0 z-30">
+    <div className="app-topbar sticky top-0 z-30">
     <div className="flex h-16 items-center justify-between gap-3 border-b border-[#03045E]/[0.07] bg-white/90 px-4 backdrop-blur-md sm:px-6 lg:px-8">
       <div className="flex min-w-0 items-center gap-2">
         {inShell && (

@@ -67,7 +67,6 @@ export default function SettingsPage() {
                     type="text"
                     defaultValue="Rural Health Unit - Barangay A"
                       disabled={!isAdmin}
-                   
                   />
                 </div>
                 <div>
@@ -78,7 +77,6 @@ export default function SettingsPage() {
                     type="text"
                     defaultValue="RHU-001"
                       disabled={!isAdmin}
-                   
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -90,7 +88,6 @@ export default function SettingsPage() {
                       type="text"
                       defaultValue="San Isidro"
                       disabled={!isAdmin}
-                     
                     />
                   </div>
                   <div>
@@ -101,7 +98,6 @@ export default function SettingsPage() {
                       type="text"
                       defaultValue="Laguna"
                       disabled={!isAdmin}
-                     
                     />
                   </div>
                 </div>
@@ -114,7 +110,6 @@ export default function SettingsPage() {
                       type="tel"
                       defaultValue="+63 912 345 6789"
                       disabled={!isAdmin}
-                     
                     />
                   </div>
                   <div>
@@ -125,7 +120,6 @@ export default function SettingsPage() {
                       type="email"
                       defaultValue="admin@rhu.gov.ph"
                       disabled={!isAdmin}
-                     
                     />
                   </div>
                 </div>
@@ -137,7 +131,6 @@ export default function SettingsPage() {
                     type="text"
                     defaultValue="San Isidro, Poblacion, Mabini, San Roque"
                     disabled={!isAdmin}
-                   
                   />
                 </div>
               </div>
@@ -178,7 +171,6 @@ export default function SettingsPage() {
                   <Input
                     type="text"
                     defaultValue="Administrator"
-                   
                   />
                 </div>
                 <div>
@@ -188,7 +180,6 @@ export default function SettingsPage() {
                   <Input
                     type="text"
                     defaultValue="admin"
-                   
                   />
                 </div>
                 <div>
@@ -198,7 +189,6 @@ export default function SettingsPage() {
                   <Input
                     type="email"
                     defaultValue="admin@rhu.gov.ph"
-                   
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -304,7 +294,6 @@ export default function SettingsPage() {
                   </label>
                   <Input
                     type="password"
-                   
                   />
                 </div>
                 <div>
@@ -313,7 +302,6 @@ export default function SettingsPage() {
                   </label>
                   <Input
                     type="password"
-                   
                   />
                 </div>
                 <div>
@@ -322,7 +310,6 @@ export default function SettingsPage() {
                   </label>
                   <Input
                     type="password"
-                   
                   />
                 </div>
               </div>

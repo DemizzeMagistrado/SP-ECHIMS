@@ -125,7 +125,6 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
             <label className="grid gap-1 text-sm">
               <span className="font-semibold">Full name</span>
               <Input
-               
                 value={draft.fullName}
                 onChange={(e) => setDraft({ ...draft, fullName: e.target.value })}
               />
@@ -142,7 +141,6 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
               <span className="font-semibold">Email</span>
               <Input
                 type="email"
-               
                 value={draft.email}
                 onChange={(e) => setDraft({ ...draft, email: e.target.value })}
               />
@@ -153,7 +151,6 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
             <label className="grid gap-1 text-sm">
               <span className="font-semibold">Contact number</span>
               <Input
-               
                 value={draft.contactNumber}
                 onChange={(e) => setDraft({ ...draft, contactNumber: e.target.value })}
               />
@@ -171,14 +168,12 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
                 setMsg(null)
               }}
               disabled={busy}
-             
             >
               <X size={14} /> Cancel
             </Button>
             <Button size="sm" type="submit"
               onClick={save}
               disabled={busy}
-             
             >
               {busy ? <Spinner /> : <Save size={14} />} {busy ? 'Saving...' : 'Save changes'}
             </Button>

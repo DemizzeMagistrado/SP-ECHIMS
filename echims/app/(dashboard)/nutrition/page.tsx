@@ -2026,7 +2026,6 @@ export default function NutritionPage() {
           {data?.role === "BNS" && (
             <div className="flex flex-col items-end gap-1">
               <Button
-               
                 disabled={!canRecord || !ownerId || accessDenied}
                 title={
                   !data
@@ -2125,7 +2124,6 @@ export default function NutritionPage() {
               </p>
             </div>
             <Button variant="secondary"
-             
               disabled={
                 !online ||
                 !ownerId ||
@@ -2135,7 +2133,6 @@ export default function NutritionPage() {
                 queued.length === 0
               }
               onClick={() => void reviewQueue()}
-             
             >
               {syncing
                 ? "Uploading…"
@@ -2202,7 +2199,6 @@ export default function NutritionPage() {
             id="nutrition-year"
             value={reportYear}
             onChange={(event) => setReportYear(event.target.value)}
-           
           >
             {years.map((year) => (
               <option key={year}>{year}</option>
@@ -2215,7 +2211,6 @@ export default function NutritionPage() {
             id="nutrition-barangay"
             value={reportBarangay}
             onChange={(event) => setReportBarangay(event.target.value)}
-           
           >
             <option value="All">All accessible barangays</option>
             {barangays.map((b) => (
@@ -2328,7 +2323,6 @@ export default function NutritionPage() {
               id="nutrition-category"
               value={category}
               onChange={(event) => setCategory(event.target.value)}
-             
             >
               {allCategories.map((name) => (
                 <option key={name}>{name}</option>
@@ -2641,14 +2635,11 @@ export default function NutritionPage() {
           </div>
           <div className="mt-6 flex justify-end gap-3">
             <Button variant="secondary"
-             
               onClick={() => setSyncReview(null)}
-             
             >
               Back to drafts
             </Button>
             <Button
-             
               disabled={
                 !online ||
                 !canRecord ||
@@ -2656,7 +2647,6 @@ export default function NutritionPage() {
                 syncing
               }
               onClick={() => void confirmReview()}
-             
             >
               Confirm upload ({syncReview.selectedIds.length})
             </Button>
@@ -2969,10 +2959,8 @@ export default function NutritionPage() {
             </fieldset>
             <div className="flex justify-end gap-3">
               <Button variant="secondary"
-               
                 disabled={saving}
                 onClick={() => setDraft(null)}
-               
               >
                 Cancel
               </Button>
@@ -2981,7 +2969,6 @@ export default function NutritionPage() {
                 disabled={
                   saving || !child || !canRecord || accessDenied || !ownerId
                 }
-               
               >
                 {saving && <Spinner />}
                 {saving

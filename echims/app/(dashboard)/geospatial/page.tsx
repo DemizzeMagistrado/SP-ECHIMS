@@ -141,7 +141,6 @@ export default function GeospatialMapPage() {
         actions={
           <Button variant="secondary" size="sm" type="submit"
             onClick={() => mutate()}
-           
           >
             Refresh
           </Button>

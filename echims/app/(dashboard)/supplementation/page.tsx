@@ -1697,7 +1697,6 @@ export default function SupplementsPage() {
             <Input
               aria-label="Search child"
               placeholder="Search child name"
-             
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
             />
@@ -2349,10 +2348,8 @@ export default function SupplementsPage() {
             )}
             <div className="mt-6 flex justify-end gap-3">
               <Button variant="secondary"
-               
                 disabled={saving}
                 onClick={() => setModal(null)}
-               
               >
                 Cancel
               </Button>

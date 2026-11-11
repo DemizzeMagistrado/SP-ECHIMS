@@ -140,7 +140,6 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
                 onChange={(e) => setVaccineId(e.target.value)}
                 required
                 disabled={vaccinesSWR.isLoading}
-               
               >
                 <option value="">
                   {vaccinesSWR.isLoading ? 'Loading…' : 'Select a vaccine…'}
@@ -164,7 +163,6 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
                 onChange={(e) => setBarangayId(e.target.value)}
                 required
                 disabled={barangaysSWR.isLoading}
-               
               >
                 <option value="">
                   {barangaysSWR.isLoading ? 'Loading…' : 'Select a barangay…'}
@@ -189,7 +187,6 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
                 onChange={(e) => setBatchNumber(e.target.value)}
                 required
                 placeholder="e.g. BCG-2026-A001"
-               
               />
             </div>
             <div>
@@ -205,7 +202,6 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
                 onChange={(e) => setQuantity(e.target.value)}
                 required
                 placeholder="50"
-               
               />
             </div>
           </div>
@@ -221,7 +217,6 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
               onChange={(e) => setRemarks(e.target.value)}
               rows={2}
               placeholder="Why is this batch needed? (urgency, expiring stock, scheduled campaign…)"
-             
             />
           </div>
 
@@ -236,17 +231,14 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
           {/* Actions */}
           <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
             <Button variant="secondary"
-             
               onClick={onClose}
               disabled={saving}
-             
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={saving}
-             
             >
               {saving ? <Spinner /> : <Package size={14} />}
               {saving ? 'Submitting…' : 'Submit request'}

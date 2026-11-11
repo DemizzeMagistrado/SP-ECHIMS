@@ -202,7 +202,6 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
               <Select
                 value={vaccineFilter}
                 onChange={(e) => setVaccineFilter(e.target.value)}
-               
               >
                 <option value="">All vaccines</option>
                 {data.vaccine_status.map((v) => (
@@ -212,7 +211,6 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
               <Select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as DoseStatus | '')}
-               
               >
                 <option value="">All statuses</option>
                 {(['COMPLETE', 'DUE', 'OVERDUE', 'UPCOMING'] as const).map((s) => (

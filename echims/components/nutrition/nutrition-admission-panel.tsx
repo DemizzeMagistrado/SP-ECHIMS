@@ -228,9 +228,7 @@ export function NutritionAdmissionPanel({
           </p>
         </div>
         <Button variant="secondary"
-         
           disabled={loading || busy || !online}
-         
           onClick={() => setReload((v) => v + 1)}
         >
           Refresh
@@ -487,7 +485,6 @@ export function NutritionAdmissionPanel({
                 <DateInput
                   required
                   disabled={busy}
-                 
                   min={selected.source_assessment_date}
                   max={today()}
                   className="mt-1"
@@ -530,9 +527,7 @@ export function NutritionAdmissionPanel({
             </p>
             <footer className="flex justify-end gap-2 border-t pt-4">
               <Button variant="secondary"
-               
                 disabled={busy}
-               
                 onClick={() => setSelected(null)}
               >
                 Cancel
@@ -540,7 +535,6 @@ export function NutritionAdmissionPanel({
               <Button
                 type="submit"
                 disabled={busy || !online}
-               
               >
                 {busy && <Spinner className="mr-2" />}{busy ? "Saving…" : "Save care details"}
               </Button>

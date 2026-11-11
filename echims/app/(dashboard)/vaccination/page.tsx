@@ -209,9 +209,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
         actions={<>
           {canCreate && (
             <Button
-             
               onClick={() => setModalOpen(true)}
-             
             >
               <Plus size={17} /> Add new record
             </Button>
@@ -239,7 +237,6 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
           <Select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-           
           >
             <option value="">All statuses</option>
             <option value="PENDING">Pending</option>
@@ -249,8 +246,6 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
         </div>
         {canExport && (
           <Button variant="secondary"
-           
-           
             onClick={() => toast.info('CSV export is coming in a later update.')}
           >
             <Download size={16} /> Export CSV
@@ -572,7 +567,6 @@ function ScheduleSection() {
           <Select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-           
           >
             <option value="">All statuses</option>
             {Object.entries(SCHEDULE_STATUS_META).map(([key, meta]) => (
@@ -583,7 +577,6 @@ function ScheduleSection() {
         <div className="flex items-center gap-2">
           <CalendarIcon size={16} className="text-muted-foreground" />
           <DateInput
-           
             value={from}
             onChange={(e) => setFrom(e.target.value)}
             className="max-w-[160px]"
@@ -591,7 +584,6 @@ function ScheduleSection() {
           />
           <span className="text-sm text-muted-foreground">to</span>
           <DateInput
-           
             value={to}
             onChange={(e) => setTo(e.target.value)}
             className="max-w-[160px]"
@@ -888,7 +880,6 @@ function DefaultersSection() {
         <Select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as '' | 'OVERDUE' | 'DUE')}
-         
         >
           <option value="">All (DUE + OVERDUE)</option>
           <option value="OVERDUE">Overdue only</option>
@@ -897,7 +888,6 @@ function DefaultersSection() {
         <Select
           value={vaccineFilter}
           onChange={(e) => setVaccineFilter(e.target.value)}
-         
         >
           <option value="">All vaccines</option>
           {NIP_CATALOG.map((v) => (
@@ -906,9 +896,7 @@ function DefaultersSection() {
         </Select>
         {groups.length > 0 && (
           <Button variant="secondary" size="sm"
-           
             onClick={toggleAll}
-           
           >
             {expandAll ? 'Collapse all' : 'Expand all'}
           </Button>
@@ -1200,9 +1188,7 @@ function CatalogSection() {
         actions={<>
           {isAdmin && (
             <Button
-             
               onClick={openCreate}
-             
             >
               <Plus size={17} /> Add new vaccine
             </Button>
@@ -1335,7 +1321,6 @@ function CatalogSection() {
                             <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                               <Button variant="secondary" size="sm" type="submit"
                                 onClick={() => openEdit(v)}
-                               
                               >
                                 <Pencil size={12} /> Edit
                               </Button>
@@ -1550,9 +1535,7 @@ function BatchRequestsSection() {
         actions={<>
           {canCreate && (
             <Button
-             
               onClick={() => setCreateOpen(true)}
-             
             >
               <Plus size={17} /> New request
             </Button>
@@ -1642,19 +1625,15 @@ function BatchRequestsSection() {
                       <td className="px-5 py-4">
                         {canApprove && isPending ? (
                           <Button variant="secondary" size="sm"
-                           
                             disabled={readOnly}
                             onClick={() => setDecisionTarget(r)}
-                           
                           >
                             Review
                           </Button>
                         ) : (
                           <Button variant="secondary" size="sm"
-                           
                             disabled={readOnly}
                             onClick={() => setDecisionTarget(r)}
-                           
                           >
                             View
                           </Button>

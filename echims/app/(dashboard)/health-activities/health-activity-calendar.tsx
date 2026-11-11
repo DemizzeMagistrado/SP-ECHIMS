@@ -245,27 +245,21 @@ export default function HealthActivityCalendar<T extends CalendarActivity>({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
         <div className="flex items-center gap-2">
           <Button variant="secondary"
-           
             aria-label={`Previous ${view.toLowerCase()}`}
             onClick={() => navigate(-1)}
-           
           >
             ‹
           </Button>
 
           <Button variant="secondary"
-           
             onClick={() => setCurrentDate(new Date())}
-           
           >
             Today
           </Button>
 
           <Button variant="secondary"
-           
             aria-label={`Next ${view.toLowerCase()}`}
             onClick={() => navigate(1)}
-           
           >
             ›
           </Button>

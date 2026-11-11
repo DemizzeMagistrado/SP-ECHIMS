@@ -580,10 +580,8 @@ function AlertsWorkspace() {
         subtitle="Monitor system alerts and configure supported evaluation rules"
         actions={<>
           <Button variant="secondary"
-           
             disabled={loading || !owner}
             onClick={() => void load()}
-           
           >
             <RefreshCw size={18} />
             Refresh
@@ -668,7 +666,6 @@ function AlertsWorkspace() {
               aria-label="Filter by program"
               value={program}
               onChange={(event) => setProgram(event.target.value)}
-             
             >
               <option value="ALL">All programs</option>
               {programs.map((value) => (
@@ -759,10 +756,8 @@ function AlertsWorkspace() {
                           {alert.recipient_id === owner &&
                             alert.status === "UNREAD" && (
                               <Button variant="secondary" size="sm"
-                               
                                 disabled={reading !== null}
                                 onClick={() => void markRead(alert)}
-                               
                               >
                                 Mark as read
                               </Button>
@@ -770,7 +765,6 @@ function AlertsWorkspace() {
                           {alert.recipient_id === owner &&
                             alert.status !== "RESOLVED" && (
                               <Button size="sm"
-                               
                                 disabled={resolving || reading !== null}
                                 onClick={() => {
                                   setResolveTarget(alert);
@@ -799,10 +793,8 @@ function AlertsWorkspace() {
           </div>
           <div className="flex items-center justify-between">
             <Button variant="secondary"
-             
               disabled={page === 1 || loading}
               onClick={() => setPage((value) => value - 1)}
-             
             >
               Previous
             </Button>
@@ -811,10 +803,8 @@ function AlertsWorkspace() {
               {Math.max(1, Math.ceil((summary?.total ?? 0) / 50))}
             </span>
             <Button variant="secondary"
-             
               disabled={page * 50 >= (summary?.total ?? 0) || loading}
               onClick={() => setPage((value) => value + 1)}
-             
             >
               Next
             </Button>
@@ -1002,18 +992,14 @@ function AlertsWorkspace() {
             )}
             <div className="flex justify-end gap-2">
               <Button variant="secondary"
-               
                 disabled={resolving}
                 onClick={() => setResolveTarget(null)}
-               
               >
                 Cancel
               </Button>
               <Button
-               
                 disabled={!resolutionReviewed || resolving}
                 onClick={() => void resolveAlert()}
-               
               >
                 {resolving ? "Resolving…" : "Confirm Resolution"}
               </Button>
@@ -1097,18 +1083,14 @@ function AlertsWorkspace() {
                 </p>
                 <div className="mt-6 flex justify-end gap-3">
                   <Button variant="secondary"
-                   
                     disabled={saving}
                     onClick={() => setReview(false)}
-                   
                   >
                     Back to edit
                   </Button>
                   <Button
-                   
                     disabled={saving}
                     onClick={() => void saveRule()}
-                   
                   >
                     {saving && <Spinner className="mr-2" />}{saving ? "Saving…" : "Confirm and save"}
                   </Button>
@@ -1265,15 +1247,12 @@ function AlertsWorkspace() {
                 )}
                 <div className="flex justify-end gap-3">
                   <Button variant="secondary"
-                   
                     onClick={() => setDraft(null)}
-                   
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
-                   
                   >
                     Review changes
                   </Button>

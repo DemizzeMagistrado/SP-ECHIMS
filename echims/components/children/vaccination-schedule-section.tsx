@@ -173,9 +173,7 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
         <div className="mb-4 rounded-xl border border-border bg-muted/40 p-4">
           {!showForm ? (
             <Button
-             
               onClick={openForm}
-             
             >
               <Syringe size={16} />Request Vaccination Schedule
             </Button>
@@ -184,7 +182,6 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
               <label className="grid gap-1 text-sm">
                 <span className="font-medium">Proposed service date <span className="text-red-600">*</span></span>
                 <DateInput
-                 
                   value={proposedDate}
                   min={new Date().toISOString().slice(0, 10)}
                   onChange={(e) => setProposedDate(e.target.value)}
@@ -205,15 +202,12 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
               </label>
               <div className="flex gap-2">
                 <Button variant="secondary"
-                 
                   onClick={() => { setShowForm(false); setRemarks(''); setProposedDate('') }}
                  
                 >Cancel</Button>
                 <Button
-                 
                   disabled={submitting}
                   onClick={submitRequest}
-                 
                 >{submitting && <Spinner className="mr-2" />}{submitting ? 'Submitting...' : 'Submit for review'}</Button>
               </div>
             </div>

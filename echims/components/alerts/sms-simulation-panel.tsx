@@ -100,10 +100,8 @@ export function SmsSimulationPanel({ ownerId }: { ownerId: string }) {
           </p>
         </div>
         <Button variant="secondary"
-         
           disabled={loading}
           onClick={() => setReload((value) => value + 1)}
-         
         >
           Refresh
         </Button>

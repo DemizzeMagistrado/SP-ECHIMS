@@ -169,7 +169,6 @@ export function BatchRequestDecisionModal({ open, onClose, onDecided, request }:
                 onChange={(e) => setReason(e.target.value)}
                 rows={3}
                 placeholder="e.g. Batch already allocated / insufficient central stock / duplicate request"
-               
               />
               <p className="mt-1 text-xs text-muted-foreground">Shown to the RHM in their requests list.</p>
             </div>
@@ -187,9 +186,7 @@ export function BatchRequestDecisionModal({ open, onClose, onDecided, request }:
           <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
             {!isPending ? (
               <Button variant="secondary"
-               
                 onClick={onClose}
-               
               >
                 Close
               </Button>
@@ -216,18 +213,14 @@ export function BatchRequestDecisionModal({ open, onClose, onDecided, request }:
             ) : (
               <>
                 <Button variant="secondary"
-                 
                   onClick={() => { setMode('review'); setReason(''); setFormError('') }}
                   disabled={saving}
-                 
                 >
                   Back
                 </Button>
                 <Button variant="danger"
-                 
                   onClick={() => send('REJECT')}
                   disabled={saving || !reason.trim()}
-                 
                 >
                   {saving ? <Spinner /> : <XCircle size={14} />}
                   {saving ? 'Rejecting…' : 'Confirm reject'}

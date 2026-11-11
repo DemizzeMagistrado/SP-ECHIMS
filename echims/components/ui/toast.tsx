@@ -64,7 +64,7 @@ export function Toaster() {
   return (
     <div
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-4 top-4 z-[100] flex flex-col items-center gap-2 sm:inset-x-auto sm:top-auto sm:bottom-6 sm:right-6 sm:flex-col-reverse sm:items-end sm:gap-3"
+      className="print-hide pointer-events-none fixed inset-x-4 top-4 z-[100] flex flex-col items-center gap-2 sm:inset-x-auto sm:top-auto sm:bottom-6 sm:right-6 sm:flex-col-reverse sm:items-end sm:gap-3"
     >
       {list.map((t) => <ToastCard key={t.id} toast={t} />)}
     </div>

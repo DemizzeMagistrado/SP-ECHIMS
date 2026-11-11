@@ -263,9 +263,7 @@ export function SupplementStockRequestsPanel({
         </div>
         <div className="flex gap-2">
           <Button variant="secondary"
-           
             disabled={loading || busy || !online}
-           
             onClick={() => setReload((v) => v + 1)}
           >
             Refresh
@@ -400,9 +398,7 @@ export function SupplementStockRequestsPanel({
                             {data.canReject && r.status === "PENDING" ? (
                               <div className="space-y-2">
                                 <Button variant="secondary" size="sm"
-                                 
                                   disabled={busy || !online || !data.canApprove}
-                                 
                                   onClick={() => {
                                     setApprove(r);
                                     setError("");
@@ -558,9 +554,7 @@ export function SupplementStockRequestsPanel({
                 {busy && <Spinner className="mr-2" />}{busy ? "Saving…" : "Submit Request"}
               </button>
               <Button variant="secondary"
-               
                 disabled={busy}
-               
                 onClick={() => setOpen(false)}
               >
                 Cancel
@@ -625,7 +619,6 @@ export function SupplementStockRequestsPanel({
               <label className="text-sm">
                 Expiry date
                 <DateInput
-                 
                   required
                   disabled={busy}
                   className="mt-1"
@@ -638,7 +631,6 @@ export function SupplementStockRequestsPanel({
               <label className="text-sm">
                 Allocation date
                 <DateInput
-                 
                   required
                   max={manilaToday()}
                   min={approve.request_date}
@@ -665,9 +657,7 @@ export function SupplementStockRequestsPanel({
                 {busy && <Spinner className="mr-2" />}{busy ? "Saving…" : "Approve and Add Batch Stock"}
               </button>
               <Button variant="secondary"
-               
                 disabled={busy}
-               
                 onClick={() => setApprove(null)}
               >
                 Cancel
@@ -716,9 +706,7 @@ export function SupplementStockRequestsPanel({
                 Confirm Rejection
               </button>
               <Button variant="secondary"
-               
                 disabled={busy}
-               
                 onClick={() => setReject(null)}
               >
                 Cancel

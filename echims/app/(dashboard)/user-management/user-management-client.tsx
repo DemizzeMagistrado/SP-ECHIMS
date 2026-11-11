@@ -631,7 +631,6 @@ export default function UserManagementClient({
                 )
               }
               placeholder="Search name, username, or email..."
-             
             />
           </div>
 

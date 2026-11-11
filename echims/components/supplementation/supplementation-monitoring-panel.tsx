@@ -170,10 +170,8 @@ export function SupplementationMonitoringPanel({
           </p>
         </div>
         <Button variant="secondary"
-         
           disabled={loading || !online}
           onClick={refresh}
-         
         >
           {loading ? <Spinner /> : <RefreshCw size={16} />}
           Refresh

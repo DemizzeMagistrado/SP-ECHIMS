@@ -262,7 +262,6 @@ export default function MasterlistUploadPage() {
                 <Button size="sm" type="submit"
                   onClick={doImport}
                   disabled={importing || (batch.error_count ?? 0) > 0 || (batch.valid_count ?? 0) === 0}
-                 
                 >
                   {importing ? 'Importing…' : `Confirm import (${batch.valid_count ?? 0})`}
                 </Button>
@@ -426,7 +425,6 @@ function EditModal({ row, onClose, onSave }: { row: StagingRow; onClose: () => v
             <label key={k} className="text-xs">
               <div className="mb-1 font-semibold text-muted-foreground">{k}</div>
               <Input
-               
                 value={draft[k] ?? ''}
                 onChange={(e) => setDraft({ ...draft, [k]: e.target.value })}
               />

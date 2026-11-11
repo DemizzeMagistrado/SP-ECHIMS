@@ -139,7 +139,6 @@ export function ChangeStatusModal({ childId, currentStatus, childName, onClose, 
         <label className="grid gap-1 text-sm">
           <span className="font-medium">{dateLabel}</span>
           <DateInput
-           
             value={movementDate}
             onChange={(e) => setMovementDate(e.target.value)}
             max={new Date().toISOString().slice(0, 10)}

@@ -8,6 +8,7 @@ import { SessionGate } from '@/components/auth/session-gate'
 import { NavProgress } from '@/components/dashboard/nav-progress'
 import { LoadingGate } from '@/components/brand/loading-gate'
 import { CommandPalette } from '@/components/dashboard/command-palette'
+import { PrintHeader } from '@/components/ui/print-header'
 
 export default async function DashboardLayout({
   children,
@@ -136,6 +137,7 @@ export default async function DashboardLayout({
 
             <main id="main-content" tabIndex={-1} className="min-h-0 flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8">
               <div className="mx-auto w-full max-w-7xl">
+                <PrintHeader />
                 <SessionGate>{children}</SessionGate>
               </div>
             </main>

@@ -235,7 +235,6 @@ export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, c
               </label>
               <DateInput
                 id="date"
-               
                 max={new Date().toISOString().slice(0, 10)}
                 value={vaccinationDate}
                 onChange={(e) => setVaccinationDate(e.target.value)}
@@ -255,7 +254,6 @@ export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, c
                 id="source-preset"
                 value={sourcePreset}
                 onChange={(e) => setSourcePreset(e.target.value)}
-               
               >
                 {SOURCE_PRESETS.map((s) => <option key={s} value={s}>{s}</option>)}
                 <option value="Other">Other (specify)</option>
@@ -286,7 +284,6 @@ export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, c
                 value={batchNumber}
                 onChange={(e) => setBatchNumber(e.target.value)}
                 placeholder="If known"
-               
               />
             </div>
             <div>
@@ -299,7 +296,6 @@ export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, c
                 value={site}
                 onChange={(e) => setSite(e.target.value)}
                 placeholder="e.g. Left thigh"
-               
               />
             </div>
           </div>
@@ -315,7 +311,6 @@ export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, c
               onChange={(e) => setRemarks(e.target.value)}
               rows={2}
               placeholder="Any notes about this prior record"
-             
             />
           </div>
 
@@ -330,17 +325,14 @@ export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, c
           {/* Actions */}
           <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
             <Button variant="secondary"
-             
               onClick={onClose}
               disabled={saving}
-             
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={saving}
-             
             >
               {saving ? <Spinner /> : <History size={14} />}
               {saving ? 'Saving…' : 'Save prior record'}

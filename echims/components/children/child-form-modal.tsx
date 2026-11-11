@@ -1090,9 +1090,7 @@ export function ChildFormModal({
         <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-5">
           {mode==='create' && <Button variant="secondary" disabled={saving} onClick={saveLocalDraft}>{saving?'Saving...':'Save Draft on Device'}</Button>}
           <Button variant="secondary"
-           
             onClick={onClose}
-           
           >
             Cancel
           </Button>
@@ -1100,7 +1098,6 @@ export function ChildFormModal({
             type="submit"
             hidden={mode==='create' && !online}
             disabled={saving || Boolean(draft && online && !reviewed)}
-           
           >
             {saving && <Spinner className="mr-2" />}
             {saving

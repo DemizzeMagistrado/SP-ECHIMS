@@ -85,7 +85,6 @@ export default function ChildrenMapPage() {
         actions={<>
           <Button variant="secondary" size="sm" type="submit"
             onClick={() => mutate()}
-           
           >
             Refresh
           </Button>

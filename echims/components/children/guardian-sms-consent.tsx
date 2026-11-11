@@ -133,10 +133,8 @@ export function GuardianSmsConsent({ guardian, canEdit, onSaved }: Props) {
             </label>
           )}
           <Button
-           
             disabled={!number || !confirmed || saving}
             onClick={() => void save(true)}
-           
           >
             {saving && <Spinner className="mr-2" />}{saving ? "Saving..." : "Confirm SMS Consent"}
           </Button>
@@ -144,10 +142,8 @@ export function GuardianSmsConsent({ guardian, canEdit, onSaved }: Props) {
       )}
       {canEdit && (enabled || guardian.sms_opt_in === true) && (
         <Button variant="secondary"
-         
           disabled={saving}
           onClick={() => void save(false)}
-         
         >
           {saving && <Spinner className="mr-2" />}{saving ? "Saving..." : "Disable SMS Reminders"}
         </Button>
