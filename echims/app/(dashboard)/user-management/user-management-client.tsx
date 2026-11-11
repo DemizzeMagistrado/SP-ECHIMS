@@ -1,4 +1,5 @@
 'use client'
+import { StatCard } from '@/components/ui/stat-card'
 import { X, UserX } from 'lucide-react'
 import { UserActions } from '@/components/user-management/user-actions'
 import { useAuth } from '@/components/auth/auth-provider'
@@ -581,31 +582,15 @@ export default function UserManagementClient({
 
       {/* SUMMARY CARDS */}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
 
-        <SummaryCard
-          title="Pending"
-          value={pendingCount}
-          description="Awaiting verification"
-        />
+        <StatCard label="Pending" value={pendingCount} hint="Awaiting verification" tone="warn" />
 
-        <SummaryCard
-          title="Active"
-          value={activeCount}
-          description="Authorized accounts"
-        />
+        <StatCard label="Active" value={activeCount} hint="Authorized accounts" tone="good" />
 
-        <SummaryCard
-          title="Inactive"
-          value={inactiveCount}
-          description="Deactivated accounts"
-        />
+        <StatCard label="Inactive" value={inactiveCount} hint="Deactivated accounts" />
 
-        <SummaryCard
-          title="Suspended"
-          value={suspendedCount}
-          description="Suspended accounts"
-        />
+        <StatCard label="Suspended" value={suspendedCount} hint="Suspended accounts" tone="danger" />
 
       </div>
 
@@ -1568,38 +1553,6 @@ export default function UserManagementClient({
           </div>
         </div>
       )}
-
-    </div>
-  )
-}
-
-/* =========================================================
-   SUMMARY CARD
-========================================================= */
-
-function SummaryCard({
-  title,
-  value,
-  description,
-}: {
-  title: string
-  value: number
-  description: string
-}) {
-  return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm">
-
-      <p className="text-sm font-medium text-gray-500">
-        {title}
-      </p>
-
-      <p className="mt-2 text-3xl font-bold text-[#023E8A]">
-        {value}
-      </p>
-
-      <p className="mt-1 text-xs text-gray-500">
-        {description}
-      </p>
 
     </div>
   )

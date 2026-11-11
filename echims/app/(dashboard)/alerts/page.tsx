@@ -1,4 +1,5 @@
 "use client";
+import { StatCard } from '@/components/ui/stat-card'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -608,23 +609,11 @@ function AlertsWorkspace() {
       )}
       {data && tab === "ALERTS" && (
         <>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            {[
-              ["Total Alerts", summary?.total, "text-foreground"],
-              ["Critical", summary?.critical, "text-destructive"],
-              ["Warning", summary?.warning, "text-orange-700"],
-              ["Resolved", summary?.resolved, "text-teal-700"],
-            ].map(([label, count, color]) => (
-              <div
-                key={String(label)}
-                className="rounded-2xl border border-border bg-white p-6"
-              >
-                <p className="text-sm text-muted-foreground">{label}</p>
-                <p className={`mt-2 text-3xl font-bold ${color}`}>
-                  {count ?? 0}
-                </p>
-              </div>
-            ))}
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <StatCard label="Total Alerts" value={summary?.total ?? 0} />
+            <StatCard label="Critical" value={summary?.critical ?? 0} tone="danger" />
+            <StatCard label="Warning" value={summary?.warning ?? 0} tone="warn" />
+            <StatCard label="Resolved" value={summary?.resolved ?? 0} tone="good" />
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <FilterChips

@@ -1,5 +1,6 @@
 'use client'
 
+import { StatCard } from '@/components/ui/stat-card'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, ChevronDown, ChevronRight, PackagePlus, X, SearchX, Package } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
@@ -227,17 +228,14 @@ export function StockOverview() {
       )}
       {loadError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{loadError}</div>}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {[
           ['Stock lines', summary.lines],
           ['Low stock', summary.low],
           [`Expiring within ${t.nearExpiryDays} days`, summary.expiring],
           ['Expired batches', summary.expired],
-        ].map(([label, value]) => (
-          <div key={label as string} className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
-            <p className="text-xs font-medium text-[#6B7280]">{label}</p>
-            <p className="mt-1 text-2xl font-bold text-[#03045E]">{data ? value : '–'}</p>
-          </div>
+        ].map(([label, value], i) => (
+          <StatCard key={label as string} label={label} value={data ? value : '–'} tone={(['default', 'warn', 'warn', 'danger'] as const)[i]} />
         ))}
       </div>
 

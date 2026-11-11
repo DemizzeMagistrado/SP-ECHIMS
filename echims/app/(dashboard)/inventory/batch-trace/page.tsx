@@ -7,6 +7,7 @@
 //
 // Export: CSV download of the children + transactions tables.
 
+import { StatCard } from '@/components/ui/stat-card'
 import { useState } from 'react'
 import useSWR from 'swr'
 import {
@@ -162,7 +163,7 @@ export default function BatchTracePage() {
       {data && (
         <>
           {/* Counts */}
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <StatTile icon={<Package size={14} />} label="Barangays holding" value={data.counts.batches} />
             <StatTile icon={<Send size={14} />} label="Transactions" value={data.counts.transactions} />
             <StatTile icon={<Syringe size={14} />} label="Children vaccinated" value={data.counts.children_vaccinated} />
@@ -314,10 +315,5 @@ export default function BatchTracePage() {
 }
 
 function StatTile({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
-  return (
-    <div className="rounded-xl border border-border bg-white p-4">
-      <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{icon} {label}</p>
-      <p className="mt-1 text-2xl font-bold text-foreground">{value.toLocaleString()}</p>
-    </div>
-  )
+  return <StatCard icon={icon} label={label} value={value.toLocaleString()} />
 }
