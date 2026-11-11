@@ -263,7 +263,7 @@ export function TopNav() {
                             {item.alert_message}
                           </p>
                         </div>
-                        <p className="mt-2 text-xs text-slate-400">{formatTimestamp(item.created_at)}</p>
+                        <p className="mt-2 text-xs text-slate-500">{formatTimestamp(item.created_at)}</p>
                         <div className="mt-3 flex flex-wrap items-center gap-4">
                           {notificationTarget(item) && (
                             <button type="button" disabled={saving} onClick={() => void viewNotification(item)}
@@ -284,7 +284,7 @@ export function TopNav() {
                   </ul>
                 )}
               </div>
-              <p className="border-t border-slate-100 px-4 py-2 text-xs text-slate-400">
+              <p className="border-t border-slate-100 px-4 py-2 text-xs text-slate-500">
                 Latest 50 notifications · Refreshes every 30 seconds while this tab is visible
               </p>
             </section>

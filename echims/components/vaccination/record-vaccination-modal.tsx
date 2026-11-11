@@ -496,7 +496,7 @@ export function RecordVaccinationModal({ open, onClose, onSaved, ownerId, prefil
 
             onClick={onClose}
 
-            className="absolute right-4 top-4 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+            className="absolute right-4 top-4 rounded-full p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
 
             aria-label="Close"
 
@@ -572,7 +572,7 @@ export function RecordVaccinationModal({ open, onClose, onSaved, ownerId, prefil
 
               <div ref={childBoxRef} className="relative">
 
-                <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
 
                 <input
 
@@ -640,7 +640,7 @@ export function RecordVaccinationModal({ open, onClose, onSaved, ownerId, prefil
 
                     onClick={() => { setChildId(''); setChildQuery(''); setChildOpen(true); setChildActiveIdx(0) }}
 
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
 
                     aria-label="Clear"
 
@@ -727,7 +727,7 @@ export function RecordVaccinationModal({ open, onClose, onSaved, ownerId, prefil
 
                           </div>
 
-                          {childId === c.child_id && <CheckCircle2 size={14} className="shrink-0 text-emerald-600" />}
+                          {childId === c.child_id && <CheckCircle2 size={14} className="shrink-0 text-emerald-700" />}
 
                         </button>
 
@@ -809,7 +809,7 @@ export function RecordVaccinationModal({ open, onClose, onSaved, ownerId, prefil
 
                 </select>
 
-                <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" />
 
               </div>
 
@@ -1109,7 +1109,7 @@ function InfoCell({ icon, label, value }: { icon: React.ReactNode; label: string
 
       </div>
 
-      <div className={`mt-0.5 text-sm font-semibold ${value ? 'text-foreground' : 'text-slate-400'}`}>
+      <div className={`mt-0.5 text-sm font-semibold ${value ? 'text-foreground' : 'text-slate-500'}`}>
 
         {value ?? '—'}
 

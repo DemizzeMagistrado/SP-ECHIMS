@@ -173,7 +173,7 @@ export default function ForgotPasswordPage() {
               </Link>
             </p>
 
-            <p className="mt-8 text-center text-xs text-[#9CA3AF]">
+            <p className="mt-8 text-center text-xs text-[#6B7280]">
               By using eCHIMS, you agree to our{' '}
               <Link
                 href="/terms"

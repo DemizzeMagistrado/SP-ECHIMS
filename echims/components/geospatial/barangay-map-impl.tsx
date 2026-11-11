@@ -214,7 +214,7 @@ export default function BarangayMap({
               const props = (feature.properties ?? {}) as { barangay_id?: number; barangay_name?: string }
               const bgy = props.barangay_id ? byId.get(props.barangay_id) : null
               const name = bgy?.barangay_name ?? props.barangay_name ?? 'Unknown'
-              const html = `<div class="text-sm"><div class="font-semibold">${name}</div><div class="text-xs text-gray-500">Daet</div>${bgy ? `<div class="mt-1">${bgy.label ?? metricHuman(metric)}: <span class="font-semibold">${metricLabel(bgy.value)}</span></div>` : '<div class="mt-1 text-xs text-gray-400">no data</div>'}</div>`
+              const html = `<div class="text-sm"><div class="font-semibold">${name}</div><div class="text-xs text-gray-500">Daet</div>${bgy ? `<div class="mt-1">${bgy.label ?? metricHuman(metric)}: <span class="font-semibold">${metricLabel(bgy.value)}</span></div>` : '<div class="mt-1 text-xs text-gray-500">no data</div>'}</div>`
               layer.bindPopup(html)
               if (bgy) layer.bindTooltip(`${name}: ${metricLabel(bgy.value)}`, { sticky: true })
             }}
@@ -229,7 +229,7 @@ export default function BarangayMap({
               const props = (feature.properties ?? {}) as { barangay_id?: number; barangay_name?: string }
               const bgy = props.barangay_id ? byId.get(props.barangay_id) : null
               const name = bgy?.barangay_name ?? props.barangay_name ?? 'Unknown'
-              const html = `<div class="text-sm"><div class="font-semibold">${name}</div><div class="text-xs text-gray-500">Naga City</div>${bgy ? `<div class="mt-1">${bgy.label ?? metricHuman(metric)}: <span class="font-semibold">${metricLabel(bgy.value)}</span></div>` : '<div class="mt-1 text-xs text-gray-400">no data</div>'}</div>`
+              const html = `<div class="text-sm"><div class="font-semibold">${name}</div><div class="text-xs text-gray-500">Naga City</div>${bgy ? `<div class="mt-1">${bgy.label ?? metricHuman(metric)}: <span class="font-semibold">${metricLabel(bgy.value)}</span></div>` : '<div class="mt-1 text-xs text-gray-500">no data</div>'}</div>`
               layer.bindPopup(html)
               if (bgy) layer.bindTooltip(`${name}: ${metricLabel(bgy.value)}`, { sticky: true })
             }}

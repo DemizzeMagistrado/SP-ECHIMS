@@ -42,7 +42,7 @@ export function PageHeader({ title, subtitle, breadcrumbs, actions, className = 
                 return (
                   <li key={`${c.label}-${i}`} className="flex items-center gap-1">
                     {last || !c.href
-                      ? <span aria-current={last ? 'page' : undefined} className={last ? 'font-semibold text-brand-blue' : ''}>{c.label}</span>
+                      ? <span aria-current={last ? 'page' : undefined} className={last ? 'font-semibold text-brand-navy' : ''}>{c.label}</span>
                       : <Link href={c.href} className="rounded hover:text-brand-navy hover:underline underline-offset-4">{c.label}</Link>}
                     {!last && <ChevronRight size={14} aria-hidden="true" className="text-brand-muted/60" />}
                   </li>

@@ -80,7 +80,7 @@ export function CommandPalette() {
             if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)) }
             if (e.key === 'Enter') { e.preventDefault(); go(results[active]) }
           }}
-          className="h-14 flex-1 bg-transparent text-base outline-none placeholder:text-brand-muted/80"
+          className="h-14 flex-1 bg-transparent text-base outline-none placeholder:text-brand-muted"
         />
         <kbd className="rounded-md border border-brand-line px-1.5 py-0.5 text-[11px] font-semibold text-brand-muted">Esc</kbd>
       </div>

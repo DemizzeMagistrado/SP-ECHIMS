@@ -925,7 +925,7 @@ export default function UserManagementClient({
                   closeModal
                 }
                 aria-label="Close user details"
-                className="rounded-lg px-3 py-1 text-2xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                className="rounded-lg px-3 py-1 text-2xl text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
               >
                 <X size={20} aria-hidden="true" />
               </button>
@@ -1354,7 +1354,7 @@ export default function UserManagementClient({
                               'SUSPENDED'
                             )
                           }
-                          className="rounded-xl border border-orange-200 px-5 py-3 text-sm font-semibold text-orange-600 transition hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded-xl border border-orange-200 px-5 py-3 text-sm font-semibold text-orange-700 transition hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {processingUserId ===
                           selectedUser.user_id

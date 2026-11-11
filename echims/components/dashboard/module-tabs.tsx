@@ -50,6 +50,7 @@ export function ModuleTabs({
   return (
     <nav
       aria-label={`${parent} sections`}
+      data-arrow-nav
       className="relative flex flex-wrap gap-1 border-b border-[#E5E7EB]"
     >
       {visibleTabs.map((tab) => {

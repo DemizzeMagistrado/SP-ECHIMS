@@ -363,7 +363,7 @@ export default function SettingsPage() {
                     <p className="font-medium text-foreground">Current Session</p>
                     <p className="text-xs text-muted-foreground">Chrome - Windows 10</p>
                   </div>
-                  <span className="text-xs text-teal-600 font-medium">Active</span>
+                  <span className="text-xs text-teal-700 font-medium">Active</span>
                 </div>
               </div>
             </div>

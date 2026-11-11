@@ -17,7 +17,7 @@ export function StatusPage({ code, title, message, actions, area = 'page' }: {
     <div className={`flex items-center justify-center px-4 py-10 ${area === 'page' ? 'min-h-dvh' : 'min-h-[calc(100dvh-7rem)] lg:min-h-[calc(100dvh-8rem)]'}`}>
       <div className="w-full max-w-md text-center">
         <Logo variant="mark" size={56} className="mx-auto" />
-        {code && <p className="mt-6 text-sm font-semibold uppercase tracking-[0.18em] text-brand-blue">{code}</p>}
+        {code && <p className="mt-6 text-sm font-semibold uppercase tracking-[0.18em] text-[#035C8C]">{code}</p>}
         <h1 className={`${code ? 'mt-2' : 'mt-6'} font-display text-2xl font-bold text-brand-navy sm:text-3xl`}>{title}</h1>
         <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-brand-muted">{message}</p>
         <div className="mt-8 flex flex-col-reverse justify-center gap-2 sm:flex-row">{actions}</div>

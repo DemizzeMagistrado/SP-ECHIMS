@@ -542,11 +542,11 @@ function ScheduleSection() {
         </div>
         <div className="bg-white rounded-2xl border border-border p-6">
           <p className="text-sm text-muted-foreground">Pending</p>
-          <p className="text-3xl font-bold text-amber-600 mt-2">{pendingCount}</p>
+          <p className="text-3xl font-bold text-amber-700 mt-2">{pendingCount}</p>
         </div>
         <div className="bg-white rounded-2xl border border-border p-6">
           <p className="text-sm text-muted-foreground">Approved</p>
-          <p className="text-3xl font-bold text-emerald-600 mt-2">{approvedCount}</p>
+          <p className="text-3xl font-bold text-emerald-700 mt-2">{approvedCount}</p>
         </div>
         <div className="bg-white rounded-2xl border border-border p-6">
           <p className="text-sm text-muted-foreground">Rejected</p>

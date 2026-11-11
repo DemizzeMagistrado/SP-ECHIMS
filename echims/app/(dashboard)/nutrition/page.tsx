@@ -2528,7 +2528,7 @@ export default function NutritionPage() {
       )}
       <div className="nutrition-no-print rounded-2xl border border-border bg-white p-5">
         <h2 className="flex items-center gap-2 font-semibold">
-          <AlertCircle size={19} className="text-orange-500" />
+          <AlertCircle size={19} className="text-orange-700" />
           Follow-up guidance
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">

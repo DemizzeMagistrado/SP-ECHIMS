@@ -48,7 +48,7 @@ function useFieldProps<P extends AriaAttributes & { id?: string; required?: bool
 }
 
 export const controlClass =
-  'w-full rounded-lg border border-brand-line bg-white px-3 text-sm text-brand-navy outline-none transition-[border-color,box-shadow] placeholder:text-brand-muted/80 focus-visible:border-brand-blue focus-visible:ring-3 focus-visible:ring-brand-blue/20 disabled:cursor-not-allowed disabled:bg-brand-ice disabled:text-brand-muted aria-invalid:border-danger aria-invalid:focus-visible:ring-danger/15'
+  'w-full rounded-lg border border-brand-line bg-white px-3 text-sm text-brand-navy outline-none transition-[border-color,box-shadow] placeholder:text-brand-muted focus-visible:border-brand-blue focus-visible:ring-3 focus-visible:ring-brand-blue/20 disabled:cursor-not-allowed disabled:bg-brand-ice disabled:text-brand-muted aria-invalid:border-danger aria-invalid:focus-visible:ring-danger/15'
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...useFieldProps(props)} className={cn(controlClass, 'h-10', className)} />

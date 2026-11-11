@@ -371,7 +371,7 @@ export default function HealthActivityCalendar<T extends CalendarActivity>({
                         isToday
                           ? 'bg-blue-600 text-white'
                           : isOutsideMonth
-                            ? 'text-slate-400 hover:bg-slate-200'
+                            ? 'text-slate-500 hover:bg-slate-200'
                             : 'text-slate-700 hover:bg-slate-100'
                       }`}
                     >
@@ -388,7 +388,7 @@ export default function HealthActivityCalendar<T extends CalendarActivity>({
                     {dayActivities.map(renderActivity)}
 
                     {dayActivities.length === 0 && view !== 'MONTH' && (
-                      <p className="p-2 text-xs text-slate-400">
+                      <p className="p-2 text-xs text-slate-500">
                         No activities.
                       </p>
                     )}

@@ -92,7 +92,7 @@ export default async function DashboardLayout({
               </div>
             </div>
 
-            <p className="mt-6 text-xs leading-5 text-[#9CA3AF]">
+            <p className="mt-6 text-xs leading-5 text-[#6B7280]">
               You will receive access to eCHIMS functions after
               administrator approval.
             </p>
@@ -121,6 +121,7 @@ export default async function DashboardLayout({
 
   return (
       <DashboardShell>
+        <a href="#main-content" className="sr-only z-[60] rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4">Skip to main content</a>
         <NavProgress />
         <CommandPalette />
         {/* Same sky tone as the sign-in page, so arriving after login feels continuous */}
@@ -133,7 +134,7 @@ export default async function DashboardLayout({
           <div className="flex min-h-screen min-w-0 flex-1 flex-col">
             <TopNav />
 
-            <main className="min-h-0 flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+            <main id="main-content" tabIndex={-1} className="min-h-0 flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8">
               <div className="mx-auto w-full max-w-7xl">
                 <SessionGate>{children}</SessionGate>
               </div>

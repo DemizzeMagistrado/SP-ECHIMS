@@ -95,9 +95,9 @@
   --secondary: #0077B6;
   --secondary-foreground: #FFFFFF;
   --muted: #F5F7FA;
-  --muted-foreground: #6B7280;
+  --muted-foreground: #565E6E; /* AA (≥4.5:1) on white, muted and the sky page background */
   --accent: #00B4D8;
-  --accent-foreground: #FFFFFF;
+  --accent-foreground: #03045E; /* white on #00B4D8 is only 2.5:1 */
   --destructive: #EF4444;
   --border: #E5E7EB;
   --input: #F3F4F6;
@@ -454,3 +454,10 @@ html[data-navigating] .page-gate { opacity: 0; transition: opacity 120ms var(--e
   transition: transform 250ms var(--ease-smooth), opacity 150ms var(--ease-smooth);
 }
 @media (prefers-reduced-motion: reduce) { .tab-pill { transition: opacity 120ms; } }
+
+/* Visible keyboard focus on every interactive element. :where() keeps it at zero specificity, so a
+   component's own focus ring (ring-*, outline-*) still wins. */
+:where(a[href], button, summary, select, [role='tab'], [role='option'], [tabindex]:not([tabindex='-1'])):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}

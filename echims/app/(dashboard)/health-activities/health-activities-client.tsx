@@ -543,7 +543,7 @@ function ActivityWorkspace() {
             value={pendingCount}
             note="Requests waiting for action"
             icon={Clock3}
-            iconClass="text-amber-600"
+            iconClass="text-amber-700"
           />
 
           <SummaryCard
@@ -551,7 +551,7 @@ function ActivityWorkspace() {
             value={approvedCount}
             note="Ready for implementation"
             icon={CheckCircle2}
-            iconClass="text-emerald-600"
+            iconClass="text-emerald-700"
           />
 
           <SummaryCard
@@ -569,7 +569,7 @@ function ActivityWorkspace() {
           <div className="mb-7 rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <div className="flex gap-3">
               <AlertTriangle
-                className="mt-0.5 shrink-0 text-amber-600"
+                className="mt-0.5 shrink-0 text-amber-700"
                 size={20}
               />
 
@@ -682,7 +682,7 @@ function ActivityWorkspace() {
                 <label className="relative">
                   <Search
                     size={16}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
                   />
                   <input
                     value={search}
@@ -844,7 +844,7 @@ function ActivityWorkspace() {
                                 <p className="font-bold text-[#0b165d] group-hover:text-[#087db9]">
                                   {formatActivityType(activity.activity_type)}
                                 </p>
-                                <p className="mt-1 text-xs text-slate-400">
+                                <p className="mt-1 text-xs text-slate-500">
                                   Schedule #{activity.schedule_id}
                                 </p>
                               </button>
@@ -1584,7 +1584,7 @@ function RequestActivityModal({
     <ModalShell title="Request Health Activity" onClose={onClose}>
       <form ref={formRef} onSubmit={handleSubmit} className="grid gap-4">
         <div className="rounded-2xl bg-[#f1fbfd] px-3 py-3">
-          <p className="text-xs font-medium uppercase text-slate-400">
+          <p className="text-xs font-medium uppercase text-slate-500">
             Requesting as
           </p>
           <p className="mt-1 text-sm font-bold text-[#0b165d]">{role}</p>
@@ -1840,7 +1840,7 @@ function ReviewActivityModal({
           />
         </Field>
 
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-slate-500">
           Rejection requires a reason. Approval remarks are optional.
         </p>
 
@@ -1924,7 +1924,7 @@ const inputClass = `
   outline-none
   disabled:cursor-not-allowed
   disabled:bg-slate-50
-  disabled:text-slate-400
+  disabled:text-slate-500
   focus:ring-2 focus:ring-[#087db9]
 `
 
@@ -1994,7 +1994,7 @@ function ModalShell({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="text-slate-400 hover:text-slate-700"
+            className="text-slate-500 hover:text-slate-700"
           >
             <X size={18} />
           </button>

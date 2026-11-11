@@ -161,7 +161,7 @@ export function Sidebar({ role, fullName }: { role: Role; fullName: string }) {
               {rail ? (
                 <div aria-hidden className="mx-auto mb-2 h-px w-8 bg-white/10" />
               ) : (
-                <p className="mb-1.5 px-3 text-xs font-semibold text-white/45">{group.title}</p>
+                <p className="mb-1.5 px-3 text-xs font-semibold text-white/60">{group.title}</p>
               )}
               <ul className="space-y-0.5">
                 {group.items.map((item) => {

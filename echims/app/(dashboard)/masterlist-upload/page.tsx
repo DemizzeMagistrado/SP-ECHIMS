@@ -414,7 +414,7 @@ function EditModal({ row, onClose, onSave }: { row: StagingRow; onClose: () => v
       <div className="w-full max-w-2xl rounded-2xl border border-border bg-white p-5 shadow-xl">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold">Edit row #{row.row_number}</h3>
-          <button onClick={onClose} className="rounded p-1 text-muted-foreground hover:bg-muted">✕</button>
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1 text-muted-foreground hover:bg-muted">✕</button>
         </div>
         {row.errors.length > 0 && (
           <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">

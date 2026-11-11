@@ -632,8 +632,8 @@ function AlertsWorkspace() {
             {[
               ["Total Alerts", summary?.total, "text-foreground"],
               ["Critical", summary?.critical, "text-destructive"],
-              ["Warning", summary?.warning, "text-orange-500"],
-              ["Resolved", summary?.resolved, "text-teal-600"],
+              ["Warning", summary?.warning, "text-orange-700"],
+              ["Resolved", summary?.resolved, "text-teal-700"],
             ].map(([label, count, color]) => (
               <div
                 key={String(label)}
@@ -683,7 +683,7 @@ function AlertsWorkspace() {
           <div className="space-y-3">
             {alerts.length === 0 ? (
               <div className="rounded-2xl border border-border bg-white p-10 text-center">
-                <CheckCircle size={40} className="mx-auto mb-3 text-teal-600" />
+                <CheckCircle size={40} className="mx-auto mb-3 text-teal-700" />
                 <h3 className="font-semibold">
                   No matching alerts on this page
                 </h3>
@@ -709,7 +709,7 @@ function AlertsWorkspace() {
                     <div className="flex gap-4">
                       <Icon
                         size={24}
-                        className={`mt-1 shrink-0 ${resolved ? "text-teal-600" : critical ? "text-destructive" : warning ? "text-orange-500" : "text-secondary"}`}
+                        className={`mt-1 shrink-0 ${resolved ? "text-teal-700" : critical ? "text-destructive" : warning ? "text-orange-700" : "text-secondary"}`}
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap justify-between gap-2">

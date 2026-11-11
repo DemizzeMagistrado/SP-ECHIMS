@@ -155,7 +155,7 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
       <div className="my-10 w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200">
         {/* Header */}
         <div className="relative border-b border-slate-100 bg-gradient-to-br from-sky-50 via-white to-white px-6 pt-6 pb-5">
-          <button onClick={onClose} className="absolute right-4 top-4 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
+          <button onClick={onClose} className="absolute right-4 top-4 rounded-full p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
             <X size={18} />
           </button>
           <div className="flex items-start gap-3">
