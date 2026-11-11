@@ -31,6 +31,7 @@ import { VaccinationSmsPanel } from '@/components/vaccination/vaccination-sms-pa
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { TabPanel } from '@/components/brand/page-gate'
 import { TabIndicator } from '@/components/dashboard/tab-indicator'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 
 /* ═════════════════════════ Shared helpers ═════════════════════════ */
@@ -1133,6 +1134,7 @@ type CatalogPayload = {
 }
 
 function CatalogSection() {
+  const confirm = useConfirm()
   const { user, isReady } = useAuth()
   const role = user?.role as UserRole | undefined
   // Admin edits; PHN reads. Everyone else is 403.
@@ -1161,10 +1163,10 @@ function CatalogSection() {
 
   async function toggleActive(v: VaccineCatalogRow, nextActive: boolean) {
     if (readOnly || !navigator.onLine || togglingId) return
-    const confirmMsg = nextActive
-      ? `Reactivate ${v.vaccine_type}? It will reappear in schedule computation and the Record modal.`
-      : `Deactivate ${v.vaccine_type}? It will stop appearing in the Record modal and will be excluded from new schedule computation.`
-    if (!window.confirm(confirmMsg)) return
+    const ok = await confirm(nextActive
+      ? { title: `Reactivate ${v.vaccine_type}?`, description: 'It will reappear in schedule computation and the Record modal.', confirmLabel: 'Reactivate' }
+      : { title: `Deactivate ${v.vaccine_type}?`, description: 'It will stop appearing in the Record modal and will be excluded from new schedule computation.', confirmLabel: 'Deactivate', tone: 'danger' })
+    if (!ok) return
     setTogglingId(v.vaccine_id)
     try {
       // Toggle is folded into the main PATCH — no separate /toggle folder needed

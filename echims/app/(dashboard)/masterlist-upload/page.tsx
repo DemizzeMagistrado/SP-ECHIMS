@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { toast } from '@/components/ui/toast'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FileSpreadsheet } from 'lucide-react'
 
@@ -61,6 +62,7 @@ function ChildProfilingTabs() {
 }
 
 export default function MasterlistUploadPage() {
+  const confirm = useConfirm()
   const [batch, setBatch] = useState<Batch | null>(null)
   const [rows, setRows] = useState<StagingRow[]>([])
   const [uploading, setUploading] = useState(false)
@@ -114,10 +116,20 @@ export default function MasterlistUploadPage() {
   }
 
   async function deleteRow(stagingId: number) {
-    if (!confirm('Remove this row from the batch?')) return
-    const res = await fetch('/api/masterlist/staging', {
-      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ staging_id: stagingId }),
+    await confirm({
+      title: 'Remove this row?',
+      description: 'It will be left out of this import. The uploaded file is not changed.',
+      confirmLabel: 'Remove row',
+      tone: 'danger',
+      action: async () => {
+        const res = await fetch('/api/masterlist/staging', {
+          method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ staging_id: stagingId }),
+        })
+        if (!res.ok) { toast.error((await res.json()).error ?? 'Delete failed.'); return }
+        await Promise.all([refreshRows(), refreshBatch()])
+        toast.success('Row removed from the batch.')
+      },
     })
   }
 

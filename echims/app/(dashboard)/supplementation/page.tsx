@@ -27,6 +27,7 @@ import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { toast } from '@/components/ui/toast'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 
 type Child = {
@@ -375,6 +376,7 @@ const button =
   "inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50";
 
 export default function SupplementsPage() {
+  const confirm = useConfirm();
   const sharedAuth = useAuth();
   const [owner, setOwner] = useState<string | null>(null);
   const ownerRef = useRef<string | null>(null);
@@ -945,9 +947,12 @@ export default function SupplementsPage() {
     if (user !== draft.ownerId || saving) return;
 
     if (
-      !window.confirm(
-        "Discard this local draft? This does not delete any saved server record.",
-      )
+      !(await confirm({
+        title: "Discard this local draft?",
+        description: "Saved server records are not affected.",
+        confirmLabel: "Discard draft",
+        tone: "danger",
+      }))
     )
       return;
 

@@ -5,8 +5,10 @@ import {useAuth} from '@/components/auth/auth-provider'
 import {canPerform} from '@/lib/echims-data'
 import {drainQueue,listQueuedVaccinations,retryVaccinationDraft,discardBlockedVaccinationDraft,type QueuedVaccination} from '@/lib/vaccination-offline'
 import {readVaccinationView,vaccinationScope,vaccinationKeyMatches} from '@/lib/vaccination-cache'
+import {useConfirm} from '@/components/ui/confirm-dialog'
 export function VaccinationSnapshotNotice({savedAt,readOnly}:{savedAt?:string;readOnly:boolean}){return readOnly?<p role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Downloaded snapshot · {savedAt?new Date(savedAt).toLocaleString('en-PH'):'not prepared'}. Review, stock allocation and SMS sending require a live connection.</p>:null}
 export function VaccinationOfflineTools(){
+ const confirm=useConfirm()
  const {user}=useAuth(),owner=user?.id??null,ref=useRef(owner);ref.current=owner
  const [rows,setRows]=useState<QueuedVaccination[]>([]),[message,setMessage]=useState(''),[busy,setBusy]=useState(false)
  const [online,setOnline]=useState(true),[showReview,setShowReview]=useState(false)
@@ -20,7 +22,7 @@ export function VaccinationOfflineTools(){
  useEffect(()=>{setRows([]);setMessage('');setBusy(false);if(!owner)return;const id=owner;let active=true;const refreshOnly=()=>{void refresh(id).catch(e=>{if(active&&ref.current===id)setMessage(String(e))})},wake=()=>{void sync(id)};refreshOnly();wake();const timer=window.setInterval(wake,45000);window.addEventListener('online',wake);window.addEventListener('focus',wake);window.addEventListener('echims-vaccination-queue',refreshOnly);return()=>{active=false;window.clearInterval(timer);window.removeEventListener('online',wake);window.removeEventListener('focus',wake);window.removeEventListener('echims-vaccination-queue',refreshOnly)}},[owner])
  async function actOnDraft(row:QueuedVaccination,action:'retry'|'delete'){
   if(!owner||actionRunning.current)return
-  if(action==='delete'&&!window.confirm(`Delete the local draft for ${row.childName}, ${row.vaccineLabel}, dose ${row.payload.dose_number}? Saved vaccination records and inventory will remain unchanged.`))return
+  if(action==='delete'&&!(await confirm({title:'Delete this local draft?',description:`${row.childName}, ${row.vaccineLabel}, dose ${row.payload.dose_number}. Saved vaccination records and inventory stay unchanged.`,confirmLabel:'Delete draft',tone:'danger'})))return
   const id=owner;actionRunning.current=true;setActing(row.key)
   try{
    if(action==='delete'){await discardBlockedVaccinationDraft(id,row.requestId);if(ref.current===id)setMessage('Local draft deleted. Saved vaccination records are unchanged.')}
