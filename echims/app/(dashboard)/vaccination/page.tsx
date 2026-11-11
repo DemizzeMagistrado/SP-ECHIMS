@@ -405,7 +405,8 @@ function ScheduleSection() {
   }, [status, from, to, q])
 
   const url = `/api/vaccination/schedule${qs ? `?${qs}` : ''}`
-  const { data, error, isLoading, readOnly, savedAt } = useVaccinationView<SchedulePayload>(isReady && canView ? url : null)
+  const { data, error, isLoading, refreshing, readOnly, savedAt } = useVaccinationView<SchedulePayload>(isReady && canView ? url : null)
+  const router = useRouter()
 
   if (!isReady) return <LogoLoader />
   if (!canView) return <div className="rounded-2xl border border-border bg-white p-10 text-center text-red-600">You are not authorized to view the vaccination schedule.</div>
@@ -461,140 +462,68 @@ function ScheduleSection() {
         subtitle={<>{canReview ? 'Review and approve per-child vaccination schedule requests from BHWs and RHMs.' : 'Track the status of vaccination schedule requests you have submitted.'}</>}
       />
 
-      {/* Summary tiles */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard label="Total shown" value={rows.length} />
-        <StatCard label="Pending" value={pendingCount} tone="warn" />
-        <StatCard label="Approved" value={approvedCount} tone="good" />
-        <StatCard label="Rejected" value={rejectedCount} tone="danger" />
-      </div>
-
-      {/* Filters */}
-      <fieldset disabled={readOnly}>
-
-      <div className="bg-white rounded-2xl border border-border p-4 flex flex-col gap-3 md:flex-row md:items-center md:flex-wrap">
-        <div className="relative flex-1 min-w-[180px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by child name..."
-            className="pl-9 pr-3"
-          />
+      {isLoading ? (
+        <LogoLoader size="section" label="Loading schedule requests…" />
+      ) : error && !data ? (
+        <div role="alert" className="rounded-2xl border border-danger/20 bg-danger-soft p-4 text-sm text-danger">{error.message}</div>
+      ) : (<>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <StatCard label="Total shown" value={rows.length} />
+          <StatCard label="Pending" value={pendingCount} tone="warn" />
+          <StatCard label="Approved" value={approvedCount} tone="good" />
+          <StatCard label="Rejected" value={rejectedCount} tone="danger" />
         </div>
-        <div className="flex items-center gap-2">
-          <Filter size={16} className="text-muted-foreground" />
-          <Select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-          >
-            <option value="">All statuses</option>
-            {Object.entries(SCHEDULE_STATUS_META).map(([key, meta]) => (
-              <option key={key} value={key}>{meta.label}</option>
-            ))}
-          </Select>
-        </div>
-        <div className="flex items-center gap-2">
-          <CalendarIcon size={16} className="text-muted-foreground" />
-          <DateInput
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className="max-w-[160px]"
-            aria-label="From date"
-          />
-          <span className="text-sm text-muted-foreground">to</span>
-          <DateInput
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="max-w-[160px]"
-            aria-label="To date"
-          />
-        </div>
-      </div>
 
+        <DataTable
+          rows={rows}
+          rowKey={(row) => row.schedule_id}
+          caption="Vaccination schedule requests"
+          refreshing={refreshing}
+          mobile="cards"
+          onRowClick={(row) => { const c = one(row.child); if (c) router.push(`/child-profiling/children/${c.child_id}`) }}
+          rowLabel={(row) => { const c = one(row.child); return c ? `Open ${fullName(c)}'s profile` : 'Request' }}
+          toolbar={
+            <fieldset disabled={readOnly} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_200px_auto]">
+              <div className="relative sm:col-span-2 lg:col-span-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} aria-hidden="true" />
+                <Input aria-label="Search requests" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by child name…" className="pl-9" />
+              </div>
+              <Select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
+                <option value="">All statuses</option>
+                {Object.entries(SCHEDULE_STATUS_META).map(([key, meta]) => (
+                  <option key={key} value={key}>{meta.label}</option>
+                ))}
+              </Select>
+              <div className="flex items-center gap-2">
+                <CalendarIcon size={16} aria-hidden="true" className="shrink-0 text-muted-foreground" />
+                <DateInput value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From date" className="min-w-0" />
+                <span className="text-sm text-muted-foreground">to</span>
+                <DateInput value={to} onChange={(e) => setTo(e.target.value)} aria-label="To date" className="min-w-0" />
+              </div>
             </fieldset>
-{/* Table */}
-      <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-left text-sm">
-            <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-5 py-4 font-semibold">Child</th>
-                <th className="px-5 py-4 font-semibold">Barangay</th>
-                <th className="px-5 py-4 font-semibold">Requested</th>
-                <th className="px-5 py-4 font-semibold">Scheduled for</th>
-                <th className="px-5 py-4 font-semibold">Status</th>
-                <th className="px-5 py-4 font-semibold">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {isLoading && (
-                <tr><td colSpan={6} className="px-5 py-6"><LogoLoader size="section" label="Loading schedule requests…" /></td></tr>
-              )}
-              {error && (
-                <tr><td colSpan={6} className="px-5 py-10 text-center text-red-600">{error.message}</td></tr>
-              )}
-              {!isLoading && !error && rows.length === 0 && (
-                <tr><td colSpan={6}><EmptyState icon={CalendarX} title="No schedule requests match these filters" description="Try a different status or barangay." /></td></tr>
-              )}
-              {rows.map((row) => {
-                const c = one(row.child)
-                const b = one(row.barangay)
-                const meta = SCHEDULE_STATUS_META[row.status]
-                return (
-                  <tr key={row.schedule_id} className="hover:bg-muted/40">
-                    <td className="px-5 py-4">
-                      {c ? (
-                        <Link href={`/child-profiling/children/${c.child_id}`} className="font-semibold text-primary hover:underline">
-                          {fullName(c)}
-                        </Link>
-                      ) : <span className="text-muted-foreground">—</span>}
-                    </td>
-                    <td className="px-5 py-4 text-muted-foreground">{b?.barangay_name ?? '—'}</td>
-                    <td className="px-5 py-4 text-muted-foreground">
-                      {new Date(row.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-5 py-4 text-foreground font-medium">
-                      {new Date(row.schedule_date + 'T00:00:00').toLocaleDateString()}
-                    </td>
-                    <td className="px-5 py-4">
-                      <StatusBadge status={row.status} label={meta.label} />
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2">
-                        {canReview && (row.status === 'PENDING' || row.status === 'NEEDS_REVISION') && (
-                          <>
-                            <button
-                              onClick={() => openReview(row, 'APPROVE')}
-                              className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
-                            >
-                              <CheckCircle2 size={14} /> Approve
-                            </button>
-                            <button
-                              onClick={() => openReview(row, 'REJECT')}
-                              className="inline-flex items-center gap-1 rounded-lg border border-rose-600 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"
-                            >
-                              <XCircle size={14} /> Reject
-                            </button>
-                          </>
-                        )}
-                        {c && (
-                          <Link
-                            href={`/child-profiling/children/${c.child_id}`}
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-                          >
-                            View child <ArrowRight size={12} />
-                          </Link>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+          }
+          empty={{ icon: CalendarX, title: 'No schedule requests match these filters', description: 'Try a different status, date range or name.' }}
+          columns={[
+            {
+              key: 'child', header: 'Child', sortValue: (row) => { const c = one(row.child); return c ? fullName(c) : '' },
+              cell: (row) => { const c = one(row.child); return c ? <span className="font-semibold text-brand-navy">{fullName(c)}</span> : <span className="text-muted-foreground">—</span> },
+            },
+            { key: 'barangay', header: 'Barangay', sortValue: (row) => one(row.barangay)?.barangay_name ?? '', cell: (row) => one(row.barangay)?.barangay_name ?? '—' },
+            { key: 'requested', header: 'Requested', sortValue: (row) => row.created_at, cell: (row) => formatTimestamp(row.created_at) },
+            { key: 'date', header: 'Scheduled for', sortValue: (row) => row.schedule_date, cell: (row) => <span className="font-medium">{formatYmd(row.schedule_date)}</span> },
+            { key: 'status', header: 'Status', sortValue: (row) => row.status, cell: (row) => <StatusBadge status={row.status} label={SCHEDULE_STATUS_META[row.status].label} /> },
+            ...(canReview ? [{
+              key: 'review', header: 'Review',
+              cell: (row: ScheduleRow) => (row.status === 'PENDING' || row.status === 'NEEDS_REVISION') ? (
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" onClick={() => openReview(row, 'APPROVE')}><CheckCircle2 size={14} aria-hidden="true" /> Approve</Button>
+                  <Button size="sm" variant="secondary" className="text-danger" onClick={() => openReview(row, 'REJECT')}><XCircle size={14} aria-hidden="true" /> Reject</Button>
+                </div>
+              ) : <span className="text-xs text-muted-foreground">—</span>,
+            }] : []),
+          ]}
+        />
+      </>)}
 
       {/* Review modal */}
       {reviewing && reviewAction && !readOnly && (
@@ -642,15 +571,9 @@ function ScheduleSection() {
                 onClick={() => { setReviewing(null); setReviewAction(null); setReviewRemarks('') }}
                
               >Cancel</Button>
-              <button
-                onClick={submitReview}
-                disabled={submitting}
-                className={`rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 ${
-                  reviewAction === 'APPROVE' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
-                }`}
-              >
-                {submitting && <Spinner className="mr-2" />}{submitting ? 'Submitting...' : reviewAction === 'APPROVE' ? 'Confirm approve' : 'Confirm reject'}
-              </button>
+              <Button variant={reviewAction === 'APPROVE' ? 'primary' : 'danger'} onClick={submitReview} loading={submitting}>
+                {reviewAction === 'APPROVE' ? 'Confirm approve' : 'Confirm reject'}
+              </Button>
             </div>
           </div>
         </div>
