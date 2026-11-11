@@ -10,6 +10,8 @@ import { useState } from 'react'
 import { X, AlertCircle, CheckCircle2, XCircle, Package, MapPin, User, Calendar, FileText } from 'lucide-react'
 import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/form'
 
 export type ReplenishmentRequest = {
   stock_request_id: number
@@ -140,9 +142,9 @@ export function ReplenishmentDecisionModal({ open, onClose, onDecided, request }
               <label htmlFor="rd-reason" className="mb-1 block text-sm font-semibold text-foreground">
                 Reason for rejection *
               </label>
-              <textarea id="rd-reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={3}
+              <Textarea id="rd-reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={3}
                 placeholder="e.g. Central stock insufficient / request duplicate / insufficient justification"
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary" />
+                />
               <p className="mt-1 text-xs text-muted-foreground">Shown to the RHM in their request list.</p>
             </div>
           )}
@@ -155,7 +157,7 @@ export function ReplenishmentDecisionModal({ open, onClose, onDecided, request }
 
           <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
             {!isPending ? (
-              <button type="button" onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted">Close</button>
+              <Button variant="secondary" onClick={onClose}>Close</Button>
             ) : mode === 'review' ? (
               <>
                 <button type="button" onClick={() => setMode('reject')} disabled={saving}
@@ -170,13 +172,13 @@ export function ReplenishmentDecisionModal({ open, onClose, onDecided, request }
               </>
             ) : (
               <>
-                <button type="button" onClick={() => { setMode('review'); setReason(''); setFormError('') }} disabled={saving}
-                  className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted">Back</button>
-                <button type="button" onClick={() => send('REJECT')} disabled={saving || !reason.trim()}
-                  className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60">
+                <Button variant="secondary" onClick={() => { setMode('review'); setReason(''); setFormError('') }} disabled={saving}
+                 >Back</Button>
+                <Button variant="danger" onClick={() => send('REJECT')} disabled={saving || !reason.trim()}
+                 >
                   {saving ? <Spinner /> : <XCircle size={14} />}
                   {saving ? 'Rejecting…' : 'Confirm reject'}
-                </button>
+                </Button>
               </>
             )}
           </div>

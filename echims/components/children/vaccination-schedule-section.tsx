@@ -14,6 +14,8 @@ import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
 import { TabIndicator } from '@/components/dashboard/tab-indicator'
 import { TabPanel } from '@/components/brand/page-gate'
+import { Button } from '@/components/ui/button'
+import { DateInput, Textarea } from '@/components/ui/form'
 type ScheduleEntry = {
   vaccine_code: string
   vaccine_type: string
@@ -186,23 +188,23 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
       {canRequest && (!data.latest_request || data.latest_request.status !== 'PENDING') && (
         <div className="mb-4 rounded-xl border border-border bg-muted/40 p-4">
           {!showForm ? (
-            <button
-              type="button"
+            <Button
+             
               onClick={openForm}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"
+             
             >
               <Syringe size={16} />Request Vaccination Schedule
-            </button>
+            </Button>
           ) : (
             <div className="space-y-3">
               <label className="grid gap-1 text-sm">
                 <span className="font-medium">Proposed service date <span className="text-red-600">*</span></span>
-                <input
-                  type="date"
+                <DateInput
+                 
                   value={proposedDate}
                   min={new Date().toISOString().slice(0, 10)}
                   onChange={(e) => setProposedDate(e.target.value)}
-                  className="h-10 w-full max-w-[200px] rounded-lg border border-border px-3 text-sm"
+                  className="h-10 max-w-[200px]"
                 />
                 <span className="text-xs text-muted-foreground">
                   Pre-filled to the next due dose. Once the PHN approves, this date appears on their vaccination calendar.
@@ -210,25 +212,25 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
               </label>
               <label className="grid gap-1 text-sm">
                 <span className="font-medium">Remarks (optional)</span>
-                <textarea
+                <Textarea
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
                   placeholder="Add context for the reviewer (e.g. family is available this week, child has upcoming trip, etc.)"
-                  className="min-h-20 rounded-lg border border-border p-3 text-sm"
+                  className="min-h-20"
                 />
               </label>
               <div className="flex gap-2">
-                <button
-                  type="button"
+                <Button variant="secondary"
+                 
                   onClick={() => { setShowForm(false); setRemarks(''); setProposedDate('') }}
-                  className="rounded-lg border border-border px-4 py-2 text-sm"
-                >Cancel</button>
-                <button
-                  type="button"
+                 
+                >Cancel</Button>
+                <Button
+                 
                   disabled={submitting}
                   onClick={submitRequest}
-                  className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                >{submitting && <Spinner className="mr-2" />}{submitting ? 'Submitting...' : 'Submit for review'}</button>
+                 
+                >{submitting && <Spinner className="mr-2" />}{submitting ? 'Submitting...' : 'Submit for review'}</Button>
               </div>
             </div>
           )}

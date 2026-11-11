@@ -23,6 +23,8 @@ import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { TabIndicator } from '@/components/dashboard/tab-indicator'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/form'
 type Rule = {
   rule_id: number;
   rule_name: string;
@@ -577,15 +579,15 @@ function AlertsWorkspace() {
         title="Alert Management"
         subtitle="Monitor system alerts and configure supported evaluation rules"
         actions={<>
-          <button
-            type="button"
+          <Button variant="secondary"
+           
             disabled={loading || !owner}
             onClick={() => void load()}
-            className="flex items-center gap-2 rounded-lg border border-border bg-white px-4 py-2 disabled:opacity-50"
+           
           >
             <RefreshCw size={18} />
             Refresh
-          </button>
+          </Button>
         </>}
       />
       {error && (
@@ -662,17 +664,17 @@ function AlertsWorkspace() {
                 {button}
               </button>
             ))}
-            <select
+            <Select
               aria-label="Filter by program"
               value={program}
               onChange={(event) => setProgram(event.target.value)}
-              className="rounded-lg border border-border bg-white px-3 py-2"
+             
             >
               <option value="ALL">All programs</option>
               {programs.map((value) => (
                 <option key={value}>{value}</option>
               ))}
-            </select>
+            </Select>
           </div>
           <p className="text-xs text-muted-foreground">
             Cards count all alerts you can access. Filters apply to the current
@@ -756,28 +758,28 @@ function AlertsWorkspace() {
                             )}
                           {alert.recipient_id === owner &&
                             alert.status === "UNREAD" && (
-                              <button
-                                type="button"
+                              <Button variant="secondary" size="sm"
+                               
                                 disabled={reading !== null}
                                 onClick={() => void markRead(alert)}
-                                className="rounded-lg border border-border bg-white px-3 py-1.5 disabled:opacity-50"
+                               
                               >
                                 Mark as read
-                              </button>
+                              </Button>
                             )}
                           {alert.recipient_id === owner &&
                             alert.status !== "RESOLVED" && (
-                              <button
-                                type="button"
+                              <Button size="sm"
+                               
                                 disabled={resolving || reading !== null}
                                 onClick={() => {
                                   setResolveTarget(alert);
                                   setResolutionReviewed(false);
                                 }}
-                                className="rounded-lg bg-primary px-3 py-1.5 text-white disabled:opacity-50"
+                               
                               >
                                 Mark as Resolved
-                              </button>
+                              </Button>
                             )}
                           {alert.status === "RESOLVED" && alert.resolved_at && (
                             <span className="text-muted-foreground">
@@ -796,26 +798,26 @@ function AlertsWorkspace() {
             )}
           </div>
           <div className="flex items-center justify-between">
-            <button
-              type="button"
+            <Button variant="secondary"
+             
               disabled={page === 1 || loading}
               onClick={() => setPage((value) => value - 1)}
-              className="rounded-lg border bg-white px-4 py-2 disabled:opacity-50"
+             
             >
               Previous
-            </button>
+            </Button>
             <span className="text-sm">
               Page {page} of{" "}
               {Math.max(1, Math.ceil((summary?.total ?? 0) / 50))}
             </span>
-            <button
-              type="button"
+            <Button variant="secondary"
+             
               disabled={page * 50 >= (summary?.total ?? 0) || loading}
               onClick={() => setPage((value) => value + 1)}
-              className="rounded-lg border bg-white px-4 py-2 disabled:opacity-50"
+             
             >
               Next
-            </button>
+            </Button>
           </div>
         </>
       )}
@@ -999,22 +1001,22 @@ function AlertsWorkspace() {
               </p>
             )}
             <div className="flex justify-end gap-2">
-              <button
-                type="button"
+              <Button variant="secondary"
+               
                 disabled={resolving}
                 onClick={() => setResolveTarget(null)}
-                className="rounded-lg border px-3 py-2 text-sm"
+               
               >
                 Cancel
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+               
                 disabled={!resolutionReviewed || resolving}
                 onClick={() => void resolveAlert()}
-                className="rounded-lg bg-primary px-3 py-2 text-sm text-white disabled:opacity-50"
+               
               >
                 {resolving ? "Resolving…" : "Confirm Resolution"}
-              </button>
+              </Button>
             </div>
           </section>
         </div>
@@ -1094,22 +1096,22 @@ function AlertsWorkspace() {
                   active.
                 </p>
                 <div className="mt-6 flex justify-end gap-3">
-                  <button
-                    type="button"
+                  <Button variant="secondary"
+                   
                     disabled={saving}
                     onClick={() => setReview(false)}
-                    className="rounded-lg border px-4 py-2"
+                   
                   >
                     Back to edit
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                   
                     disabled={saving}
                     onClick={() => void saveRule()}
-                    className="rounded-lg bg-primary px-4 py-2 text-white disabled:opacity-50"
+                   
                   >
                     {saving && <Spinner className="mr-2" />}{saving ? "Saving…" : "Confirm and save"}
-                  </button>
+                  </Button>
                 </div>
               </>
             ) : (
@@ -1262,19 +1264,19 @@ function AlertsWorkspace() {
                   </label>
                 )}
                 <div className="flex justify-end gap-3">
-                  <button
-                    type="button"
+                  <Button variant="secondary"
+                   
                     onClick={() => setDraft(null)}
-                    className="rounded-lg border px-4 py-2"
+                   
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
-                    className="rounded-lg bg-primary px-4 py-2 text-white"
+                   
                   >
                     Review changes
-                  </button>
+                  </Button>
                 </div>
               </form>
             )}

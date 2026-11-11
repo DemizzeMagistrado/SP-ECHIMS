@@ -6,6 +6,8 @@ import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { MessageSquare } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { DateInput, Input, Select } from '@/components/ui/form'
 
 type Program = "VACCINATION" | "SUPPLEMENTATION";
 type MessageType = "UPCOMING" | "OVERDUE";
@@ -258,14 +260,14 @@ export function ProgramSmsPanel({
             day after due.
           </p>
         </div>
-        <button
-          type="button"
+        <Button variant="secondary"
+         
           disabled={loading || busy || !online}
           onClick={() => setReload((old) => old + 1)}
-          className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
+         
         >
           Refresh
-        </button>
+        </Button>
       </div>
       {!online && (
         <p className="text-sm text-amber-800">
@@ -302,42 +304,42 @@ export function ProgramSmsPanel({
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <label className="space-y-1 text-xs">
                 <span>Child or service</span>
-                <input
+                <Input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  className="w-full rounded-lg border p-2 text-sm"
+                 
                 />
               </label>
               <label className="space-y-1 text-xs">
                 <span>Status</span>
-                <select
+                <Select
                   value={filter}
                   onChange={(event) => setFilter(event.target.value)}
-                  className="w-full rounded-lg border p-2 text-sm"
+                 
                 >
                   {["ALL", "UPCOMING", "DUE_TODAY", "OVERDUE"].map((value) => (
                     <option key={value} value={value}>
                       {value.replace(/_/g, " ")}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label className="space-y-1 text-xs">
                 <span>Due from</span>
-                <input
-                  type="date"
+                <DateInput
+                 
                   value={from}
                   onChange={(event) => setFrom(event.target.value)}
-                  className="w-full rounded-lg border p-2 text-sm"
+                 
                 />
               </label>
               <label className="space-y-1 text-xs">
                 <span>Due through</span>
-                <input
-                  type="date"
+                <DateInput
+                 
                   value={to}
                   onChange={(event) => setTo(event.target.value)}
-                  className="w-full rounded-lg border p-2 text-sm"
+                 
                 />
               </label>
             </div>
@@ -464,11 +466,11 @@ export function ProgramSmsPanel({
                 {data.canSend && (
                   <>
                     <div className="flex flex-wrap items-center gap-3">
-                      <button
-                        type="button"
+                      <Button
+                       
                         disabled={!ready}
                         onClick={() => void send("SIMULATED_SENT")}
-                        className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                       
                       >
                         {busy && <Spinner className="mr-2" />}
                         {busy
@@ -476,8 +478,8 @@ export function ProgramSmsPanel({
                           : data.previewEnabled
                             ? "Simulate Send — Preview"
                             : "Simulate Send"}
-                      </button>
-                      <select
+                      </Button>
+                      <Select
                         aria-label="Simulated error scenario"
                         value={errorCode}
                         disabled={busy}
@@ -485,14 +487,14 @@ export function ProgramSmsPanel({
                           setErrorCode(event.target.value as ErrorCode);
                           intent.current = null;
                         }}
-                        className="rounded-lg border bg-white p-2 text-sm"
+                       
                       >
                         {(Object.keys(scenarios) as ErrorCode[]).map((code) => (
                           <option key={code} value={code}>
                             {scenarios[code]}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                       <button
                         type="button"
                         disabled={!ready}

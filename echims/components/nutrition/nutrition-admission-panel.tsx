@@ -6,6 +6,8 @@ import { X, HeartPulse } from "lucide-react";
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
+import { Button } from '@/components/ui/button'
+import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 
 type Event = {
   event_id: number;
@@ -225,28 +227,28 @@ export function NutritionAdmissionPanel({
             actual inpatient or outpatient care after checkup.
           </p>
         </div>
-        <button
-          type="button"
+        <Button variant="secondary"
+         
           disabled={loading || busy || !online}
-          className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
+         
           onClick={() => setReload((v) => v + 1)}
         >
           Refresh
-        </button>
+        </Button>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-sm">
           Child or barangay
-          <input
-            className="mt-1 w-full rounded-lg border p-2"
+          <Input
+            className="mt-1"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
         <label className="text-sm">
           Care status
-          <select
-            className="mt-1 w-full rounded-lg border p-2"
+          <Select
+            className="mt-1"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           >
@@ -259,7 +261,7 @@ export function NutritionAdmissionPanel({
                     : v}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       </div>
       {!online && (
@@ -450,10 +452,10 @@ export function NutritionAdmissionPanel({
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm">
                 Care type *
-                <select
+                <Select
                   required
                   disabled={busy}
-                  className="mt-1 w-full rounded-xl border p-2.5"
+                  className="mt-1"
                   value={form.careType}
                   onChange={(e) => change("careType", e.target.value)}
                 >
@@ -464,13 +466,13 @@ export function NutritionAdmissionPanel({
                   <option value="OUTPATIENT">
                     Outpatient — RHU / health facility
                   </option>
-                </select>
+                </Select>
               </label>
               <label className="text-sm">
                 Status *
-                <select
+                <Select
                   disabled={busy}
-                  className="mt-1 w-full rounded-xl border p-2.5"
+                  className="mt-1"
                   value={form.status}
                   onChange={(e) => change("status", e.target.value)}
                 >
@@ -478,39 +480,39 @@ export function NutritionAdmissionPanel({
                     Active
                   </option>
                   <option value="DONE">Done</option>
-                </select>
+                </Select>
               </label>
               <label className="text-sm">
                 Actual checkup date *
-                <input
+                <DateInput
                   required
                   disabled={busy}
-                  type="date"
+                 
                   min={selected.source_assessment_date}
                   max={today()}
-                  className="mt-1 w-full rounded-xl border p-2.5"
+                  className="mt-1"
                   value={form.checkupDate}
                   onChange={(e) => change("checkupDate", e.target.value)}
                 />
               </label>
               <label className="text-sm">
                 Facility (optional)
-                <input
+                <Input
                   disabled={busy}
                   maxLength={300}
-                  className="mt-1 w-full rounded-xl border p-2.5"
+                  className="mt-1"
                   value={form.facility}
                   onChange={(e) => change("facility", e.target.value)}
                 />
               </label>
               <label className="text-sm sm:col-span-2">
                 Remarks *
-                <textarea
+                <Textarea
                   required
                   disabled={busy}
                   maxLength={4000}
                   rows={4}
-                  className="mt-1 w-full rounded-xl border p-2.5"
+                  className="mt-1"
                   placeholder="Record confirmed checkup, admission, treatment or discharge details."
                   value={form.remarks}
                   onChange={(e) => change("remarks", e.target.value)}
@@ -527,21 +529,21 @@ export function NutritionAdmissionPanel({
               choose treatment or infer recovery.
             </p>
             <footer className="flex justify-end gap-2 border-t pt-4">
-              <button
-                type="button"
+              <Button variant="secondary"
+               
                 disabled={busy}
-                className="rounded-xl border px-4 py-2 text-sm"
+               
                 onClick={() => setSelected(null)}
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
                 disabled={busy || !online}
-                className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+               
               >
                 {busy && <Spinner className="mr-2" />}{busy ? "Saving…" : "Save care details"}
-              </button>
+              </Button>
             </footer>
           </form>
         </div>

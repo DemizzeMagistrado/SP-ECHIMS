@@ -35,6 +35,7 @@ import { toast } from '@/components/ui/toast'
 import { GuardianSmsConsent } from "@/components/children/guardian-sms-consent";
 import { GuardianSmsHistory } from "@/components/children/guardian-sms-history";
 import { LogoLoader } from '@/components/brand/logo-loader'
+import { Button } from '@/components/ui/button'
 type ChildRow = {
   child_id: number;
   first_name: string;
@@ -564,14 +565,14 @@ export function ChildProfileView({childId}: {childId: string}) {
               <ArrowRightLeft size={16} />
               Change status
             </button>
-            <button
-              type="button"
+            <Button variant="secondary"
+             
               onClick={() => setEditOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary hover:bg-primary/5"
+             
             >
               <Pencil size={16} />
               Edit profile
-            </button>
+            </Button>
           </div>
         )}
       </div>

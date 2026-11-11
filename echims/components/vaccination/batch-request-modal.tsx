@@ -15,6 +15,8 @@ import useSWR from 'swr'
 import { X, AlertCircle, Syringe, Hash, MapPin, Package, FileText } from 'lucide-react'
 import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
+import { Button } from '@/components/ui/button'
+import { Input, Select, Textarea } from '@/components/ui/form'
 
 type VaccineOption = {
   vaccine_id: number
@@ -132,13 +134,13 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
               <label htmlFor="br-vaccine" className="mb-1 block text-sm font-semibold text-foreground">
                 <Syringe size={13} className="mr-1 inline" /> Vaccine *
               </label>
-              <select
+              <Select
                 id="br-vaccine"
                 value={vaccineId}
                 onChange={(e) => setVaccineId(e.target.value)}
                 required
                 disabled={vaccinesSWR.isLoading}
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
+               
               >
                 <option value="">
                   {vaccinesSWR.isLoading ? 'Loading…' : 'Select a vaccine…'}
@@ -147,7 +149,7 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
                   const name = one(v.item)?.item_name ?? v.vaccine_type
                   return <option key={v.vaccine_id} value={v.vaccine_id}>{name} ({v.vaccine_type})</option>
                 })}
-              </select>
+              </Select>
               {selectedVaccine && (
                 <p className="mt-1 text-xs text-muted-foreground">Code: {selectedVaccine.vaccine_type}</p>
               )}
@@ -156,13 +158,13 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
               <label htmlFor="br-barangay" className="mb-1 block text-sm font-semibold text-foreground">
                 <MapPin size={13} className="mr-1 inline" /> Target barangay *
               </label>
-              <select
+              <Select
                 id="br-barangay"
                 value={barangayId}
                 onChange={(e) => setBarangayId(e.target.value)}
                 required
                 disabled={barangaysSWR.isLoading}
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
+               
               >
                 <option value="">
                   {barangaysSWR.isLoading ? 'Loading…' : 'Select a barangay…'}
@@ -170,7 +172,7 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
                 {barangays.map((b) => (
                   <option key={b.barangay_id} value={b.barangay_id}>{b.barangay_name}</option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
 
@@ -180,21 +182,21 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
               <label htmlFor="br-batch" className="mb-1 block text-sm font-semibold text-foreground">
                 <Hash size={13} className="mr-1 inline" /> Batch number *
               </label>
-              <input
+              <Input
                 id="br-batch"
                 type="text"
                 value={batchNumber}
                 onChange={(e) => setBatchNumber(e.target.value)}
                 required
                 placeholder="e.g. BCG-2026-A001"
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+               
               />
             </div>
             <div>
               <label htmlFor="br-qty" className="mb-1 block text-sm font-semibold text-foreground">
                 <Package size={13} className="mr-1 inline" /> Quantity (doses) *
               </label>
-              <input
+              <Input
                 id="br-qty"
                 type="number"
                 min="1"
@@ -203,7 +205,7 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
                 onChange={(e) => setQuantity(e.target.value)}
                 required
                 placeholder="50"
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+               
               />
             </div>
           </div>
@@ -213,13 +215,13 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
             <label htmlFor="br-remarks" className="mb-1 block text-sm font-semibold text-foreground">
               <FileText size={13} className="mr-1 inline" /> Remarks <span className="text-muted-foreground font-normal">(optional)</span>
             </label>
-            <textarea
+            <Textarea
               id="br-remarks"
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               rows={2}
               placeholder="Why is this batch needed? (urgency, expiring stock, scheduled campaign…)"
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+             
             />
           </div>
 
@@ -233,22 +235,22 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-            <button
-              type="button"
+            <Button variant="secondary"
+             
               onClick={onClose}
               disabled={saving}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50"
+             
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
+             
             >
               {saving ? <Spinner /> : <Package size={14} />}
               {saving ? 'Submitting…' : 'Submit request'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

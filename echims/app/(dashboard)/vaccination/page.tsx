@@ -34,6 +34,8 @@ import { TabIndicator } from '@/components/dashboard/tab-indicator'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 
 /* ═════════════════════════ Shared helpers ═════════════════════════ */
 
@@ -205,13 +207,13 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
         subtitle="Administered vaccines awaiting PHN approval or already logged."
         actions={<>
           {canCreate && (
-            <button
-              type="button"
+            <Button
+             
               onClick={() => setModalOpen(true)}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90"
+             
             >
               <Plus size={17} /> Add new record
-            </button>
+            </Button>
           )}
         </>}
       />
@@ -224,34 +226,34 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
       <div className="flex flex-col gap-3 rounded-2xl border border-border bg-white p-4 shadow-sm md:flex-row md:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-          <input
+          <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search records by child name..."
-            className="w-full rounded-lg border border-border py-2.5 pl-10 pr-3 text-sm outline-none focus:border-primary"
+            className="pl-10 pr-3"
           />
         </div>
         <div className="flex items-center gap-2">
           <Filter size={16} className="text-muted-foreground" />
-          <select
+          <Select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-lg border border-border bg-white px-3 py-2.5 text-sm outline-none focus:border-primary"
+           
           >
             <option value="">All statuses</option>
             <option value="PENDING">Pending</option>
             <option value="APPROVED">Approved</option>
             <option value="REJECTED">Rejected</option>
-          </select>
+          </Select>
         </div>
         {canExport && (
-          <button
-            type="button"
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/5"
+          <Button variant="secondary"
+           
+           
             onClick={() => toast.info('CSV export is coming in a later update.')}
           >
             <Download size={16} /> Export CSV
-          </button>
+          </Button>
         )}
       </div>
 
@@ -389,19 +391,19 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
 
             <label className="mt-4 block text-sm font-medium text-foreground">
               {reviewing.action === 'REJECT' ? 'Reason for rejection (required)' : 'Review remarks (optional)'}
-              <textarea
+              <Textarea
                 value={reviewRemarks}
                 onChange={(e) => setReviewRemarks(e.target.value)}
                 rows={3}
-                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+                className="mt-1"
               />
             </label>
 
             <div className="mt-6 flex justify-end gap-3">
-              <button
+              <Button variant="secondary" type="submit"
                 onClick={() => { setReviewing(null); setReviewRemarks('') }}
-                className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted-foreground"
-              >Cancel</button>
+               
+              >Cancel</Button>
               <button
                 onClick={submitReview}
                 disabled={submittingReview}
@@ -559,41 +561,41 @@ function ScheduleSection() {
       <div className="bg-white rounded-2xl border border-border p-4 flex flex-col gap-3 md:flex-row md:items-center md:flex-wrap">
         <div className="relative flex-1 min-w-[180px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-          <input
+          <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search by child name..."
-            className="w-full rounded-lg border border-border py-2.5 pl-9 pr-3 text-sm outline-none focus:border-primary"
+            className="pl-9 pr-3"
           />
         </div>
         <div className="flex items-center gap-2">
           <Filter size={16} className="text-muted-foreground" />
-          <select
+          <Select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="rounded-lg border border-border bg-white px-3 py-2.5 text-sm outline-none focus:border-primary"
+           
           >
             <option value="">All statuses</option>
             {Object.entries(SCHEDULE_STATUS_META).map(([key, meta]) => (
               <option key={key} value={key}>{meta.label}</option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="flex items-center gap-2">
           <CalendarIcon size={16} className="text-muted-foreground" />
-          <input
-            type="date"
+          <DateInput
+           
             value={from}
             onChange={(e) => setFrom(e.target.value)}
-            className="rounded-lg border border-border bg-white px-3 py-2.5 text-sm outline-none focus:border-primary max-w-[160px]"
+            className="max-w-[160px]"
             aria-label="From date"
           />
           <span className="text-sm text-muted-foreground">to</span>
-          <input
-            type="date"
+          <DateInput
+           
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            className="rounded-lg border border-border bg-white px-3 py-2.5 text-sm outline-none focus:border-primary max-w-[160px]"
+            className="max-w-[160px]"
             aria-label="To date"
           />
         </div>
@@ -717,20 +719,20 @@ function ScheduleSection() {
 
             <label className="mt-4 block text-sm font-medium text-foreground">
               {reviewAction === 'REJECT' ? 'Reason for rejection (required)' : 'Review remarks (optional)'}
-              <textarea
+              <Textarea
                 value={reviewRemarks}
                 onChange={(e) => setReviewRemarks(e.target.value)}
                 rows={3}
                 placeholder={reviewAction === 'REJECT' ? 'Explain why this request is being rejected...' : 'Any notes for the requester...'}
-                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+                className="mt-1"
               />
             </label>
 
             <div className="mt-6 flex justify-end gap-3">
-              <button
+              <Button variant="secondary" type="submit"
                 onClick={() => { setReviewing(null); setReviewAction(null); setReviewRemarks('') }}
-                className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted-foreground"
-              >Cancel</button>
+               
+              >Cancel</Button>
               <button
                 onClick={submitReview}
                 disabled={submitting}
@@ -886,33 +888,33 @@ function DefaultersSection() {
 
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-white p-4 shadow-sm">
         <Filter size={14} className="text-muted-foreground" />
-        <select
+        <Select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as '' | 'OVERDUE' | 'DUE')}
-          className="rounded-lg border border-border bg-white px-3 py-1.5 text-sm outline-none focus:border-primary"
+         
         >
           <option value="">All (DUE + OVERDUE)</option>
           <option value="OVERDUE">Overdue only</option>
           <option value="DUE">Due only</option>
-        </select>
-        <select
+        </Select>
+        <Select
           value={vaccineFilter}
           onChange={(e) => setVaccineFilter(e.target.value)}
-          className="rounded-lg border border-border bg-white px-3 py-1.5 text-sm outline-none focus:border-primary"
+         
         >
           <option value="">All vaccines</option>
           {NIP_CATALOG.map((v) => (
             <option key={v.code} value={v.code}>{v.vaccine_type}</option>
           ))}
-        </select>
+        </Select>
         {groups.length > 0 && (
-          <button
-            type="button"
+          <Button variant="secondary" size="sm"
+           
             onClick={toggleAll}
-            className="rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+           
           >
             {expandAll ? 'Collapse all' : 'Expand all'}
-          </button>
+          </Button>
         )}
         {counts && counts.total_matched > counts.total_shown && (
           <span className="ml-auto text-xs text-muted-foreground">
@@ -1200,13 +1202,13 @@ function CatalogSection() {
         subtitle="Maintain the DOH immunization catalog and schedule rules. Every change is logged."
         actions={<>
           {isAdmin && (
-            <button
-              type="button"
+            <Button
+             
               onClick={openCreate}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90"
+             
             >
               <Plus size={17} /> Add new vaccine
-            </button>
+            </Button>
           )}
         </>}
       />
@@ -1334,12 +1336,12 @@ function CatalogSection() {
                             {/* Admin actions — stopPropagation so clicking a button doesn't
                                 also toggle the row expansion. */}
                             <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                              <button
+                              <Button variant="secondary" size="sm" type="submit"
                                 onClick={() => openEdit(v)}
-                                className="inline-flex items-center gap-1 rounded-lg border border-primary px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/5"
+                               
                               >
                                 <Pencil size={12} /> Edit
-                              </button>
+                              </Button>
                               <button
                                 onClick={() => toggleActive(v, !active)}
                                 disabled={togglingId === v.vaccine_id}
@@ -1550,13 +1552,13 @@ function BatchRequestsSection() {
         subtitle={<>RHM requests vaccine batches for a target barangay. PHN reviews and approves — approval auto-adds the dose count to that barangay&rsquo;s inventory.</>}
         actions={<>
           {canCreate && (
-            <button
-              type="button"
+            <Button
+             
               onClick={() => setCreateOpen(true)}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90"
+             
             >
               <Plus size={17} /> New request
-            </button>
+            </Button>
           )}
         </>}
       />
@@ -1644,23 +1646,23 @@ function BatchRequestsSection() {
                       </td>
                       <td className="px-5 py-4">
                         {canApprove && isPending ? (
-                          <button
-                            type="button"
+                          <Button variant="secondary" size="sm"
+                           
                             disabled={readOnly}
                             onClick={() => setDecisionTarget(r)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-primary px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/5"
+                           
                           >
                             Review
-                          </button>
+                          </Button>
                         ) : (
-                          <button
-                            type="button"
+                          <Button variant="secondary" size="sm"
+                           
                             disabled={readOnly}
                             onClick={() => setDecisionTarget(r)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted"
+                           
                           >
                             View
-                          </button>
+                          </Button>
                         )}
                       </td>
                     </tr>

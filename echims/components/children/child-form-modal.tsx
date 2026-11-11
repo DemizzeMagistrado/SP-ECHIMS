@@ -18,6 +18,8 @@ import { saveChildDraft, type ChildRegistrationDraft } from '@/lib/child-registr
 // CP-USR002 — Structured 4-level dropdown for Birth place (region → brgy).
 import { PhilippineAddressPicker } from "@/components/children/philippine-address-picker";
 import { Spinner } from '@/components/brand/logo-loader'
+import { Button } from '@/components/ui/button'
+import { Input, Select, Textarea } from '@/components/ui/form'
 
 type Mode = "create" | "edit";
 type Barangay = { barangay_id: number; barangay_name: string };
@@ -249,12 +251,12 @@ function Field({
         {label}
         {required ? " *" : ""}
       </span>
-      <input
+      <Input
         required={required}
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-10 rounded-lg border border-border px-3"
+        className="h-10"
       />
     </label>
   );
@@ -283,23 +285,23 @@ function SelectField({
         {label}
         {required ? " *" : ""}
       </span>
-      <select
+      <Select
         required={required}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-10 rounded-lg border border-border bg-white px-3"
+        className="h-10"
       >
         <option value="">Select</option>
         {values.map((item) => (
           <option key={item}>{item}</option>
         ))}
-      </select>
+      </Select>
       {value === "Other" && (
-        <input
+        <Input
           value={otherValue}
           onChange={(e) => onOtherChange?.(e.target.value)}
           placeholder="Please specify"
-          className="h-10 rounded-lg border border-border px-3"
+          className="h-10"
         />
       )}
     </label>
@@ -692,7 +694,7 @@ export function ChildFormModal({
           />
           <label className="grid gap-1 text-sm">
             <span className="font-medium">Current barangay *</span>
-            <select
+            <Select
               required
               value={String(form.barangay_id)}
               onChange={(e) => {
@@ -700,7 +702,7 @@ export function ChildFormModal({
                 set("household_id", "");
                 setHouseholdQuery("");
               }}
-              className="h-10 rounded-lg border border-border bg-white px-3"
+              className="h-10"
             >
               <option value="">Select barangay</option>
               {(barangays ?? []).map((b) => (
@@ -708,14 +710,14 @@ export function ChildFormModal({
                   {b.barangay_name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         </Section>
 
         <Section title="Household">
           <div className="relative grid gap-1 text-sm sm:col-span-3">
             <span className="font-medium">Existing household</span>
-            <input
+            <Input
               value={householdQuery}
               onChange={(e) => {
                 setHouseholdQuery(e.target.value);
@@ -727,7 +729,7 @@ export function ChildFormModal({
                   ? "Type household number or address to search..."
                   : "Select a barangay first"
               }
-              className="h-10 rounded-lg border border-border px-3 disabled:bg-muted"
+              className="h-10"
             />
             {!newHousehold &&
               !form.household_id &&
@@ -810,7 +812,7 @@ export function ChildFormModal({
         <Section title="Guardian">
           <div className="relative grid gap-1 text-sm sm:col-span-3">
             <span className="font-medium">Existing guardian</span>
-            <input
+            <Input
               value={guardianQuery}
               onChange={(e) => {
                 setGuardianQuery(e.target.value);
@@ -818,7 +820,7 @@ export function ChildFormModal({
               }}
               disabled={newGuardian}
               placeholder="Type guardian name to search..."
-              className="h-10 rounded-lg border border-border px-3 disabled:bg-muted"
+              className="h-10"
             />
             {!newGuardian && !form.guardian_id && guardianQuery.length > 1 && (
               <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-56 overflow-auto rounded-lg border border-border bg-white shadow-lg">
@@ -1066,39 +1068,39 @@ export function ChildFormModal({
               </label>
             </div>
             {Boolean(form.has_others) && (
-              <input
+              <Input
                 value={String(form.medical_history_other)}
                 onChange={(e) => set("medical_history_other", e.target.value)}
                 placeholder="Please specify other condition"
-                className="h-10 w-full rounded-lg border border-border px-3"
+                className="h-10"
               />
             )}
             <label className="block text-xs text-muted-foreground">
               Additional notes (optional)
             </label>
-            <textarea
+            <Textarea
               value={String(form.medical_history_notes)}
               onChange={(e) => set("medical_history_notes", e.target.value)}
               placeholder="e.g. allergies, past hospitalizations, ongoing medications..."
-              className="min-h-20 w-full rounded-lg border border-border p-3"
+              className="min-h-20"
             />
           </fieldset>
         </Section>
 
         <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-5">
-          {mode==='create' && <button type="button" disabled={saving} onClick={saveLocalDraft} className="rounded-lg border border-primary px-4 py-2 font-semibold text-primary hover:bg-sky-50 disabled:opacity-60">{saving?'Saving...':'Save Draft on Device'}</button>}
-          <button
-            type="button"
+          {mode==='create' && <Button variant="secondary" disabled={saving} onClick={saveLocalDraft}>{saving?'Saving...':'Save Draft on Device'}</Button>}
+          <Button variant="secondary"
+           
             onClick={onClose}
-            className="rounded-lg border border-border px-4 py-2"
+           
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
             hidden={mode==='create' && !online}
             disabled={saving || Boolean(draft && online && !reviewed)}
-            className="rounded-lg bg-primary px-5 py-2 text-white disabled:opacity-60"
+           
           >
             {saving && <Spinner className="mr-2" />}
             {saving
@@ -1106,7 +1108,7 @@ export function ChildFormModal({
               : mode === "edit"
                 ? "Save Changes"
                 : !online ? "Save Draft on Device" : draft ? "Upload Reviewed Draft" : "Save Child Record"}
-          </button>
+          </Button>
         </div>
       </form>
     </div>

@@ -23,6 +23,8 @@ import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FileText, SearchX } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 type Options = {
   currentUserId: string;
   role: string;
@@ -380,14 +382,14 @@ export default function ReportsPage() {
               ? "Loading report permissions and assigned barangays…"
               : "Report options have not loaded yet."}
           </p>
-          <button
-            type="button"
+          <Button variant="secondary"
+           
             disabled={busy}
-            className="rounded-lg border px-4 py-2"
+           
             onClick={() => setReload((v) => v + 1)}
           >
             Retry loading reports
-          </button>
+          </Button>
           <p className="text-xs text-muted-foreground">
             If this stays loading, check the browser Console for a JavaScript
             error.
@@ -400,14 +402,14 @@ export default function ReportsPage() {
             <h2 className="font-semibold">
               Saved report versions ({options.total})
             </h2>
-            <button
-              type="button"
+            <Button variant="secondary"
+             
               disabled={busy || loading}
-              className="rounded-lg border px-3 py-2"
+             
               onClick={() => setReload((v) => v + 1)}
             >
               Refresh
-            </button>
+            </Button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -472,27 +474,27 @@ export default function ReportsPage() {
             </table>
           </div>
           <div className="flex items-center gap-3">
-            <button
+            <Button variant="secondary" size="sm" type="submit"
               disabled={page === 1 || busy || loading}
               onClick={() => {
                 clear();
                 setPage((v) => v - 1);
               }}
-              className="rounded-lg border px-3 py-1"
+             
             >
               Previous
-            </button>
+            </Button>
             <span>Page {page}</span>
-            <button
+            <Button variant="secondary" size="sm" type="submit"
               disabled={page * 50 >= options.total || busy || loading}
               onClick={() => {
                 clear();
                 setPage((v) => v + 1);
               }}
-              className="rounded-lg border px-3 py-1"
+             
             >
               Next
-            </button>
+            </Button>
           </div>
         </section>
       )}
@@ -542,10 +544,10 @@ export default function ReportsPage() {
             </label>
             <label className="text-sm">
               Start
-              <input
+              <DateInput
                 disabled={busy}
-                type="date"
-                className="mt-1 w-full rounded-lg border p-2"
+               
+                className="mt-1"
                 value={range.start}
                 onChange={(e) => {
                   clear();
@@ -556,10 +558,10 @@ export default function ReportsPage() {
             </label>
             <label className="text-sm">
               End
-              <input
+              <DateInput
                 disabled={busy}
-                type="date"
-                className="mt-1 w-full rounded-lg border p-2"
+               
+                className="mt-1"
                 value={range.end}
                 onChange={(e) => {
                   clear();
@@ -570,9 +572,9 @@ export default function ReportsPage() {
             </label>
             <label className="text-sm">
               Barangay
-              <select
+              <Select
                 disabled={busy}
-                className="mt-1 w-full rounded-lg border p-2"
+                className="mt-1"
                 value={barangay}
                 onChange={(e) => {
                   clear();
@@ -585,15 +587,15 @@ export default function ReportsPage() {
                     {b.barangay_name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
           </div>
           {module === "INVENTORY" && (
             <div className="flex gap-3">
-              <select
+              <Select
                 disabled={busy}
                 aria-label="Inventory view"
-                className="rounded-lg border p-2"
+               
                 value={inventoryView}
                 onChange={(e) => {
                   clear();
@@ -602,11 +604,11 @@ export default function ReportsPage() {
               >
                 <option value="STOCK">Current stock</option>
                 <option value="TRANSACTIONS">Transactions in period</option>
-              </select>
-              <select
+              </Select>
+              <Select
                 disabled={busy}
                 aria-label="Item type"
-                className="rounded-lg border p-2"
+               
                 value={itemType}
                 onChange={(e) => {
                   clear();
@@ -616,38 +618,38 @@ export default function ReportsPage() {
                 <option value="ALL">Vaccines and supplements</option>
                 <option value="VACCINE">Vaccines</option>
                 <option value="SUPPLEMENT">Supplements</option>
-              </select>
+              </Select>
             </div>
           )}
-          <button
-            type="button"
+          <Button variant="secondary"
+           
             disabled={loading || busy || !range.start || !range.end}
-            className="rounded-lg border px-4 py-2"
+           
             onClick={() => void loadView()}
           >
             View Preview
-          </button>
+          </Button>
           {options.canGenerate && preview && (
             <div className="flex flex-wrap items-end gap-3">
               <label className="text-sm">
                 Report title
-                <input
+                <Input
                   disabled={busy}
                   maxLength={200}
                   value={title}
                   placeholder={`${labels[module]} ${range.start} to ${range.end}`}
-                  className="mt-1 w-full rounded-lg border p-2"
+                  className="mt-1"
                   onChange={(e) => setTitle(e.target.value)}
                 />
               </label>
-              <button
-                type="button"
+              <Button
+               
                 disabled={busy || loading}
-                className="rounded-lg bg-primary px-4 py-2 text-white"
+               
                 onClick={() => void write("GENERATE")}
               >
                 Generate and Submit to PHN
-              </button>
+              </Button>
             </div>
           )}
         </section>
@@ -776,43 +778,43 @@ export default function ReportsPage() {
             <div className="space-y-3 rounded-lg border p-4">
               <label className="block text-sm">
                 Review remarks
-                <textarea
+                <Textarea
                   disabled={busy}
                   maxLength={2000}
-                  className="mt-1 w-full rounded-lg border p-2"
+                  className="mt-1"
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
                 />
               </label>
               <div className="flex gap-2">
-                <button
-                  type="button"
+                <Button
+                 
                   disabled={busy || loading}
-                  className="rounded-lg bg-primary px-4 py-2 text-white"
+                 
                   onClick={() => void write("VALIDATE")}
                 >
                   Validate Report
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button variant="secondary"
+                 
                   disabled={busy || loading}
-                  className="rounded-lg border px-4 py-2"
+                 
                   onClick={() => void write("RETURN")}
                 >
                   Return with Remarks
-                </button>
+                </Button>
               </div>
             </div>
           )}
           {detail?.canRegenerate && (
-            <button
-              type="button"
+            <Button variant="secondary"
+             
               disabled={busy || loading}
-              className="rounded-lg border px-4 py-2"
+             
               onClick={() => void write("GENERATE", true)}
             >
               Generate New Version
-            </button>
+            </Button>
           )}
           {![
             "NUTRITION",
@@ -853,13 +855,13 @@ export default function ReportsPage() {
                 </table>
               </div>
               {visible < shown.rows.length && (
-                <button
-                  type="button"
-                  className="rounded-lg border px-4 py-2"
+                <Button variant="secondary"
+                 
+                 
                   onClick={() => setVisible((v) => v + 100)}
                 >
                   Show more ({visible} of {shown.rows.length})
-                </button>
+                </Button>
               )}
             </>
           )}

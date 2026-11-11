@@ -19,6 +19,8 @@ import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { LogoLoader } from '@/components/brand/logo-loader'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/form'
 
 type TracePayload = {
   batch_number: string
@@ -128,18 +130,18 @@ export default function BatchTracePage() {
           <label htmlFor="bt-q" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Batch number</label>
           <div className="relative">
             <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input id="bt-q" type="text" value={query} onChange={(e) => setQuery(e.target.value)} required placeholder="e.g. BCG-2026-001"
-              className="w-full rounded-lg border border-border pl-9 pr-3 py-2 text-sm outline-none focus:border-primary" />
+            <Input id="bt-q" type="text" value={query} onChange={(e) => setQuery(e.target.value)} required placeholder="e.g. BCG-2026-001"
+              className="pl-9 pr-3" />
           </div>
         </div>
-        <button type="submit" className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
+        <Button type="submit">
           <Search size={14} /> Trace
-        </button>
+        </Button>
         {data && (
-          <button type="button" onClick={downloadCsv}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted">
+          <Button variant="secondary" onClick={downloadCsv}
+           >
             <Download size={14} /> Export CSV
-          </button>
+          </Button>
         )}
       </form>
 

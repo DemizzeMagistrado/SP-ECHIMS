@@ -3,6 +3,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import { useState } from "react";
 import { Spinner } from '@/components/brand/logo-loader'
+import { Button } from '@/components/ui/button'
 
 type Props = {
   guardian: {
@@ -131,25 +132,25 @@ export function GuardianSmsConsent({ guardian, canEdit, onSaved }: Props) {
               </span>
             </label>
           )}
-          <button
-            type="button"
+          <Button
+           
             disabled={!number || !confirmed || saving}
             onClick={() => void save(true)}
-            className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+           
           >
             {saving && <Spinner className="mr-2" />}{saving ? "Saving..." : "Confirm SMS Consent"}
-          </button>
+          </Button>
         </>
       )}
       {canEdit && (enabled || guardian.sms_opt_in === true) && (
-        <button
-          type="button"
+        <Button variant="secondary"
+         
           disabled={saving}
           onClick={() => void save(false)}
-          className="rounded-lg border border-border px-3 py-2 text-sm font-medium disabled:opacity-50"
+         
         >
           {saving && <Spinner className="mr-2" />}{saving ? "Saving..." : "Disable SMS Reminders"}
-        </button>
+        </Button>
       )}
       {error && (
         <p role="alert" className="text-sm text-red-600">

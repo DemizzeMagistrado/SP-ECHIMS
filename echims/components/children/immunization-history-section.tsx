@@ -19,6 +19,7 @@ import { canPerform, type UserRole } from '@/lib/echims-data'
 import { RecordPriorVaccinationModal } from '@/components/vaccination/record-prior-vaccination-modal'
 import { Spinner } from '@/components/brand/logo-loader'
 import { EmptyState } from '@/components/ui/empty-state'
+import { Select } from '@/components/ui/form'
 type DoseStatus = 'COMPLETE' | 'DUE' | 'OVERDUE' | 'UPCOMING'
 type DoseRow = {
   dose_number: number
@@ -197,26 +198,26 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
             {/* Filters */}
             <div className="flex flex-wrap items-center gap-2 print:hidden">
               <Filter size={14} className="text-muted-foreground" />
-              <select
+              <Select
                 value={vaccineFilter}
                 onChange={(e) => setVaccineFilter(e.target.value)}
-                className="rounded-lg border border-border bg-white px-3 py-1.5 text-xs outline-none focus:border-primary"
+               
               >
                 <option value="">All vaccines</option>
                 {data.vaccine_status.map((v) => (
                   <option key={v.code} value={v.code}>{v.vaccine_type}</option>
                 ))}
-              </select>
-              <select
+              </Select>
+              <Select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as DoseStatus | '')}
-                className="rounded-lg border border-border bg-white px-3 py-1.5 text-xs outline-none focus:border-primary"
+               
               >
                 <option value="">All statuses</option>
                 {(['COMPLETE', 'DUE', 'OVERDUE', 'UPCOMING'] as const).map((s) => (
                   <option key={s} value={s}>{STATUS_META[s].label}</option>
                 ))}
-              </select>
+              </Select>
             </div>
             {/* Table */}
             {rows.length === 0 ? (

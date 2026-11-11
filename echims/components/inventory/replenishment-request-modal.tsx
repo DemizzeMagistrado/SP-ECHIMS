@@ -10,6 +10,8 @@ import useSWR from 'swr'
 import { X, Package, MapPin, AlertCircle, PackagePlus } from 'lucide-react'
 import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
+import { Button } from '@/components/ui/button'
+import { Input, Select, Textarea } from '@/components/ui/form'
 
 type Item = { item_id: number; item_name: string; unit: string; kind: string }
 type Barangay = { barangay_id: number; barangay_name: string }
@@ -126,25 +128,25 @@ export function ReplenishmentRequestModal({ open, onClose, onSaved }: Props) {
               <label htmlFor="rr-item" className="mb-1 block text-sm font-semibold text-foreground">
                 <Package size={13} className="mr-1 inline" /> Item *
               </label>
-              <select id="rr-item" value={itemId} onChange={(e) => setItemId(e.target.value)} required disabled={itemsSWR.isLoading}
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50">
+              <Select id="rr-item" value={itemId} onChange={(e) => setItemId(e.target.value)} required disabled={itemsSWR.isLoading}
+               >
                 <option value="">{itemsSWR.isLoading ? 'Loading…' : 'Select an item…'}</option>
                 {items.map((it) => (
                   <option key={it.item_id} value={it.item_id}>
                     {it.kind === 'vaccine' ? '💉' : '💊'} {it.item_name} ({it.unit})
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div>
               <label htmlFor="rr-brgy" className="mb-1 block text-sm font-semibold text-foreground">
                 <MapPin size={13} className="mr-1 inline" /> Receiving barangay *
               </label>
-              <select id="rr-brgy" value={barangayId} onChange={(e) => setBarangayId(e.target.value)} required disabled={brgysSWR.isLoading}
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50">
+              <Select id="rr-brgy" value={barangayId} onChange={(e) => setBarangayId(e.target.value)} required disabled={brgysSWR.isLoading}
+               >
                 <option value="">{brgysSWR.isLoading ? 'Loading…' : 'Select a barangay…'}</option>
                 {barangays.map((b) => <option key={b.barangay_id} value={b.barangay_id}>{b.barangay_name}</option>)}
-              </select>
+              </Select>
             </div>
           </div>
 
@@ -163,18 +165,18 @@ export function ReplenishmentRequestModal({ open, onClose, onSaved }: Props) {
             <label htmlFor="rr-qty" className="mb-1 block text-sm font-semibold text-foreground">
               Quantity requested *
             </label>
-            <input id="rr-qty" type="number" min="1" step="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} required
+            <Input id="rr-qty" type="number" min="1" step="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} required
               placeholder="e.g. 100"
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary" />
+              />
           </div>
 
           <div>
             <label htmlFor="rr-remarks" className="mb-1 block text-sm font-semibold text-foreground">
               Remarks <span className="text-xs font-normal text-muted-foreground">(optional)</span>
             </label>
-            <textarea id="rr-remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} rows={2}
+            <Textarea id="rr-remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} rows={2}
               placeholder="e.g. Expecting campaign next week — need buffer"
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary" />
+              />
           </div>
 
           {formError && (
@@ -184,15 +186,15 @@ export function ReplenishmentRequestModal({ open, onClose, onSaved }: Props) {
           )}
 
           <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-            <button type="button" onClick={onClose} disabled={saving}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50">
+            <Button variant="secondary" onClick={onClose} disabled={saving}
+             >
               Cancel
-            </button>
-            <button type="submit" disabled={saving}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60">
+            </Button>
+            <Button type="submit" disabled={saving}
+             >
               {saving ? <Spinner /> : <PackagePlus size={14} />}
               {saving ? 'Submitting…' : 'Submit request'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

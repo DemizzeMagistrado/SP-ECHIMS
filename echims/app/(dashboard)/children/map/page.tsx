@@ -13,6 +13,7 @@ import Link from 'next/link'
 import { useMemo } from 'react'
 import { PagePending } from '@/components/brand/page-gate'
 import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
 
 const BarangayMap = dynamic(() => import('@/components/geospatial/barangay-map-impl'), {
   ssr: false,
@@ -82,12 +83,12 @@ export default function ChildrenMapPage() {
         title="Child Profiling · Map"
         subtitle="Where your registered children live. Polygons show per-barangay counts."
         actions={<>
-          <button
+          <Button variant="secondary" size="sm" type="submit"
             onClick={() => mutate()}
-            className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-muted-foreground hover:bg-muted"
+           
           >
             Refresh
-          </button>
+          </Button>
         </>}
       />
 

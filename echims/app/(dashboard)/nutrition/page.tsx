@@ -37,6 +37,8 @@ import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/form'
 type Relation<T> = T | T[] | null;
 type Barangay = {
   barangay_id: number;
@@ -2020,8 +2022,8 @@ export default function NutritionPage() {
         actions={<>
           {data?.role === "BNS" && (
             <div className="flex flex-col items-end gap-1">
-              <button
-                type="button"
+              <Button
+               
                 disabled={!canRecord || !ownerId || accessDenied}
                 title={
                   !data
@@ -2043,11 +2045,11 @@ export default function NutritionPage() {
                         : `${reportYear}-12-31`,
                   });
                 }}
-                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
+               
               >
                 <Plus size={20} />
                 Record Assessment
-              </button>
+              </Button>
               {!canRecord && (
                 <span className="text-xs text-muted-foreground">
                   Recording permission is unavailable for this account.
@@ -2119,8 +2121,8 @@ export default function NutritionPage() {
                 Eligible drafts sync automatically when online. Conflicts remain for recorder review.
               </p>
             </div>
-            <button
-              type="button"
+            <Button variant="secondary"
+             
               disabled={
                 !online ||
                 !ownerId ||
@@ -2130,14 +2132,14 @@ export default function NutritionPage() {
                 queued.length === 0
               }
               onClick={() => void reviewQueue()}
-              className="rounded-lg border border-border bg-white px-3 py-2 text-sm disabled:opacity-50"
+             
             >
               {syncing
                 ? "Uploading…"
                 : reviewing
                   ? "Checking drafts…"
                   : "Review pending drafts"}
-            </button>
+            </Button>
           </div>
           {queued.map((row) => (
             <div
@@ -2193,24 +2195,24 @@ export default function NutritionPage() {
           <label htmlFor="nutrition-year" className="text-sm font-medium">
             Year
           </label>
-          <select
+          <Select
             id="nutrition-year"
             value={reportYear}
             onChange={(event) => setReportYear(event.target.value)}
-            className="rounded-lg border border-border bg-white px-3 py-2"
+           
           >
             {years.map((year) => (
               <option key={year}>{year}</option>
             ))}
-          </select>
+          </Select>
           <label htmlFor="nutrition-barangay" className="text-sm font-medium">
             Barangay
           </label>
-          <select
+          <Select
             id="nutrition-barangay"
             value={reportBarangay}
             onChange={(event) => setReportBarangay(event.target.value)}
-            className="rounded-lg border border-border bg-white px-3 py-2"
+           
           >
             <option value="All">All accessible barangays</option>
             {barangays.map((b) => (
@@ -2218,7 +2220,7 @@ export default function NutritionPage() {
                 {b.barangay_name} — {b.municipality}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       )}
       {reportView === "Admissions" && ownerId && (
@@ -2319,16 +2321,16 @@ export default function NutritionPage() {
             <label htmlFor="nutrition-category" className="text-sm font-medium">
               Classification view
             </label>
-            <select
+            <Select
               id="nutrition-category"
               value={category}
               onChange={(event) => setCategory(event.target.value)}
-              className="rounded-lg border border-border bg-white px-3 py-2"
+             
             >
               {allCategories.map((name) => (
                 <option key={name}>{name}</option>
               ))}
-            </select>
+            </Select>
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -2635,15 +2637,15 @@ export default function NutritionPage() {
             })}
           </div>
           <div className="mt-6 flex justify-end gap-3">
-            <button
-              type="button"
+            <Button variant="secondary"
+             
               onClick={() => setSyncReview(null)}
-              className="rounded-lg border border-border px-4 py-2"
+             
             >
               Back to drafts
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+             
               disabled={
                 !online ||
                 !canRecord ||
@@ -2651,10 +2653,10 @@ export default function NutritionPage() {
                 syncing
               }
               onClick={() => void confirmReview()}
-              className="rounded-lg bg-primary px-4 py-2 text-white disabled:opacity-50"
+             
             >
               Confirm upload ({syncReview.selectedIds.length})
-            </button>
+            </Button>
           </div>
         </Modal>
       )}
@@ -2963,20 +2965,20 @@ export default function NutritionPage() {
               </p>
             </fieldset>
             <div className="flex justify-end gap-3">
-              <button
-                type="button"
+              <Button variant="secondary"
+               
                 disabled={saving}
                 onClick={() => setDraft(null)}
-                className="rounded-lg border border-border px-4 py-2 disabled:opacity-50"
+               
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
                 disabled={
                   saving || !child || !canRecord || accessDenied || !ownerId
                 }
-                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white disabled:opacity-50"
+               
               >
                 {saving && <Spinner />}
                 {saving
@@ -2986,7 +2988,7 @@ export default function NutritionPage() {
                     : online
                       ? "Save Assessment"
                       : "Save Offline Draft"}
-              </button>
+              </Button>
             </div>
           </form>
         </Modal>

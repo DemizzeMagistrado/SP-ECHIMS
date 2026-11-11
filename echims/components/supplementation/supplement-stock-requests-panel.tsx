@@ -5,6 +5,8 @@ import { Package, X } from "lucide-react";
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
+import { Button } from '@/components/ui/button'
+import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 type Product = { supplement_id: number; name: string; unit: string };
 type Barangay = {
   barangay_id: number;
@@ -260,14 +262,14 @@ export function SupplementStockRequestsPanel({
           </p>
         </div>
         <div className="flex gap-2">
-          <button
-            type="button"
+          <Button variant="secondary"
+           
             disabled={loading || busy || !online}
-            className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
+           
             onClick={() => setReload((v) => v + 1)}
           >
             Refresh
-          </button>
+          </Button>
           {data?.canRequest && (
             <button
               type="button"
@@ -397,10 +399,10 @@ export function SupplementStockRequestsPanel({
                           <td className="p-3">
                             {data.canReject && r.status === "PENDING" ? (
                               <div className="space-y-2">
-                                <button
-                                  type="button"
+                                <Button variant="secondary" size="sm"
+                                 
                                   disabled={busy || !online || !data.canApprove}
-                                  className="rounded-lg border px-3 py-1.5 text-xs disabled:opacity-50"
+                                 
                                   onClick={() => {
                                     setApprove(r);
                                     setError("");
@@ -413,7 +415,7 @@ export function SupplementStockRequestsPanel({
                                   }}
                                 >
                                   Approve Batch
-                                </button>
+                                </Button>
                                 <button
                                   type="button"
                                   disabled={busy || !online}
@@ -480,10 +482,10 @@ export function SupplementStockRequestsPanel({
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block text-sm">
                 Supplement
-                <select
+                <Select
                   required
                   disabled={busy}
-                  className="mt-1 w-full rounded-2xl border p-2.5"
+                  className="mt-1"
                   value={form.supplementId}
                   onChange={(e) => change("supplementId", e.target.value)}
                 >
@@ -493,14 +495,14 @@ export function SupplementStockRequestsPanel({
                       {p.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label className="block text-sm">
                 Assigned barangay
-                <select
+                <Select
                   required
                   disabled={busy}
-                  className="mt-1 w-full rounded-2xl border p-2.5"
+                  className="mt-1"
                   value={form.barangayId}
                   onChange={(e) => change("barangayId", e.target.value)}
                 >
@@ -510,28 +512,28 @@ export function SupplementStockRequestsPanel({
                       {b.barangay_name} · {b.rhu_name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label className="block text-sm">
                 Quantity ({product?.unit || "stock units"})
-                <input
+                <Input
                   required
                   disabled={busy}
                   type="number"
                   min="1"
                   max="1000000"
                   step="1"
-                  className="mt-1 w-full rounded-2xl border p-2.5"
+                  className="mt-1"
                   value={form.quantity}
                   onChange={(e) => change("quantity", e.target.value)}
                 />
               </label>
               <label className="block text-sm sm:col-span-2">
                 Remarks
-                <textarea
+                <Textarea
                   disabled={busy}
                   maxLength={2000}
-                  className="mt-1 w-full rounded-2xl border p-2.5"
+                  className="mt-1"
                   value={form.remarks}
                   onChange={(e) => change("remarks", e.target.value)}
                 />
@@ -555,14 +557,14 @@ export function SupplementStockRequestsPanel({
               >
                 {busy && <Spinner className="mr-2" />}{busy ? "Saving…" : "Submit Request"}
               </button>
-              <button
-                type="button"
+              <Button variant="secondary"
+               
                 disabled={busy}
-                className="rounded-lg border px-4 py-2 text-sm"
+               
                 onClick={() => setOpen(false)}
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         </div>
@@ -609,11 +611,11 @@ export function SupplementStockRequestsPanel({
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm">
                 Batch number
-                <input
+                <Input
                   required
                   maxLength={100}
                   disabled={busy}
-                  className="mt-1 w-full rounded-2xl border p-2.5"
+                  className="mt-1"
                   value={batch.batchNumber}
                   onChange={(e) =>
                     setBatch((f) => ({ ...f, batchNumber: e.target.value }))
@@ -622,11 +624,11 @@ export function SupplementStockRequestsPanel({
               </label>
               <label className="text-sm">
                 Expiry date
-                <input
-                  type="date"
+                <DateInput
+                 
                   required
                   disabled={busy}
-                  className="mt-1 w-full rounded-2xl border p-2.5"
+                  className="mt-1"
                   value={batch.expiryDate}
                   onChange={(e) =>
                     setBatch((f) => ({ ...f, expiryDate: e.target.value }))
@@ -635,13 +637,13 @@ export function SupplementStockRequestsPanel({
               </label>
               <label className="text-sm">
                 Allocation date
-                <input
-                  type="date"
+                <DateInput
+                 
                   required
                   max={manilaToday()}
                   min={approve.request_date}
                   disabled={busy}
-                  className="mt-1 w-full rounded-2xl border p-2.5"
+                  className="mt-1"
                   value={batch.receivedDate}
                   onChange={(e) =>
                     setBatch((f) => ({ ...f, receivedDate: e.target.value }))
@@ -662,14 +664,14 @@ export function SupplementStockRequestsPanel({
               >
                 {busy && <Spinner className="mr-2" />}{busy ? "Saving…" : "Approve and Add Batch Stock"}
               </button>
-              <button
-                type="button"
+              <Button variant="secondary"
+               
                 disabled={busy}
-                className="rounded-lg border px-4 py-2 text-sm"
+               
                 onClick={() => setApprove(null)}
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         </div>
@@ -691,11 +693,11 @@ export function SupplementStockRequestsPanel({
             </h3>
             <label className="block text-sm">
               Reason
-              <textarea
+              <Textarea
                 required
                 disabled={busy}
                 maxLength={2000}
-                className="mt-1 w-full rounded-2xl border p-2.5"
+                className="mt-1"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
               />
@@ -713,14 +715,14 @@ export function SupplementStockRequestsPanel({
               >
                 Confirm Rejection
               </button>
-              <button
-                type="button"
+              <Button variant="secondary"
+               
                 disabled={busy}
-                className="rounded-lg border px-4 py-2 text-sm"
+               
                 onClick={() => setReject(null)}
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         </div>

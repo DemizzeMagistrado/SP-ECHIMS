@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { X, AlertCircle, Syringe, Hash, Droplet, MapPin, Calendar, BookOpen, Shield, Info, Link as LinkIcon } from 'lucide-react'
 import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
+import { Button } from '@/components/ui/button'
 
 export type VaccineCatalogRow = {
   vaccine_id: number
@@ -267,9 +268,9 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
           {!confirming ? (
             <div className="flex items-center justify-end gap-2">
               <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel</button>
-              <button type="submit" onClick={requestSave} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
+              <Button type="submit" onClick={requestSave}>
                 {isEdit ? 'Review changes' : 'Review new vaccine'}
-              </button>
+              </Button>
             </div>
           ) : (
             <div className="space-y-3">

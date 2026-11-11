@@ -25,6 +25,8 @@ import {
 } from 'lucide-react'
 import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
+import { Button } from '@/components/ui/button'
+import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 
 type VaccineOption = {
   vaccine_id: number
@@ -189,19 +191,19 @@ export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, c
             ) : error ? (
               <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error.message}</div>
             ) : (
-              <select
+              <Select
                 id="vaccine"
                 value={vaccineId}
                 onChange={(e) => setVaccineId(e.target.value)}
                 required
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary"
+               
               >
                 <option value="">Select a vaccine…</option>
                 {vaccines.map((v) => {
                   const name = one(v.item)?.item_name ?? v.vaccine_type
                   return <option key={v.vaccine_id} value={v.vaccine_id}>{name} ({v.vaccine_type})</option>
                 })}
-              </select>
+              </Select>
             )}
             {selectedVaccine && (
               <p className="mt-1 text-xs text-muted-foreground">
@@ -216,7 +218,7 @@ export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, c
               <label htmlFor="dose" className="mb-1 block text-sm font-semibold text-foreground">
                 <Hash size={13} className="mr-1 inline" /> Dose number *
               </label>
-              <input
+              <Input
                 id="dose"
                 type="number"
                 min="1"
@@ -224,21 +226,21 @@ export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, c
                 value={doseNumber}
                 onChange={(e) => setDoseNumber(e.target.value)}
                 required
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+               
               />
             </div>
             <div>
               <label htmlFor="date" className="mb-1 block text-sm font-semibold text-foreground">
                 <Calendar size={13} className="mr-1 inline" /> Date given *
               </label>
-              <input
+              <DateInput
                 id="date"
-                type="date"
+               
                 max={new Date().toISOString().slice(0, 10)}
                 value={vaccinationDate}
                 onChange={(e) => setVaccinationDate(e.target.value)}
                 required
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+               
               />
             </div>
           </div>
@@ -249,23 +251,23 @@ export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, c
               <FileText size={13} className="mr-1 inline" /> Record source *
             </label>
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-              <select
+              <Select
                 id="source-preset"
                 value={sourcePreset}
                 onChange={(e) => setSourcePreset(e.target.value)}
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary"
+               
               >
                 {SOURCE_PRESETS.map((s) => <option key={s} value={s}>{s}</option>)}
                 <option value="Other">Other (specify)</option>
-              </select>
+              </Select>
               {sourcePreset === 'Other' && (
-                <input
+                <Input
                   type="text"
                   value={sourceCustom}
                   onChange={(e) => setSourceCustom(e.target.value)}
                   placeholder="e.g. Transferred from Legazpi RHU"
                   required
-                  className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+                 
                 />
               )}
             </div>
@@ -278,26 +280,26 @@ export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, c
               <label htmlFor="batch" className="mb-1 block text-sm font-semibold text-foreground">
                 Batch number <span className="text-muted-foreground font-normal">(optional)</span>
               </label>
-              <input
+              <Input
                 id="batch"
                 type="text"
                 value={batchNumber}
                 onChange={(e) => setBatchNumber(e.target.value)}
                 placeholder="If known"
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+               
               />
             </div>
             <div>
               <label htmlFor="site" className="mb-1 block text-sm font-semibold text-foreground">
                 <MapPin size={13} className="mr-1 inline" /> Site <span className="text-muted-foreground font-normal">(optional)</span>
               </label>
-              <input
+              <Input
                 id="site"
                 type="text"
                 value={site}
                 onChange={(e) => setSite(e.target.value)}
                 placeholder="e.g. Left thigh"
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+               
               />
             </div>
           </div>
@@ -307,13 +309,13 @@ export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, c
             <label htmlFor="remarks" className="mb-1 block text-sm font-semibold text-foreground">
               Remarks <span className="text-muted-foreground font-normal">(optional)</span>
             </label>
-            <textarea
+            <Textarea
               id="remarks"
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               rows={2}
               placeholder="Any notes about this prior record"
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+             
             />
           </div>
 
@@ -327,22 +329,22 @@ export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, c
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-            <button
-              type="button"
+            <Button variant="secondary"
+             
               onClick={onClose}
               disabled={saving}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50"
+             
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
+             
             >
               {saving ? <Spinner /> : <History size={14} />}
               {saving ? 'Saving…' : 'Save prior record'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

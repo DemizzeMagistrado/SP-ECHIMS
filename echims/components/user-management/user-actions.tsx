@@ -8,6 +8,8 @@ import { Pencil, Trash2, Save, X, AlertTriangle } from 'lucide-react'
 import { Spinner } from '@/components/brand/logo-loader'
 import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/form'
 
 type UserRow = {
   user_id: string
@@ -122,8 +124,8 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
           <div className="grid gap-3 md:grid-cols-2">
             <label className="grid gap-1 text-sm">
               <span className="font-semibold">Full name</span>
-              <input
-                className="rounded-lg border border-border px-3 py-2 outline-none focus:border-primary"
+              <Input
+               
                 value={draft.fullName}
                 onChange={(e) => setDraft({ ...draft, fullName: e.target.value })}
               />
@@ -138,9 +140,9 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
             </label>
             <label className="grid gap-1 text-sm">
               <span className="font-semibold">Email</span>
-              <input
+              <Input
                 type="email"
-                className="rounded-lg border border-border px-3 py-2 outline-none focus:border-primary"
+               
                 value={draft.email}
                 onChange={(e) => setDraft({ ...draft, email: e.target.value })}
               />
@@ -150,15 +152,15 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
             </label>
             <label className="grid gap-1 text-sm">
               <span className="font-semibold">Contact number</span>
-              <input
-                className="rounded-lg border border-border px-3 py-2 outline-none focus:border-primary"
+              <Input
+               
                 value={draft.contactNumber}
                 onChange={(e) => setDraft({ ...draft, contactNumber: e.target.value })}
               />
             </label>
           </div>
           <div className="mt-4 flex justify-end gap-2">
-            <button
+            <Button variant="secondary" size="sm" type="submit"
               onClick={() => {
                 setEditing(false)
                 setDraft({
@@ -169,24 +171,24 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
                 setMsg(null)
               }}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50"
+             
             >
               <X size={14} /> Cancel
-            </button>
-            <button
+            </Button>
+            <Button size="sm" type="submit"
               onClick={save}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50"
+             
             >
               {busy ? <Spinner /> : <Save size={14} />} {busy ? 'Saving...' : 'Save changes'}
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
       {!editing && (
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-4">
-          <button
+          <Button variant="secondary" size="sm" type="submit"
             onClick={() => {
               setDraft({
                 fullName: user.full_name,
@@ -196,10 +198,10 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
               setEditing(true)
               setMsg(null)
             }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-primary px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary/5"
+           
           >
             <Pencil size={14} /> Edit profile
-          </button>
+          </Button>
 
           {canDelete && (
             <button

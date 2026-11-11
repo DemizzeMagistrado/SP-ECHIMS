@@ -7,6 +7,7 @@ import type { RiskMonitoring } from '@/lib/nutrition-risk'
 import { formatChildId } from '@/lib/formatters'
 import { Spinner } from '@/components/brand/logo-loader'
 import { EmptyState } from '@/components/ui/empty-state'
+import { Button } from '@/components/ui/button'
 export function NutritionRiskMonitor({ monitoring, error, loading, offline, onRefresh }: { monitoring?: RiskMonitoring; error?: string; loading: boolean; offline: boolean; onRefresh: () => void }) {
   const [barangay, setBarangay] = useState('All')
   const [classification, setClassification] = useState('All')
@@ -20,7 +21,7 @@ export function NutritionRiskMonitor({ monitoring, error, loading, offline, onRe
     && (severity === 'All' || row.severity === severity) && (!worsenedOnly || row.worsening.length > 0))
   const counts = monitoring?.counts
   return <section className="nutrition-no-print space-y-5" aria-label="Nutritional risk monitoring">
-    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-xl font-bold"><AlertCircle size={20} />Nutritional risk monitoring</h2><p className="mt-1 text-sm text-muted-foreground">Current risks use the latest saved assessment per active child across all years.</p></div><button type="button" disabled={loading || offline} onClick={onRefresh} className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm disabled:opacity-50">{loading ? <Spinner /> : <RefreshCw size={16} />}Refresh</button></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-xl font-bold"><AlertCircle size={20} />Nutritional risk monitoring</h2><p className="mt-1 text-sm text-muted-foreground">Current risks use the latest saved assessment per active child across all years.</p></div><Button variant="secondary" disabled={loading || offline} onClick={onRefresh}>{loading ? <Spinner /> : <RefreshCw size={16} />}Refresh</Button></div>
     {offline && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Offline: this is the last account-specific snapshot. Reconnect and refresh to verify current risks and assignments.</p>}
     {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}{monitoring && ' Showing the last available results; refresh successfully before treating them as current.'}</p>}
     {loading && !monitoring ? <Spinner showLabel label="Loading risk monitoring…" className="w-full justify-center py-6 text-sm text-muted-foreground" /> : !monitoring ? <p className="rounded-lg bg-muted p-4 text-sm">Risk monitoring data is unavailable. Refresh online after installing the updated API and SQL migration.</p> : <>

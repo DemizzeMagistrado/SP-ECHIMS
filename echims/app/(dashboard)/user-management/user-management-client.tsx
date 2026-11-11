@@ -11,6 +11,7 @@ import {
 } from 'react'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
+import { Input, Select } from '@/components/ui/form'
 
 /* =========================================================
    TYPES
@@ -619,7 +620,7 @@ export default function UserManagementClient({
               Search
             </label>
 
-            <input
+            <Input
               type="text"
               value={search}
               onChange={(
@@ -630,7 +631,7 @@ export default function UserManagementClient({
                 )
               }
               placeholder="Search name, username, or email..."
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/20"
+             
             />
           </div>
 
@@ -639,7 +640,7 @@ export default function UserManagementClient({
               Account Status
             </label>
 
-            <select
+            <Select
               value={
                 statusFilter
               }
@@ -650,7 +651,7 @@ export default function UserManagementClient({
                   event.target.value
                 )
               }
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/20"
+             
             >
               <option value="ALL">
                 All statuses
@@ -671,7 +672,7 @@ export default function UserManagementClient({
               <option value="SUSPENDED">
                 Suspended
               </option>
-            </select>
+            </Select>
           </div>
 
           <div>
@@ -679,7 +680,7 @@ export default function UserManagementClient({
               Role
             </label>
 
-            <select
+            <Select
               value={
                 roleFilter
               }
@@ -690,7 +691,7 @@ export default function UserManagementClient({
                   event.target.value
                 )
               }
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/20"
+             
             >
               <option value="ALL">
                 All roles
@@ -715,7 +716,7 @@ export default function UserManagementClient({
               <option value="Barangay Nutrition Scholar">
                 Barangay Nutrition Scholar
               </option>
-            </select>
+            </Select>
           </div>
 
         </div>

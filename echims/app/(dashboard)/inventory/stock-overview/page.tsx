@@ -24,6 +24,8 @@ import { StockInModal } from '@/components/inventory/stock-in-modal'
 import { LogoLoader } from '@/components/brand/logo-loader'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/form'
 
 type Batch = { batch_id: number; batch_number: string; expiry_date: string; received_date: string; quantity_on_hand: number }
 type Item = { item_id: number; item_name: string; unit: string; status: string }
@@ -126,10 +128,10 @@ export default function StockOverviewPage() {
         subtitle="Real-time quantity-on-hand per item and barangay. Each row expands to show its batches with expiry."
         actions={<>
           {isPhn && (
-            <button type="button" onClick={() => setStockInOpen(true)}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90">
+            <Button onClick={() => setStockInOpen(true)}
+             >
               <Plus size={17} /> Record stock-in
-            </button>
+            </Button>
           )}
         </>}
       />
@@ -138,19 +140,19 @@ export default function StockOverviewPage() {
       <div className="flex flex-col gap-3 rounded-2xl border border-border bg-white p-4 md:flex-row md:items-center">
         <div className="flex-1">
           <label htmlFor="f-item" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Item</label>
-          <select id="f-item" value={itemFilter} onChange={(e) => setItemFilter(e.target.value)}
-            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary">
+          <Select id="f-item" value={itemFilter} onChange={(e) => setItemFilter(e.target.value)}
+           >
             <option value="">All items</option>
             {items.map((i) => <option key={i.item_id} value={i.item_id}>{i.item_name}</option>)}
-          </select>
+          </Select>
         </div>
         <div className="flex-1">
           <label htmlFor="f-brgy" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Barangay</label>
-          <select id="f-brgy" value={brgyFilter} onChange={(e) => setBrgyFilter(e.target.value)}
-            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary">
+          <Select id="f-brgy" value={brgyFilter} onChange={(e) => setBrgyFilter(e.target.value)}
+           >
             <option value="">All barangays</option>
             {barangays.map((b) => <option key={b.barangay_id} value={b.barangay_id}>{b.barangay_name}</option>)}
-          </select>
+          </Select>
         </div>
       </div>
 

@@ -30,6 +30,8 @@ import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/form'
 
 type Child = {
   child_id: number;
@@ -1692,10 +1694,10 @@ export default function SupplementsPage() {
                 ? "Clinical-Tier Administrations"
                 : "Recorded Administrations & Supply Issues"}
             </h2>
-            <input
+            <Input
               aria-label="Search child"
               placeholder="Search child name"
-              className="rounded-lg border px-3 py-2 text-sm"
+             
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
             />
@@ -2346,14 +2348,14 @@ export default function SupplementsPage() {
               </label>
             )}
             <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
+              <Button variant="secondary"
+               
                 disabled={saving}
                 onClick={() => setModal(null)}
-                className="rounded-lg border px-4 py-2"
+               
               >
                 Cancel
-              </button>
+              </Button>
               <button
                 disabled={
                   saving ||

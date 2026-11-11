@@ -16,6 +16,8 @@ import useSWR from 'swr'
 import { X, Package, Hash, Calendar, MapPin, Syringe, Pill, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
+import { Button } from '@/components/ui/button'
+import { DateInput, Input, Select } from '@/components/ui/form'
 
 type Item = { item_id: number; item_name: string; unit: string; kind: 'vaccine' | 'supplement'; code: string }
 type Barangay = { barangay_id: number; barangay_name: string }
@@ -138,15 +140,15 @@ export function StockInModal({ open, onClose, onSaved }: Props) {
               <label htmlFor="si-item" className="mb-1 block text-sm font-semibold text-foreground">
                 <Package size={13} className="mr-1 inline" /> Item *
               </label>
-              <select id="si-item" value={itemId} onChange={(e) => setItemId(e.target.value)} required disabled={itemsSWR.isLoading}
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50">
+              <Select id="si-item" value={itemId} onChange={(e) => setItemId(e.target.value)} required disabled={itemsSWR.isLoading}
+               >
                 <option value="">{itemsSWR.isLoading ? 'Loading…' : 'Select an item…'}</option>
                 {items.map((it) => (
                   <option key={it.item_id} value={it.item_id}>
                     {it.kind === 'vaccine' ? '💉' : '💊'} {it.item_name} ({it.unit})
                   </option>
                 ))}
-              </select>
+              </Select>
               {selectedItem && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   {selectedItem.kind === 'vaccine' ? <Syringe size={10} className="mr-1 inline" /> : <Pill size={10} className="mr-1 inline" />}
@@ -158,11 +160,11 @@ export function StockInModal({ open, onClose, onSaved }: Props) {
               <label htmlFor="si-brgy" className="mb-1 block text-sm font-semibold text-foreground">
                 <MapPin size={13} className="mr-1 inline" /> Barangay *
               </label>
-              <select id="si-brgy" value={barangayId} onChange={(e) => setBarangayId(e.target.value)} required disabled={brgysSWR.isLoading}
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50">
+              <Select id="si-brgy" value={barangayId} onChange={(e) => setBarangayId(e.target.value)} required disabled={brgysSWR.isLoading}
+               >
                 <option value="">{brgysSWR.isLoading ? 'Loading…' : 'Select a barangay…'}</option>
                 {barangays.map((b) => <option key={b.barangay_id} value={b.barangay_id}>{b.barangay_name}</option>)}
-              </select>
+              </Select>
             </div>
           </div>
 
@@ -171,17 +173,17 @@ export function StockInModal({ open, onClose, onSaved }: Props) {
               <label htmlFor="si-batch" className="mb-1 block text-sm font-semibold text-foreground">
                 <Hash size={13} className="mr-1 inline" /> Batch number *
               </label>
-              <input id="si-batch" type="text" value={batchNumber} onChange={(e) => setBatchNumber(e.target.value)} required
+              <Input id="si-batch" type="text" value={batchNumber} onChange={(e) => setBatchNumber(e.target.value)} required
                 placeholder="e.g. BCG-2026-001"
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary" />
+                />
             </div>
             <div>
               <label htmlFor="si-qty" className="mb-1 block text-sm font-semibold text-foreground">
                 <Package size={13} className="mr-1 inline" /> Quantity *
               </label>
-              <input id="si-qty" type="number" min="1" step="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} required
+              <Input id="si-qty" type="number" min="1" step="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} required
                 placeholder="e.g. 50"
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary" />
+                />
             </div>
           </div>
 
@@ -190,15 +192,15 @@ export function StockInModal({ open, onClose, onSaved }: Props) {
               <label htmlFor="si-received" className="mb-1 block text-sm font-semibold text-foreground">
                 <Calendar size={13} className="mr-1 inline" /> Received date *
               </label>
-              <input id="si-received" type="date" max={today()} value={receivedDate} onChange={(e) => setReceivedDate(e.target.value)} required
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary" />
+              <DateInput id="si-received" max={today()} value={receivedDate} onChange={(e) => setReceivedDate(e.target.value)} required
+                />
             </div>
             <div>
               <label htmlFor="si-expiry" className="mb-1 block text-sm font-semibold text-foreground">
                 <Calendar size={13} className="mr-1 inline" /> Expiry date *
               </label>
-              <input id="si-expiry" type="date" min={receivedDate || today()} value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} required
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary" />
+              <DateInput id="si-expiry" min={receivedDate || today()} value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} required
+                />
             </div>
           </div>
 
@@ -209,10 +211,10 @@ export function StockInModal({ open, onClose, onSaved }: Props) {
           )}
 
           <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-            <button type="button" onClick={onClose} disabled={saving}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50">
+            <Button variant="secondary" onClick={onClose} disabled={saving}
+             >
               Cancel
-            </button>
+            </Button>
             <button type="submit" disabled={saving}
               className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
               {saving ? <Spinner /> : <CheckCircle2 size={14} />}

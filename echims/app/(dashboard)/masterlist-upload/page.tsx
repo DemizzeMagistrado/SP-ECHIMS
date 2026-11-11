@@ -12,6 +12,8 @@ import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FileSpreadsheet } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/form'
 
 type Batch = {
   batch_id: number
@@ -253,16 +255,16 @@ export default function MasterlistUploadPage() {
                 ))}
               </div>
               <div className="flex gap-2">
-                <button onClick={reset} className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-muted-foreground hover:bg-muted">
+                <Button variant="secondary" size="sm" type="submit" onClick={reset}>
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button size="sm" type="submit"
                   onClick={doImport}
                   disabled={importing || (batch.error_count ?? 0) > 0 || (batch.valid_count ?? 0) === 0}
-                  className="rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50"
+                 
                 >
                   {importing ? 'Importing…' : `Confirm import (${batch.valid_count ?? 0})`}
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -337,7 +339,7 @@ export default function MasterlistUploadPage() {
               View imported children
             </Link>
             {(batch.error_count ?? 0) + (batch.skipped_count ?? 0) > 0 && (
-              <button
+              <Button variant="secondary" type="submit"
                 onClick={() => {
                   const blob = new Blob([errorReportCsv()], { type: 'text/csv;charset=utf-8' })
                   const url = URL.createObjectURL(blob)
@@ -345,14 +347,14 @@ export default function MasterlistUploadPage() {
                   a.href = url; a.download = `masterlist-errors-batch-${batch.batch_id}.csv`
                   a.click(); URL.revokeObjectURL(url)
                 }}
-                className="rounded-lg border border-border px-4 py-2 text-sm font-semibold hover:bg-muted"
+               
               >
                 Download error report
-              </button>
+              </Button>
             )}
-            <button onClick={reset} className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted">
+            <Button variant="secondary" type="submit" onClick={reset}>
               Upload another file
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -433,8 +435,8 @@ function EditModal({ row, onClose, onSave }: { row: StagingRow; onClose: () => v
           {fields.map((k) => (
             <label key={k} className="text-xs">
               <div className="mb-1 font-semibold text-muted-foreground">{k}</div>
-              <input
-                className="w-full rounded-md border border-border px-2 py-1 text-sm"
+              <Input
+               
                 value={draft[k] ?? ''}
                 onChange={(e) => setDraft({ ...draft, [k]: e.target.value })}
               />
@@ -442,8 +444,8 @@ function EditModal({ row, onClose, onSave }: { row: StagingRow; onClose: () => v
           ))}
         </div>
         <div className="mt-4 flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-muted-foreground hover:bg-muted">Cancel</button>
-          <button onClick={() => onSave(draft)} className="rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-white hover:bg-primary/90">Save & re-validate</button>
+          <Button variant="secondary" size="sm" type="submit" onClick={onClose}>Cancel</Button>
+          <Button size="sm" type="submit" onClick={() => onSave(draft)}>Save & re-validate</Button>
         </div>
       </div>
     </div>

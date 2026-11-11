@@ -10,6 +10,8 @@ import useSWR from 'swr'
 import { X, ArrowRight, MapPin, Package, Hash, AlertCircle, Send } from 'lucide-react'
 import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
+import { Button } from '@/components/ui/button'
+import { Input, Select } from '@/components/ui/form'
 
 type Barangay = { barangay_id: number; barangay_name: string }
 type Batch = {
@@ -168,12 +170,12 @@ export function AllocateStockModal({ open, onClose, onSaved }: Props) {
               <label htmlFor="al-src-brgy" className="mb-1 block text-sm font-semibold text-foreground">
                 <MapPin size={13} className="mr-1 inline" /> Source barangay *
               </label>
-              <select id="al-src-brgy" value={sourceBarangayId} onChange={(e) => { setSourceBarangayId(e.target.value); setSourceBatchId('') }}
+              <Select id="al-src-brgy" value={sourceBarangayId} onChange={(e) => { setSourceBarangayId(e.target.value); setSourceBatchId('') }}
                 required disabled={invSWR.isLoading}
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50">
+               >
                 <option value="">{invSWR.isLoading ? 'Loading…' : 'Barangay with stock…'}</option>
                 {sourceBarangays.map((b) => <option key={b.barangay_id} value={b.barangay_id}>{b.barangay_name}</option>)}
-              </select>
+              </Select>
             </div>
             <div className="hidden items-center justify-center md:flex">
               <ArrowRight size={20} className="text-muted-foreground" />
@@ -182,12 +184,12 @@ export function AllocateStockModal({ open, onClose, onSaved }: Props) {
               <label htmlFor="al-tgt-brgy" className="mb-1 block text-sm font-semibold text-foreground">
                 <MapPin size={13} className="mr-1 inline" /> Target barangay *
               </label>
-              <select id="al-tgt-brgy" value={targetBarangayId} onChange={(e) => setTargetBarangayId(e.target.value)} required
+              <Select id="al-tgt-brgy" value={targetBarangayId} onChange={(e) => setTargetBarangayId(e.target.value)} required
                 disabled={!sourceBarangayId}
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50">
+               >
                 <option value="">{!sourceBarangayId ? 'Pick source first' : 'Pick target barangay…'}</option>
                 {targetBarangays.map((b) => <option key={b.barangay_id} value={b.barangay_id}>{b.barangay_name}</option>)}
-              </select>
+              </Select>
             </div>
           </div>
 
@@ -195,9 +197,9 @@ export function AllocateStockModal({ open, onClose, onSaved }: Props) {
             <label htmlFor="al-batch" className="mb-1 block text-sm font-semibold text-foreground">
               <Package size={13} className="mr-1 inline" /> Item & batch *
             </label>
-            <select id="al-batch" value={sourceBatchId} onChange={(e) => setSourceBatchId(e.target.value)} required
+            <Select id="al-batch" value={sourceBatchId} onChange={(e) => setSourceBatchId(e.target.value)} required
               disabled={!sourceBarangayId}
-              className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50">
+             >
               <option value="">
                 {!sourceBarangayId ? 'Pick source barangay first' : sourceBatches.length === 0 ? 'No batches with stock here' : 'Pick an item + batch…'}
               </option>
@@ -210,7 +212,7 @@ export function AllocateStockModal({ open, onClose, onSaved }: Props) {
                   </option>
                 )
               })}
-            </select>
+            </Select>
             {selectedBatch && (
               <div className="mt-2 flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
                 <Hash size={12} /> Batch <strong>{selectedBatch.batch.batch_number}</strong> ·
@@ -224,11 +226,11 @@ export function AllocateStockModal({ open, onClose, onSaved }: Props) {
             <label htmlFor="al-qty" className="mb-1 block text-sm font-semibold text-foreground">
               <Package size={13} className="mr-1 inline" /> Quantity to allocate *
             </label>
-            <input id="al-qty" type="number" min="1" step="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} required
+            <Input id="al-qty" type="number" min="1" step="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} required
               max={selectedBatch?.batch.quantity_on_hand}
               placeholder={selectedBatch ? `≤ ${selectedBatch.batch.quantity_on_hand}` : 'Pick a batch first'}
               disabled={!selectedBatch}
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50" />
+              />
           </div>
 
           {formError && (
@@ -238,15 +240,15 @@ export function AllocateStockModal({ open, onClose, onSaved }: Props) {
           )}
 
           <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-            <button type="button" onClick={onClose} disabled={saving}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50">
+            <Button variant="secondary" onClick={onClose} disabled={saving}
+             >
               Cancel
-            </button>
-            <button type="submit" disabled={saving}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60">
+            </Button>
+            <Button type="submit" disabled={saving}
+             >
               {saving ? <Spinner /> : <Send size={14} />}
               {saving ? 'Allocating…' : 'Allocate'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { Save, Lock, Bell, Shield, User, Building, LogOut } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { Input, Select } from '@/components/ui/form'
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('general')
@@ -61,22 +63,22 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Unit Name
                   </label>
-                  <input
+                  <Input
                     type="text"
                     defaultValue="Rural Health Unit - Barangay A"
                       disabled={!isAdmin}
-                    className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                   
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Unit Code
                   </label>
-                  <input
+                  <Input
                     type="text"
                     defaultValue="RHU-001"
                       disabled={!isAdmin}
-                    className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                   
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -84,22 +86,22 @@ export default function SettingsPage() {
                     <label className="block text-sm font-medium text-foreground mb-2">
                       Municipality
                     </label>
-                    <input
+                    <Input
                       type="text"
                       defaultValue="San Isidro"
                       disabled={!isAdmin}
-                      className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                     
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
                       Province
                     </label>
-                    <input
+                    <Input
                       type="text"
                       defaultValue="Laguna"
                       disabled={!isAdmin}
-                      className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                     
                     />
                   </div>
                 </div>
@@ -108,22 +110,22 @@ export default function SettingsPage() {
                     <label className="block text-sm font-medium text-foreground mb-2">
                       Contact Number
                     </label>
-                    <input
+                    <Input
                       type="tel"
                       defaultValue="+63 912 345 6789"
                       disabled={!isAdmin}
-                      className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                     
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
                       Email
                     </label>
-                    <input
+                    <Input
                       type="email"
                       defaultValue="admin@rhu.gov.ph"
                       disabled={!isAdmin}
-                      className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                     
                     />
                   </div>
                 </div>
@@ -131,11 +133,11 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Barangays
                   </label>
-                  <input
+                  <Input
                     type="text"
                     defaultValue="San Isidro, Poblacion, Mabini, San Roque"
                     disabled={!isAdmin}
-                    className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                   
                   />
                 </div>
               </div>
@@ -173,30 +175,30 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Full Name
                   </label>
-                  <input
+                  <Input
                     type="text"
                     defaultValue="Administrator"
-                    className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                   
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Username
                   </label>
-                  <input
+                  <Input
                     type="text"
                     defaultValue="admin"
-                    className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                   
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Email Address
                   </label>
-                  <input
+                  <Input
                     type="email"
                     defaultValue="admin@rhu.gov.ph"
-                    className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                   
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -204,20 +206,20 @@ export default function SettingsPage() {
                     <label className="block text-sm font-medium text-foreground mb-2">
                       Contact Number
                     </label>
-                    <input type="tel" defaultValue="+63 912 345 6789" className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
+                    <Input type="tel" defaultValue="+63 912 345 6789" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
                       Employee ID
                     </label>
-                    <input type="text" defaultValue="EMP-0001" className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
+                    <Input type="text" defaultValue="EMP-0001" />
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
                     License Number
                   </label>
-                  <input type="text" defaultValue="PRC-123456" className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
+                  <Input type="text" defaultValue="PRC-123456" />
                 </div>
               </div>
             </div>
@@ -300,27 +302,27 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Current Password
                   </label>
-                  <input
+                  <Input
                     type="password"
-                    className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                   
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
                     New Password
                   </label>
-                  <input
+                  <Input
                     type="password"
-                    className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                   
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Confirm Password
                   </label>
-                  <input
+                  <Input
                     type="password"
-                    className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                   
                   />
                 </div>
               </div>
@@ -344,11 +346,11 @@ export default function SettingsPage() {
                     <p className="font-medium text-foreground">Session Timeout</p>
                     <p className="text-sm text-muted-foreground">Auto-logout after inactivity</p>
                   </div>
-                  <select className="px-3 py-2 border border-border rounded-lg">
+                  <Select>
                     <option>30 minutes</option>
                     <option>1 hour</option>
                     <option>2 hours</option>
-                  </select>
+                  </Select>
                 </div>
               </div>
             </div>
@@ -371,10 +373,10 @@ export default function SettingsPage() {
 
       {/* Save Button */}
       <div className="flex justify-end">
-        <button className="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary/90 transition-colors font-medium">
+        <Button type="submit">
           <Save size={20} />
           Save Changes
-        </button>
+        </Button>
       </div>
     </div>
   )

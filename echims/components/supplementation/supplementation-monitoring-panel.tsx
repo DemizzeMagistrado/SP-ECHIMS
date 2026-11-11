@@ -7,6 +7,7 @@ import { RefreshCw, SearchX, CalendarClock } from 'lucide-react'
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
+import { Button } from '@/components/ui/button'
 
 type Status =
   | 'UPCOMING'
@@ -168,15 +169,15 @@ export function SupplementationMonitoringPanel({
             applies.
           </p>
         </div>
-        <button
-          type="button"
+        <Button variant="secondary"
+         
           disabled={loading || !online}
           onClick={refresh}
-          className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
+         
         >
           {loading ? <Spinner /> : <RefreshCw size={16} />}
           Refresh
-        </button>
+        </Button>
       </div>
       {!online ? (
         <p

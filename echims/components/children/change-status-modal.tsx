@@ -14,6 +14,8 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { FormEvent, useState } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
 import { Spinner } from '@/components/brand/logo-loader'
+import { Button } from '@/components/ui/button'
+import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 
 type ChildStatus = 'ACTIVE' | 'INACTIVE' | 'MOVED' | 'LOST' | 'DECEASED'
 
@@ -106,11 +108,11 @@ export function ChangeStatusModal({ childId, currentStatus, childName, onClose, 
 
         <label className="grid gap-1 text-sm">
           <span className="font-medium">New status *</span>
-          <select
+          <Select
             required
             value={newStatus}
             onChange={(e) => setNewStatus(e.target.value as ChildStatus | '')}
-            className="h-10 rounded-lg border border-border bg-white px-3"
+            className="h-10"
           >
             <option value="">Choose a new status...</option>
             {(Object.keys(STATUS_META) as ChildStatus[]).map((s) => (
@@ -118,7 +120,7 @@ export function ChangeStatusModal({ childId, currentStatus, childName, onClose, 
                 {STATUS_META[s].label}{s === currentStatus ? ' (current)' : ''}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
 
         {meta && (
@@ -136,22 +138,22 @@ export function ChangeStatusModal({ childId, currentStatus, childName, onClose, 
 
         <label className="grid gap-1 text-sm">
           <span className="font-medium">{dateLabel}</span>
-          <input
-            type="date"
+          <DateInput
+           
             value={movementDate}
             onChange={(e) => setMovementDate(e.target.value)}
             max={new Date().toISOString().slice(0, 10)}
-            className="h-10 rounded-lg border border-border px-3"
+            className="h-10"
           />
         </label>
 
         <label className="grid gap-1 text-sm">
           <span className="font-medium">Reason{requiresReason ? ' *' : ''}</span>
-          <input
+          <Input
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder={newStatus === 'DECEASED' ? 'Cause / brief note' : newStatus === 'LOST' ? 'e.g. family moved without informing, no contact for 3 months' : newStatus === 'MOVED' ? 'e.g. relocated to Manila for work' : 'Short reason for the change'}
-            className="h-10 rounded-lg border border-border px-3"
+            className="h-10"
             required={requiresReason}
           />
         </label>
@@ -159,11 +161,11 @@ export function ChangeStatusModal({ childId, currentStatus, childName, onClose, 
         {showAddressField && (
           <label className="grid gap-1 text-sm">
             <span className="font-medium">New address</span>
-            <input
+            <Input
               value={newAddress}
               onChange={(e) => setNewAddress(e.target.value)}
               placeholder="New residence, if known"
-              className="h-10 rounded-lg border border-border px-3"
+              className="h-10"
             />
             <span className="text-xs text-muted-foreground">If relocating within the system to another household, mention the household number here. Household linking UI will come in a future update.</span>
           </label>
@@ -171,16 +173,16 @@ export function ChangeStatusModal({ childId, currentStatus, childName, onClose, 
 
         <label className="grid gap-1 text-sm">
           <span className="font-medium">Additional remarks (optional)</span>
-          <textarea
+          <Textarea
             value={remarks}
             onChange={(e) => setRemarks(e.target.value)}
             placeholder="Any other context — e.g. source of the information, follow-up actions"
-            className="min-h-20 rounded-lg border border-border p-3"
+            className="min-h-20"
           />
         </label>
 
         <div className="flex justify-end gap-3 border-t border-border pt-4">
-          <button type="button" onClick={onClose} className="rounded-lg border border-border px-4 py-2">Cancel</button>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <button
             type="submit"
             disabled={saving || !canSubmit}

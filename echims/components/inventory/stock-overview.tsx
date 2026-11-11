@@ -9,6 +9,7 @@ import type { UserRole } from '@/lib/echims-data'
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
+import { Select } from '@/components/ui/form'
 
 // INV-USR001 / INV-USR002 — Stock Overview.
 // Reads go straight to Supabase (RLS applies): PHN sees the RHU, RHM only the
@@ -241,18 +242,18 @@ export function StockOverview() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <select value={itemFilter} onChange={(e) => setItemFilter(e.target.value)} aria-label="Filter by item"
-          className="min-w-56 rounded-lg border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm">
+        <Select value={itemFilter} onChange={(e) => setItemFilter(e.target.value)} aria-label="Filter by item"
+          className="min-w-56">
           <option value="all">All items</option>
           {vaccines.length > 0 && <optgroup label="Vaccines">{vaccines.map((i) => <option key={i.item_id} value={i.item_id}>{i.item_name}</option>)}</optgroup>}
           {supplements.length > 0 && <optgroup label="Supplements">{supplements.map((i) => <option key={i.item_id} value={i.item_id}>{i.item_name}</option>)}</optgroup>}
-        </select>
+        </Select>
         {showBarangayCol && (
-          <select value={barangayFilter} onChange={(e) => setBarangayFilter(e.target.value)} aria-label="Filter by barangay"
-            className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm">
+          <Select value={barangayFilter} onChange={(e) => setBarangayFilter(e.target.value)} aria-label="Filter by barangay"
+           >
             <option value="all">All barangays</option>
             {data!.barangays.map((b) => <option key={b.barangay_id} value={b.barangay_id}>{b.barangay_name}</option>)}
-          </select>
+          </Select>
         )}
         {filtered && (
           <button type="button" onClick={() => { setItemFilter('all'); setBarangayFilter('all') }} className="text-sm font-semibold text-[#0077B6] hover:underline">Clear filters</button>

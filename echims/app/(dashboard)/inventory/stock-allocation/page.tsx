@@ -18,6 +18,7 @@ import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { AllocateStockModal } from '@/components/inventory/allocate-stock-modal'
 import { LogoLoader } from '@/components/brand/logo-loader'
 import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
 
 type Txn = {
   transaction_id: number
@@ -97,10 +98,10 @@ export default function StockAllocationPage() {
         subtitle={<>PHN-only. Move a specific batch from one barangay to another. The batch number and expiry carry over to the destination; both sides&rsquo; quantity-on-hand are updated atomically.</>}
         actions={<>
           {isPhn && (
-            <button type="button" onClick={() => setModalOpen(true)}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90">
+            <Button onClick={() => setModalOpen(true)}
+             >
               <Plus size={17} /> New allocation
-            </button>
+            </Button>
           )}
         </>}
       />

@@ -16,7 +16,8 @@ import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { ReplenishmentRequestModal } from '@/components/inventory/replenishment-request-modal'
 import { ReplenishmentDecisionModal, type ReplenishmentRequest } from '@/components/inventory/replenishment-decision-modal'
 import { LogoLoader } from '@/components/brand/logo-loader'
-import { EmptyState } from '@/components/ui/empty-state'
+import { DataTable } from '@/components/ui/data-table'
+import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 
 const fetcher = async (url: string) => {
@@ -79,10 +80,10 @@ export default function ReplenishmentPage() {
         subtitle="RHM: request stock when yours runs low. PHN: review pending requests and fulfill them via Stock Allocation."
         actions={<>
           {isRhm && (
-            <button type="button" onClick={() => setCreateOpen(true)}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90">
+            <Button onClick={() => setCreateOpen(true)}
+             >
               <Plus size={17} /> New request
-            </button>
+            </Button>
           )}
         </>}
       />
@@ -104,67 +105,35 @@ export default function ReplenishmentPage() {
         <LogoLoader size="section" />
       ) : error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
-      ) : rows.length === 0 ? (
-        <EmptyState
-          size="page"
-          icon={PackagePlus}
-          title={isRhm ? 'No replenishment requests yet' : 'No requests in this view'}
-          description={isRhm ? 'Use “New request” to ask for more stock.' : 'Requests from midwives will appear here.'}
-          className="rounded-2xl border border-dashed border-sky-200 bg-white"
-        />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[840px] text-left text-sm">
-              <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-5 py-4 font-semibold">#</th>
-                  <th className="px-5 py-4 font-semibold">Item</th>
-                  <th className="px-5 py-4 font-semibold">Qty</th>
-                  <th className="px-5 py-4 font-semibold">Barangay</th>
-                  <th className="px-5 py-4 font-semibold">Requested</th>
-                  <th className="px-5 py-4 font-semibold">Status</th>
-                  <th className="px-5 py-4 font-semibold">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {rows.map((r) => {
-                  const item = one(r.item)
-                  const brgy = one(r.target_barangay)
-                  const meta = STATUS_META[r.status] ?? STATUS_META.PENDING
-                  const isPending = r.status === 'PENDING'
-                  return (
-                    <tr key={r.stock_request_id} className="hover:bg-muted/30">
-                      <td className="px-5 py-4 font-mono text-xs text-muted-foreground">#{r.stock_request_id}</td>
-                      <td className="px-5 py-4"><Package size={11} className="mr-1 inline" />{item?.item_name ?? '—'}</td>
-                      <td className="px-5 py-4"><strong>{Number(r.requested_quantity).toLocaleString()}</strong> {item?.unit ?? ''}</td>
-                      <td className="px-5 py-4 text-muted-foreground"><MapPin size={11} className="mr-1 inline" />{brgy?.barangay_name ?? '—'}</td>
-                      <td className="px-5 py-4 text-xs text-muted-foreground"><CalendarClock size={10} className="mr-1 inline" />{r.request_date}</td>
-                      <td className="px-5 py-4">
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${meta.chip}`}>
-                          {meta.icon} {meta.label}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4">
-                        {isPhn && isPending ? (
-                          <button type="button" onClick={() => setDecisionTarget(r)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-primary px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/5">
-                            Review
-                          </button>
-                        ) : (
-                          <button type="button" onClick={() => setDecisionTarget(r)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted">
-                            View
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <DataTable
+          rows={rows}
+          rowKey={(r) => r.stock_request_id}
+          caption="Replenishment requests"
+          refreshing={isLoading && !!data}
+          empty={{
+            size: 'page',
+            icon: PackagePlus,
+            title: isRhm ? 'No replenishment requests yet' : 'No requests in this view',
+            description: isRhm ? 'Use “New request” to ask for more stock.' : 'Requests from midwives will appear here.',
+          }}
+          columns={[
+            { key: 'id', header: '#', sortValue: (r) => r.stock_request_id, cell: (r) => <span className="font-mono text-xs text-muted-foreground">#{r.stock_request_id}</span> },
+            { key: 'item', header: 'Item', sortValue: (r) => one(r.item)?.item_name, cell: (r) => <><Package size={11} className="mr-1 inline" aria-hidden="true" />{one(r.item)?.item_name ?? '—'}</> },
+            { key: 'qty', header: 'Qty', align: 'right', sortValue: (r) => Number(r.requested_quantity), cell: (r) => <><strong>{Number(r.requested_quantity).toLocaleString()}</strong> {one(r.item)?.unit ?? ''}</> },
+            { key: 'barangay', header: 'Barangay', sortValue: (r) => one(r.target_barangay)?.barangay_name, cell: (r) => <span className="text-muted-foreground"><MapPin size={11} className="mr-1 inline" aria-hidden="true" />{one(r.target_barangay)?.barangay_name ?? '—'}</span> },
+            { key: 'requested', header: 'Requested', sortValue: (r) => r.request_date, cell: (r) => <span className="text-xs text-muted-foreground"><CalendarClock size={10} className="mr-1 inline" aria-hidden="true" />{r.request_date}</span> },
+            { key: 'status', header: 'Status', sortValue: (r) => r.status, cell: (r) => {
+              const meta = STATUS_META[r.status] ?? STATUS_META.PENDING
+              return <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${meta.chip}`}>{meta.icon} {meta.label}</span>
+            } },
+            { key: 'action', header: <span className="sr-only">Action</span>, cell: (r) => (
+              <Button size="sm" variant={isPhn && r.status === 'PENDING' ? 'primary' : 'secondary'} onClick={() => setDecisionTarget(r)}>
+                {isPhn && r.status === 'PENDING' ? 'Review' : 'View'}
+              </Button>
+            ) },
+          ]}
+        />
       )}
 
       <ReplenishmentRequestModal open={createOpen} onClose={() => setCreateOpen(false)} onSaved={refresh} />

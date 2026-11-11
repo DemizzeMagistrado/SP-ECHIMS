@@ -23,6 +23,8 @@ import { toast } from '@/components/ui/toast'
 import { LogoLoader } from '@/components/brand/logo-loader'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { Input, Select } from '@/components/ui/form'
 
 type Child = {
   id: string
@@ -132,9 +134,9 @@ export default function ChildHealthPage() {
         subtitle="Register and monitor children aged 0–59 months."
         actions={<>
           {canRegister && (
-            <button onClick={() => setRegisterOpen(true)} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white">
+            <Button type="submit" onClick={() => setRegisterOpen(true)}>
               <Plus size={20} />Register Child
-            </button>
+            </Button>
           )}
         </>}
       />
@@ -143,33 +145,33 @@ export default function ChildHealthPage() {
       <div className="rounded-2xl border border-border bg-white p-4 space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
-          <input
+          <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by child name or ID..."
-            className="w-full rounded-lg border border-border bg-white py-2 pl-10 pr-4"
+            className="pl-10 pr-4"
           />
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <label className="grid gap-1 text-sm">
             <span className="font-medium text-muted-foreground">Barangay</span>
-            <select value={barangayFilter} onChange={(e) => setBarangayFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-white px-3">
+            <Select value={barangayFilter} onChange={(e) => setBarangayFilter(e.target.value)} className="h-10">
               <option value="all">All barangays</option>
               {(barangays ?? []).map((b) => <option key={b.barangay_id} value={String(b.barangay_id)}>{b.barangay_name}</option>)}
-            </select>
+            </Select>
           </label>
           <label className="grid gap-1 text-sm">
             <span className="font-medium text-muted-foreground">Age group</span>
-            <select value={ageFilter} onChange={(e) => setAgeFilter(e.target.value as AgeBand)} className="h-10 rounded-lg border border-border bg-white px-3">
+            <Select value={ageFilter} onChange={(e) => setAgeFilter(e.target.value as AgeBand)} className="h-10">
               {ageBands.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
-            </select>
+            </Select>
           </label>
           <label className="grid gap-1 text-sm">
             <span className="font-medium text-muted-foreground">Status</span>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className="h-10 rounded-lg border border-border bg-white px-3">
+            <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className="h-10">
               <option value="all">All statuses</option>
               {statusOptions.filter((s) => s !== 'all').map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+            </Select>
           </label>
         </div>
 
