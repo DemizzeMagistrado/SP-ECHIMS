@@ -49,6 +49,9 @@ type ApiResponse = {
   allowedBarangayIds: number[]
   perBarangay: PerBarangay[]
   children: MapChild[]
+  scopeLevel?: 'barangay' | 'municipality'
+  focusBarangayIds?: number[]
+  municipalities?: { code: string; name: string; geojson: string | null; barangayIds: number[] }[]
 }
 type FollowUp = 'all' | 'any' | 'missed' | 'at_risk'
 
@@ -70,11 +73,17 @@ export default function GeospatialMapPage() {
   const [followUp, setFollowUp] = useState<FollowUp>('all')
   const [picking, setPicking] = useState<{ householdId: number; name: string } | null>(null)
   const [saving, setSaving] = useState(false)
+  // Admins span several municipalities: the map, stats and lists follow the one selected.
+  const [muniCode, setMuniCode] = useState('')
+  const municipalities = data?.municipalities ?? []
+  const muni = municipalities.find((m) => m.code === muniCode) ?? municipalities[0]
+  const inMuni = useMemo(() => new Set(muni?.barangayIds ?? []), [muni])
 
-  const children = useMemo(() => (data?.children ?? []).map((c) => ({
+  const children = useMemo(() => (data?.children ?? []).filter((c) => !muni || inMuni.has(c.barangay_id)).map((c) => ({
     ...c,
     follow_up: (missedIds.has(c.child_id) ? 'missed' : c.at_risk ? 'at_risk' : null) as 'missed' | 'at_risk' | null,
-  })), [data, missedIds])
+  })), [data, missedIds, muni, inMuni])
+  const scopeBarangays = useMemo(() => (data?.perBarangay ?? []).filter((b) => !muni || inMuni.has(b.barangay_id)), [data, muni, inMuni])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -88,7 +97,7 @@ export default function GeospatialMapPage() {
   const mapped = filtered.filter((c) => c.lat !== null && c.lng !== null)
   const unmapped = filtered.filter((c) => c.lat === null || c.lng === null)
   const needFollowUp = filtered.filter((c) => c.follow_up !== null)
-  const brgyTotal = data?.perBarangay.length ?? 0
+  const brgyTotal = scopeBarangays.length
   const brgyCovered = new Set(filtered.map((c) => c.barangay_id)).size
 
   // Barangays ranked by children needing follow-up (then by children registered).
@@ -104,11 +113,11 @@ export default function GeospatialMapPage() {
     return [...rows.values()].sort((a, b) => (b.missed + b.atRisk) - (a.missed + a.atRisk) || b.total - a.total)
   }, [filtered])
 
-  const polygons = useMemo(() => (data?.perBarangay ?? []).map((p) => ({
+  const polygons = useMemo(() => scopeBarangays.map((p) => ({
     barangay_id: p.barangay_id, barangay_name: p.barangay_name, municipality: p.municipality,
     lat: 0, lng: 0, // polygons come from GeoJSON
     value: p.child_count,
-  })), [data])
+  })), [scopeBarangays])
 
   const markers = mapped.map((c) => ({
     child_id: c.child_id, full_name: c.name, barangay_id: c.barangay_id, barangay_name: c.barangay_name,
@@ -193,7 +202,7 @@ export default function GeospatialMapPage() {
             </div>
             <Select aria-label="Barangay" value={barangay} onChange={(e) => setBarangay(e.target.value)}>
               <option value="all">All barangays</option>
-              {(data.perBarangay ?? []).map((b) => <option key={b.barangay_id} value={b.barangay_id}>{b.barangay_name}</option>)}
+              {scopeBarangays.map((b) => <option key={b.barangay_id} value={b.barangay_id}>{b.barangay_name}</option>)}
             </Select>
             <Select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="all">All statuses</option>
@@ -221,7 +230,20 @@ export default function GeospatialMapPage() {
                   <Button variant="ghost" size="sm" onClick={() => setPicking(null)} disabled={saving}>Cancel</Button>
                 </div>
               )}
+              {municipalities.length > 1 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Municipality</span>
+                  <Select aria-label="Municipality" value={muni?.code ?? ''} className="h-9 w-auto"
+                    onChange={(e) => { setMuniCode(e.target.value); setBarangay('all') }}>
+                    {municipalities.map((m) => <option key={m.code} value={m.code}>{m.name}</option>)}
+                  </Select>
+                </div>
+              )}
               <BarangayMap
+                key={muni?.code ?? 'none'}
+                geojsonUrls={muni?.geojson ? [muni.geojson] : []}
+                lockToBounds
+                focusBarangayIds={data.focusBarangayIds}
                 barangays={polygons}
                 allowedBarangayIds={data.allowedBarangayIds}
                 metric="child_count"

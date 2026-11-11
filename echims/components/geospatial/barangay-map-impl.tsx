@@ -23,7 +23,8 @@ import {
   useMapEvents,
 } from 'react-leaflet'
 import type { FeatureCollection, Feature, Geometry } from 'geojson'
-import type { Layer, PathOptions } from 'leaflet'
+import L, { type LatLngBounds, type Layer, type PathOptions } from 'leaflet'
+import { LocateFixed, MapPinOff } from 'lucide-react'
 
 type Metric = 'coverage' | 'completeness' | 'target_population' | 'child_count'
 
@@ -67,7 +68,19 @@ type Props = {
   emptyMessage?: string
   /** Pick mode: the next map click reports its coordinates (e.g. to set a household location). */
   onPick?: (lat: number, lng: number) => void
+  /** Boundary files to draw (one per municipality). Defaults to Daet + Naga. */
+  geojsonUrls?: string[]
+  /**
+   * Keep the map inside the drawn municipality: no panning past it (maxBounds, viscosity 1),
+   * no zooming out beyond it (minZoom), and a Recenter button. Barangays outside
+   * allowedBarangayIds are drawn as gray, label-only outlines.
+   */
+  lockToBounds?: boolean
+  /** Start zoomed to these barangays and highlight them (barangay-level users). */
+  focusBarangayIds?: number[]
 }
+
+const DEFAULT_GEOJSON = ['/geojson/daet.geojson', '/geojson/naga.geojson']
 
 // ───────────────────── Color scales ─────────────────────
 function colorForPct(v: number): string {
@@ -104,28 +117,27 @@ export default function BarangayMap({
   height = 500,
   emptyMessage,
   onPick,
+  geojsonUrls = DEFAULT_GEOJSON,
+  lockToBounds = false,
+  focusBarangayIds,
 }: Props) {
-  const [daetGeoRaw, setDaetGeoRaw] = useState<FeatureCollection | null>(null)
-  const [nagaGeoRaw, setNagaGeoRaw] = useState<FeatureCollection | null>(null)
+  const [geoRaw, setGeoRaw] = useState<FeatureCollection[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const urlsKey = geojsonUrls.join('|')
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([
-      fetch('/geojson/daet.geojson').then((r) => (r.ok ? r.json() : null)),
-      fetch('/geojson/naga.geojson').then((r) => (r.ok ? r.json() : null)),
-    ])
-      .then(([d, n]) => {
+    Promise.all(urlsKey.split('|').filter(Boolean).map((u) => fetch(u).then((r) => (r.ok ? r.json() as Promise<FeatureCollection> : null)).catch(() => null)))
+      .then((list) => {
         if (cancelled) return
-        setDaetGeoRaw(d)
-        setNagaGeoRaw(n)
-        if (!d && !n) setLoadError('GeoJSON files not found at /geojson/*.geojson')
+        const found = list.filter((fc): fc is FeatureCollection => Boolean(fc && Array.isArray(fc.features) && fc.features.length))
+        setGeoRaw(found)
+        if (!found.length) setLoadError('The boundary map for this area could not be loaded.')
       })
-      .catch((e) => !cancelled && setLoadError(e.message))
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [urlsKey])
 
   // Role-scope filter: hide polygons the user is not allowed to see.
   const allowedSet = useMemo(
@@ -134,7 +146,8 @@ export default function BarangayMap({
   )
   function filterFC(fc: FeatureCollection | null): FeatureCollection | null {
     if (!fc) return null
-    if (!allowedSet) return fc
+    // Locked maps draw the whole municipality; out-of-scope barangays get a neutral style.
+    if (!allowedSet || lockToBounds) return fc
     return {
       ...fc,
       features: fc.features.filter((f) => {
@@ -143,8 +156,9 @@ export default function BarangayMap({
       }),
     }
   }
-  const daetGeo = useMemo(() => filterFC(daetGeoRaw), [daetGeoRaw, allowedSet])
-  const nagaGeo = useMemo(() => filterFC(nagaGeoRaw), [nagaGeoRaw, allowedSet])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const geo = useMemo(() => (geoRaw ?? []).map(filterFC).filter((fc): fc is FeatureCollection => Boolean(fc)), [geoRaw, allowedSet, lockToBounds])
+  const focusSet = useMemo(() => new Set(focusBarangayIds ?? []), [focusBarangayIds])
 
   const byId = useMemo(() => {
     const m = new Map<number, BarangayPoint>()
@@ -171,6 +185,11 @@ export default function BarangayMap({
 
   function styleFor(feature?: Feature<Geometry>): PathOptions {
     const props = (feature?.properties ?? {}) as { barangay_id?: number }
+    // Outside the user's scope: gray outline, no data.
+    if (lockToBounds && allowedSet && !(props.barangay_id && allowedSet.has(props.barangay_id)))
+      return { color: '#9ca3af', weight: 1, opacity: 0.9, fillColor: '#e5e7eb', fillOpacity: 0.25, dashArray: '3 3' }
+    if (props.barangay_id && focusSet.has(props.barangay_id))
+      return { color: '#03045E', weight: 3, opacity: 1, fillColor: colorFor(byId.get(props.barangay_id)?.value ?? 0), fillOpacity: 0.65 }
     const bgy = props.barangay_id ? byId.get(props.barangay_id) : null
     const fillColor = bgy ? colorFor(bgy.value) : '#f3f4f6'
     return {
@@ -184,23 +203,33 @@ export default function BarangayMap({
 
   const polygonCoveredIds = useMemo(() => {
     const ids = new Set<number>()
-    for (const fc of [daetGeo, nagaGeo]) {
-      if (!fc) continue
+    for (const fc of geo) {
       for (const f of fc.features) {
         const id = (f.properties as { barangay_id?: number })?.barangay_id
         if (id) ids.add(id)
       }
     }
     return ids
-  }, [daetGeo, nagaGeo])
+  }, [geo])
 
   const circleFallbacks = barangays.filter((b) => !polygonCoveredIds.has(b.barangay_id))
 
   const showEmptyOverlay = emptyMessage && barangays.length === 0 && childrenMarkers.length === 0
+  const [recenter, setRecenter] = useState(0)
+
+  if (lockToBounds && (loadError || (geoRaw && geo.length === 0))) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-brand-ice/40 p-6 text-center" style={{ height }}>
+        <MapPinOff size={28} aria-hidden="true" className="text-brand-muted" />
+        <p className="font-semibold text-brand-navy">The map for your area isn&rsquo;t available yet</p>
+        <p className="max-w-sm text-sm text-muted-foreground">There is no boundary file for this municipality. The lists beside the map still show your children; ask an administrator to add the municipality&rsquo;s map.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="relative" style={{ height }}>
-      <MapContainer center={center} zoom={zoom} className={`h-full w-full rounded-xl border border-border ${onPick ? 'cursor-crosshair [&_.leaflet-container]:cursor-crosshair' : ''}`}>
+      <MapContainer center={center} zoom={zoom} maxBoundsViscosity={lockToBounds ? 1 : undefined} className={`h-full w-full rounded-xl border border-border ${onPick ? 'cursor-crosshair [&_.leaflet-container]:cursor-crosshair' : ''}`}>
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="OpenStreetMap">
             <TileLayer
@@ -216,36 +245,30 @@ export default function BarangayMap({
           </LayersControl.BaseLayer>
         </LayersControl>
 
-        {/* Polygon layers */}
-        {daetGeo && (
+        {/* Polygon layers (one per municipality file) */}
+        {geo.map((fc, i) => (
           <GeoJSON
-            key={`daet-${metric}-${barangays.length}`}
-            data={daetGeo}
+            key={`geo-${i}-${metric}-${barangays.length}-${lockToBounds}`}
+            data={fc}
             style={styleFor}
             onEachFeature={(feature: Feature<Geometry>, layer: Layer) => {
               const props = (feature.properties ?? {}) as { barangay_id?: number; barangay_name?: string }
-              const bgy = props.barangay_id ? byId.get(props.barangay_id) : null
+              const inScope = !lockToBounds || !allowedSet || Boolean(props.barangay_id && allowedSet.has(props.barangay_id))
+              const bgy = inScope && props.barangay_id ? byId.get(props.barangay_id) : null
               const name = bgy?.barangay_name ?? props.barangay_name ?? 'Unknown'
-              const html = `<div class="text-sm"><div class="font-semibold">${name}</div><div class="text-xs text-gray-500">Daet</div>${bgy ? `<div class="mt-1">${bgy.label ?? metricHuman(metric)}: <span class="font-semibold">${metricLabel(bgy.value)}</span></div>` : '<div class="mt-1 text-xs text-gray-500">no data</div>'}</div>`
+              if (!inScope) {
+                // Label only: no counts or popups for barangays outside the user's area.
+                layer.bindTooltip(name, { sticky: true })
+                return
+              }
+              const html = `<div class="text-sm"><div class="font-semibold">${name}</div>${bgy ? `<div class="mt-1">${bgy.label ?? metricHuman(metric)}: <span class="font-semibold">${metricLabel(bgy.value)}</span></div>` : '<div class="mt-1 text-xs text-gray-500">no data</div>'}</div>`
               layer.bindPopup(html)
               if (bgy) layer.bindTooltip(`${name}: ${metricLabel(bgy.value)}`, { sticky: true })
             }}
           />
-        )}
-        {nagaGeo && (
-          <GeoJSON
-            key={`naga-${metric}-${barangays.length}`}
-            data={nagaGeo}
-            style={styleFor}
-            onEachFeature={(feature: Feature<Geometry>, layer: Layer) => {
-              const props = (feature.properties ?? {}) as { barangay_id?: number; barangay_name?: string }
-              const bgy = props.barangay_id ? byId.get(props.barangay_id) : null
-              const name = bgy?.barangay_name ?? props.barangay_name ?? 'Unknown'
-              const html = `<div class="text-sm"><div class="font-semibold">${name}</div><div class="text-xs text-gray-500">Naga City</div>${bgy ? `<div class="mt-1">${bgy.label ?? metricHuman(metric)}: <span class="font-semibold">${metricLabel(bgy.value)}</span></div>` : '<div class="mt-1 text-xs text-gray-500">no data</div>'}</div>`
-              layer.bindPopup(html)
-              if (bgy) layer.bindTooltip(`${name}: ${metricLabel(bgy.value)}`, { sticky: true })
-            }}
-          />
+        ))}
+        {lockToBounds && geo.length > 0 && (
+          <BoundsController geo={geo} focusIds={focusSet} recenterSignal={recenter} />
         )}
 
         {/* CircleMarker fallback for barangays without a polygon */}
@@ -272,6 +295,17 @@ export default function BarangayMap({
         {onPick && <PickHandler onPick={onPick} />}
       </MapContainer>
 
+      {lockToBounds && (
+        <button
+          type="button"
+          onClick={() => setRecenter((n) => n + 1)}
+          aria-label="Recenter the map"
+          title="Recenter"
+          className="absolute left-[10px] top-[84px] z-[500] flex size-[34px] items-center justify-center rounded-md border-2 border-black/20 bg-white text-brand-navy hover:bg-brand-ice focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          <LocateFixed size={16} aria-hidden="true" />
+        </button>
+      )}
       <Legend metric={metric} maxValue={maxValue} />
       {childrenMarkers.some((c) => c.follow_up !== undefined) && <MarkerLegend />}
 
@@ -431,4 +465,44 @@ function LegendDot({ color, label }: { color: string; label: string }) {
       <span>{label}</span>
     </div>
   )
+}
+
+/**
+ * Keeps the map inside the drawn municipality: maxBounds (small padding) with viscosity 1 so
+ * dragging and touch panning stop at the edge, and minZoom = the zoom that fits the municipality.
+ * Starts on the focus barangays (barangay-level users) or the whole municipality; a change of
+ * recenterSignal returns to that view.
+ */
+function BoundsController({ geo, focusIds, recenterSignal }: { geo: FeatureCollection[]; focusIds: Set<number>; recenterSignal: number }) {
+  const map = useMap()
+  const { all, start } = useMemo(() => {
+    let all: LatLngBounds | null = null
+    let focus: LatLngBounds | null = null
+    for (const fc of geo) {
+      const b = L.geoJSON(fc).getBounds()
+      if (b.isValid()) all = all ? all.extend(b) : b
+      for (const f of fc.features) {
+        const id = (f.properties as { barangay_id?: number } | null)?.barangay_id
+        if (id && focusIds.has(id)) {
+          const fb = L.geoJSON(f).getBounds()
+          if (fb.isValid()) focus = focus ? focus.extend(fb) : fb
+        }
+      }
+    }
+    return { all, start: focus ?? all }
+  }, [geo, focusIds])
+
+  useEffect(() => {
+    if (!all || !start) return
+    const padding = L.point(16, 16)
+    map.setMaxBounds(all.pad(0.08))
+    map.setMinZoom(map.getBoundsZoom(all, false, padding))
+    map.fitBounds(start, { padding: [16, 16] })
+  }, [map, all, start])
+
+  useEffect(() => {
+    if (recenterSignal && start) map.flyToBounds(start, { padding: [16, 16], duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 0.6 })
+  }, [recenterSignal, start, map])
+
+  return null
 }
