@@ -14,7 +14,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 //   - Empty / loading / error states
 import { useMemo, useState } from 'react'
 import useSWR from 'swr'
-import { Syringe, Printer, AlertCircle, CheckCircle2, ChevronDown, Clock, CalendarClock, Filter, Plus, History, SearchX } from 'lucide-react'
+import { Syringe, Printer, AlertCircle, Ban, CheckCircle2, ChevronDown, Clock, CalendarClock, Filter, Plus, History, SearchX } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { RecordPriorVaccinationModal } from '@/components/vaccination/record-prior-vaccination-modal'
@@ -23,7 +23,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Select } from '@/components/ui/form'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Button } from '@/components/ui/button'
-type DoseStatus = 'COMPLETE' | 'DUE' | 'OVERDUE' | 'UPCOMING'
+type DoseStatus = 'COMPLETE' | 'DUE' | 'OVERDUE' | 'UPCOMING' | 'NOT_ELIGIBLE'
 type DoseRow = {
   dose_number: number
   status: DoseStatus
@@ -55,6 +55,7 @@ const STATUS_META: Record<DoseStatus, { label: string; icon: React.ReactNode }> 
   DUE: { label: 'Due', icon: <Clock size={12} aria-hidden="true" /> },
   OVERDUE: { label: 'Missed', icon: <AlertCircle size={12} aria-hidden="true" /> },
   UPCOMING: { label: 'Pending', icon: <CalendarClock size={12} aria-hidden="true" /> },
+  NOT_ELIGIBLE: { label: 'Not eligible', icon: <Ban size={12} aria-hidden="true" /> },
 }
 const fetcher = async (url: string) => {
   const r = await fetch(url)
@@ -112,8 +113,10 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
       const done = all.filter((d) => d.status === 'COMPLETE').length
       const total = g.total || all.length
       const missed = all.some((d) => d.status === 'OVERDUE')
-      const next = all.filter((d) => d.status !== 'COMPLETE').sort((a, b) => a.due_date.localeCompare(b.due_date))[0] ?? null
-      const state: 'COMPLETED' | 'MISSED' | 'PENDING' = done >= total ? 'COMPLETED' : missed ? 'MISSED' : 'PENDING'
+      const open = all.filter((d) => d.status !== 'COMPLETE' && d.status !== 'NOT_ELIGIBLE')
+      const next = open.sort((a, b) => a.due_date.localeCompare(b.due_date))[0] ?? null
+      const state: 'COMPLETED' | 'MISSED' | 'PENDING' | 'NOT_ELIGIBLE' =
+        done >= total ? 'COMPLETED' : missed ? 'MISSED' : open.length ? 'PENDING' : 'NOT_ELIGIBLE'
       return { ...g, done, total, state, next, isNextDue: data?.next_due?.vaccine_code === g.code }
     })
   }, [rows, data])
@@ -228,7 +231,7 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
                 onChange={(e) => setStatusFilter(e.target.value as DoseStatus | '')}
               >
                 <option value="">All statuses</option>
-                {(['COMPLETE', 'DUE', 'OVERDUE', 'UPCOMING'] as const).map((s) => (
+                {(['COMPLETE', 'OVERDUE', 'UPCOMING', 'NOT_ELIGIBLE'] as const).map((s) => (
                   <option key={s} value={s}>{STATUS_META[s].label}</option>
                 ))}
               </Select>
@@ -264,11 +267,15 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
                         <span className="text-sm tabular-nums text-brand-navy"><span className="font-semibold">{g.done}/{g.total}</span> <span className="text-muted-foreground">doses</span></span>
                         <StatusBadge
                           status={g.state.toLowerCase()}
-                          tone={g.state === 'COMPLETED' ? 'good' : g.state === 'MISSED' ? 'danger' : 'info'}
-                          label={g.state === 'COMPLETED' ? 'Completed' : g.state === 'MISSED' ? 'Missed' : 'Pending'}
+                          tone={g.state === 'COMPLETED' ? 'good' : g.state === 'MISSED' ? 'danger' : g.state === 'NOT_ELIGIBLE' ? 'neutral' : 'info'}
+                          label={g.state === 'COMPLETED' ? 'Completed' : g.state === 'MISSED' ? 'Missed' : g.state === 'NOT_ELIGIBLE' ? 'Not eligible' : 'Pending'}
                         />
                         <span className="w-full text-xs text-muted-foreground sm:w-36 sm:text-right">
-                          {g.next ? <>Next due <span className="font-medium text-brand-navy">{formatDate(g.next.due_date)}</span></> : 'All doses given'}
+                          {g.next
+                            ? g.next.status === 'OVERDUE'
+                              ? <>Missed since <span className="font-medium text-danger">{formatDate(g.next.due_date)}</span></>
+                              : <>Next due <span className="font-medium text-brand-navy">{formatDate(g.next.due_date)}</span></>
+                            : g.state === 'NOT_ELIGIBLE' ? 'Past the age limit' : 'All doses given'}
                         </span>
                       </button>
                       {/* grid-rows 0fr → 1fr animates the height; no animation with reduced motion. */}

@@ -24,6 +24,8 @@ type ScheduleEntry = {
   recommended_date: string
   route: string
   dose_volume: string
+  /** Past the vaccine's age limit (e.g. BCG after the first birthday). */
+  not_eligible?: boolean
 }
 type LatestRequest = {
   schedule_id: number
@@ -134,8 +136,8 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
     )
   }
   const today = new Date().toISOString().slice(0, 10)
-  const pendingCount = data.preview.filter((e) => e.recommended_date >= today).length
-  const missed = data.preview.filter((e) => e.recommended_date < today)
+  const pendingCount = data.preview.filter((e) => !e.not_eligible && e.recommended_date >= today).length
+  const missed = data.preview.filter((e) => !e.not_eligible && e.recommended_date < today)
   // Longest-missed dose: earliest recommended date among the missed ones.
   const longest = missed.reduce<typeof missed[number] | null>((a, e) => (!a || e.recommended_date < a.recommended_date ? e : a), null)
   const longestDays = longest ? daysBetween(longest.recommended_date, today) : 0
@@ -250,8 +252,10 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
                     <td className="px-4 py-3 text-sm">Dose {entry.dose_number}</td>
                     <td className="px-4 py-3 text-sm">{formatDate(entry.recommended_date)}</td>
                     <td className="px-4 py-3 text-sm">
-                      {overdue ? (
-                        <StatusBadge status="missed" tone="danger" icon={<AlertCircle size={12} aria-hidden="true" />} label={`Missed · ${Math.abs(diff)} day${Math.abs(diff) === 1 ? '' : 's'}`} />
+                      {entry.not_eligible ? (
+                        <StatusBadge status="not-eligible" tone="neutral" label="Not eligible (past age limit)" />
+                      ) : overdue ? (
+                        <StatusBadge status="missed" tone="danger" icon={<AlertCircle size={12} aria-hidden="true" />} label={`Missed since ${formatDate(entry.recommended_date)}`} />
                       ) : soon ? (
                         <StatusBadge status="pending" tone="warn" icon={<Clock size={12} aria-hidden="true" />} label={diff === 0 ? 'Pending · due today' : `Pending · due in ${diff} day${diff === 1 ? '' : 's'}`} />
                       ) : (

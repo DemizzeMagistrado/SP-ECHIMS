@@ -7,7 +7,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 // Backed by GET /api/children?childId={id} which fans the queries out in parallel.
 import { use, useState, type ReactNode } from "react";
 import Link from "next/link";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import { SupplementationHistorySection } from "@/components/children/supplementation-history-section";
 
 import { NutritionHistorySection } from "@/components/children/nutrition-history-section";
@@ -507,6 +507,13 @@ export function ChildProfileView({childId}: {childId: string}) {
   // and on success mutates the SWR cache so the profile re-renders with the new data
   // without the user leaving the page.
   const { data: medicalOptions } = useMedicalHistoryOptions();
+  // After an edit (e.g. a corrected birth date) every section for this child must refetch, not
+  // only the profile: the NIP schedule and history are computed from the date of birth.
+  const { mutate: mutateAll } = useSWRConfig();
+  const refreshChildSections = () => mutateAll((key) => {
+    const k = Array.isArray(key) ? String(key[0]) : String(key ?? "");
+    return k.includes(`child_id=${parsedId}`) || k.includes(`childId=${parsedId}`) || k.startsWith(`/api/children/${parsedId}/`);
+  });
   const [editOpen, setEditOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   // Movement history — loaded alongside the main profile. Updates whenever the user
@@ -900,6 +907,7 @@ export function ChildProfileView({childId}: {childId: string}) {
             // Re-fetch the profile so every section (personal info, guardian, history)
             // re-renders with the saved values. User stays on this page.
             mutate();
+            void refreshChildSections();
             toast.success("Changes saved");
           }}
           onError={(message) => toast.error(message)}
@@ -916,6 +924,7 @@ export function ChildProfileView({childId}: {childId: string}) {
             // Refetch both the profile (status chip updates) and movement history (new row).
             mutate();
             mutateMovements();
+            void refreshChildSections();
             toast.success("Status updated");
           }}
           onError={(message) => toast.error(message)}

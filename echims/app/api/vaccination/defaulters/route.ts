@@ -5,6 +5,7 @@ import {
   NIP_CATALOG,
   GRACE_PERIOD_DAYS,
   getNipDoseDate,
+  nipDoseStatus,
   normalizeVaccineCode,
   manilaTodayYMD,
   nipDaysBetween,
@@ -39,23 +40,6 @@ function invalid(message: string, status = 400) {
 }
 
 type Status = 'DUE' | 'OVERDUE'
-
-function todayYMD(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function addDays(iso: string, days: number): string {
-  const d = new Date(iso + 'T00:00:00')
-  d.setDate(d.getDate() + days)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function daysBetween(fromISO: string, toISO: string): number {
-  const a = new Date(fromISO + 'T00:00:00').getTime()
-  const b = new Date(toISO + 'T00:00:00').getTime()
-  return Math.floor((b - a) / 86400000)
-}
 
 export async function GET(request: Request) {
   const supabase = await createClient()
@@ -157,39 +141,20 @@ for (const rec of approvedRecords) {
     const b: any = Array.isArray(c.barangay) ? c.barangay[0] : c.barangay
 
     for (const v of NIP_CATALOG) {
+      if (v.routine_enabled === false) continue
       if (vaccineFilter && v.code !== vaccineFilter) continue
-      const doneForVaccine = doneMap.get(c.child_id)?.get(v.vaccine_type) ?? new Set<number>()
+      const doneForVaccine = doneMap.get(c.child_id)?.get(v.code) ?? new Set<number>()
 
       for (let n = 1; n <= v.total_doses; n++) {
-        if (doneForVaccine.has(n)) continue   // already administered — not a defaulter
-        const offsetDays = v.min_age_days + (v.interval_days ? (n - 1) * v.interval_days : 0)
-        const dueDate = addDays(dob, offsetDays)
-        if (dueDate > today) continue          // not due yet — upcoming, not a defaulter
-        const daysPast = daysBetween(dueDate, today)
+        if (doneForVaccine.has(n)) continue
+        // Same schedule and rules as the child profile (lib/nip-schedule).
+        const dueDate = getNipDoseDate(dob, v, n)
+        if (!dueDate || dueDate > today) continue
+        if (nipDoseStatus(dob, v, dueDate, false, today) === 'NOT_ELIGIBLE') continue
+        const daysPast = nipDaysBetween(dueDate, today)
+        if (!Number.isFinite(daysPast)) continue
         const status: Status = daysPast > GRACE_PERIOD_DAYS ? 'OVERDUE' : 'DUE'
         if (statusFilter && status !== statusFilter) continue
-        
-      for (const v of NIP_CATALOG) {
-        if (v.routine_enabled === false) continue
-        if (vaccineFilter && v.code !== vaccineFilter) continue
-
-        const doneForVaccine =
-          doneMap.get(c.child_id)?.get(v.code) ?? new Set<number>()
-
-        for (let n = 1; n <= v.total_doses; n++) {
-          if (doneForVaccine.has(n)) continue
-
-          const dueDate = getNipDoseDate(dob, v, n)
-          if (!dueDate || dueDate > today) continue
-
-          const daysPast = nipDaysBetween(dueDate, today)
-          if (!Number.isFinite(daysPast)) continue
-
-          const status: Status =
-            daysPast > GRACE_PERIOD_DAYS ? 'OVERDUE' : 'DUE'
-
-          if (statusFilter && status !== statusFilter) continue
-
         defaulters.push({
           child_id: c.child_id,
           child_name: [c.first_name, c.middle_name, c.last_name].filter(Boolean).join(' '),
@@ -205,7 +170,6 @@ for (const rec of approvedRecords) {
         })
       }
     }
-  }
   }
 
   // Sort: OVERDUE first, most-overdue first, then by child name
@@ -238,4 +202,4 @@ for (const rec of approvedRecords) {
     role,
     grace_period_days: GRACE_PERIOD_DAYS,
   })
-}}  
+}

@@ -3,11 +3,10 @@ import { createClient } from '@/lib/supabase/server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import {
   NIP_CATALOG,
-  GRACE_PERIOD_DAYS,
   getNipDoseDate,
+  nipDoseStatus,
   normalizeVaccineCode,
   manilaTodayYMD,
-  nipDaysBetween,
 } from '@/lib/nip-schedule'
 
 const roleAliases: Record<string, UserRole> = {
@@ -45,7 +44,7 @@ function invalid(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status })
 }
 
-type DoseStatus = 'COMPLETE' | 'DUE' | 'OVERDUE' | 'UPCOMING'
+type DoseStatus = 'COMPLETE' | 'DUE' | 'OVERDUE' | 'UPCOMING' | 'NOT_ELIGIBLE'
 
 type DoseRow = {
   dose_number: number
@@ -188,22 +187,9 @@ export async function GET(request: Request) {
             Number(record.dose_number) === dose,
         )
 
-        let status: DoseStatus
-
-        if (match) {
-          status = 'COMPLETE'
-        } else if (dueDate > today) {
-          status = 'UPCOMING'
-        } else {
-          const daysPastDue = nipDaysBetween(dueDate, today)
-
-          if (!Number.isFinite(daysPastDue)) {
-            return invalid('Unable to calculate dose status.', 500)
-          }
-
-          status =
-            daysPastDue > GRACE_PERIOD_DAYS ? 'OVERDUE' : 'DUE'
-        }
+        // Pending if due today or later, Missed once the date has passed, Not eligible after
+        // the vaccine's age limit (same rules as the schedule tab and defaulters).
+        const status: DoseStatus = nipDoseStatus(dob, vaccine, dueDate, Boolean(match), today)
 
         doses.push({
           dose_number: dose,
@@ -236,7 +222,7 @@ export async function GET(request: Request) {
         vaccine.doses
           .filter(
             (dose) =>
-              dose.status === 'OVERDUE' || dose.status === 'DUE',
+              dose.status === 'OVERDUE' || dose.status === 'UPCOMING',
           )
           .map((dose) => ({
             vaccine_code: vaccine.code,
@@ -244,7 +230,8 @@ export async function GET(request: Request) {
             ...dose,
           })),
       )
-      .sort((a, b) => a.due_date.localeCompare(b.due_date))
+      // Missed doses first (oldest first), then the next pending dose.
+      .sort((a, b) => (a.status === b.status ? a.due_date.localeCompare(b.due_date) : a.status === 'OVERDUE' ? -1 : 1))
 
     function countStatus(status: DoseStatus): number {
       return vaccineStatus.reduce(
@@ -267,6 +254,7 @@ export async function GET(request: Request) {
           due: countStatus('DUE'),
           overdue: countStatus('OVERDUE'),
           upcoming: countStatus('UPCOMING'),
+          not_eligible: countStatus('NOT_ELIGIBLE'),
         },
       },
       {

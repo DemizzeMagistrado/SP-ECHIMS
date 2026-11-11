@@ -5,6 +5,8 @@ export type NipVaccine = {
   min_age_days: number
   interval_days: number | null
   dose_age_months?: number[]
+  /** Not given after this age (in months): the dose becomes "Not eligible", not "Missed". */
+  max_age_months?: number
   routine_enabled?: boolean
   route: string
   dose_volume: string
@@ -20,6 +22,8 @@ export const NIP_CATALOG: NipVaccine[] = [
     total_doses: 1,
     min_age_days: 0,
     interval_days: null,
+    // DOH NIP: BCG is given up to the first birthday.
+    max_age_months: 12,
     route: 'Intradermal',
     dose_volume: '0.05 mL',
   },
@@ -194,7 +198,25 @@ export function getNipDoseDate(
     recommended.setUTCDate(recommended.getUTCDate() + offset)
   }
 
+  // Every due date is counted forward from the date of birth; never earlier.
+  if (recommended.getTime() < birth.getTime()) return null
   return recommended.toISOString().slice(0, 10)
+}
+
+export type NipDoseStatus = 'COMPLETE' | 'UPCOMING' | 'OVERDUE' | 'NOT_ELIGIBLE'
+
+/**
+ * One dose's status, the same everywhere (profile, schedule tab, defaulters):
+ * given → COMPLETE; due today or later → UPCOMING (Pending); past due and not given →
+ * OVERDUE (Missed); past the vaccine's age limit and not given → NOT_ELIGIBLE.
+ */
+export function nipDoseStatus(dateOfBirth: string, vaccine: NipVaccine, dueDate: string, given: boolean, today: string): NipDoseStatus {
+  if (given) return 'COMPLETE'
+  if (vaccine.max_age_months !== undefined) {
+    const birth = parseDate(dateOfBirth)
+    if (birth && today >= addCalendarMonths(birth, vaccine.max_age_months).toISOString().slice(0, 10)) return 'NOT_ELIGIBLE'
+  }
+  return dueDate >= today ? 'UPCOMING' : 'OVERDUE'
 }
 
 export function computeSchedule(dateOfBirth: string): ScheduleEntry[] {
