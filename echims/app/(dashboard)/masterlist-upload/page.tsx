@@ -409,7 +409,7 @@ function EditModal({ row, onClose, onSave }: { row: StagingRow; onClose: () => v
   const [draft, setDraft] = useState<Record<string, string>>({ ...row.raw })
   const fields = Object.keys(row.raw)
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-2xl rounded-2xl border border-border bg-white p-5 shadow-xl">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold">Edit row #{row.row_number}</h3>

@@ -103,7 +103,7 @@ export function ReplenishmentRequestModal({ open, onClose, onSaved }: Props) {
   const selectedItem = items.find((i) => String(i.item_id) === itemId) ?? null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-sm sm:items-center">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-sm sm:items-center">
       <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
         <div className="flex items-start justify-between gap-4 border-b border-border p-6">
           <div className="flex items-start gap-3">

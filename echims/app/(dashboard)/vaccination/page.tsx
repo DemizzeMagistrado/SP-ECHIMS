@@ -356,7 +356,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
 
       {/* Review modal */}
       {reviewing && !readOnly && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/30 p-4">
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 overflow-y-auto bg-black/30 p-4">
           <div className="mx-auto mt-20 max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -678,7 +678,7 @@ function ScheduleSection() {
 
       {/* Review modal */}
       {reviewing && reviewAction && !readOnly && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/30 p-4">
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 overflow-y-auto bg-black/30 p-4">
           <div className="mx-auto mt-20 max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <div className="flex items-start justify-between gap-4">
               <div>

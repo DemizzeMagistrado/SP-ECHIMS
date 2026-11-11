@@ -607,7 +607,7 @@ export function ChildFormModal({
 
   if (loadingChild) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
         <div className="w-64 rounded-2xl bg-white p-6 shadow-xl">
           <Spinner showLabel label="Loading child record…" className="w-full justify-center py-6 text-sm text-muted-foreground" />
         </div>
@@ -616,7 +616,7 @@ export function ChildFormModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/30 p-4">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 overflow-y-auto bg-black/30 p-4">
       <form
         onSubmit={submit}
         className="mx-auto max-w-5xl space-y-7 rounded-2xl bg-white p-6 shadow-xl"

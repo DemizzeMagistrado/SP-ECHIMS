@@ -1979,7 +1979,7 @@ function ModalShell({
   onClose: () => void
 }) {
   return (
-    <div
+    <div role="dialog" aria-modal="true"
       className="fixed inset-0 z-40 grid place-items-center bg-slate-950/35 p-4"
       onClick={onClose}
     >

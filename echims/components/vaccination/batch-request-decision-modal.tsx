@@ -99,7 +99,7 @@ export function BatchRequestDecisionModal({ open, onClose, onDecided, request }:
   const isPending = request.status === 'PENDING'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-sm sm:items-center">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-sm sm:items-center">
       <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 border-b border-border p-6">

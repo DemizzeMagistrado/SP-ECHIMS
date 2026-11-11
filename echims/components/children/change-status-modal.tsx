@@ -92,7 +92,7 @@ export function ChangeStatusModal({ childId, currentStatus, childName, onClose, 
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/30 p-4">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 overflow-y-auto bg-black/30 p-4">
       <form onSubmit={submit} className="mx-auto max-w-xl space-y-5 rounded-2xl bg-white p-6 shadow-xl">
         <div className="flex items-start justify-between gap-4">
           <div>

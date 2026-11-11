@@ -4,7 +4,7 @@ Reuse these in per-module work instead of hand-building the same thing again. Th
 brand tokens in `app/globals.css` (navy/sky palette, `good`/`warn`/`danger`/`nutrition` tones,
 Inter body, Plus Jakarta Sans titles).
 
-Already mounted once in `app/layout.tsx`: `<Toaster/>`, `<ConfirmHost/>`, `<ArrowKeyTabs/>`.
+Already mounted once in `app/layout.tsx`: `<Toaster/>`, `<ConfirmHost/>`, `<ArrowKeyTabs/>`, `<ModalA11y/>`.
 The dashboard layout adds the skip link, offline banner and `<PrintHeader/>`.
 
 ## PageHeader — `page-header.tsx`
@@ -82,5 +82,6 @@ Logo + title + message + actions, used by the 404 and error pages. `area="conten
 
 ## Others
 - `arrow-key-tabs.tsx`: arrow keys for any `[role=tablist]` and `[data-arrow-nav]` link bar — just use the roles.
+- `modal-a11y.tsx`: give a hand-built overlay `role="dialog" aria-modal="true"` and it gets focus-in, a Tab trap, focus return and Esc (presses its Close/Cancel button, only while nothing has been typed). Prefer a native `<dialog>` for new modals.
 - `print-header.tsx`: wordmark + print time, visible only on paper. Mark extra screen-only bits with `print-hide`.
 - Offline: call `reportSync(sent, failed)` from `lib/offline/refresh` when a queue drains; the banner shows the toast.
