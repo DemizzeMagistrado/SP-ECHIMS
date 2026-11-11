@@ -669,7 +669,6 @@ export function ChildProfileView({childId}: {childId: string}) {
           { id: "vaccination-schedule", label: "Vaccination schedule" },
           { id: "nutrition-history", label: "Nutrition history" },
           { id: "supplementation", label: "Supplementation" },
-          { id: "household-members", label: `Household members (${siblings.length})` },
         ]}
         extra={canViewAlerts && (
           <Link href="/alerts" className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-white px-3 py-1.5 text-sm font-medium text-brand-navy hover:bg-brand-ice focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
@@ -794,7 +793,7 @@ export function ChildProfileView({childId}: {childId: string}) {
               Household members <span className="font-normal text-muted-foreground">· same Family Serial No.</span>
             </h3>
             {siblings.length === 0 ? (
-              <p className="mt-1 text-sm text-muted-foreground">No other registered children in this household.</p>
+              <p className="mt-1 text-sm text-muted-foreground">No other children registered in this household.</p>
             ) : (
               <ul className="mt-2 space-y-1">
                 {siblings.map((sib) => (
