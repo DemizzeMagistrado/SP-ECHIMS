@@ -42,6 +42,8 @@ import { LogoLoader } from '@/components/brand/logo-loader'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { SectionJumpNav } from "@/components/children/section-jump-nav";
+import { BackToTop } from "@/components/landing/section-nav";
 import { CHILD_ID_HELP, FSN_HELP, InfoTip } from '@/components/ui/info-tip'
 type ChildRow = {
   child_id: number;
@@ -240,27 +242,6 @@ function formatDate(value: string | null | undefined) {
 function titleCase(value: string | null | undefined) {
   if (!value) return "—";
   return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
-}
-function Chip({
-  children,
-  tone = "default",
-}: {
-  children: ReactNode;
-  tone?: "default" | "success" | "warning" | "danger";
-}) {
-  const colors = {
-    default: "bg-muted text-muted-foreground",
-    success: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
-    warning: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
-    danger: "bg-red-50 text-red-700 ring-1 ring-red-200",
-  }[tone];
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${colors}`}
-    >
-      {children}
-    </span>
-  );
 }
 type Tone = "default" | "success" | "warning" | "danger";
 function classificationCode(value: string | null | undefined) {
@@ -649,63 +630,57 @@ export function ChildProfileView({childId}: {childId: string}) {
             </>)}
           </div>
       </div>
-      {/* Hero card: child identity + quick status chips */}
-      <section className="rounded-2xl border border-border bg-gradient-to-r from-primary/5 to-sky-50 p-6 shadow-sm">
+      {/* Header: white card with a navy accent; name first, identifiers and details muted. */}
+      <section className="rounded-2xl border border-border border-l-4 border-l-primary bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-start gap-4">
-            <div className="rounded-2xl bg-primary/10 p-4 text-primary">
-              <Baby size={32} />
+          <div className="flex min-w-0 items-start gap-4">
+            <div className="hidden rounded-xl bg-brand-ice p-3 text-primary sm:block">
+              <Baby size={28} aria-hidden="true" />
             </div>
-            <div>
-              <dl className="flex flex-wrap gap-2 text-xs">
-                <div className="flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 ring-1 ring-border">
-                  <dt className="inline-flex items-center gap-1 font-medium text-muted-foreground">Child ID <InfoTip label="About Child ID">{CHILD_ID_HELP}</InfoTip></dt>
-                  <dd className="inline font-mono font-semibold text-brand-navy">{child.child_code ?? formatChildId(child.child_id, child.registration_date)}</dd>
+            <div className="min-w-0">
+              <h1 className="font-display text-2xl font-bold tracking-tight text-brand-navy sm:text-3xl">{fullName}</h1>
+              <p className="mt-1 text-sm text-brand-muted">
+                {titleCase(child.sex)} · {ageDescription(child.date_of_birth)} · Born {formatDate(child.date_of_birth)}
+                {barangay?.barangay_name && <> · {barangay.barangay_name}</>}
+              </p>
+              <dl className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-sm">
+                <div className="flex items-center gap-1.5">
+                  <dt className="inline-flex items-center gap-1 text-brand-muted">Child ID <InfoTip label="About Child ID">{CHILD_ID_HELP}</InfoTip></dt>
+                  <dd className="font-mono font-semibold text-brand-navy">{child.child_code ?? formatChildId(child.child_id, child.registration_date)}</dd>
                 </div>
-                <div className="flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 ring-1 ring-border">
-                  <dt className="inline-flex items-center gap-1 font-medium text-muted-foreground">Family Serial Number (FSN) <InfoTip label="About the Family Serial Number (FSN)">{FSN_HELP}</InfoTip></dt>
-                  <dd className="inline font-mono font-semibold text-brand-navy">{household?.family_serial_no ?? "—"}</dd>
+                <div className="flex items-center gap-1.5">
+                  <dt className="inline-flex items-center gap-1 text-brand-muted">Family Serial Number (FSN) <InfoTip label="About the Family Serial Number (FSN)">{FSN_HELP}</InfoTip></dt>
+                  <dd className="font-mono font-semibold text-brand-navy">{household?.family_serial_no ?? "—"}</dd>
                 </div>
               </dl>
-              <h1 className="mt-1 text-3xl font-bold text-foreground">
-                {fullName}
-              </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {titleCase(child.sex)} · {ageDescription(child.date_of_birth)} ·
-                Born {formatDate(child.date_of_birth)}
-              </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Chip tone="success">
-              {classificationForDob(child.date_of_birth)}
-            </Chip>
-            <Chip tone={statusTone(monitoringStatus)}>
-              Monitoring: {monitoringStatus}
-            </Chip>
-            <Chip>{child.status ?? "ACTIVE"}</Chip>
-            <Chip tone={nutrition.tone}>{nutrition.label}</Chip>
+            <StatusBadge status={child.status ?? "ACTIVE"} tone={child.status === "DECEASED" ? "danger" : child.status === "MOVED" || child.status === "LOST" ? "warn" : child.status === "INACTIVE" ? "neutral" : "good"} dot />
+            <StatusBadge status="age" tone="info" label={classificationForDob(child.date_of_birth)} />
+            <StatusBadge status="monitoring" tone={badgeTone[statusTone(monitoringStatus)]} label={`Monitoring: ${monitoringStatus}`} />
+            <StatusBadge status="nutrition" tone={badgeTone[nutrition.tone]} label={nutrition.label} />
           </div>
         </div>
       </section>
-      <nav aria-label="Related records" className="print-hide flex flex-wrap gap-2">
-        {[
-          { href: "#vaccination-schedule", label: "Vaccination schedule" },
-          { href: "#nutrition-history", label: "Nutrition history" },
-          { href: "#supplementation", label: "Supplementation" },
-          { href: "#household-members", label: `Household members (${siblings.length})` },
-        ].map((l) => (
-          <a key={l.href} href={l.href} className={buttonVariants({ variant: "secondary", size: "sm" })}>{l.label}</a>
-        ))}
-        {canViewAlerts && (
-          <Link href="/alerts" className={buttonVariants({ variant: "secondary", size: "sm" })}>
+      <SectionJumpNav
+        label="Jump to section"
+        items={[
+          { id: "vaccination-schedule", label: "Vaccination schedule" },
+          { id: "nutrition-history", label: "Nutrition history" },
+          { id: "supplementation", label: "Supplementation" },
+          { id: "household-members", label: `Household members (${siblings.length})` },
+        ]}
+        extra={canViewAlerts && (
+          <Link href="/alerts" className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-white px-3 py-1.5 text-sm font-medium text-brand-navy hover:bg-brand-ice focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
             Alerts
             {typeof openAlertCount === "number" && openAlertCount > 0 && (
               <StatusBadge status="open" tone="danger" label={`${openAlertCount} open`} className="py-0.5" />
             )}
           </Link>
         )}
-      </nav>
+      />
+      <BackToTop />
       {/* The three profiling sections, in the same order as the registration form. */}
       <SectionCard
         title="Child Information"
@@ -814,7 +789,7 @@ export function ChildProfileView({childId}: {childId: string}) {
             <InfoRow label="Water source" value={household?.water_source_type || profile?.water_source_type || "—"} />
             <InfoRow label="Toilet facility" value={household?.toilet_facility_type || profile?.toilet_facility_type || "—"} />
           </dl>
-          <div id="household-members" className="mt-4 scroll-mt-24 border-t border-border pt-4">
+          <div id="household-members" className="mt-4 scroll-mt-32 border-t border-border pt-4">
             <h3 className="text-sm font-semibold text-brand-navy">
               Household members <span className="font-normal text-muted-foreground">· same Family Serial No.</span>
             </h3>
@@ -848,16 +823,16 @@ export function ChildProfileView({childId}: {childId: string}) {
       </div>
       {/* NIP-USR001 — Vaccination Schedule request + preview. Computed from DOB + NIP
           catalog, already-administered doses excluded. BHW/RHM can request, PHN reviews. */}
-      <div id="vaccination-schedule" className="scroll-mt-24">
+      <div id="vaccination-schedule" className="scroll-mt-32">
         <VaccinationScheduleSection childId={child.child_id} />
       </div>
 
       {/* Nutritional assessment history */}
-      <div id="nutrition-history" className="scroll-mt-24">
+      <div id="nutrition-history" className="scroll-mt-32">
         <NutritionHistorySection assessments={assessments ?? []} />
       </div>
       {/* Full saved administration, dispensing, plans and due dates. */}
-      <div id="supplementation" className="scroll-mt-24">
+      <div id="supplementation" className="scroll-mt-32">
         <SupplementationHistorySection childId={child.child_id} />
       </div>
 
