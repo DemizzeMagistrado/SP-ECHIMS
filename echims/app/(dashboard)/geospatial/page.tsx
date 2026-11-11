@@ -7,8 +7,9 @@
 
 import dynamic from 'next/dynamic'
 import useSWR from 'swr'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { ModuleTabs } from '@/components/dashboard/module-tabs'
+import { useAuth } from '@/components/auth/auth-provider'
+import type { UserRole } from '@/lib/echims-data'
 import { useMemo } from 'react'
 import { PagePending } from '@/components/brand/page-gate'
 import { PageHeader } from '@/components/ui/page-header'
@@ -41,37 +42,8 @@ type ApiResponse = {
   perBarangay: PerBarangay[]
 }
 
-const CHILD_PROFILING_TABS = [
-  { label: 'Children', href: '/child-profiling/children' },
-  { label: 'Map', href: '/geospatial' },
-  { label: 'Masterlist Import', href: '/masterlist-upload' },
-]
-
-function ChildProfilingTabs() {
-  const pathname = usePathname()
-  return (
-    <div className="flex items-center gap-6 border-b border-border/60">
-      {CHILD_PROFILING_TABS.map((t) => {
-        const active = pathname === t.href || (t.href === '/geospatial' && pathname.startsWith('/geospatial'))
-        return (
-          <Link
-            key={t.href}
-            href={t.href}
-            className={
-              'relative pb-2 text-sm font-semibold transition ' +
-              (active ? 'text-primary' : 'text-muted-foreground hover:text-foreground')
-            }
-          >
-            {t.label}
-            {active && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-primary" />}
-          </Link>
-        )
-      })}
-    </div>
-  )
-}
-
 export default function GeospatialMapPage() {
+  const { user } = useAuth()
   const { data, error, isLoading, mutate } = useSWR<ApiResponse>(
     '/api/geospatial/children-map',
     fetcher,
@@ -122,8 +94,8 @@ export default function GeospatialMapPage() {
   const noScope = (data?.allowedBarangayIds.length ?? 0) === 0
 
   return (
-    <div className="space-y-5">
-      <ChildProfilingTabs />
+    <div className="space-y-6">
+      <ModuleTabs parent="Child Profiling" role={user?.role as UserRole | undefined} />
 
       <PageHeader
         title="Geospatial"

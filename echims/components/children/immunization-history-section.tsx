@@ -1,4 +1,5 @@
 'use client'
+import { StatCard } from '@/components/ui/stat-card'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 // NIP-USR004 — Immunization history section (replaces the inline Vaccination History
 // SectionCard on the child profile page). Shows:
@@ -291,16 +292,6 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
   )
 }
 function SummaryTile({ label, value, tone }: { label: string; value: number; tone: 'emerald' | 'amber' | 'rose' | 'slate' }) {
-  const colors = {
-    emerald: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
-    amber: 'bg-amber-50 text-amber-700 ring-amber-100',
-    rose: 'bg-rose-50 text-rose-700 ring-rose-100',
-    slate: 'bg-slate-50 text-slate-700 ring-slate-200',
-  }[tone]
-  return (
-    <div className={`rounded-xl p-3 ring-1 ${colors}`}>
-      <p className="text-xs font-semibold uppercase tracking-wide opacity-80">{label}</p>
-      <p className="mt-1 text-2xl font-bold">{value}</p>
-    </div>
-  )
+  const map = { emerald: 'good', amber: 'warn', rose: 'danger', slate: 'default' } as const
+  return <StatCard className="p-4" label={label} value={value} tone={map[tone]} />
 }

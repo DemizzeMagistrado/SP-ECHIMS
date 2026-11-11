@@ -7,7 +7,9 @@
 import { FilterChips } from '@/components/ui/module-tabs'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { ModuleTabs } from '@/components/dashboard/module-tabs'
+import { useAuth } from '@/components/auth/auth-provider'
+import type { UserRole } from '@/lib/echims-data'
 import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -42,31 +44,8 @@ type StagingRow = {
   matched_child_id: number | null
 }
 
-const CHILD_PROFILING_TABS = [
-  { label: 'Children', href: '/child-profiling/children' },
-  { label: 'Map', href: '/geospatial' },
-  { label: 'Masterlist Import', href: '/masterlist-upload' },
-]
-
-function ChildProfilingTabs() {
-  const pathname = usePathname()
-  return (
-    <div className="flex items-center gap-6 border-b border-border/60">
-      {CHILD_PROFILING_TABS.map((t) => {
-        const active = pathname === t.href || (t.href === '/masterlist-upload' && pathname.startsWith('/masterlist-upload'))
-        return (
-          <Link key={t.href} href={t.href}
-            className={'relative pb-2 text-sm font-semibold transition ' + (active ? 'text-primary' : 'text-muted-foreground hover:text-foreground')}>
-            {t.label}
-            {active && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-primary" />}
-          </Link>
-        )
-      })}
-    </div>
-  )
-}
-
 export default function MasterlistUploadPage() {
+  const { user } = useAuth()
   const confirm = useConfirm()
   const [batch, setBatch] = useState<Batch | null>(null)
   const [rows, setRows] = useState<StagingRow[]>([])
@@ -172,8 +151,8 @@ export default function MasterlistUploadPage() {
   }
 
   return (
-    <div className="space-y-5">
-      <ChildProfilingTabs />
+    <div className="space-y-6">
+      <ModuleTabs parent="Child Profiling" role={user?.role as UserRole | undefined} />
 
       <PageHeader
         title="Masterlist Upload"
