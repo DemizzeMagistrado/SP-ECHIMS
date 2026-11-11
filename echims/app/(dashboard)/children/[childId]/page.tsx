@@ -28,6 +28,8 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { canPerform, type UserRole } from "@/lib/echims-data";
 import { formatChildId } from "@/lib/formatters";
 import { NO_PHILHEALTH } from "@/lib/children/profile-fields";
+import { describeMedicalHistory, type MedicalHistory } from "@/lib/children/medical-history";
+import { useMedicalHistoryOptions } from "@/components/children/medical-history-picker";
 import { ChildFormModal } from "@/components/children/child-form-modal";
 import { ChangeStatusModal } from "@/components/children/change-status-modal";
 import { VaccinationScheduleSection } from "@/components/children/vaccination-schedule-section";
@@ -83,6 +85,7 @@ type Profile = {
   toilet_facility_type: string | null;
   informant_name?: string | null;
   informant_relationship?: string | null;
+  medical_history_structured?: MedicalHistory | null;
 };
 type BarangayRow = {
   barangay_id: number;
@@ -464,6 +467,7 @@ export function ChildProfileView({childId}: {childId: string}) {
   // In-place edit modal: opens over this profile page, saves via PATCH /api/children,
   // and on success mutates the SWR cache so the profile re-renders with the new data
   // without the user leaving the page.
+  const { data: medicalOptions } = useMedicalHistoryOptions();
   const [editOpen, setEditOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   // Movement history — loaded alongside the main profile. Updates whenever the user
@@ -654,7 +658,10 @@ export function ChildProfileView({childId}: {childId: string}) {
                   ? profile.philhealth_membership_type
                   : [profile.philhealth_membership_type, profile.philhealth_id_number, profile.philhealth_category].filter(Boolean).join(" · ")}
             />
-            <InfoRow label="Medical history" value={profile?.medical_history || "—"} />
+            <InfoRow
+              label="Medical history"
+              value={describeMedicalHistory(profile?.medical_history_structured ?? null, medicalOptions?.conditions ?? []) || profile?.medical_history || "—"}
+            />
           </div>
         </dl>
       </SectionCard>

@@ -20,7 +20,7 @@ export async function prepareSystemViews(user: AuthUser, progress: (text: string
   let completed = 0, profiles = 0
   const view = (name: string) => canPerform(user.role, name, 'view')
   const urls = new Set(['/api/notifications'])
-  if (view('Child Profiling')) ['/api/children','/api/barangays','/api/psgc?level=offline-reference'].forEach(url => urls.add(url))
+  if (view('Child Profiling')) ['/api/children','/api/barangays','/api/psgc?level=offline-reference','/api/children/medical-history-options'].forEach(url => urls.add(url))
   if (view('Health Activities')) ['/api/health-activities','/api/health-activities/options'].forEach(url => urls.add(url))
   if (view('Nutritional Assessment')) urls.add('/api/nutrition')
   if (view('Supplementation')) ['/api/supplementation','/api/supplementation/stock-requests','/api/sms/reminders?program=SUPPLEMENTATION'].forEach(url => urls.add(url))

@@ -22,8 +22,8 @@ export const emptyChildForm: ChildForm = {
   religion: '', religion_other: '', ethnicity: '', ethnicity_other: '',
   philhealth_id_number: '', philhealth_membership_type: '', philhealth_membership_type_other: '',
   philhealth_category: '', philhealth_category_other: '',
-  has_hypertension: false, has_diabetes_mellitus: false, has_tuberculosis: false, has_others: false,
-  medical_history_other: '', medical_history_notes: '', medical_history: '', last_menstrual_period: '',
+  medical_codes: '', medical_others: '', medical_none_reported: false, medical_history_notes: '',
+  medical_history: '', last_menstrual_period: '',
   // Guardian Information
   mother_name: '', father_name: '',
   guardian_id: '', guardian_first_name: '', guardian_middle_name: '', guardian_last_name: '',
@@ -67,6 +67,16 @@ export const options = {
 
 /** No PhilHealth number or category applies to these memberships. */
 export const NO_PHILHEALTH = new Set(['N/A', 'No PhilHealth'])
+
+/** Drafts saved before CP-REV01 used condition checkboxes; keep what they recorded as "Other". */
+export function upgradeLegacyDraft(form: ChildForm): ChildForm {
+  const legacy = [
+    form.has_hypertension && 'Hypertension', form.has_diabetes_mellitus && 'Diabetes Mellitus',
+    form.has_tuberculosis && 'Tuberculosis', form.has_others && String(form.medical_history_other ?? '').trim(),
+  ].filter((x): x is string => Boolean(x))
+  if (!legacy.length || form.medical_others) return form
+  return { ...form, medical_others: legacy.join('; ') }
+}
 
 export function monthsOld(date: string) {
   const birth = new Date(`${date}T00:00:00Z`)

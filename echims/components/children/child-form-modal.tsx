@@ -19,9 +19,11 @@ import { Button } from '@/components/ui/button'
 import { Checkbox, DateInput, Field, Input, Select, Textarea } from '@/components/ui/form'
 import { cn } from '@/lib/utils'
 import {
-  NO_PHILHEALTH, STEPS, classificationForDob, emptyChildForm, options, otherAwareFields, validateStep,
+  NO_PHILHEALTH, STEPS, classificationForDob, emptyChildForm, options, otherAwareFields, upgradeLegacyDraft, validateStep,
   type ChildForm, type StepKey,
 } from '@/lib/children/profile-fields'
+import { describeMedicalHistory, fromStructured, toStructured } from '@/lib/children/medical-history'
+import { MedicalHistoryPicker, useMedicalHistoryOptions } from '@/components/children/medical-history-picker'
 
 type Mode = "create" | "edit";
 type Barangay = { barangay_id: number; barangay_name: string };
@@ -74,7 +76,7 @@ export function ChildFormModal({
   }, [])
   const draftId = useRef(draft?.requestId ?? '')
   const [reviewed, setReviewed] = useState(false)
-  const [form, setForm] = useState<ChildForm>({ ...emptyChildForm, ...draft?.form });
+  const [form, setForm] = useState<ChildForm>(() => upgradeLegacyDraft({ ...emptyChildForm, ...draft?.form }));
   const [step, setStep] = useState(0);
   const [visited, setVisited] = useState(draft ? STEPS.length - 1 : 0);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -87,6 +89,7 @@ export function ChildFormModal({
   const [saving, setSaving] = useState(false);
   const [loadingChild, setLoadingChild] = useState(mode === "edit");
   const body = useRef<HTMLDivElement>(null);
+  const { data: medicalOptions } = useMedicalHistoryOptions();
 
   const { data: barangays } = useSWR<Barangay[]>("/api/barangays", fetcher);
   const { data: householdMatches = [] } = useSWR<Household[]>(
@@ -135,7 +138,7 @@ export function ChildFormModal({
           philhealth_id_number: str(profile.philhealth_id_number),
           philhealth_membership_type: str(profile.philhealth_membership_type),
           philhealth_category: str(profile.philhealth_category),
-          medical_history_notes: str(profile.medical_history),
+          ...fromStructured(profile.medical_history_structured, profile.medical_history),
           last_menstrual_period: str(profile.last_menstrual_period),
           water_source_type: str(profile.water_source_type), toilet_facility_type: str(profile.toilet_facility_type),
           informant_name: str(profile.informant_name), informant_relationship: str(profile.informant_relationship),
@@ -190,7 +193,7 @@ export function ChildFormModal({
   }
 
   function resolveOthers(source: ChildForm) {
-    const resolved: Record<string, string> = {};
+    const resolved: Record<string, unknown> = {};
     for (const field of otherAwareFields) {
       if (source[field] === "Other") resolved[field] = String(source[`${field}_other`] ?? "").trim() || "Other";
     }
@@ -198,14 +201,8 @@ export function ChildFormModal({
       resolved.philhealth_id_number = "";
       resolved.philhealth_category = "";
     }
-    const conditions: string[] = [];
-    if (source.has_hypertension) conditions.push("Hypertension");
-    if (source.has_diabetes_mellitus) conditions.push("Diabetes Mellitus");
-    if (source.has_tuberculosis) conditions.push("Tuberculosis");
-    const medicalOther = String(source.medical_history_other ?? "").trim();
-    if (source.has_others && medicalOther) conditions.push(medicalOther);
-    const notes = String(source.medical_history_notes ?? "").trim();
-    resolved.medical_history = [conditions.join("; "), notes].filter(Boolean).join(". ");
+    const structured = toStructured(source);
+    resolved.medical_history = describeMedicalHistory(structured, medicalOptions?.conditions ?? []);
     return resolved;
   }
 
@@ -232,7 +229,8 @@ export function ChildFormModal({
     setMessage("");
     setSaving(true);
     try {
-      const resolved = resolveOthers(form);
+      // Edit sends null so clearing every condition also clears the saved value.
+      const resolved = { ...resolveOthers(form), medical_history_structured: toStructured(form) ?? (mode === "edit" ? null : undefined) };
       if (mode === 'create' && draft) {
         if (!user) throw new Error('Sign in before uploading this draft.')
         if (draft.status === 'UNCERTAIN') throw new Error('Check the server records for this child before resolving this upload. Do not submit it again.')
@@ -388,19 +386,19 @@ export function ChildFormModal({
                 </>)}
               </div>
               <SubHeading>Medical history</SubHeading>
-              <fieldset className="space-y-3">
-                <legend className="sr-only">Medical history</legend>
-                <div className="flex flex-wrap gap-x-6 gap-y-2">
-                  <Checkbox label="Hypertension" checked={Boolean(form.has_hypertension)} onChange={(e) => set("has_hypertension", e.target.checked)} />
-                  <Checkbox label="Diabetes Mellitus" checked={Boolean(form.has_diabetes_mellitus)} onChange={(e) => set("has_diabetes_mellitus", e.target.checked)} />
-                  <Checkbox label="Tuberculosis" checked={Boolean(form.has_tuberculosis)} onChange={(e) => set("has_tuberculosis", e.target.checked)} />
-                  <Checkbox label="Others" checked={Boolean(form.has_others)} onChange={(e) => set("has_others", e.target.checked)} />
-                </div>
-                {Boolean(form.has_others) && <Input aria-label="Other condition" value={str("medical_history_other")} onChange={(e) => set("medical_history_other", e.target.value)} placeholder="Please specify other condition" />}
-                <Field label="Notes" hint="Allergies, past hospitalizations, ongoing medicines…">
+              <div className="space-y-3">
+                <MedicalHistoryPicker
+                  codes={str("medical_codes")}
+                  others={str("medical_others")}
+                  onChange={({ codes, others }) => setForm((f) => ({ ...f, medical_codes: codes, medical_others: others, medical_none_reported: codes || others ? false : f.medical_none_reported }))}
+                />
+                {!str("medical_codes") && !str("medical_others") && (
+                  <Checkbox label="No known illnesses (as reported by the guardian)" checked={Boolean(form.medical_none_reported)} onChange={(e) => set("medical_none_reported", e.target.checked)} />
+                )}
+                <Field label="Notes" hint="Allergy details, past hospitalizations, current medicines…">
                   <Textarea value={str("medical_history_notes")} onChange={(e) => set("medical_history_notes", e.target.value)} className="min-h-20" />
                 </Field>
-              </fieldset>
+              </div>
             </StepSection>
           )}
 
@@ -530,7 +528,7 @@ export function ChildFormModal({
                 ["PhilHealth", NO_PHILHEALTH.has(str("philhealth_membership_type"))
                   ? str("philhealth_membership_type")
                   : [str("philhealth_membership_type") === "Other" ? str("philhealth_membership_type_other") || "Other" : str("philhealth_membership_type"), str("philhealth_id_number"), str("philhealth_category")].filter(Boolean).join(" · ")],
-                ["Medical history", resolveOthers(form).medical_history],
+                ["Medical history", String(resolveOthers(form).medical_history ?? "")],
               ]} />
               <ReviewCard title="Guardian Information" onEdit={() => goTo(1)} rows={[
                 ["Mother", str("mother_name")], ["Father", str("father_name")],
