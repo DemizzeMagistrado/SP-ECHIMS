@@ -9,6 +9,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import 'leaflet/dist/leaflet.css'
 import {
   MapContainer,
@@ -18,6 +19,8 @@ import {
   Tooltip,
   GeoJSON,
   LayersControl,
+  useMap,
+  useMapEvents,
 } from 'react-leaflet'
 import type { FeatureCollection, Feature, Geometry } from 'geojson'
 import type { Layer, PathOptions } from 'leaflet'
@@ -44,6 +47,12 @@ export type ChildPoint = {
   municipality: string
   lat: number
   lng: number
+  /** Optional details for the popup (Child Profiling map). */
+  child_code?: string | null
+  family_serial_no?: string | null
+  status?: string | null
+  follow_up?: 'missed' | 'at_risk' | null
+  href?: string
 }
 
 type Props = {
@@ -56,6 +65,8 @@ type Props = {
   zoom?: number
   height?: number | string
   emptyMessage?: string
+  /** Pick mode: the next map click reports its coordinates (e.g. to set a household location). */
+  onPick?: (lat: number, lng: number) => void
 }
 
 // ───────────────────── Color scales ─────────────────────
@@ -92,6 +103,7 @@ export default function BarangayMap({
   zoom = 10,
   height = 500,
   emptyMessage,
+  onPick,
 }: Props) {
   const [daetGeoRaw, setDaetGeoRaw] = useState<FeatureCollection | null>(null)
   const [nagaGeoRaw, setNagaGeoRaw] = useState<FeatureCollection | null>(null)
@@ -188,7 +200,7 @@ export default function BarangayMap({
 
   return (
     <div className="relative" style={{ height }}>
-      <MapContainer center={center} zoom={zoom} className="h-full w-full rounded-xl border border-border">
+      <MapContainer center={center} zoom={zoom} className={`h-full w-full rounded-xl border border-border ${onPick ? 'cursor-crosshair [&_.leaflet-container]:cursor-crosshair' : ''}`}>
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="OpenStreetMap">
             <TileLayer
@@ -255,39 +267,16 @@ export default function BarangayMap({
           </CircleMarker>
         ))}
 
-        {/* Child pin overlay */}
-        {childrenMarkers.map((c) => (
-          <CircleMarker
-            key={`child-${c.child_id}`}
-            center={[c.lat, c.lng]}
-            radius={5}
-            pathOptions={{
-              color: '#1e3a8a',
-              weight: 1.5,
-              fillColor: c.sex === 'FEMALE' ? '#ec4899' : '#3b82f6',
-              fillOpacity: 0.95,
-            }}
-          >
-            <Tooltip>{c.full_name}</Tooltip>
-            <Popup>
-              <div className="text-sm">
-                <div className="font-semibold">{c.full_name}</div>
-                <div className="text-xs text-gray-500">
-                  {c.sex ?? '—'}{c.age_months != null ? ` · ${c.age_months} mo` : ''}
-                </div>
-                <div className="mt-1 text-xs">
-                  {c.barangay_name}, {c.municipality}
-                </div>
-              </div>
-            </Popup>
-          </CircleMarker>
-        ))}
+        {/* Child pins, clustered when zoomed out */}
+        {childrenMarkers.length > 0 && <ChildMarkers points={childrenMarkers} />}
+        {onPick && <PickHandler onPick={onPick} />}
       </MapContainer>
 
       <Legend metric={metric} maxValue={maxValue} />
+      {childrenMarkers.some((c) => c.follow_up !== undefined) && <MarkerLegend />}
 
       {loadError && (
-        <div className="absolute bottom-3 left-3 z-[500] rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 shadow">
+        <div className="absolute left-1/2 top-3 z-[500] -translate-x-1/2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 shadow">
           {loadError}
         </div>
       )}
@@ -349,6 +338,96 @@ function LegendRow({ color, label }: { color: string; label: string }) {
   return (
     <div className="flex items-center gap-2">
       <span className="h-3 w-4 rounded-sm" style={{ background: color }} />
+      <span>{label}</span>
+    </div>
+  )
+}
+// ── Child markers ─────────────────────────────────────────────────────────────────────────────
+const FOLLOW_UP_COLOR = { missed: '#C0392B', at_risk: '#B9770E', none: '#03045E' } as const
+const markerColor = (c: ChildPoint) => FOLLOW_UP_COLOR[c.follow_up ?? 'none']
+
+/** Groups pins that fall within ~48px of each other at the current zoom into one cluster. */
+function ChildMarkers({ points }: { points: ChildPoint[] }) {
+  const map = useMap()
+  const [zoom, setZoom] = useState(map.getZoom())
+  useMapEvents({ zoomend: () => setZoom(map.getZoom()) })
+  const clusters = useMemo(() => {
+    const cells = new Map<string, ChildPoint[]>()
+    for (const p of points) {
+      const px = map.project([p.lat, p.lng], zoom)
+      const key = `${Math.floor(px.x / 48)}:${Math.floor(px.y / 48)}`
+      const cell = cells.get(key)
+      if (cell) cell.push(p)
+      else cells.set(key, [p])
+    }
+    return [...cells.values()]
+  }, [points, zoom, map])
+
+  return (
+    <>
+      {clusters.map((group) => {
+        if (group.length === 1) {
+          const c = group[0]
+          return (
+            <CircleMarker key={`child-${c.child_id}`} center={[c.lat, c.lng]} radius={7}
+              pathOptions={{ color: '#ffffff', weight: 2, fillColor: markerColor(c), fillOpacity: 0.95 }}>
+              <Tooltip>{c.full_name}</Tooltip>
+              <Popup><ChildPopup c={c} /></Popup>
+            </CircleMarker>
+          )
+        }
+        const lat = group.reduce((t, c) => t + c.lat, 0) / group.length
+        const lng = group.reduce((t, c) => t + c.lng, 0) / group.length
+        const worst = group.some((c) => c.follow_up === 'missed') ? 'missed' : group.some((c) => c.follow_up === 'at_risk') ? 'at_risk' : 'none'
+        return (
+          <CircleMarker key={`cluster-${group[0].child_id}`} center={[lat, lng]} radius={Math.min(22, 11 + group.length)}
+            pathOptions={{ color: '#ffffff', weight: 2, fillColor: FOLLOW_UP_COLOR[worst], fillOpacity: 0.85 }}
+            eventHandlers={{ click: () => map.setView([lat, lng], Math.min(map.getMaxZoom() || 18, zoom + 2)) }}>
+            <Tooltip permanent direction="center" className="!border-0 !bg-transparent !p-0 !text-xs !font-bold !text-white !shadow-none">{group.length}</Tooltip>
+          </CircleMarker>
+        )
+      })}
+    </>
+  )
+}
+
+function ChildPopup({ c }: { c: ChildPoint }) {
+  return (
+    <div className="min-w-48 space-y-1 text-sm">
+      <div className="font-semibold text-[#03045E]">{c.full_name}</div>
+      {c.child_code !== undefined && <div className="text-xs">Child ID: <span className="font-mono font-semibold">{c.child_code ?? '—'}</span></div>}
+      {c.family_serial_no !== undefined && <div className="text-xs">FSN: <span className="font-mono font-semibold">{c.family_serial_no ?? '—'}</span></div>}
+      {c.status && <div className="text-xs">Status: {c.status.charAt(0) + c.status.slice(1).toLowerCase()}</div>}
+      {c.follow_up && <div className="text-xs font-semibold" style={{ color: markerColor(c) }}>{c.follow_up === 'missed' ? 'Missed vaccine dose' : 'Nutrition at risk'}</div>}
+      <div className="text-xs text-gray-500">{c.barangay_name}{c.municipality ? `, ${c.municipality}` : ''}</div>
+      {c.href && <Link href={c.href} className="mt-1 inline-block text-xs font-semibold text-[#0077B6] underline">View profile</Link>}
+    </div>
+  )
+}
+
+function PickHandler({ onPick }: { onPick: (lat: number, lng: number) => void }) {
+  useMapEvents({ click: (e) => onPick(e.latlng.lat, e.latlng.lng) })
+  return null
+}
+
+function MarkerLegend() {
+  return (
+    <div className="absolute bottom-3 left-3 z-[500] rounded-lg border border-border bg-white/95 p-3 text-xs shadow backdrop-blur">
+      <div className="mb-2 font-semibold">Children</div>
+      <div className="space-y-1">
+        <LegendDot color={FOLLOW_UP_COLOR.missed} label="Missed vaccine dose" />
+        <LegendDot color={FOLLOW_UP_COLOR.at_risk} label="Nutrition at risk" />
+        <LegendDot color={FOLLOW_UP_COLOR.none} label="No follow-up flagged" />
+        <div className="pt-1 text-[10px] text-gray-500">Numbers are grouped children; click to zoom in.</div>
+      </div>
+    </div>
+  )
+}
+
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="size-3 rounded-full ring-2 ring-white" style={{ background: color }} />
       <span>{label}</span>
     </div>
   )

@@ -16,7 +16,9 @@
 //   role: 'Administrator' | 'Public Health Nurse' | 'Rural Health Midwife' | 'Barangay Health Worker' | 'Barangay Nutrition Scholar' | null,
 //   scopeLabel: 'All barangays' | 'Daet RHU' | '3 barangays' | 'Alawihao',
 //   allowedBarangayIds: number[],
-//   perBarangay: [{ barangay_id, barangay_name, municipality, child_count }]
+//   perBarangay: [{ barangay_id, barangay_name, municipality, child_count }],
+//   children: [{ child_id, child_code, name, status, barangay_id, household_id,
+//                family_serial_no, lat, lng, at_risk }]   // lat/lng from the household
 // }
 
 import { NextResponse } from 'next/server'
@@ -114,5 +116,47 @@ export async function GET() {
     child_count: counts.get(b.barangay_id) ?? 0,
   }))
 
-  return NextResponse.json({ role, scopeLabel, allowedBarangayIds, perBarangay })
+  // ─── 3. Children in scope, for markers and lists (RLS applies as well) ───
+  // Pins use the household's coordinates, so siblings share one location. Only the signed-in
+  // worker's own scope is returned; the latest nutrition assessment gives the at-risk flag.
+  const { data: kids, error: kidsErr } = await supabase
+    .from('child')
+    .select('child_id, child_code, first_name, middle_name, last_name, status, barangay_id, household_id, household:household(family_serial_no, latitude, longitude)')
+    .in('barangay_id', allowedBarangayIds)
+    .order('last_name')
+  if (kidsErr) return NextResponse.json({ error: 'The children for the map could not be loaded. Refresh to try again.' }, { status: 500 })
+  const ids = (kids ?? []).map((k) => k.child_id as number)
+  const atRisk = new Map<number, boolean>()
+  if (ids.length) {
+    const { data: assessments } = await supabase
+      .from('nutritional_assessment')
+      .select('child_id, is_at_risk')
+      .in('child_id', ids)
+      .order('assessment_date', { ascending: false })
+      .order('assessment_id', { ascending: false })
+    for (const a of assessments ?? []) if (!atRisk.has(a.child_id as number)) atRisk.set(a.child_id as number, a.is_at_risk === true)
+  }
+  const byBarangay = new Map(allowed.map((b) => [b.barangay_id, b]))
+  const childRows = (kids ?? []).map((k) => {
+    const h = (Array.isArray(k.household) ? k.household[0] : k.household) as { family_serial_no?: string | null; latitude?: number | string | null; longitude?: number | string | null } | null
+    const lat = h?.latitude == null ? null : Number(h.latitude)
+    const lng = h?.longitude == null ? null : Number(h.longitude)
+    const b = byBarangay.get(k.barangay_id as number)
+    return {
+      child_id: k.child_id,
+      child_code: k.child_code ?? null,
+      name: [k.first_name, k.middle_name, k.last_name].filter(Boolean).join(' '),
+      status: k.status,
+      barangay_id: k.barangay_id,
+      barangay_name: b?.barangay_name ?? '',
+      municipality: b?.municipality ?? '',
+      household_id: k.household_id,
+      family_serial_no: h?.family_serial_no ?? null,
+      lat: Number.isFinite(lat) ? lat : null,
+      lng: Number.isFinite(lng) ? lng : null,
+      at_risk: atRisk.get(k.child_id as number) ?? false,
+    }
+  })
+
+  return NextResponse.json({ role, scopeLabel, allowedBarangayIds, perBarangay, children: childRows })
 }
