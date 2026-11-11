@@ -1,4 +1,5 @@
 'use client'
+import { StatCard } from '@/components/ui/stat-card'
 import { FilterChips, TabBar } from '@/components/ui/module-tabs'
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineScope } from '@/lib/offline/fetch'
@@ -311,7 +312,7 @@ function ActivityDetailsModal({
           {details.map(({ label, value }) => (
             <div key={label}>
               <dt className="text-xs text-slate-500">{label}</dt>
-              <dd className="mt-1 break-words text-sm font-bold text-[#0b165d]">
+              <dd className="mt-1 break-words text-sm font-bold text-brand-navy">
                 {value}
               </dd>
             </div>
@@ -319,7 +320,7 @@ function ActivityDetailsModal({
         </dl>
 
         <div>
-          <p className="text-sm font-bold text-[#0b165d]">Activity Remarks</p>
+          <p className="text-sm font-bold text-brand-navy">Activity Remarks</p>
           <p className="mt-1 whitespace-pre-wrap break-words text-sm text-slate-600">
             {activity.remarks?.trim() || 'No remarks provided.'}
           </p>
@@ -327,7 +328,7 @@ function ActivityDetailsModal({
 
         {activity.review_remarks?.trim() && (
           <div>
-            <p className="text-sm font-bold text-[#0b165d]">PHN Review Remarks</p>
+            <p className="text-sm font-bold text-brand-navy">PHN Review Remarks</p>
             <p className="mt-1 whitespace-pre-wrap break-words text-sm text-slate-600">
               {activity.review_remarks}
             </p>
@@ -338,7 +339,7 @@ function ActivityDetailsModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-[#0b165d] hover:bg-slate-50"
+            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-brand-navy hover:bg-slate-50"
           >
             Close
           </button>
@@ -347,7 +348,7 @@ function ActivityDetailsModal({
             <button
               type="button"
               onClick={onReview}
-              className="rounded-full bg-[#087db9] px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-[#056d9e]"
+              className="rounded-full bg-primary px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-primary/90"
             >
               Review Request
             </button>
@@ -509,36 +510,33 @@ function ActivityWorkspace() {
     .slice(0, 5)
 
   return (
-    <div className="min-h-screen bg-[#c9f1f7] text-[#10215f]">
-      <div className="mx-auto max-w-[1440px] px-5 py-7 sm:px-9 lg:px-10">
+    <div>
+      <div className="space-y-6">
         {/* HEADER */}
 
         <PageHeader
           title="Health Activities"
           subtitle="Request, review, and monitor community health activities."
-          className="mb-7"
           actions={<>
             {canRequest && (
-              <button
-                type="button"
+              <Button
                 onClick={() => {
                   setRuleEvaluation(null)
                   setShowRequestModal(true)
                 }}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#087db9] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#056d9e]"
               >
-                <Plus size={19} />
+                <Plus size={18} />
                 Request activity
-              </button>
+              </Button>
             )}
           </>}
         />
 
-        <div className="mb-7"><ActivityDraftPanel onUploaded={() => void loadActivities()}/></div>
+        <ActivityDraftPanel onUploaded={() => void loadActivities()}/>
 
         {/* SUMMARY */}
 
-        <div className="mb-7 grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-3">
           <SummaryCard
             title={canReview ? 'Pending review' : 'Pending'}
             value={pendingCount}
@@ -567,7 +565,7 @@ function ActivityWorkspace() {
         {/* RULE RESULT */}
 
         {ruleEvaluation?.hasConflict && (
-          <div className="mb-7 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <div className="flex gap-3">
               <AlertTriangle
                 className="mt-0.5 shrink-0 text-amber-700"
@@ -614,10 +612,10 @@ function ActivityWorkspace() {
         {/* UPCOMING */}
 
         {!loading && !error && (
-          <section className="mb-7 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <section className="rounded-2xl border border-border bg-white p-5">
             <div className="flex items-center gap-2">
               <CalendarDays size={20} className="text-[#087db9]" />
-              <h2 className="text-lg font-bold text-[#0b165d]">
+              <h2 className="text-lg font-bold text-brand-navy">
                 Upcoming activities
               </h2>
             </div>
@@ -637,7 +635,7 @@ function ActivityWorkspace() {
                     onClick={() => setSelectedActivity(activity)}
                     className="rounded-xl border border-slate-200 p-4 text-left transition hover:border-[#087db9] hover:bg-[#f1fbfd]"
                   >
-                    <p className="text-sm font-bold text-[#0b165d]">
+                    <p className="text-sm font-bold text-brand-navy">
                       {formatActivityType(activity.activity_type)}
                     </p>
 
@@ -667,11 +665,11 @@ function ActivityWorkspace() {
 
         {/* REQUESTS SECTION */}
 
-        <section className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+        <section className="overflow-hidden rounded-2xl border border-border bg-white">
           <div className="border-b border-slate-200 px-5 pt-5 sm:px-7">
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
               <div>
-                <h2 className="text-lg font-bold text-[#0b165d]">
+                <h2 className="text-lg font-bold text-brand-navy">
                   Activity requests
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
@@ -693,14 +691,10 @@ function ActivityWorkspace() {
                   />
                 </label>
 
-                <button
-                  type="button"
-                  onClick={() => void loadActivities()}
-                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                >
+                <Button variant="secondary" size="sm" onClick={() => void loadActivities()}>
                   <RefreshCw size={15} />
                   Refresh
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -795,7 +789,7 @@ function ActivityWorkspace() {
                                 onClick={() => setSelectedActivity(activity)}
                                 className="text-left"
                               >
-                                <p className="font-bold text-[#0b165d] group-hover:text-[#087db9]">
+                                <p className="font-bold text-brand-navy group-hover:text-[#087db9]">
                                   {formatActivityType(activity.activity_type)}
                                 </p>
                                 <p className="mt-1 text-xs text-slate-500">
@@ -850,7 +844,7 @@ function ActivityWorkspace() {
                                   <button
                                     type="button"
                                     onClick={() => setEditingActivity(activity)}
-                                    className="rounded-lg bg-[#087db9] px-3 py-2 text-xs font-bold text-white hover:bg-[#056d9e]"
+                                    className="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-white hover:bg-primary/90"
                                   >
                                     Edit &amp; Resubmit
                                   </button>
@@ -968,30 +962,15 @@ function ActivityWorkspace() {
    SUMMARY CARD
 ========================================================= */
 
-function SummaryCard({
-  title,
-  value,
-  note,
-  icon: Icon,
-  iconClass,
-}: {
+function SummaryCard({ title, value, note, icon: Icon, iconClass }: {
   title: string
   value: number
   note: string
   icon: typeof Clock3
   iconClass: string
 }) {
-  return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-slate-500">{title}</p>
-        <Icon size={20} className={iconClass} />
-      </div>
-
-      <p className="mt-3 text-3xl font-black text-[#0a165f]">{value}</p>
-      <p className="mt-1 text-xs text-slate-500">{note}</p>
-    </div>
-  )
+  const tone = iconClass.includes('amber') ? 'warn' : iconClass.includes('emerald') ? 'good' : iconClass.match(/red|rose/) ? 'danger' : 'default'
+  return <StatCard label={title} value={value} hint={note} tone={tone} icon={<Icon size={16} aria-hidden="true" className={iconClass} />} />
 }
 
 /* =========================================================
@@ -1090,7 +1069,7 @@ function EditActivityModal({
         </div>
 
         <div className="rounded-2xl bg-[#f1fbfd] p-4">
-          <p className="font-bold text-[#0b165d]">
+          <p className="font-bold text-brand-navy">
             {formatActivityType(activity.activity_type)}
           </p>
           <p className="mt-1 text-sm text-slate-500">
@@ -1156,7 +1135,7 @@ function EditActivityModal({
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-[#0b165d] hover:bg-slate-50 disabled:opacity-50"
+            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-brand-navy hover:bg-slate-50 disabled:opacity-50"
           >
             Cancel
           </button>
@@ -1164,7 +1143,7 @@ function EditActivityModal({
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex items-center gap-2 rounded-full bg-[#087db9] px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-[#056d9e] disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-primary/90 disabled:opacity-50"
           >
             {submitting && <Spinner />}
             {submitting ? 'Resubmitting…' : 'Resubmit for Review'}
@@ -1289,7 +1268,7 @@ function UpdateStatusModal({
         className="space-y-5"
       >
         <div className="rounded-xl bg-slate-50 p-4">
-          <p className="font-bold text-[#0b165d]">
+          <p className="font-bold text-brand-navy">
             {formatActivityType(activity.activity_type)}
           </p>
 
@@ -1377,7 +1356,7 @@ function UpdateStatusModal({
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-[#0b165d] hover:bg-slate-50 disabled:opacity-50"
+            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-brand-navy hover:bg-slate-50 disabled:opacity-50"
           >
             Back
           </button>
@@ -1385,7 +1364,7 @@ function UpdateStatusModal({
           <button
             type="submit"
             disabled={submitting || !status}
-            className="inline-flex items-center gap-2 rounded-full bg-[#087db9] px-5 py-2 text-sm font-bold text-white hover:bg-[#056d9e] disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-50"
           >
             {submitting && (
               <Spinner />
@@ -1541,7 +1520,7 @@ function RequestActivityModal({
           <p className="text-xs font-medium uppercase text-slate-500">
             Requesting as
           </p>
-          <p className="mt-1 text-sm font-bold text-[#0b165d]">{role}</p>
+          <p className="mt-1 text-sm font-bold text-brand-navy">{role}</p>
         </div>
 
         <Field label="Activity Type">
@@ -1630,7 +1609,7 @@ function RequestActivityModal({
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-[#0b165d] hover:bg-slate-50 disabled:opacity-50"
+            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-brand-navy hover:bg-slate-50 disabled:opacity-50"
           >
             Cancel
           </button>
@@ -1639,7 +1618,7 @@ function RequestActivityModal({
           {online===true && <button
             type="submit"
             disabled={submitting || loadingOptions || barangays.length === 0 || Boolean(draft&&!reviewed)}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-[#087db9] px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-[#056d9e] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting && <Spinner />}
             {submitting ? 'Submitting...' : draft?'Submit Reviewed Request':'Submit Request'}
@@ -1732,7 +1711,7 @@ function ReviewActivityModal({
         <div className="rounded-xl bg-slate-50 p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="font-bold text-[#0b165d]">
+              <p className="font-bold text-brand-navy">
                 {formatActivityType(activity.activity_type)}
               </p>
               <p className="mt-2 text-sm text-slate-500">
@@ -1800,7 +1779,7 @@ function ReviewActivityModal({
 
         {suggestions.length > 0 && (
           <div>
-            <p className="text-sm font-bold text-[#0b165d]">
+            <p className="text-sm font-bold text-brand-navy">
               Suggested available schedules
             </p>
 
@@ -1859,7 +1838,7 @@ function ReviewActivityModal({
             loading={loadingAction === 'APPROVE'}
             disabled={loadingAction !== null}
             onClick={() => void review('APPROVE')}
-            className="bg-[#087db9] text-white shadow-sm hover:bg-[#056d9e]"
+            className="bg-primary text-white shadow-sm hover:bg-primary/90"
           />
         </div>
       </div>
@@ -1942,7 +1921,7 @@ function ModalShell({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-6 flex items-start justify-between border-b border-slate-100 pb-5">
-          <h2 className="text-lg font-black text-[#0b165d]">{title}</h2>
+          <h2 className="text-lg font-black text-brand-navy">{title}</h2>
 
           <button
             type="button"

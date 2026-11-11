@@ -1,4 +1,5 @@
 "use client";
+import { StatCard } from '@/components/ui/stat-card'
 import { TabBar } from '@/components/ui/module-tabs'
 import { routeSearch } from '@/lib/offline/navigation'
 import { useAuth } from '@/components/auth/auth-provider'
@@ -1625,13 +1626,7 @@ export default function SupplementsPage() {
               ).length ?? 0,
             ],
           ].map(([label, count]) => (
-            <div
-              key={label}
-              className="rounded-2xl border border-border bg-white p-6"
-            >
-              <p className="text-sm text-muted-foreground">{label}</p>
-              <p className="mt-2 text-3xl font-bold">{count}</p>
-            </div>
+            <StatCard key={label} label={label} value={count} />
           ))}
         </div>
       )}

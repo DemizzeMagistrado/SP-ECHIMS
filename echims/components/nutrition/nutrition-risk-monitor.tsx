@@ -1,4 +1,5 @@
 'use client'
+import { StatCard } from '@/components/ui/stat-card'
 import { useState } from 'react'
 import Link from 'next/link'
 import { AlertCircle, RefreshCw, SearchX, CheckCircle2 } from 'lucide-react'
@@ -25,7 +26,7 @@ export function NutritionRiskMonitor({ monitoring, error, loading, offline, onRe
     {offline && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Offline: this is the last account-specific snapshot. Reconnect and refresh to verify current risks and assignments.</p>}
     {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}{monitoring && ' Showing the last available results; refresh successfully before treating them as current.'}</p>}
     {loading && !monitoring ? <Spinner showLabel label="Loading risk monitoring…" className="w-full justify-center py-6 text-sm text-muted-foreground" /> : !monitoring ? <p className="rounded-lg bg-muted p-4 text-sm">Risk monitoring data is unavailable. Refresh online after installing the updated API and SQL migration.</p> : <>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">{[['At-risk children', counts!.at_risk], ['Critical', counts!.critical], ['High priority', counts!.high], ['Worsened', counts!.worsened], ['Needs review', counts!.needs_review]].map(([label, count]) => <div key={label} className="rounded-xl border border-border bg-white p-4"><p className="text-sm text-muted-foreground">{label}</p><p className="mt-1 text-2xl font-bold">{count}</p></div>)}</div>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">{[['At-risk children', counts!.at_risk], ['Critical', counts!.critical], ['High priority', counts!.high], ['Worsened', counts!.worsened], ['Needs review', counts!.needs_review]].map(([label, count], i) => <StatCard key={label} label={label} value={count} tone={(['nutrition', 'danger', 'warn', 'danger', 'warn'] as const)[i]} />)}</div>
       <p className="text-xs text-muted-foreground">Counts cover your full accessible scope. Needs review includes unavailable risk flags or incomplete latest evaluations; those children are not assumed to be normal.</p>
       <div className="flex flex-wrap gap-3 rounded-xl border border-border bg-white p-4">
         <label className="text-sm"><select value={barangay} onChange={(event) => setBarangay(event.target.value)} className="ml-2 rounded-lg border border-border px-3 py-2"><option value="All">All accessible barangays</option>{barangays.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>

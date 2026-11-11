@@ -1,4 +1,5 @@
 'use client'
+import { StatCard } from '@/components/ui/stat-card'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 // Vaccination module — all sections merged into one page (one route).
@@ -530,23 +531,11 @@ function ScheduleSection() {
       />
 
       {/* Summary tiles */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl border border-border p-6">
-          <p className="text-sm text-muted-foreground">Total shown</p>
-          <p className="text-3xl font-bold text-foreground mt-2">{rows.length}</p>
-        </div>
-        <div className="bg-white rounded-2xl border border-border p-6">
-          <p className="text-sm text-muted-foreground">Pending</p>
-          <p className="text-3xl font-bold text-amber-700 mt-2">{pendingCount}</p>
-        </div>
-        <div className="bg-white rounded-2xl border border-border p-6">
-          <p className="text-sm text-muted-foreground">Approved</p>
-          <p className="text-3xl font-bold text-emerald-700 mt-2">{approvedCount}</p>
-        </div>
-        <div className="bg-white rounded-2xl border border-border p-6">
-          <p className="text-sm text-muted-foreground">Rejected</p>
-          <p className="text-3xl font-bold text-rose-600 mt-2">{rejectedCount}</p>
-        </div>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <StatCard label="Total shown" value={rows.length} />
+        <StatCard label="Pending" value={pendingCount} tone="warn" />
+        <StatCard label="Approved" value={approvedCount} tone="good" />
+        <StatCard label="Rejected" value={rejectedCount} tone="danger" />
       </div>
 
       {/* Filters */}
@@ -864,7 +853,7 @@ function DefaultersSection() {
 
       {/* Summary tiles */}
       {counts && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <SummaryTile icon={<AlertCircle size={16} />} label="Overdue doses" value={counts.overdue} tone="rose" />
           <SummaryTile icon={<Clock size={16} />} label="Due doses" value={counts.due} tone="amber" />
           <SummaryTile icon={<Users size={16} />} label="Children affected" value={counts.unique_children_affected} tone="sky" />
@@ -1057,20 +1046,8 @@ function SummaryTile({ icon, label, value, tone }: {
   value: number
   tone: 'rose' | 'amber' | 'sky' | 'slate'
 }) {
-  const colors = {
-    rose: 'bg-rose-50 text-rose-700 ring-rose-100',
-    amber: 'bg-amber-50 text-amber-700 ring-amber-100',
-    sky: 'bg-sky-50 text-sky-700 ring-sky-100',
-    slate: 'bg-slate-50 text-slate-700 ring-slate-200',
-  }[tone]
-  return (
-    <div className={`rounded-xl p-4 ring-1 ${colors}`}>
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide opacity-80">
-        {icon} {label}
-      </div>
-      <p className="mt-2 text-3xl font-bold">{value}</p>
-    </div>
-  )
+  const map = { rose: 'danger', amber: 'warn', sky: 'info', slate: 'default' } as const
+  return <StatCard icon={icon} label={label} value={value} tone={map[tone]} />
 }
 /* ═════════════════════════ SMS Reminders ═════════════════════════ */
 
