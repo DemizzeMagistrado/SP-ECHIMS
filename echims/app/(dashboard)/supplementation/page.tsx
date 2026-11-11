@@ -1,4 +1,5 @@
 "use client";
+import { TabBar } from '@/components/ui/module-tabs'
 import { routeSearch } from '@/lib/offline/navigation'
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
@@ -24,7 +25,7 @@ import { SupplementStockRequestsPanel } from "@/components/supplementation/suppl
 import { SupplementationSmsPanel } from "@/components/supplementation/supplementation-sms-panel";
 import type { Session, User } from "@supabase/supabase-js";
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
-import { usePageLoading } from '@/components/brand/page-gate'
+import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
@@ -1461,46 +1462,27 @@ export default function SupplementsPage() {
 
   return (
     <div className="space-y-6">
-      <nav
-        aria-label="Supplementation views"
-        className="flex flex-wrap gap-1 border-b border-border"
-      >
-        {(
-          [
-            "records",
-            "clinical",
-            "stock",
-            "plans",
-            "guidelines",
-            "sms",
-            ...(data?.permissions.monitor &&
-            (data.role === "PHN" || data.role === "Administrator")
-              ? ["monitoring" as const]
-              : []),
-          ] as const
-        ).map((t) => (
-          <button
-            key={t}
-            aria-pressed={tab === t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-3 text-sm font-medium ${tab === t ? "border-b-2 border-primary text-primary" : "text-muted-foreground"}`}
-          >
-            {t === "records"
-              ? "Administration & Dispensing"
-              : t === "clinical"
-                ? "Clinical Records"
-                : t === "stock"
-                  ? "Stock & Batches"
-                  : t === "plans"
-                    ? "Supply Plans"
-                    : t === "sms"
-                      ? "SMS Reminders"
-                      : t === "monitoring"
-                        ? "Compliance Monitoring"
-                        : "Guidelines & Eligibility"}
-          </button>
-        ))}
-      </nav>
+      <TabBar
+        label="Supplementation views"
+        group="supplementation"
+        value={tab}
+        onChange={setTab}
+        items={([
+          "records", "clinical", "stock", "plans", "guidelines", "sms",
+          ...(data?.permissions.monitor && (data.role === "PHN" || data.role === "Administrator") ? ["monitoring" as const] : []),
+        ] as const).map((t) => ({
+          value: t,
+          label: {
+            records: "Administration & Dispensing",
+            clinical: "Clinical Records",
+            stock: "Stock & Batches",
+            plans: "Supply Plans",
+            guidelines: "Guidelines & Eligibility",
+            sms: "SMS Reminders",
+            monitoring: "Compliance Monitoring",
+          }[t],
+        }))}
+      />
       <PageHeader
         title="Vitamin Supplementation"
         subtitle="Child administration records and batch inventory"
@@ -1623,6 +1605,7 @@ export default function SupplementsPage() {
         </p>
       )}
 
+      <TabPanel tabKey={tab} className="space-y-6">
       {tab === "records" && (
         <div className="grid gap-4 sm:grid-cols-3">
           {[
@@ -1942,6 +1925,7 @@ export default function SupplementsPage() {
           </div>
         )
       )}
+      </TabPanel>
 
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
         <p className="flex items-center gap-2 font-semibold">

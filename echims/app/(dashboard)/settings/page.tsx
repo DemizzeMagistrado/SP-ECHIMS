@@ -6,6 +6,8 @@ import { useAuth } from '@/components/auth/auth-provider'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/form'
+import { TabBar } from '@/components/ui/module-tabs'
+import { TabPanel } from '@/components/brand/page-gate'
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('general')
@@ -19,40 +21,27 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      <TabBar
+        label="Settings sections"
+        group="settings"
+        value={activeTab}
+        onChange={setActiveTab}
+        items={[
+          { value: 'general', label: 'Organization', icon: Building },
+          { value: 'account', label: 'Profile', icon: User },
+          { value: 'notifications', label: 'Notifications', icon: Bell },
+          { value: 'security', label: 'Security', icon: Lock },
+        ].map(({ value, label, icon: Icon }) => ({
+          value,
+          label: <span className="inline-flex items-center gap-2"><Icon size={16} aria-hidden="true" />{label}</span>,
+        }))}
+      />
       <PageHeader
         title="Settings"
         subtitle="Manage system settings and user preferences"
       />
 
-      {/* Settings Tabs */}
-      <div className="flex gap-2 border-b border-border flex-wrap">
-        {[
-          { id: 'general', label: 'Organization', icon: Building },
-          { id: 'account', label: 'Profile', icon: User },
-          { id: 'notifications', label: 'Notifications', icon: Bell },
-          { id: 'security', label: 'Security', icon: Lock },
-        ].map((tab) => {
-          const Icon = tab.icon
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors border-b-2 ${
-                activeTab === tab.id
-                  ? 'text-primary border-primary'
-                  : 'text-muted-foreground border-transparent hover:text-foreground'
-              }`}
-            >
-              <Icon size={18} />
-              {tab.label}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Content */}
-      <div className="space-y-6">
+      <TabPanel tabKey={activeTab} className="space-y-6">
         {/* General Settings */}
         {activeTab === 'general' && (
           <div className="space-y-6">
@@ -356,7 +345,7 @@ export default function SettingsPage() {
             </div>
           </div>
         )}
-      </div>
+      </TabPanel>
 
       {/* Save Button */}
       <div className="flex justify-end">

@@ -1,4 +1,5 @@
 'use client'
+import { FilterChips, TabBar } from '@/components/ui/module-tabs'
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineScope } from '@/lib/offline/fetch'
 import { submitSafeDraft } from '@/lib/offline/safe-submit'
@@ -703,22 +704,14 @@ function ActivityWorkspace() {
               </div>
             </div>
 
-            <div className="mt-5 flex gap-5 overflow-x-auto">
-              {(['Requests', 'Calendar'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveTab(tab)}
-                  className={`whitespace-nowrap border-b-2 px-1 pb-3 text-sm font-semibold ${
-                    activeTab === tab
-                      ? 'border-[#087db9] text-[#087db9]'
-                      : 'border-transparent text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
+            <TabBar
+              className="mt-5 border-b-0"
+              label="Activity views"
+              group="health-activities"
+              value={activeTab}
+              onChange={setActiveTab}
+              items={[{ value: 'Requests', label: 'Requests' }, { value: 'Calendar', label: 'Calendar' }]}
+            />
           </div>
 
           {loading ? (
@@ -736,20 +729,7 @@ function ActivityWorkspace() {
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                   Type:
                 </span>
-                {TYPE_FILTERS.map((item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    onClick={() => setTypeFilter(item.value)}
-                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                      typeFilter === item.value
-                        ? 'bg-[#e0f6fa] text-[#087db9]'
-                        : 'text-slate-500 hover:bg-slate-100'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
+                <FilterChips label="Filter by type" value={typeFilter} onChange={setTypeFilter} options={TYPE_FILTERS} />
               </div>
               <div className="p-4 sm:p-7">
                 <HealthActivityCalendar
@@ -766,39 +746,13 @@ function ActivityWorkspace() {
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                   Type:
                 </span>
-                {TYPE_FILTERS.map((item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    onClick={() => setTypeFilter(item.value)}
-                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                      typeFilter === item.value
-                        ? 'bg-[#e0f6fa] text-[#087db9]'
-                        : 'text-slate-500 hover:bg-slate-100'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
+                <FilterChips label="Filter by type" value={typeFilter} onChange={setTypeFilter} options={TYPE_FILTERS} />
               </div>
 
               {/* STATUS PILLS */}
 
               <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 py-4 sm:px-7">
-                {STATUS_FILTERS.map((item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    onClick={() => setStatusFilter(item.value)}
-                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                      statusFilter === item.value
-                        ? 'bg-[#e0f6fa] text-[#087db9]'
-                        : 'text-slate-500 hover:bg-slate-100'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
+                <FilterChips label="Filter by status" value={statusFilter} onChange={setStatusFilter} options={STATUS_FILTERS} />
               </div>
 
               {filteredActivities.length === 0 ? (

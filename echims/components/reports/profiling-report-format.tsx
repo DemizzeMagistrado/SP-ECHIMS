@@ -1,4 +1,5 @@
 "use client";
+import { FilterChips } from '@/components/ui/module-tabs'
 import { reportScopeLabel } from "@/lib/reports/report-scope-label";
 import { useState } from "react";
 import { isValidatedReport } from "@/lib/reports/report-output-client";
@@ -126,30 +127,15 @@ export function ProfilingReportFormat({
         "space-y-4 " + (!isValidatedReport(meta) ? "report-output-locked" : "")
       }
     >
-      <nav
-        aria-label="Profiling report sections"
+      <div
         className="profile-no-print flex flex-wrap gap-2 rounded-lg border bg-white p-3"
       >
-        {[
-          ["SUMMARY", "Overview"],
-          [
-            "REGISTER",
-            snapshot.module === "CHILD"
-              ? "Child Profile Register"
-              : "Household and Child Register",
-          ],
-        ].map(([key, label]) => (
-          <button
-            type="button"
-            key={key}
-            aria-pressed={tab === key}
-            className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${tab === key ? "border-sky-200 bg-sky-100 text-sky-800 hover:bg-sky-200" : "border-transparent text-slate-600 hover:bg-sky-50 hover:text-sky-800"}`}
-            onClick={() => setTab(key as "SUMMARY" | "REGISTER")}
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
+        <FilterChips label="Profiling report sections" value={tab} onChange={setTab}
+          options={[
+            { value: "SUMMARY", label: "Overview" },
+            { value: "REGISTER", label: snapshot.module === "CHILD" ? "Child Profile Register" : "Household and Child Register" },
+          ] as const} />
+      </div>
       <div className="profile-report-output space-y-4">
         <header className="rounded-lg border bg-white p-4">
           <h2 className="text-center text-lg font-bold">{meta.title}</h2>

@@ -4,7 +4,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 // Loads the computed schedule preview + the latest request status. BHW/RHM see a
 // "Request Schedule" button when no PENDING request exists; everyone sees the preview.
 // Status badges mirror the health_activity_schedule lifecycle (PENDING / APPROVED / REJECTED).
-import { useId, useState, type KeyboardEvent } from 'react'
+import { useId, useState } from 'react'
 import { ImmunizationHistorySection } from '@/components/children/immunization-history-section'
 import useSWR from 'swr'
 import { Syringe, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react'
@@ -12,7 +12,7 @@ import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
-import { TabIndicator } from '@/components/dashboard/tab-indicator'
+import { TabBar } from '@/components/ui/module-tabs'
 import { TabPanel } from '@/components/brand/page-gate'
 import { Button } from '@/components/ui/button'
 import { DateInput, Textarea } from '@/components/ui/form'
@@ -287,17 +287,6 @@ export function VaccinationScheduleSection({ childId }: { childId: number }) {
   const role = user?.role as UserRole | undefined
   const canView = Boolean(isReady && user?.accountStatus === 'APPROVED' && role && canPerform(role, 'Child Profiling', 'view'))
 
-  function navigateTabs(event: KeyboardEvent<HTMLButtonElement>, index: number) {
-    let next: number
-    if (event.key === 'ArrowRight') next = (index + 1) % nipTabs.length
-    else if (event.key === 'ArrowLeft') next = (index + nipTabs.length - 1) % nipTabs.length
-    else if (event.key === 'Home') next = 0
-    else if (event.key === 'End') next = nipTabs.length - 1
-    else return
-    event.preventDefault()
-    setActiveTab(nipTabs[next].key)
-    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus()
-  }
 
   if (!canView) return null
   if (!Number.isSafeInteger(childId) || childId <= 0) {
@@ -310,21 +299,15 @@ export function VaccinationScheduleSection({ childId }: { childId: number }) {
         <h2 className="flex items-center gap-2 text-lg font-semibold text-primary"><Syringe size={18} />National Immunization Program</h2>
         <p className="mt-1 text-sm text-muted-foreground">Saved immunization records, dose status and vaccination schedule requests</p>
       </div>
-      <div role="tablist" aria-label="NIP record sections" className="relative flex flex-wrap gap-2 border-b p-3 print:hidden">
-        {nipTabs.map((tab, index) => <button
-          key={tab.key}
-          id={`${tabId}-tab-${tab.key}`}
-          type="button"
-          role="tab"
-          aria-selected={activeTab === tab.key}
-          aria-controls={`${tabId}-panel-${tab.key}`}
-          tabIndex={activeTab === tab.key ? 0 : -1}
-          onClick={() => setActiveTab(tab.key)}
-          onKeyDown={(event) => navigateTabs(event, index)}
-          className={`relative z-10 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === tab.key ? 'text-white' : 'bg-muted/40 text-foreground hover:bg-muted'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`}
-        >{tab.label}</button>)}
-        <TabIndicator group="nip-records" activeKey={activeTab} variant="pill" className="rounded-lg bg-primary" />
-      </div>
+      <TabBar
+        className="border-b p-3 print:hidden"
+        label="NIP record sections"
+        group="nip-records"
+        idBase={tabId}
+        value={activeTab}
+        onChange={setActiveTab}
+        items={nipTabs.map((tab) => ({ value: tab.key, label: tab.label }))}
+      />
       <TabPanel tabKey={activeTab}>
       {nipTabs.map((tab) => <div
         key={tab.key}

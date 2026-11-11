@@ -30,7 +30,7 @@ import { VaccineFormModal, type VaccineCatalogRow } from '@/components/vaccinati
 import { VaccinationSmsPanel } from '@/components/vaccination/vaccination-sms-panel'
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { TabPanel } from '@/components/brand/page-gate'
-import { TabIndicator } from '@/components/dashboard/tab-indicator'
+import { TabBar } from '@/components/ui/module-tabs'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
@@ -1086,7 +1086,6 @@ function SmsSection() {
       <PageHeader
         title="Vaccination SMS Reminders"
         subtitle="Guardian messages and presentation simulation history"
-        breadcrumbs={[{ label: 'Vaccination', href: '/vaccination/records' }, { label: 'SMS Reminders' }]}
       />
       <VaccinationSmsPanel online={online}/>
     </div>
@@ -1711,23 +1710,13 @@ export default function VaccinationPage() {
 
   return (
     <div className="space-y-6">
-      <div role="tablist" aria-label="Vaccination sections" className="relative flex flex-wrap gap-1 border-b border-[#E5E7EB] pr-24">
-        {visible.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={active === t.id}
-            onClick={() => setTab(t.id)}
-            className={`-mb-px rounded-t-lg border-b-2 border-transparent px-4 py-2.5 text-sm font-semibold transition-colors ${
-              active === t.id ? 'text-[#0077B6]' : 'text-[#6B7280] hover:text-[#03045E]'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-        <TabIndicator group="vaccination" activeKey={active} />
-      </div>
+      <TabBar
+        label="Vaccination sections"
+        group="vaccination"
+        value={active}
+        onChange={setTab}
+        items={visible.map((t) => ({ value: t.id, label: t.label }))}
+      />
 
       {/* Holds the previous tab's height and fades the new one in once its data is in. */}
       <TabPanel tabKey={active}>

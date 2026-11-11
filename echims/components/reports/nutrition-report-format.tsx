@@ -1,4 +1,5 @@
 "use client";
+import { FilterChips } from '@/components/ui/module-tabs'
 import { reportScopeLabel } from "@/lib/reports/report-scope-label";
 import { useState } from "react";
 import { isValidatedReport } from "@/lib/reports/report-output-client";
@@ -830,24 +831,12 @@ export function NutritionReportFormat({
         "space-y-4 " + (!isValidatedReport(meta) ? "report-output-locked" : "")
       }
     >
-      <nav
-        aria-label="Nutrition report sections"
+      <div
         className="nutrition-no-print flex flex-wrap gap-2 rounded-lg border bg-white p-3"
       >
-        {(["Summary", ...listCodes] as const).map((t) => (
-          <button
-            type="button"
-            key={t}
-            aria-pressed={tab === t}
-            className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${tab === t ? "border-sky-200 bg-sky-100 text-sky-800 hover:bg-sky-200" : "border-transparent text-slate-600 hover:border-sky-100 hover:bg-sky-50 hover:text-sky-800"}`}
-            onClick={() => setTab(t)}
-          >
-            {t === "Summary"
-              ? "Overview"
-              : "List " + t + " (" + listRecords(records, t).length + ")"}
-          </button>
-        ))}
-      </nav>
+        <FilterChips label="Nutrition report sections" value={tab} onChange={setTab}
+          options={(["Summary", ...listCodes] as const).map((t) => ({ value: t, label: t === "Summary" ? "Overview" : "List " + t, count: t === "Summary" ? undefined : listRecords(records, t).length }))} />
+      </div>
       <div className="nutrition-report-output space-y-4">
         <header className="rounded-lg border bg-white p-4">
           <h2 className="font-bold">{meta.title}</h2>

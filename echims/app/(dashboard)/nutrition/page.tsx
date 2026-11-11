@@ -37,6 +37,7 @@ import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
+import { FilterChips, TabBar } from '@/components/ui/module-tabs'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/form'
 import { reportSync } from '@/lib/offline/refresh'
@@ -1986,38 +1987,19 @@ export default function NutritionPage() {
       .nutrition-report-root tr { break-inside: avoid; }
       @page { size: A4 landscape; margin: 8mm; }
     }`}</style>
-      <nav
-        aria-label="Nutrition views"
-        className="nutrition-no-print flex flex-wrap gap-1 border-b border-border"
-      >
-        {(["Assessments", "Summary", "Risk", "Admissions"] as const).map(
-          (view) => {
-            const active =
-              view === "Summary"
-                ? reportView !== "Assessments" &&
-                  reportView !== "Risk" &&
-                  reportView !== "Admissions"
-                : reportView === view;
-            return (
-              <button
-                key={view}
-                type="button"
-                aria-pressed={active}
-                onClick={() => setReportView(view)}
-                className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors ${active ? "border-[#0077B6] text-[#0077B6]" : "border-transparent text-muted-foreground hover:border-sky-200 hover:text-[#0077B6]"}`}
-              >
-                {view === "Assessments"
-                  ? "All assessments"
-                  : view === "Risk"
-                    ? "Risk monitoring"
-                    : view === "Admissions"
-                      ? "Admission tracking"
-                      : "Summary"}
-              </button>
-            );
-          },
-        )}
-      </nav>
+      <TabBar
+        className="nutrition-no-print"
+        label="Nutrition views"
+        group="nutrition"
+        value={reportView === "Assessments" || reportView === "Risk" || reportView === "Admissions" ? reportView : "Summary"}
+        onChange={setReportView}
+        items={[
+          { value: "Assessments", label: "All assessments" },
+          { value: "Summary", label: "Summary" },
+          { value: "Risk", label: "Risk monitoring" },
+          { value: "Admissions", label: "Admission tracking" },
+        ]}
+      />
       <PageHeader
         title="Nutritional Assessment"
         subtitle="OPT Plus measurements, WHO classifications, and follow-up monitoring"
@@ -2244,26 +2226,17 @@ export default function NutritionPage() {
       {reportView !== "Assessments" &&
         reportView !== "Risk" &&
         reportView !== "Admissions" && (
-          <nav
-            aria-label="Summary classifications"
-            className="nutrition-no-print flex flex-wrap gap-2 rounded-xl border border-border bg-white p-3"
-          >
-            {(
-              ["Summary", ...listCodes] as Array<"Summary" | ListCode>
-            ).map((view) => (
-              <button
-                key={view}
-                type="button"
-                aria-pressed={reportView === view}
-                onClick={() => setReportView(view)}
-                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${reportView === view ? "bg-sky-100 text-[#0077B6]" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
-              >
-                {view === "Summary"
-                  ? "Overview"
-                  : `List ${view} (${listRecords(latest, view).length})`}
-              </button>
-            ))}
-          </nav>
+          <FilterChips
+            className="nutrition-no-print"
+            label="Summary classifications"
+            value={reportView}
+            onChange={setReportView}
+            options={(["Summary", ...listCodes] as Array<"Summary" | ListCode>).map((view) => ({
+              value: view,
+              label: view === "Summary" ? "Overview" : `List ${view}`,
+              count: view === "Summary" ? undefined : listRecords(latest, view).length,
+            }))}
+          />
         )}
       {reportView === "Summary" && (
         <SummaryReport

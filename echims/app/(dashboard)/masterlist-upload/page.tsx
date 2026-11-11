@@ -4,6 +4,7 @@
 
 'use client'
 
+import { FilterChips } from '@/components/ui/module-tabs'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -247,14 +248,17 @@ export default function MasterlistUploadPage() {
 
           <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex gap-2">
-                {(['all','error','duplicate','valid'] as const).map((t) => (
-                  <button key={t} onClick={() => setTab(t)}
-                    className={'rounded-full px-3 py-1 text-xs font-semibold ' + (tab === t ? 'bg-primary text-white' : 'border border-border text-muted-foreground hover:bg-muted')}>
-                    {t === 'all' ? 'All' : t === 'error' ? 'Errors' : t === 'duplicate' ? 'Duplicates' : 'Valid'}
-                  </button>
-                ))}
-              </div>
+              <FilterChips
+                label="Filter rows"
+                value={tab}
+                onChange={setTab}
+                options={[
+                  { value: 'all', label: 'All', count: batch.row_count },
+                  { value: 'error', label: 'Errors', count: batch.error_count },
+                  { value: 'duplicate', label: 'Duplicates', count: batch.duplicate_count },
+                  { value: 'valid', label: 'Valid', count: batch.valid_count },
+                ]}
+              />
               <div className="flex gap-2">
                 <Button variant="secondary" size="sm" onClick={reset}>
                   Cancel

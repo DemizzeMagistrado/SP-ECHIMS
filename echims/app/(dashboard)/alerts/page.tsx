@@ -20,7 +20,7 @@ import { offlineScope } from "@/lib/offline/fetch";
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
-import { TabIndicator } from '@/components/dashboard/tab-indicator'
+import { FilterChips, TabBar } from '@/components/ui/module-tabs'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
@@ -543,37 +543,19 @@ function AlertsWorkspace() {
   return (
     <div className="space-y-6">
       {data?.canConfigure && (
-        <div
-          className="relative flex flex-wrap gap-2 border-b border-border pb-3"
-          role="tablist"
-          aria-label="Alert sections"
-        >
-          {(
-            [
-              { value: "ALERTS", label: "Alerts" },
-              { value: "RULES", label: "Rules" },
-              { value: "AUDIT", label: "Rule change history" },
-              { value: "MONITORING", label: "Evaluation monitoring" },
-              { value: "SMS", label: "SMS Overview" },
-            ] as const
-          ).map((item) => (
-            <button
-              key={item.value}
-              type="button"
-              role="tab"
-              aria-selected={tab === item.value}
-              onClick={() => setTab(item.value)}
-              className={`relative z-10 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                tab === item.value
-                  ? "border border-transparent text-white"
-                  : "border border-border bg-white text-foreground hover:bg-muted"
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-          <TabIndicator group="alerts" activeKey={tab} variant="pill" className="rounded-lg bg-primary" />
-        </div>
+        <TabBar
+          label="Alert sections"
+          group="alerts"
+          value={tab}
+          onChange={setTab}
+          items={[
+            { value: "ALERTS", label: "Alerts" },
+            { value: "RULES", label: "Rules" },
+            { value: "AUDIT", label: "Rule change history" },
+            { value: "MONITORING", label: "Evaluation monitoring" },
+            { value: "SMS", label: "SMS Overview" },
+          ]}
+        />
       )}
       <PageHeader
         title="Alert Management"
@@ -644,24 +626,16 @@ function AlertsWorkspace() {
               </div>
             ))}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {[
-              "all",
-              "unresolved",
-              "critical",
-              "warning",
-              "info",
-              "resolved",
-            ].map((button) => (
-              <button
-                key={button}
-                type="button"
-                onClick={() => setFilter(button)}
-                className={`rounded-lg px-4 py-2 font-medium capitalize ${filter === button ? "bg-primary text-white" : "border border-border bg-white text-foreground hover:bg-muted"}`}
-              >
-                {button}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-3">
+            <FilterChips
+              label="Filter alerts"
+              value={filter}
+              onChange={setFilter}
+              options={["all", "unresolved", "critical", "warning", "info", "resolved"].map((value) => ({
+                value,
+                label: value[0].toUpperCase() + value.slice(1),
+              }))}
+            />
             <Select
               aria-label="Filter by program"
               value={program}

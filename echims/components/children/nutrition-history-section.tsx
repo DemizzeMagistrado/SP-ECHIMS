@@ -1,9 +1,9 @@
 'use client'
-import { useId, useState, type KeyboardEvent } from 'react'
+import { useId, useState } from 'react'
 import { History, TrendingUp, AlertCircle, Apple } from 'lucide-react'
 import { labelClassification, numericValue, withHistoryComparisons, type HistoryAssessment } from '@/lib/nutrition-history'
 import { Spinner } from '@/components/brand/logo-loader'
-import { TabIndicator } from '@/components/dashboard/tab-indicator'
+import { FilterChips, TabBar } from '@/components/ui/module-tabs'
 import { TabPanel } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 const metrics = [
@@ -105,18 +105,6 @@ export function NutritionHistorySection({ assessments, loading = false, error, o
     { key: 'TRENDS', label: 'Growth Trends' },
     { key: 'CHANGES', label: 'Classification Changes' },
   ] as const
-  function navigateTabs(event: KeyboardEvent<HTMLButtonElement>, index: number) {
-    let next: number
-    if (event.key === 'ArrowRight') next = (index + 1) % tabs.length
-    else if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length
-    else if (event.key === 'Home') next = 0
-    else if (event.key === 'End') next = tabs.length - 1
-    else return
-    event.preventDefault()
-    setActiveTab(tabs[next].key)
-    const buttons = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')
-    buttons?.[next]?.focus()
-  }
   const [metricKey, setMetricKey] = useState<typeof metrics[number]['key']>('weight')
   const [newestFirst, setNewestFirst] = useState(true)
   const chronological = withHistoryComparisons(assessments)
@@ -131,21 +119,15 @@ export function NutritionHistorySection({ assessments, loading = false, error, o
         <p className="mt-1 text-sm text-muted-foreground">{chronological.length} saved assessment{chronological.length === 1 ? '' : 's'} · Latest results, history, growth trends and classification changes</p>
       </div>
     </div>
-    <div role="tablist" aria-label="Nutrition record sections" className="relative flex flex-wrap gap-2 border-b p-3">
-      {tabs.map((tab, index) => <button
-        key={tab.key}
-        id={`${tabId}-tab-${tab.key}`}
-        type="button"
-        role="tab"
-        aria-selected={activeTab === tab.key}
-        aria-controls={`${tabId}-panel-${tab.key}`}
-        tabIndex={activeTab === tab.key ? 0 : -1}
-        onClick={() => setActiveTab(tab.key)}
-        onKeyDown={(event) => navigateTabs(event, index)}
-        className={`relative z-10 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === tab.key ? 'text-white' : 'bg-muted/40 text-foreground hover:bg-muted'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`}
-      >{tab.label}</button>)}
-      <TabIndicator group="nutrition-history" activeKey={activeTab} variant="pill" className="rounded-lg bg-primary" />
-    </div>
+    <TabBar
+      className="border-b p-3"
+      label="Nutrition record sections"
+      group="nutrition-history"
+      idBase={tabId}
+      value={activeTab}
+      onChange={setActiveTab}
+      items={tabs.map((tab) => ({ value: tab.key, label: tab.label }))}
+    />
     <TabPanel tabKey={activeTab}>
     <div className="p-5">
       {tabs.map((tab) => <div
@@ -170,7 +152,7 @@ export function NutritionHistorySection({ assessments, loading = false, error, o
           </tr>)}</tbody></table></div>
         </div>
           : tab.key === 'TRENDS' ? <div className="rounded-xl border border-border p-4"><h3 className="mb-3 flex items-center gap-2 font-semibold"><TrendingUp size={17} />Recorded growth measurements</h3>
-          <div className="mb-4 flex flex-wrap gap-2">{metrics.map((item) => <button key={item.key} type="button" aria-pressed={metricKey === item.key} onClick={() => setMetricKey(item.key)} className={`rounded-lg border px-3 py-2 text-sm ${metricKey === item.key ? 'border-primary bg-primary/10 text-primary' : 'border-border'}`}>{item.label}</button>)}</div>
+          <FilterChips className="mb-4" label="Growth measure" value={metricKey} onChange={setMetricKey} options={metrics.map((item) => ({ value: item.key, label: item.label }))} />
           <div className="overflow-x-auto"><RecordedChart rows={chronological} metric={metric} /></div>
           <p className="mt-2 text-xs text-muted-foreground">Charts show recorded values, with gaps for unavailable results. Length and standing height use the recorded measurement position; changes in position can affect comparisons.</p>
         </div>

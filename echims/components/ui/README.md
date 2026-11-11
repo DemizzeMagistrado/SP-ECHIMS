@@ -7,14 +7,29 @@ Inter body, Plus Jakarta Sans titles).
 Already mounted once in `app/layout.tsx`: `<Toaster/>`, `<ConfirmHost/>`, `<ArrowKeyTabs/>`, `<ModalA11y/>`.
 The dashboard layout adds the skip link, offline banner and `<PrintHeader/>`.
 
+## Page structure (Alerts is the reference)
+1. `TabBar` (if the module has sub-pages) · 2. `PageHeader` · 3. stat cards · 4. filter row
+(`FilterChips` + selects/search) · 5. content. The dashboard layout sets padding and max width; the
+page root is `space-y-6`.
+
+## TabBar / FilterChips — `module-tabs.tsx`
+Module tabs: navy pill slides to the active tab, the row scrolls sideways on phones. State tabs pass
+`onChange` and wrap content in `<TabPanel tabKey={value}>` (fade, height held). Route tabs give
+items an `href`; `components/dashboard/module-tabs.tsx` builds those from `moduleTabs` + role.
+`idBase` wires `id`/`aria-controls` to your `role="tabpanel"`s. `FilterChips` are the smaller,
+round filter buttons (`count` adds a number badge). Segmented switches inside a widget (chart range,
+calendar Month/Week/Day) are not tabs and keep their own look.
+```tsx
+<TabBar label="Alert sections" value={tab} onChange={setTab} items={[{ value: 'ALERTS', label: 'Alerts' }, …]} />
+<FilterChips label="Filter alerts" value={filter} onChange={setFilter} options={[{ value: 'all', label: 'All' }, …]} />
+```
+
 ## PageHeader — `page-header.tsx`
-Top of every module page. Breadcrumbs come from the route + sidebar + module tabs (shown only when
-there are 2+ levels); pass `breadcrumbs` to override.
+Display-font title, one-line muted subtitle, `actions` on the right (wrap below on mobile). No breadcrumbs.
 ```tsx
 <PageHeader title="Stock Overview" subtitle="Quantity on hand per item and barangay."
   actions={<Button onClick={openStockIn}><Plus size={16} /> Record stock-in</Button>} />
 ```
-Props: `title`, `subtitle?`, `breadcrumbs?: { label, href? }[]`, `actions?`, `className?`.
 
 ## Button — `button.tsx`
 `variant`: `primary` (default) · `secondary` · `ghost` · `danger`; `size`: `sm` · `md` (default) · `icon`;

@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
 import { buildSupplementationDue, manilaToday } from '@/lib/supplementation-due'
 import type { NutritionBasis } from '@/lib/supplementation-nutrition'
 import { Spinner } from '@/components/brand/logo-loader'
-import { TabIndicator } from '@/components/dashboard/tab-indicator'
+import { TabBar } from '@/components/ui/module-tabs'
 import { TabPanel } from '@/components/brand/page-gate'
 type Entry={purpose?:string|null;protocol_snapshot?:unknown;clinical_indication?:string|null;course_reference?:string|null;clinical_dose_number?:number|null;course_start_date?:string|null;tier?:string|null;order_reference?:string|null;recorded_by?:string|null;supplementation_record_id:number;supplementation_date:string;supplement_id:number;quantity_given:number;dose_value:number|null;dose_unit:string|null;record_type:string|null;batch_number:string|null;source_assessment_id:number|null;plan_id:number|null;remarks:string|null}
 type SupplyPlan={plan_id:number;supplement_id:number;start_date:string;end_date:string;authorized_quantity:number|string;product_label:string;source_assessment_id:number|null;remarks:string|null}
@@ -59,7 +59,8 @@ export function SupplementationHistorySection({childId}:{childId:number}){
       <div><h2 className="text-lg font-semibold text-primary">Supplementation</h2><p className="mt-1 text-sm text-muted-foreground">Saved doses, supplies, plans and scheduled follow-up</p></div>
       <div className="flex gap-3"><button type="button" onClick={()=>void mutate()} className="text-sm text-primary underline">Refresh</button><Link className="text-sm font-medium text-primary underline" href={reviewHref}>{data?.permissions?.record||data?.permissions?.clinical?'Review / Record':'Review supplementation'}</Link></div>
     </div>
-    <div role="tablist" aria-label="Supplementation sections" className="relative flex flex-wrap gap-2 border-b p-3">{(Object.keys(labels) as Array<keyof typeof labels>).map(key=><button type="button" role="tab" aria-selected={tab===key} key={key} onClick={()=>setTab(key)} className={`relative z-10 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${tab===key?'text-white':'bg-muted/40 text-foreground hover:bg-muted'}`}>{labels[key]}</button>)}<TabIndicator group="supplementation-history" activeKey={tab} variant="pill" className="rounded-lg bg-primary" /></div>
+    <TabBar className="border-b p-3" label="Supplementation sections" group="supplementation-history" value={tab} onChange={setTab}
+      items={(Object.keys(labels) as Array<keyof typeof labels>).map((key) => ({ value: key, label: labels[key] }))} />
     <TabPanel tabKey={tab}>
     <div role="tabpanel" aria-label={labels[tab]}>
       {tab==='PLANS'&&(loadState??(data&&<><div className="overflow-x-auto"><table className="w-full"><thead className="bg-muted/60"><tr>{['Plan','Commodity','Period','Planned Quantity','Quantity Issued','Remaining to Issue','Nutrition Basis','Remarks'].map(h=><th key={h} className="px-4 py-3 text-left text-xs font-semibold">{h}</th>)}</tr></thead><tbody className="divide-y divide-border">{data.plans.length===0?<tr><td colSpan={8} className="p-6 text-center text-sm text-muted-foreground">No supply plans registered for this child.</td></tr>:data.plans.map(plan=>{

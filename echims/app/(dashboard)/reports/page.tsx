@@ -1,4 +1,5 @@
 "use client";
+import { TabBar } from '@/components/ui/module-tabs'
 import { offlineFetch as fetch, offlineScope } from '@/lib/offline/fetch'
 import { useAuth } from '@/components/auth/auth-provider'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
@@ -336,26 +337,23 @@ export default function ReportsPage() {
     : [];
   return (
     <div className="space-y-6">
+      <TabBar
+        label="Report workflow"
+        group="reports"
+        value={section}
+        onChange={(s) => {
+          clear();
+          setSection(s);
+        }}
+        items={[
+          { value: "SAVED", label: "Generated Reports", disabled: busy },
+          { value: "PREVIEW", label: "Report Preview", disabled: busy },
+        ]}
+      />
       <PageHeader
         title={<>Reports & Analytics</>}
         subtitle={<>{options?.role === "Administrator" ? "System-wide report viewing." : options?.role === "PHN" ? "Review and validate reports within your RHU." : options?.role === "BNS" ? "Generate nutrition reports within assigned barangays." : "Generate reports within assigned barangays."}</>}
       />
-      <nav className="flex gap-2 border-b" aria-label="Report workflow">
-        {(["SAVED", "PREVIEW"] as const).map((s) => (
-          <button
-            type="button"
-            key={s}
-            disabled={busy}
-            className={`border-b-2 px-4 py-3 ${section === s ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}
-            onClick={() => {
-              clear();
-              setSection(s);
-            }}
-          >
-            {s === "SAVED" ? "Generated Reports" : "Report Preview"}
-          </button>
-        ))}
-      </nav>
       {error && (
         <p
           role="alert"
