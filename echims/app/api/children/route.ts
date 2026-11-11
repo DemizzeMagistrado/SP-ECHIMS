@@ -3,6 +3,7 @@ import { withHistoryComparisons } from "@/lib/nutrition-history";
 import { createClient } from "@/lib/supabase/server";
 import { canPerform, type UserRole } from "@/lib/echims-data";
 import { formatChildId, formatHouseholdId } from "@/lib/formatters";
+import { MOBILE_ERROR, normalizePhMobile } from "@/lib/phone";
 const roleAliases: Record<string, UserRole> = {
   administrator: "Administrator",
   admin: "Administrator",
@@ -390,7 +391,7 @@ export async function POST(request: Request) {
         first_name: String(newGuardian.first_name ?? "").trim(),
         middle_name: String(newGuardian.middle_name ?? "").trim() || null,
         last_name: String(newGuardian.last_name ?? "").trim(),
-        contact_number: String(newGuardian.contact_number ?? "").trim() || null,
+        contact_number: normalizePhMobile(String(newGuardian.contact_number ?? "")) ?? (String(newGuardian.contact_number ?? "").trim() || null),
         address: String(newGuardian.address ?? "").trim() || null,
         relationship_to_child:
           String(newGuardian.relationship_to_child ?? "").trim() || null,
@@ -517,15 +518,9 @@ export async function PATCH(request: Request) {
   if (changingGuardianContact) {
     if (typeof body?.guardian_contact_number !== "string")
       return invalid("Guardian contact number must be text.");
-    guardianContact = body.guardian_contact_number.trim() || null;
-    if (
-      guardianContact &&
-      !/^(?:09[0-9]{9}|639[0-9]{9}|\+639[0-9]{9})$/.test(guardianContact)
-    ) {
-      return invalid(
-        "Use 09XXXXXXXXX, 639XXXXXXXXX or +639XXXXXXXXX for the guardian mobile number.",
-      );
-    }
+    const typed = body.guardian_contact_number.trim();
+    guardianContact = typed ? normalizePhMobile(typed) : null;
+    if (typed && !guardianContact) return invalid(MOBILE_ERROR);
     // Read through the signed-in client; never accept an unrelated guardian ID.
     const scopedChild = await auth.supabase
       .from("child")

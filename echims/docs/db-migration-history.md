@@ -60,6 +60,7 @@ Repo files are named with the exact recorded versions, so they already line up.
 | 20261111181630 | cp_rev01_02_field_changes | PhilHealth "Unknown" → NULL (2 profile records, 4 values) |
 | 20261111181849 | cp_rev01_03_child_id_fsn | `child.child_code`, `household.family_serial_no`, FSN counter, read-only triggers, backfill |
 | 20261111181946 | cp_rev01_04_medical_history_catalog | 20 starter illnesses + admin write policies on `child_medical_condition_catalog` |
+| 20261111190650 | cp_rev01_05_guardian_mobile | Guardian numbers stored as 09XXXXXXXXX (trigger + backfill, 1 row); `normalize_guardian_mobile` accepts spaces/dashes/10 digits; backup `backup_cp_rev01.guardian_before_mobile` |
 
 Backup taken before applying: schema `backup_cp_rev01` (child, household, child_profile_record,
 child_medical_condition_catalog, guardian, barangay, household_information_history,

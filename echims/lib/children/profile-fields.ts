@@ -1,4 +1,5 @@
 import { fromStructured } from './medical-history'
+import { MOBILE_ERROR, normalizePhMobile } from '@/lib/phone'
 
 // Child Profiling form model: the three sections (Child → Guardian → Household), their option
 // lists and per-step validation. Shared by the registration/edit form, the profile page and drafts.
@@ -98,7 +99,6 @@ export function classificationForDob(dob: string) {
   return 'Out of 0-59 months range'
 }
 
-export const MOBILE_PATTERN = /^(?:09[0-9]{9}|639[0-9]{9}|\+639[0-9]{9})$/
 
 type StepContext = { mode: 'create' | 'edit'; newGuardian: boolean; newHousehold: boolean; contactChanged: boolean }
 
@@ -126,8 +126,8 @@ export function validateStep(step: StepKey, f: ChildForm, ctx: StepContext): Rec
       if (!s('guardian_relationship_to_child')) e.guardian_relationship_to_child = 'Choose how the guardian is related to the child.'
     }
     const phone = s('guardian_contact_number')
-    if (phone && (ctx.newGuardian || ctx.contactChanged) && !MOBILE_PATTERN.test(phone))
-      e.guardian_contact_number = 'Use an 11-digit mobile number like 09171234567 (or 639… / +639…).'
+    if (phone && (ctx.newGuardian || ctx.contactChanged) && !normalizePhMobile(phone))
+      e.guardian_contact_number = MOBILE_ERROR
     if (Boolean(s('informant_name')) !== Boolean(s('informant_relationship'))) {
       if (!s('informant_name')) e.informant_name = 'Enter who gave the information, or clear the relationship.'
       else e.informant_relationship = 'Enter how the informant is related to the child.'
@@ -171,7 +171,7 @@ export function recordToForm(d: { child?: Row | null; guardian?: Row | null; pro
     birth_weight_kg: str(child.birth_weight_kg), birth_height_cm: str(child.birth_height_cm),
     mother_name: str(child.mother_name), father_name: str(child.father_name),
     barangay_id: str(child.barangay_id), household_id: str(child.household_id), guardian_id: str(child.guardian_id),
-    guardian_contact_number: str(guardian?.contact_number),
+    guardian_contact_number: normalizePhMobile(str(guardian?.contact_number)) ?? str(guardian?.contact_number),
     relationship_to_household_head: str(profile.relationship_to_household_head),
     religion: str(profile.religion), ethnicity: str(profile.ethnicity),
     philhealth_id_number: str(profile.philhealth_id_number),

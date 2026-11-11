@@ -18,6 +18,7 @@ import { PhilippineAddressPicker } from "@/components/children/philippine-addres
 import { Spinner } from '@/components/brand/logo-loader'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/toast'
+import { MOBILE_HINT, formatPhMobile, normalizePhMobile, toLocalMobileDigits } from '@/lib/phone'
 import { Checkbox, DateInput, Field, Input, Select, Textarea } from '@/components/ui/form'
 import { cn } from '@/lib/utils'
 import { canPerform, type UserRole } from '@/lib/echims-data'
@@ -116,7 +117,7 @@ export function ChildFormModal({
           ? `${household.household_no ?? `HH-${household.household_id}`}${household.household_address ? ` — ${household.household_address}` : ""}` : "");
         setGuardianQuery(guardian
           ? `${[guardian.first_name, guardian.middle_name, guardian.last_name].filter(Boolean).join(" ")}${guardian.relationship_to_child ? ` (${guardian.relationship_to_child})` : ""}` : "");
-        setOriginalGuardianContact(guardian?.contact_number ?? "");
+        setOriginalGuardianContact(normalizePhMobile(guardian?.contact_number) ?? guardian?.contact_number ?? "");
         const values = recordToForm(d);
         loaded.current = values;
         setForm(values);
@@ -238,7 +239,7 @@ export function ChildFormModal({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             child_id: childId, ...values, ...resolved,
-            guardian_contact_number: contactNow ? String(values.guardian_contact_number).trim() : undefined,
+            guardian_contact_number: contactNow ? (normalizePhMobile(String(values.guardian_contact_number)) ?? String(values.guardian_contact_number).trim()) : undefined,
           }),
         });
       } else {
@@ -250,7 +251,7 @@ export function ChildFormModal({
           } : undefined,
           new_guardian: newGuardian ? {
             first_name: values.guardian_first_name, middle_name: values.guardian_middle_name,
-            last_name: values.guardian_last_name, contact_number: values.guardian_contact_number,
+            last_name: values.guardian_last_name, contact_number: normalizePhMobile(String(values.guardian_contact_number ?? "")) ?? values.guardian_contact_number,
             address: values.guardian_address, relationship_to_child: values.guardian_relationship_to_child,
           } : undefined,
         };
@@ -345,9 +346,15 @@ export function ChildFormModal({
     );
   }
 
-  const text = (key: string, label: string, opts: { required?: boolean; type?: string; className?: string; hint?: string; inputMode?: "decimal" | "tel" } = {}) => (
+  const text = (key: string, label: string, opts: { required?: boolean; type?: string; className?: string; hint?: string; inputMode?: "decimal" | "tel" | "numeric"; phone?: boolean } = {}) => (
     <Field label={label} required={opts.required} error={errors[key]} hint={opts.hint} className={opts.className}>
-      <Input type={opts.type ?? "text"} inputMode={opts.inputMode} value={str(key)} onChange={(e) => set(key, e.target.value)} />
+      {opts.phone ? (
+        // Shown as 0997 987 5431; stored as digits (09XXXXXXXXX), whatever format was typed or pasted.
+        <Input type="tel" inputMode="numeric" autoComplete="tel-national" maxLength={13} placeholder={MOBILE_HINT}
+          value={formatPhMobile(str(key))} onChange={(e) => set(key, toLocalMobileDigits(e.target.value))} />
+      ) : (
+        <Input type={opts.type ?? "text"} inputMode={opts.inputMode} value={str(key)} onChange={(e) => set(key, e.target.value)} />
+      )}
     </Field>
   );
   const choice = (key: string, label: string, opts: { required?: boolean; values?: string[] } = {}) => (
@@ -523,8 +530,8 @@ export function ChildFormModal({
                       {guardianMatches.length > 0 ? guardianMatches.map((g) => (
                         <button key={g.guardian_id} type="button"
                           onClick={() => {
-                            setForm((f) => ({ ...f, guardian_id: String(g.guardian_id), guardian_contact_number: g.contact_number ?? "" }));
-                            setOriginalGuardianContact(g.contact_number ?? "");
+                            setForm((f) => ({ ...f, guardian_id: String(g.guardian_id), guardian_contact_number: normalizePhMobile(g.contact_number) ?? g.contact_number ?? "" }));
+                            setOriginalGuardianContact(normalizePhMobile(g.contact_number) ?? g.contact_number ?? "");
                             setGuardianQuery(`${g.first_name} ${g.last_name}${g.relationship_to_child ? ` (${g.relationship_to_child})` : ""}`);
                           }}
                           className="block w-full px-3 py-2 text-left text-sm hover:bg-muted">
@@ -542,14 +549,14 @@ export function ChildFormModal({
                   </div>
                 )}
                 {mode === "edit" && !newGuardian && Boolean(form.guardian_id) && (
-                  text("guardian_contact_number", "Guardian contact number", { type: "tel", inputMode: "tel", hint: "Shared by every child linked to this guardian. Changing it asks for SMS consent again." })
+                  text("guardian_contact_number", "Guardian contact number", { phone: true, hint: "Shared by every child linked to this guardian. Changing it asks for SMS consent again." })
                 )}
                 {newGuardian && (<>
                   {text("guardian_first_name", "First name", { required: true })}
                   {text("guardian_middle_name", "Middle name")}
                   {text("guardian_last_name", "Last name", { required: true })}
                   {choice("guardian_relationship_to_child", "Relationship to child", { required: true })}
-                  {text("guardian_contact_number", "Contact number", { type: "tel", inputMode: "tel", hint: "09XXXXXXXXX" })}
+                  {text("guardian_contact_number", "Contact number", { phone: true })}
                   {text("guardian_address", "Address", { className: "sm:col-span-2" })}
                 </>)}
               </div>
@@ -635,7 +642,7 @@ export function ChildFormModal({
                 ["Guardian", newGuardian
                   ? [str("guardian_first_name"), str("guardian_last_name")].filter(Boolean).join(" ") + (str("guardian_relationship_to_child") && ` (${str("guardian_relationship_to_child")})`)
                   : form.guardian_id ? guardianQuery : ""],
-                ["Contact number", str("guardian_contact_number")],
+                ["Contact number", formatPhMobile(str("guardian_contact_number"))],
                 ["Information provided by", [str("informant_name"), str("informant_relationship")].filter(Boolean).join(" · ")],
               ]} />
               <ReviewCard title="Household Information" onEdit={() => goTo(2)} rows={[
