@@ -49,6 +49,10 @@ type ChildRow = {
   household_id: number | null;
   barangay_id: number | null;
   guardian_id: number | null;
+  birth_weight_kg?: number | string | null;
+  birth_height_cm?: number | string | null;
+  mother_name?: string | null;
+  father_name?: string | null;
 };
 type Guardian = {
   guardian_id: number;
@@ -76,6 +80,8 @@ type Profile = {
   medical_history: string | null;
   water_source_type: string | null;
   toilet_facility_type: string | null;
+  informant_name?: string | null;
+  informant_relationship?: string | null;
 };
 type BarangayRow = {
   barangay_id: number;
@@ -610,131 +616,62 @@ export function ChildProfileView({childId}: {childId: string}) {
           </div>
         </div>
       </section>
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Personal information */}
-        <SectionCard
-          title="Personal Information"
-          subtitle="Profiling details collected during the home visit"
-          icon={<Baby size={18} />}
-        >
-          <dl className="divide-y divide-border">
+      {/* The three profiling sections, in the same order as the registration form. */}
+      <SectionCard
+        title="Child Information"
+        subtitle="Details of the registered child"
+        icon={<Baby size={18} />}
+      >
+        <dl className="grid gap-x-8 divide-y divide-border md:grid-cols-2 md:divide-y-0">
+          <div className="divide-y divide-border">
             <InfoRow label="Full name" value={fullName} />
-            <InfoRow
-              label="Date of birth"
-              value={formatDate(child.date_of_birth)}
-            />
             <InfoRow label="Sex" value={titleCase(child.sex)} />
-            <InfoRow label="Birth place" value={child.birth_place || "—"} />
+            <InfoRow label="Date of birth" value={formatDate(child.date_of_birth)} />
+            <InfoRow label="Age group" value={classificationForDob(child.date_of_birth)} />
+            <InfoRow label="Place of birth" value={child.birth_place || "—"} />
+            <InfoRow label="Birth weight" value={child.birth_weight_kg ? `${child.birth_weight_kg} kg` : "—"} />
+            <InfoRow label="Birth height" value={child.birth_height_cm ? `${child.birth_height_cm} cm` : "—"} />
+            <InfoRow label="Registered" value={formatDate(child.registration_date)} />
+          </div>
+          <div className="divide-y divide-border">
+            <InfoRow label="Relationship to household head" value={profile?.relationship_to_household_head || "—"} />
+            <InfoRow label="Civil status" value={profile?.civil_status || "—"} />
+            <InfoRow label="Educational attainment" value={profile?.educational_attainment || "—"} />
+            <InfoRow label="Religion" value={profile?.religion || "—"} />
+            <InfoRow label="Ethnicity" value={profile?.ethnicity || "—"} />
+            <InfoRow label="PhilHealth ID" value={profile?.philhealth_id_number || "—"} />
             <InfoRow
-              label="Registration date"
-              value={formatDate(child.registration_date)}
+              label="PhilHealth membership"
+              value={profile?.philhealth_membership_type
+                ? `${profile.philhealth_membership_type}${profile.philhealth_category ? ` (${profile.philhealth_category})` : ""}`
+                : "—"}
             />
-            <InfoRow
-              label="Address"
-              value={child.address || "—"}
-              icon={<MapPin size={14} />}
-            />
-            <InfoRow
-              label="Barangay"
-              value={
-                barangay
-                  ? `${barangay.barangay_name}${barangay.municipality ? ` · ${barangay.municipality}` : ""}${barangay.province ? `, ${barangay.province}` : ""}`
-                  : "—"
-              }
-            />
-            <InfoRow label="RHU" value={rhu?.rhu_name || "—"} />
-            <InfoRow
-              label="Household"
-              value={
-                household ? (
-                  <span>
-                    {household.household_no ? (
-                      <strong>HH-{household.household_no}</strong>
-                    ) : (
-                      `HH-${household.household_id}`
-                    )}
-                    {household.household_address && (
-                      <> · {household.household_address}</>
-                    )}
-                    {household.purok && <> · Purok {household.purok}</>}
-                    {household.is_4ps_member && (
-                      <>
-                        {" "}
-                        ·{" "}
-                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                          4Ps member
-                        </span>
-                      </>
-                    )}
-                  </span>
-                ) : (
-                  "—"
-                )
-              }
-              icon={<Home size={14} />}
-            />
-            {profile && (
-              <>
-                <InfoRow label="Civil status" value={profile.civil_status} />
-                <InfoRow
-                  label="Educational attainment"
-                  value={profile.educational_attainment}
-                />
-                <InfoRow label="Religion" value={profile.religion} />
-                <InfoRow label="Ethnicity" value={profile.ethnicity} />
-                <InfoRow
-                  label="PhilHealth ID"
-                  value={profile.philhealth_id_number}
-                />
-                <InfoRow
-                  label="PhilHealth membership"
-                  value={
-                    profile.philhealth_membership_type
-                      ? `${profile.philhealth_membership_type}${profile.philhealth_category ? ` (${profile.philhealth_category})` : ""}`
-                      : "—"
-                  }
-                />
-                <InfoRow
-                  label="Water source"
-                  value={profile.water_source_type}
-                />
-                <InfoRow
-                  label="Toilet facility"
-                  value={profile.toilet_facility_type}
-                />
-                <InfoRow
-                  label="Medical history"
-                  value={profile.medical_history || "—"}
-                />
-              </>
-            )}
-          </dl>
-        </SectionCard>
-        {/* Guardian information */}
+            <InfoRow label="Medical history" value={profile?.medical_history || "—"} />
+          </div>
+        </dl>
+      </SectionCard>
+      <div className="grid gap-6 lg:grid-cols-2">
         <SectionCard
           title="Guardian Information"
-          subtitle="Person responsible for the child's care"
+          subtitle="Given by the parent or guardian, encoded by the health worker"
           icon={<Users size={18} />}
         >
+          <dl className="divide-y divide-border">
+            <InfoRow label="Mother" value={child.mother_name || "—"} />
+            <InfoRow label="Father" value={child.father_name || "—"} />
+            {guardian && (<>
+              <InfoRow label="Present guardian" value={guardianName} />
+              <InfoRow label="Relationship" value={guardian.relationship_to_child || "—"} />
+              <InfoRow label="Contact number" value={guardian.contact_number || "—"} icon={<Phone size={14} />} />
+              <InfoRow label="Address" value={guardian.address || "—"} icon={<MapPin size={14} />} />
+            </>)}
+            <InfoRow
+              label="Information provided by"
+              value={profile?.informant_name ? `${profile.informant_name}${profile.informant_relationship ? ` (${profile.informant_relationship})` : ""}` : "—"}
+            />
+          </dl>
           {guardian ? (
             <>
-              <dl className="divide-y divide-border">
-                <InfoRow label="Guardian name" value={guardianName} />
-                <InfoRow
-                  label="Relationship"
-                  value={guardian.relationship_to_child}
-                />
-                <InfoRow
-                  label="Contact number"
-                  value={guardian.contact_number}
-                  icon={<Phone size={14} />}
-                />
-                <InfoRow
-                  label="Address"
-                  value={guardian.address}
-                  icon={<MapPin size={14} />}
-                />
-              </dl>
               <GuardianSmsConsent
                 key={`${guardian.guardian_id}:${guardian.contact_number ?? ""}:${guardian.sms_opt_in ?? false}:${guardian.sms_contact_verified_at ?? ""}`}
                 guardian={guardian}
@@ -750,11 +687,35 @@ export function ChildProfileView({childId}: {childId: string}) {
               />
             </>
           ) : (
-            <div className="rounded-xl bg-muted/50 p-6 text-center text-sm text-muted-foreground">
-              No guardian linked to this child yet. Use the Edit button to
-              register or link one.
-            </div>
+            <p className="mt-3 rounded-xl bg-muted/50 p-4 text-sm text-muted-foreground">
+              No present guardian is linked yet.{canEdit ? " Use Edit profile to link or register one." : ""}
+            </p>
           )}
+        </SectionCard>
+        <SectionCard
+          title="Household Information"
+          subtitle="Where the child lives"
+          icon={<Home size={18} />}
+        >
+          <dl className="divide-y divide-border">
+            <InfoRow
+              label="Household no."
+              value={household ? (household.household_no ? `HH-${household.household_no}` : `HH-${household.household_id}`) : "—"}
+            />
+            <InfoRow label="Household address" value={household?.household_address || "—"} icon={<MapPin size={14} />} />
+            <InfoRow label="Purok" value={household?.purok || "—"} />
+            <InfoRow label="Child's address" value={child.address || "—"} />
+            <InfoRow
+              label="Barangay"
+              value={barangay
+                ? `${barangay.barangay_name}${barangay.municipality ? ` · ${barangay.municipality}` : ""}${barangay.province ? `, ${barangay.province}` : ""}`
+                : "—"}
+            />
+            <InfoRow label="RHU" value={rhu?.rhu_name || "—"} />
+            <InfoRow label="4Ps member" value={household ? (household.is_4ps_member ? "Yes" : "No") : "—"} />
+            <InfoRow label="Water source" value={profile?.water_source_type || "—"} />
+            <InfoRow label="Toilet facility" value={profile?.toilet_facility_type || "—"} />
+          </dl>
         </SectionCard>
       </div>
       {/* NIP-USR001 — Vaccination Schedule request + preview. Computed from DOB + NIP

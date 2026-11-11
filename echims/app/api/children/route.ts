@@ -36,6 +36,10 @@ function parseId(value: unknown) {
   );
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }
+function optionalNumber(value: unknown) {
+  const text = String(value ?? "").trim();
+  return text && Number.isFinite(Number(text)) ? Number(text) : null;
+}
 function monthsOld(value: string) {
   const birth = new Date(`${value}T00:00:00Z`);
   const now = new Date();
@@ -70,7 +74,7 @@ export async function GET(request: Request) {
   let query = auth.supabase
     .from("child")
     .select(
-      "child_id, first_name, middle_name, last_name, date_of_birth, sex, birth_place, address, registration_date, status, household_id, barangay_id, guardian_id",
+      "child_id, first_name, middle_name, last_name, date_of_birth, sex, birth_place, address, registration_date, status, household_id, barangay_id, guardian_id, birth_weight_kg, birth_height_cm, mother_name, father_name",
     )
     .order("child_id", { ascending: false });
   if (childId) query = query.eq("child_id", childId);
@@ -375,6 +379,10 @@ export async function POST(request: Request) {
       household_id: householdId,
       barangay_id: barangayId,
       guardian_id: guardianId,
+      birth_weight_kg: optionalNumber(body.birth_weight_kg),
+      birth_height_cm: optionalNumber(body.birth_height_cm),
+      mother_name: String(body.mother_name ?? "").trim() || null,
+      father_name: String(body.father_name ?? "").trim() || null,
     })
     .select("child_id")
     .single();
@@ -397,6 +405,8 @@ export async function POST(request: Request) {
     "toilet_facility_type",
     "medical_history",
     "last_menstrual_period",
+    "informant_name",
+    "informant_relationship",
   ];
   const profile = Object.fromEntries(
     profileFields
@@ -491,6 +501,10 @@ export async function PATCH(request: Request) {
     "barangay_id",
     "household_id",
     "guardian_id",
+    "birth_weight_kg",
+    "birth_height_cm",
+    "mother_name",
+    "father_name",
   ];
   const updates: Record<string, unknown> = {};
   for (const field of childFields) {
@@ -511,6 +525,8 @@ export async function PATCH(request: Request) {
           return invalid(`Invalid ${field} value.`);
         updates[field] = n;
       }
+    } else if (field === "birth_weight_kg" || field === "birth_height_cm") {
+      updates[field] = optionalNumber(raw);
     } else {
       updates[field] = raw === "" ? null : raw;
     }
@@ -563,6 +579,8 @@ export async function PATCH(request: Request) {
     "toilet_facility_type",
     "medical_history",
     "last_menstrual_period",
+    "informant_name",
+    "informant_relationship",
   ];
   const patchBody = body ?? {};
   const profileUpdates = Object.fromEntries(

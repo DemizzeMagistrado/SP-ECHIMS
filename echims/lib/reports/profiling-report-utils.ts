@@ -122,3 +122,53 @@ export const bands = [
   { label: "36–47 months", min: 36, max: 47 },
   { label: "48–59 months", min: 48, max: 59 },
 ];
+
+/**
+ * Register columns grouped by the three profiling sections (same order as the registration
+ * form and profile). Shared by the on-screen report and the export so they stay in sync.
+ */
+export const registerSections: { title: string; columns: { label: string; cell: (m: Member) => string }[] }[] = [
+  {
+    title: "Child Information",
+    columns: [
+      { label: "Child ID", cell: (m) => value(m.child.child_code ?? m.child.child_id) },
+      { label: "Last name", cell: (m) => value(m.child.last_name) },
+      { label: "First name", cell: (m) => value(m.child.first_name ?? m.child.child_name) },
+      { label: "Middle name", cell: (m) => value(m.child.middle_name) },
+      { label: "DOB", cell: (m) => value(m.child.date_of_birth) },
+      { label: "Age (months)", cell: (m) => value(m.child.age_months) },
+      { label: "Sex", cell: (m) => value(m.child.sex) },
+      { label: "Birth weight (kg)", cell: (m) => value(m.child.birth_weight_kg) },
+      { label: "Birth height (cm)", cell: (m) => value(m.child.birth_height_cm) },
+      { label: "Relationship to household head", cell: (m) => value(m.profile.relationship_to_household_head) },
+      { label: "Ethnicity", cell: (m) => value(m.profile.ethnicity) },
+      { label: "Religion", cell: (m) => value(m.profile.religion) },
+      { label: "PhilHealth ID", cell: (m) => value(m.profile.philhealth_id_number) },
+      { label: "Membership type", cell: (m) => value(m.profile.philhealth_membership_type) },
+      { label: "PhilHealth category", cell: (m) => value(m.profile.philhealth_category) },
+      { label: "Medical history / remarks", cell: (m) => value(m.profile.medical_history) + (m.profile.remarks ? "; " + String(m.profile.remarks) : "") },
+      { label: "Date profiled", cell: (m) => value(m.profile.profiling_date) },
+    ],
+  },
+  {
+    title: "Guardian Information",
+    columns: [
+      { label: "Mother", cell: (m) => value(m.child.mother_name) },
+      { label: "Father", cell: (m) => value(m.child.father_name) },
+      { label: "Guardian", cell: (m) => displayName(m.guardian) },
+      { label: "Guardian relationship", cell: (m) => value(m.guardian.relationship_to_child) },
+      { label: "Guardian contact", cell: (m) => value(m.guardian.contact_number) },
+      { label: "Information provided by", cell: (m) => m.profile.informant_name ? `${m.profile.informant_name}${m.profile.informant_relationship ? ` (${m.profile.informant_relationship})` : ""}` : "Not recorded" },
+    ],
+  },
+  {
+    title: "Household Information",
+    columns: [
+      { label: "Household No.", cell: (m) => value(m.household.household_no ?? m.household.household_id ?? m.child.household_id) },
+      { label: "Barangay", cell: (m) => value(m.household.barangay_name ?? m.child.barangay_name) },
+      { label: "4Ps", cell: (m) => fourPs(m.household) },
+      { label: "Water source", cell: (m) => value(m.profile.water_source_type) },
+      { label: "Toilet facility", cell: (m) => value(m.profile.toilet_facility_type) },
+    ],
+  },
+];
