@@ -11,6 +11,7 @@ import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FileSpreadsheet } from 'lucide-react'
+import { PageHeader } from '@/components/ui/page-header'
 
 type Batch = {
   batch_id: number
@@ -170,16 +171,13 @@ export default function MasterlistUploadPage() {
     <div className="space-y-5">
       <ChildProfilingTabs />
 
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="text-xs font-medium text-muted-foreground">eCHIMS Workspace</div>
-          <h1 className="text-2xl font-bold text-primary">Masterlist Upload</h1>
-          <p className="text-sm text-muted-foreground">
-            Bulk-register children, households and guardians from a CSV masterlist.
-          </p>
-        </div>
-        <Stepper step={step} />
-      </div>
+      <PageHeader
+        title="Masterlist Upload"
+        subtitle="Bulk-register children, households and guardians from a CSV masterlist."
+        actions={<>
+          <Stepper step={step} />
+        </>}
+      />
 
       {error && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>

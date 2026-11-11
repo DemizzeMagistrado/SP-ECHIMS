@@ -18,6 +18,7 @@ import { canPerform, type UserRole } from '@/lib/echims-data'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { LogoLoader } from '@/components/brand/logo-loader'
 import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ui/page-header'
 
 type TracePayload = {
   batch_number: string
@@ -117,14 +118,10 @@ export default function BatchTracePage() {
     <div className="space-y-6">
       <ModuleTabs parent="Inventory" role={role} />
 
-      <div>
-        <p className="text-sm font-semibold text-primary">eCHIMS Workspace</p>
-        <h1 className="mt-1 text-3xl font-bold text-foreground">Batch Trace</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          PHN/Admin only. Enter a batch number to see where it was received, allocated, used, and which children received doses from it.
-          Essential for recall or defect investigations.
-        </p>
-      </div>
+      <PageHeader
+        title="Batch Trace"
+        subtitle="PHN/Admin only. Enter a batch number to see where it was received, allocated, used, and which children received doses from it. Essential for recall or defect investigations."
+      />
 
       <form onSubmit={doSearch} className="flex flex-col gap-2 rounded-2xl border border-border bg-white p-4 md:flex-row md:items-end">
         <div className="flex-1">

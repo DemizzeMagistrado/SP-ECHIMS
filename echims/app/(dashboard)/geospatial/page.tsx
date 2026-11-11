@@ -11,6 +11,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useMemo } from 'react'
 import { PagePending } from '@/components/brand/page-gate'
+import { PageHeader } from '@/components/ui/page-header'
 
 const BarangayMap = dynamic(() => import('@/components/geospatial/barangay-map-impl'), {
   ssr: false,
@@ -123,13 +124,10 @@ export default function GeospatialMapPage() {
     <div className="space-y-5">
       <ChildProfilingTabs />
 
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="text-xs font-medium text-muted-foreground">eCHIMS Workspace</div>
-          <h1 className="text-2xl font-bold text-primary">Geospatial</h1>
-          <p className="text-sm text-muted-foreground">
-            Estimated registered-child population per barangay in your assigned area.
-          </p>
+      <PageHeader
+        title="Geospatial"
+        subtitle={<>
+          Estimated registered-child population per barangay in your assigned area.
           {data?.role && (
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{data.role}</span>
@@ -138,14 +136,16 @@ export default function GeospatialMapPage() {
               </span>
             </div>
           )}
-        </div>
-        <button
-          onClick={() => mutate()}
-          className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-muted-foreground hover:bg-muted"
-        >
-          Refresh
-        </button>
-      </div>
+        </>}
+        actions={
+          <button
+            onClick={() => mutate()}
+            className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-muted-foreground hover:bg-muted"
+          >
+            Refresh
+          </button>
+        }
+      />
 
       <div className="flex flex-wrap gap-3">
         <StatChip label="Registered children" value={totals.total} />

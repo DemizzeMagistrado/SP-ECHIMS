@@ -12,6 +12,7 @@ import useSWR from 'swr'
 import Link from 'next/link'
 import { useMemo } from 'react'
 import { PagePending } from '@/components/brand/page-gate'
+import { PageHeader } from '@/components/ui/page-header'
 
 const BarangayMap = dynamic(() => import('@/components/geospatial/barangay-map-impl'), {
   ssr: false,
@@ -77,21 +78,18 @@ export default function ChildrenMapPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="text-xs font-medium text-muted-foreground">eCHIMS Workspace</div>
-          <h1 className="text-2xl font-bold text-primary">Child Profiling · Map</h1>
-          <p className="text-sm text-muted-foreground">
-            Where your registered children live. Polygons show per-barangay counts.
-          </p>
-        </div>
-        <button
-          onClick={() => mutate()}
-          className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-muted-foreground hover:bg-muted"
-        >
-          Refresh
-        </button>
-      </div>
+      <PageHeader
+        title="Child Profiling · Map"
+        subtitle="Where your registered children live. Polygons show per-barangay counts."
+        actions={<>
+          <button
+            onClick={() => mutate()}
+            className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-muted-foreground hover:bg-muted"
+          >
+            Refresh
+          </button>
+        </>}
+      />
 
       <div className="flex flex-wrap gap-3">
         <StatChip label="Children with coordinates" value={stats.total} />

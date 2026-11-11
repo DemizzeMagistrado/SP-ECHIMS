@@ -22,6 +22,7 @@ import { ChildFormModal } from '@/components/children/child-form-modal'
 import { toast } from '@/components/ui/toast'
 import { LogoLoader } from '@/components/brand/logo-loader'
 import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ui/page-header'
 
 type Child = {
   id: string
@@ -126,17 +127,17 @@ export default function ChildHealthPage() {
       <ModuleTabs parent="Child Profiling" role={role} />
       {canRegister && <ChildDraftPanel onUploaded={() => mutate()} />}
 
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Child Profiling</h1>
-          <p className="mt-1 text-muted-foreground">Register and monitor children aged 0–59 months.</p>
-        </div>
-        {canRegister && (
-          <button onClick={() => setRegisterOpen(true)} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white">
-            <Plus size={20} />Register Child
-          </button>
-        )}
-      </header>
+      <PageHeader
+        title="Child Profiling"
+        subtitle="Register and monitor children aged 0–59 months."
+        actions={<>
+          {canRegister && (
+            <button onClick={() => setRegisterOpen(true)} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white">
+              <Plus size={20} />Register Child
+            </button>
+          )}
+        </>}
+      />
 
       {/* Search + structured filters live together so health workers can combine them freely. */}
       <div className="rounded-2xl border border-border bg-white p-4 space-y-3">

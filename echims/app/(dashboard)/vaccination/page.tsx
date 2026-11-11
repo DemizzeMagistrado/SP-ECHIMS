@@ -33,6 +33,7 @@ import { TabPanel } from '@/components/brand/page-gate'
 import { TabIndicator } from '@/components/dashboard/tab-indicator'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ui/page-header'
 
 /* ═════════════════════════ Shared helpers ═════════════════════════ */
 
@@ -199,24 +200,21 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
   return (
     <div className="space-y-6">
       <VaccinationSnapshotNotice savedAt={savedAt} readOnly={readOnly} />
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-primary">eCHIMS Workspace</p>
-          <h1 className="mt-1 text-3xl font-bold text-foreground">Vaccination: Records</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Administered vaccines awaiting PHN approval or already logged.
-          </p>
-        </div>
-        {canCreate && (
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90"
-          >
-            <Plus size={17} /> Add new record
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Vaccination: Records"
+        subtitle="Administered vaccines awaiting PHN approval or already logged."
+        actions={<>
+          {canCreate && (
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90"
+            >
+              <Plus size={17} /> Add new record
+            </button>
+          )}
+        </>}
+      />
 
       <VaccinationOfflineTools />
 
@@ -530,14 +528,10 @@ function ScheduleSection() {
   return (
     <div className="space-y-6">
       <VaccinationSnapshotNotice savedAt={savedAt} readOnly={readOnly} />
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Vaccination Schedule</h1>
-        <p className="text-muted-foreground mt-1">
-          {canReview
-            ? 'Review and approve per-child vaccination schedule requests from BHWs and RHMs.'
-            : 'Track the status of vaccination schedule requests you have submitted.'}
-        </p>
-      </div>
+      <PageHeader
+        title="Vaccination Schedule"
+        subtitle={<>{canReview ? 'Review and approve per-child vaccination schedule requests from BHWs and RHMs.' : 'Track the status of vaccination schedule requests you have submitted.'}</>}
+      />
 
       {/* Summary tiles */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -872,16 +866,10 @@ function DefaultersSection() {
     <div className="space-y-6">
       <VaccinationSnapshotNotice savedAt={savedAt} readOnly={readOnly} />
       {/* Header */}
-      <div>
-        <p className="text-sm font-semibold text-primary">eCHIMS Workspace</p>
-        <h1 className="mt-1 text-3xl font-bold text-foreground">Vaccination: Defaulters</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Children with vaccinations past their due date. Click a row to see which doses are missed.
-          {data && (
-            <> Grace period is <strong>{data.grace_period_days} days</strong> — doses past that are flagged as OVERDUE.</>
-          )}
-        </p>
-      </div>
+      <PageHeader
+        title="Vaccination: Defaulters"
+        subtitle={<>Children with vaccinations past their due date. Click a row to see which doses are missed. {data && ( <> Grace period is <strong>{data.grace_period_days} days</strong> — doses past that are flagged as OVERDUE.</> )}</>}
+      />
 
       {/* Summary tiles */}
       {counts && (
@@ -1108,10 +1096,11 @@ function SmsSection() {
     return <p role="alert">You cannot view vaccination reminders.</p>
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Vaccination SMS Reminders</h1>
-        <p className="mt-1 text-muted-foreground">Guardian messages and presentation simulation history</p>
-      </div>
+      <PageHeader
+        title="Vaccination SMS Reminders"
+        subtitle="Guardian messages and presentation simulation history"
+        breadcrumbs={[{ label: 'Vaccination', href: '/vaccination/records' }, { label: 'SMS Reminders' }]}
+      />
       <VaccinationSmsPanel online={online}/>
     </div>
   )
@@ -1206,24 +1195,21 @@ function CatalogSection() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-primary">eCHIMS Workspace</p>
-          <h1 className="mt-1 text-3xl font-bold text-foreground">NIP Vaccine Catalog</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Maintain the DOH immunization catalog and schedule rules. Every change is logged.
-          </p>
-        </div>
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={openCreate}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90"
-          >
-            <Plus size={17} /> Add new vaccine
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="NIP Vaccine Catalog"
+        subtitle="Maintain the DOH immunization catalog and schedule rules. Every change is logged."
+        actions={<>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={openCreate}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90"
+            >
+              <Plus size={17} /> Add new vaccine
+            </button>
+          )}
+        </>}
+      />
 
       {/* Read-only banner for non-admin viewers (e.g. PHN, RHM, BHW) */}
       {!isAdmin && (
@@ -1559,24 +1545,21 @@ function BatchRequestsSection() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-primary">eCHIMS Workspace</p>
-          <h1 className="mt-1 text-3xl font-bold text-foreground">Vaccine Batch Requests</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            RHM requests vaccine batches for a target barangay. PHN reviews and approves — approval auto-adds the dose count to that barangay&rsquo;s inventory.
-          </p>
-        </div>
-        {canCreate && (
-          <button
-            type="button"
-            onClick={() => setCreateOpen(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90"
-          >
-            <Plus size={17} /> New request
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Vaccine Batch Requests"
+        subtitle={<>RHM requests vaccine batches for a target barangay. PHN reviews and approves — approval auto-adds the dose count to that barangay&rsquo;s inventory.</>}
+        actions={<>
+          {canCreate && (
+            <button
+              type="button"
+              onClick={() => setCreateOpen(true)}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90"
+            >
+              <Plus size={17} /> New request
+            </button>
+          )}
+        </>}
+      />
 
       {/* Filter chips */}
       <fieldset disabled={readOnly}>

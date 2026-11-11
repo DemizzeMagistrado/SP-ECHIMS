@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { UserRole } from '@/lib/echims-data'
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ui/page-header'
 
 // INV-USR001 / INV-USR002 — Stock Overview.
 // Reads go straight to Supabase (RLS applies): PHN sees the RHU, RHM only the
@@ -201,21 +202,18 @@ export function StockOverview() {
 
   return (
     <section className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-[#03045E]">Inventory</h1>
-          <p className="mt-1 text-sm text-[#6B7280]">
-            {descriptions[role] ?? 'Review available stock.'}
-            {role === 'Rural Health Midwife' && data?.barangays.length === 1 ? ` (${data.barangays[0].barangay_name})` : ''}
-          </p>
-        </div>
-        {data?.canStockIn && (
-          <button type="button" onClick={() => { setSuccess(''); setShowForm(true) }}
-            className="flex items-center gap-2 rounded-lg bg-[#0077B6] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#03045E]">
-            <PackagePlus size={17} /> Record stock-in
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Inventory"
+        subtitle={<>{descriptions[role] ?? 'Review available stock.'} {role === 'Rural Health Midwife' && data?.barangays.length === 1 ? ` (${data.barangays[0].barangay_name})` : ''}</>}
+        actions={<>
+          {data?.canStockIn && (
+            <button type="button" onClick={() => { setSuccess(''); setShowForm(true) }}
+              className="flex items-center gap-2 rounded-lg bg-[#0077B6] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#03045E]">
+              <PackagePlus size={17} /> Record stock-in
+            </button>
+          )}
+        </>}
+      />
 
       <ModuleTabs parent="Inventory" role={role} />
 

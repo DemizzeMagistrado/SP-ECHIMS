@@ -32,7 +32,7 @@ type MenuItem = {
   matchPrefixes?: string[]
 }
 
-const menuGroups: { title: string; items: MenuItem[] }[] = [
+export const menuGroups: { title: string; items: MenuItem[] }[] = [
   {
     title: 'Overview',
     items: [

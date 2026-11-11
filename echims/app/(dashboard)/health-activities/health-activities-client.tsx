@@ -33,6 +33,7 @@ import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ui/page-header'
 
 /* =========================================================
    TYPES
@@ -529,32 +530,26 @@ function ActivityWorkspace() {
       <div className="mx-auto max-w-[1440px] px-5 py-7 sm:px-9 lg:px-10">
         {/* HEADER */}
 
-        <div className="mb-7 flex flex-col justify-between gap-5 md:flex-row md:items-end">
-          <div>
-
-            <h1 className="text-3xl font-black tracking-tight text-[#07145e] sm:text-4xl">
-              Health Activities
-            </h1>
-
-            <p className="mt-2 text-sm text-slate-600">
-              Request, review, and monitor community health activities.
-            </p>
-          </div>
-
-          {canRequest && (
-            <button
-              type="button"
-              onClick={() => {
-                setRuleEvaluation(null)
-                setShowRequestModal(true)
-              }}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#087db9] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#056d9e]"
-            >
-              <Plus size={19} />
-              Request activity
-            </button>
-          )}
-        </div>
+        <PageHeader
+          title="Health Activities"
+          subtitle="Request, review, and monitor community health activities."
+          className="mb-7"
+          actions={<>
+            {canRequest && (
+              <button
+                type="button"
+                onClick={() => {
+                  setRuleEvaluation(null)
+                  setShowRequestModal(true)
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#087db9] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#056d9e]"
+              >
+                <Plus size={19} />
+                Request activity
+              </button>
+            )}
+          </>}
+        />
 
         <div className="mb-7"><ActivityDraftPanel onUploaded={() => void loadActivities()}/></div>
 

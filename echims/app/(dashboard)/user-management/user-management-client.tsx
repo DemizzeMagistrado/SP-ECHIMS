@@ -10,6 +10,7 @@ import {
   useState,
 } from 'react'
 import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ui/page-header'
 
 /* =========================================================
    TYPES
@@ -572,17 +573,10 @@ export default function UserManagementClient({
 
       {/* HEADER */}
 
-      <div>
-        <h1 className="text-3xl font-bold text-[#023E8A]">
-          User Management
-        </h1>
-
-        <p className="mt-1 text-sm text-gray-600">
-          Manage registered personnel,
-          account verification, and
-          workplace assignments.
-        </p>
-      </div>
+      <PageHeader
+        title="User Management"
+        subtitle="Manage registered personnel, account verification, and workplace assignments."
+      />
 
       {/* SUMMARY CARDS */}
 

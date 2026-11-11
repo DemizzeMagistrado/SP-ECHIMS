@@ -17,6 +17,7 @@ import { canPerform, type UserRole } from '@/lib/echims-data'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { AllocateStockModal } from '@/components/inventory/allocate-stock-modal'
 import { LogoLoader } from '@/components/brand/logo-loader'
+import { PageHeader } from '@/components/ui/page-header'
 
 type Txn = {
   transaction_id: number
@@ -91,22 +92,18 @@ export default function StockAllocationPage() {
     <div className="space-y-6">
       <ModuleTabs parent="Inventory" role={role} />
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-primary">eCHIMS Workspace</p>
-          <h1 className="mt-1 text-3xl font-bold text-foreground">Stock Allocation</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            PHN-only. Move a specific batch from one barangay to another. The batch number and expiry carry over
-            to the destination; both sides&rsquo; quantity-on-hand are updated atomically.
-          </p>
-        </div>
-        {isPhn && (
-          <button type="button" onClick={() => setModalOpen(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90">
-            <Plus size={17} /> New allocation
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Stock Allocation"
+        subtitle={<>PHN-only. Move a specific batch from one barangay to another. The batch number and expiry carry over to the destination; both sides&rsquo; quantity-on-hand are updated atomically.</>}
+        actions={<>
+          {isPhn && (
+            <button type="button" onClick={() => setModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90">
+              <Plus size={17} /> New allocation
+            </button>
+          )}
+        </>}
+      />
 
       <div className="rounded-2xl border border-dashed border-sky-200 bg-sky-50/40 p-6">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-sky-900">

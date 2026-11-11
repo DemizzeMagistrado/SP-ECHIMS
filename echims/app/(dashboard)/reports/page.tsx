@@ -22,6 +22,7 @@ import { LogoLoader } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FileText, SearchX } from 'lucide-react'
+import { PageHeader } from '@/components/ui/page-header'
 type Options = {
   currentUserId: string;
   role: string;
@@ -333,18 +334,10 @@ export default function ReportsPage() {
     : [];
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-3xl font-bold">Reports & Analytics</h1>
-        <p className="mt-1 text-muted-foreground">
-          {options?.role === "Administrator"
-            ? "System-wide report viewing."
-            : options?.role === "PHN"
-              ? "Review and validate reports within your RHU."
-              : options?.role === "BNS"
-                ? "Generate nutrition reports within assigned barangays."
-                : "Generate reports within assigned barangays."}
-        </p>
-      </header>
+      <PageHeader
+        title={<>Reports & Analytics</>}
+        subtitle={<>{options?.role === "Administrator" ? "System-wide report viewing." : options?.role === "PHN" ? "Review and validate reports within your RHU." : options?.role === "BNS" ? "Generate nutrition reports within assigned barangays." : "Generate reports within assigned barangays."}</>}
+      />
       <nav className="flex gap-2 border-b" aria-label="Report workflow">
         {(["SAVED", "PREVIEW"] as const).map((s) => (
           <button

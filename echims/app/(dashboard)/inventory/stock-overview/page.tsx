@@ -23,6 +23,7 @@ import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { StockInModal } from '@/components/inventory/stock-in-modal'
 import { LogoLoader } from '@/components/brand/logo-loader'
 import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ui/page-header'
 
 type Batch = { batch_id: number; batch_number: string; expiry_date: string; received_date: string; quantity_on_hand: number }
 type Item = { item_id: number; item_name: string; unit: string; status: string }
@@ -120,21 +121,18 @@ export default function StockOverviewPage() {
       <ModuleTabs parent="Inventory" role={role} />
 
       {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-primary">eCHIMS Workspace</p>
-          <h1 className="mt-1 text-3xl font-bold text-foreground">Stock Overview</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Real-time quantity-on-hand per item and barangay. Each row expands to show its batches with expiry.
-          </p>
-        </div>
-        {isPhn && (
-          <button type="button" onClick={() => setStockInOpen(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90">
-            <Plus size={17} /> Record stock-in
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Stock Overview"
+        subtitle="Real-time quantity-on-hand per item and barangay. Each row expands to show its batches with expiry."
+        actions={<>
+          {isPhn && (
+            <button type="button" onClick={() => setStockInOpen(true)}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90">
+              <Plus size={17} /> Record stock-in
+            </button>
+          )}
+        </>}
+      />
 
       {/* Filters */}
       <div className="flex flex-col gap-3 rounded-2xl border border-border bg-white p-4 md:flex-row md:items-center">

@@ -17,6 +17,7 @@ import { ReplenishmentRequestModal } from '@/components/inventory/replenishment-
 import { ReplenishmentDecisionModal, type ReplenishmentRequest } from '@/components/inventory/replenishment-decision-modal'
 import { LogoLoader } from '@/components/brand/logo-loader'
 import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ui/page-header'
 
 const fetcher = async (url: string) => {
   const r = await fetch(url)
@@ -73,21 +74,18 @@ export default function ReplenishmentPage() {
     <div className="space-y-6">
       <ModuleTabs parent="Inventory" role={role} />
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-primary">eCHIMS Workspace</p>
-          <h1 className="mt-1 text-3xl font-bold text-foreground">Replenishment Requests</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            RHM: request stock when yours runs low. PHN: review pending requests and fulfill them via Stock Allocation.
-          </p>
-        </div>
-        {isRhm && (
-          <button type="button" onClick={() => setCreateOpen(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90">
-            <Plus size={17} /> New request
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Replenishment Requests"
+        subtitle="RHM: request stock when yours runs low. PHN: review pending requests and fulfill them via Stock Allocation."
+        actions={<>
+          {isRhm && (
+            <button type="button" onClick={() => setCreateOpen(true)}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90">
+              <Plus size={17} /> New request
+            </button>
+          )}
+        </>}
+      />
 
       {/* Filter chips */}
       <div className="flex flex-wrap items-center gap-2">

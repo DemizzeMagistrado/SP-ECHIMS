@@ -16,6 +16,7 @@ import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { LogUsageModal } from '@/components/inventory/log-usage-modal'
 import { getQueuedUsageCount, replayQueuedUsage } from '@/lib/inventory-offline'
 import { LogoLoader } from '@/components/brand/logo-loader'
+import { PageHeader } from '@/components/ui/page-header'
 
 export default function UsageLogPage() {
   const { user, isReady } = useAuth()
@@ -62,21 +63,18 @@ export default function UsageLogPage() {
     <div className="space-y-6">
       <ModuleTabs parent="Inventory" role={role} />
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-primary">eCHIMS Workspace</p>
-          <h1 className="mt-1 text-3xl font-bold text-foreground">Usage &amp; Waste Log</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            RHM-only. Record stock used or wasted at your barangay. Entries deduct the batch and the aggregate on-hand immediately.
-          </p>
-        </div>
-        {isRhm && (
-          <button type="button" onClick={() => setModalOpen(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-amber-700">
-            <Plus size={17} /> Log usage/waste
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title={<>Usage &amp; Waste Log</>}
+        subtitle="RHM-only. Record stock used or wasted at your barangay. Entries deduct the batch and the aggregate on-hand immediately."
+        actions={<>
+          {isRhm && (
+            <button type="button" onClick={() => setModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-amber-700">
+              <Plus size={17} /> Log usage/waste
+            </button>
+          )}
+        </>}
+      />
 
       {replayed > 0 && (
         <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">

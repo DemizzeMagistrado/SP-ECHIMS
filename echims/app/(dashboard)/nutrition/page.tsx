@@ -36,6 +36,7 @@ import {
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ui/page-header'
 type Relation<T> = T | T[] | null;
 type Barangay = {
   barangay_id: number;
@@ -2012,53 +2013,50 @@ export default function NutritionPage() {
           },
         )}
       </nav>
-      <div className="nutrition-no-print flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">
-            Nutritional Assessment
-          </h1>
-          <p className="mt-1 text-muted-foreground">
-            OPT Plus measurements, WHO classifications, and follow-up monitoring
-          </p>
-        </div>
-        {data?.role === "BNS" && (
-          <div className="flex flex-col items-end gap-1">
-            <button
-              type="button"
-              disabled={!canRecord || !ownerId || accessDenied}
-              title={
-                !data
-                  ? "Loading account permissions and child options"
-                  : !data.permissions.create
-                    ? "This account has view access only"
-                    : "Record anthropometric measurements"
-              }
-              onClick={() => {
-                editingRequest.current = null;
-                onlineRequest.current = null;
-                setFormError("");
-                setMessage("");
-                setDraft({
-                  ...initialDraft(),
-                  assessment_date:
-                    reportYear === todayKey().slice(0, 4)
-                      ? todayKey()
-                      : `${reportYear}-12-31`,
-                });
-              }}
-              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Plus size={20} />
-              Record Assessment
-            </button>
-            {!canRecord && (
-              <span className="text-xs text-muted-foreground">
-                Recording permission is unavailable for this account.
-              </span>
-            )}
-          </div>
-        )}
-      </div>
+      <PageHeader
+        title="Nutritional Assessment"
+        subtitle="OPT Plus measurements, WHO classifications, and follow-up monitoring"
+        className="nutrition-no-print"
+        actions={<>
+          {data?.role === "BNS" && (
+            <div className="flex flex-col items-end gap-1">
+              <button
+                type="button"
+                disabled={!canRecord || !ownerId || accessDenied}
+                title={
+                  !data
+                    ? "Loading account permissions and child options"
+                    : !data.permissions.create
+                      ? "This account has view access only"
+                      : "Record anthropometric measurements"
+                }
+                onClick={() => {
+                  editingRequest.current = null;
+                  onlineRequest.current = null;
+                  setFormError("");
+                  setMessage("");
+                  setDraft({
+                    ...initialDraft(),
+                    assessment_date:
+                      reportYear === todayKey().slice(0, 4)
+                        ? todayKey()
+                        : `${reportYear}-12-31`,
+                  });
+                }}
+                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Plus size={20} />
+                Record Assessment
+              </button>
+              {!canRecord && (
+                <span className="text-xs text-muted-foreground">
+                  Recording permission is unavailable for this account.
+                </span>
+              )}
+            </div>
+          )}
+        </>}
+      />
 
       {message && (
         <p

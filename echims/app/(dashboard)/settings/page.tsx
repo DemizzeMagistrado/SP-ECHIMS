@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Save, Lock, Bell, Shield, User, Building, LogOut } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
+import { PageHeader } from '@/components/ui/page-header'
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('general')
@@ -17,12 +18,10 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Settings</h1>
-        <p className="text-muted-foreground mt-1">
-          Manage system settings and user preferences
-        </p>
-      </div>
+      <PageHeader
+        title="Settings"
+        subtitle="Manage system settings and user preferences"
+      />
 
       {/* Settings Tabs */}
       <div className="flex gap-2 border-b border-border flex-wrap">

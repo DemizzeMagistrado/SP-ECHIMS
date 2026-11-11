@@ -29,6 +29,7 @@ import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ui/page-header'
 
 type Child = {
   child_id: number;
@@ -1498,44 +1499,40 @@ export default function SupplementsPage() {
           </button>
         ))}
       </nav>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">
-            Vitamin Supplementation
-          </h1>
-          <p className="mt-1 text-muted-foreground">
-            Child administration records and batch inventory
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {tab === "clinical" && clinicalAllowed && (
-            <button className={button} onClick={() => open("CLINICAL")}>
-              <Plus size={18} />
-              Record Clinical Supplementation
-            </button>
-          )}
-          {tab === "records" &&
-            (data?.permissions.record || data?.role === "RHM") && (
-              <button className={button} onClick={() => open("RECORD")}>
+      <PageHeader
+        title="Vitamin Supplementation"
+        subtitle="Child administration records and batch inventory"
+        actions={<>
+          <div className="flex flex-wrap gap-2">
+            {tab === "clinical" && clinicalAllowed && (
+              <button className={button} onClick={() => open("CLINICAL")}>
                 <Plus size={18} />
-                Record Administration
+                Record Clinical Supplementation
               </button>
             )}
-          {tab === "records" &&
-            (data?.permissions.record || data?.role === "RHM") && (
-              <button className={button} onClick={() => open("DISPENSE")}>
+            {tab === "records" &&
+              (data?.permissions.record || data?.role === "RHM") && (
+                <button className={button} onClick={() => open("RECORD")}>
+                  <Plus size={18} />
+                  Record Administration
+                </button>
+              )}
+            {tab === "records" &&
+              (data?.permissions.record || data?.role === "RHM") && (
+                <button className={button} onClick={() => open("DISPENSE")}>
+                  <Plus size={18} />
+                  Record Dispensing
+                </button>
+              )}
+            {tab === "plans" && data?.permissions.stock && (
+              <button className={button} onClick={() => open("PLAN")}>
                 <Plus size={18} />
-                Record Dispensing
+                Register Supply Plan
               </button>
             )}
-          {tab === "plans" && data?.permissions.stock && (
-            <button className={button} onClick={() => open("PLAN")}>
-              <Plus size={18} />
-              Register Supply Plan
-            </button>
-          )}
-        </div>
-      </div>
+          </div>
+        </>}
+      />
 
       {!online && cacheDate && (
         <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">

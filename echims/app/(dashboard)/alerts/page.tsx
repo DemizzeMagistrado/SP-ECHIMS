@@ -22,6 +22,7 @@ import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { TabIndicator } from '@/components/dashboard/tab-indicator'
 import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ui/page-header'
 type Rule = {
   rule_id: number;
   rule_name: string;
@@ -572,25 +573,21 @@ function AlertsWorkspace() {
           <TabIndicator group="alerts" activeKey={tab} variant="pill" className="rounded-lg bg-primary" />
         </div>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">
-            Alert Management
-          </h1>
-          <p className="mt-1 text-muted-foreground">
-            Monitor system alerts and configure supported evaluation rules
-          </p>
-        </div>
-        <button
-          type="button"
-          disabled={loading || !owner}
-          onClick={() => void load()}
-          className="flex items-center gap-2 rounded-lg border border-border bg-white px-4 py-2 disabled:opacity-50"
-        >
-          <RefreshCw size={18} />
-          Refresh
-        </button>
-      </div>
+      <PageHeader
+        title="Alert Management"
+        subtitle="Monitor system alerts and configure supported evaluation rules"
+        actions={<>
+          <button
+            type="button"
+            disabled={loading || !owner}
+            onClick={() => void load()}
+            className="flex items-center gap-2 rounded-lg border border-border bg-white px-4 py-2 disabled:opacity-50"
+          >
+            <RefreshCw size={18} />
+            Refresh
+          </button>
+        </>}
+      />
       {error && (
         <p
           role="alert"
