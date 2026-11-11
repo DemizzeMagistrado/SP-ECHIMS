@@ -13,7 +13,7 @@ import { useVaccinationView } from '@/hooks/use-vaccination-view'
 import { vaccinationKeyMatches } from '@/lib/vaccination-cache'
 import { VaccinationOfflineTools, VaccinationSnapshotNotice } from '@/components/vaccination/vaccination-offline-tools'
 import Link from 'next/link'
-import { usePathname } from '@/lib/offline/navigation'
+import { usePathname, useRouter } from '@/lib/offline/navigation'
 import {
   Plus, Package, AlertCircle, Hash, MapPin, CalendarClock, CheckCircle2, Clock, XCircle,
   Pencil, Power, Syringe, Eye, History, ChevronDown, ChevronRight, BookOpen, Shield, Info,
@@ -38,6 +38,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { DataTable } from '@/components/ui/data-table'
 
 /* ═════════════════════════ Shared helpers ═════════════════════════ */
 
@@ -156,7 +157,8 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
   }, [q, statusFilter])
 
   const url = `/api/vaccination/records${qs ? `?${qs}` : ''}`
-  const { data, error, isLoading, readOnly, savedAt } = useVaccinationView<RecordsPayload>(isReady && canView ? url : null)
+  const { data, error, isLoading, refreshing, readOnly, savedAt } = useVaccinationView<RecordsPayload>(isReady && canView ? url : null)
+  const router = useRouter()
 
   if (!isReady) return <LogoLoader />
   if (!canView) return <div className="rounded-2xl border border-border bg-white p-10 text-center text-red-600">You are not authorized to view vaccination records.</div>
@@ -208,11 +210,14 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
         title="Vaccination: Records"
         subtitle="Administered vaccines awaiting PHN approval or already logged."
         actions={<>
+          {canExport && (
+            <Button variant="secondary" onClick={() => toast.info('CSV export is coming in a later update.')}>
+              <Download size={16} aria-hidden="true" /> Export CSV
+            </Button>
+          )}
           {canCreate && (
-            <Button
-              onClick={() => setModalOpen(true)}
-            >
-              <Plus size={17} /> Add new record
+            <Button onClick={() => setModalOpen(true)}>
+              <Plus size={17} aria-hidden="true" /> Add new record
             </Button>
           )}
         </>}
@@ -220,131 +225,63 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
 
       <VaccinationOfflineTools />
 
-      {/* Filters */}
-      <fieldset disabled={readOnly}>
-
-      <div className="flex flex-col gap-3 rounded-2xl border border-border bg-white p-4 shadow-sm md:flex-row md:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search records by child name..."
-            className="pl-10 pr-3"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <Filter size={16} className="text-muted-foreground" />
-          <Select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="">All statuses</option>
-            <option value="PENDING">Pending</option>
-            <option value="APPROVED">Approved</option>
-            <option value="REJECTED">Rejected</option>
-          </Select>
-        </div>
-        {canExport && (
-          <Button variant="secondary"
-            onClick={() => toast.info('CSV export is coming in a later update.')}
-          >
-            <Download size={16} /> Export CSV
-          </Button>
-        )}
-      </div>
-
-            </fieldset>
-{/* Table or empty state */}
       {isLoading ? (
-        <div className="rounded-2xl border border-border bg-white"><LogoLoader size="section" label="Loading records…" /></div>
-      ) : error ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
-      ) : rows.length === 0 ? (
-        <EmptyState
-          size="page"
-          icon={Syringe}
-          title={statusFilter ? `No ${RECORD_STATUS_META[statusFilter as keyof typeof RECORD_STATUS_META]?.label.toLowerCase()} records` : 'No vaccination records yet'}
-          description={canCreate
-            ? 'Use “Add new record” to log an administered dose. Records save as pending for PHN approval.'
-            : 'Records in your scope will appear here once BHWs or RHMs log administered doses.'}
-          action={<button type="button" onClick={onGoToSchedule} className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">Go to Schedule tab <ArrowRight size={14} /></button>}
-          className="min-h-64 rounded-2xl border border-dashed border-sky-200 bg-white"
-        />
+        <LogoLoader size="section" label="Loading records…" />
+      ) : error && !data ? (
+        <div role="alert" className="rounded-2xl border border-danger/20 bg-danger-soft p-4 text-sm text-danger">{error.message}</div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px] text-left text-sm">
-              <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-5 py-4 font-semibold">Child</th>
-                  <th className="px-5 py-4 font-semibold">Vaccine</th>
-                  <th className="px-5 py-4 font-semibold">Dose</th>
-                  <th className="px-5 py-4 font-semibold">Date</th>
-                  <th className="px-5 py-4 font-semibold">Batch</th>
-                  <th className="px-5 py-4 font-semibold">Recorded by</th>
-                  <th className="px-5 py-4 font-semibold">Status</th>
-                  <th className="px-5 py-4 font-semibold">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {rows.map((row) => {
-                  const c = one(row.child)
-                  const v = one(row.vaccine)
-                  const r = one(row.recorder)
-                  const meta = RECORD_STATUS_META[row.status]
-                  return (
-                    <tr key={row.vaccination_record_id} className="hover:bg-muted/40">
-                      <td className="px-5 py-4">
-                        {c ? (
-                          <Link href={`/child-profiling/children/${c.child_id}`} className="font-semibold text-primary hover:underline">
-                            {fullName(c)}
-                          </Link>
-                        ) : <span className="text-muted-foreground">—</span>}
-                      </td>
-                      <td className="px-5 py-4 text-foreground font-medium">{vaccineLabel(v)}</td>
-                      <td className="px-5 py-4 text-muted-foreground">Dose {row.dose_number}</td>
-                      <td className="px-5 py-4 text-muted-foreground">{new Date(row.vaccination_date + 'T00:00:00').toLocaleDateString()}</td>
-                      <td className="px-5 py-4 text-muted-foreground">{row.batch_number ?? '—'}</td>
-                      <td className="px-5 py-4 text-muted-foreground">{recorderName(r)}</td>
-                      <td className="px-5 py-4">
-                        <StatusBadge status={row.status} label={meta.label} />
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {canReview && row.status === 'PENDING' && (
-                            <>
-                              <button
-                                onClick={() => openReview(row, 'APPROVE')}
-                                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
-                              >
-                                <CheckCircle2 size={14} /> Approve
-                              </button>
-                              <button
-                                onClick={() => openReview(row, 'REJECT')}
-                                className="inline-flex items-center gap-1 rounded-lg border border-rose-600 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"
-                              >
-                                <XCircle size={14} /> Reject
-                              </button>
-                            </>
-                          )}
-                          {c && (
-                            <Link
-                              href={`/child-profiling/children/${c.child_id}`}
-                              className="inline-flex items-center gap-1 rounded-lg border border-primary px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/5"
-                            >
-                              View child <ArrowRight size={12} />
-                            </Link>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <DataTable
+          rows={rows}
+          rowKey={(row) => row.vaccination_record_id}
+          caption="Vaccination records"
+          refreshing={refreshing}
+          mobile="cards"
+          onRowClick={(row) => { const c = one(row.child); if (c) router.push(`/child-profiling/children/${c.child_id}`) }}
+          rowLabel={(row) => { const c = one(row.child); return c ? `Open ${fullName(c)}'s profile` : 'Record' }}
+          toolbar={
+            <fieldset disabled={readOnly} className="grid gap-3 sm:grid-cols-[1fr_220px]">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} aria-hidden="true" />
+                <Input aria-label="Search records" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by child name…" className="pl-9" />
+              </div>
+              <Select aria-label="Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <option value="">All statuses</option>
+                <option value="PENDING">Pending</option>
+                <option value="APPROVED">Approved</option>
+                <option value="REJECTED">Rejected</option>
+              </Select>
+            </fieldset>
+          }
+          empty={{
+            icon: Syringe,
+            title: statusFilter ? `No ${RECORD_STATUS_META[statusFilter as keyof typeof RECORD_STATUS_META]?.label.toLowerCase()} records` : q.trim() ? 'No records match this search' : 'No vaccination records yet',
+            description: canCreate
+              ? 'Use “Add new record” to log an administered dose. Records save as pending for PHN approval.'
+              : 'Records in your scope will appear here once BHWs or RHMs log administered doses.',
+            action: <Button variant="secondary" size="sm" onClick={onGoToSchedule}>Go to Schedule <ArrowRight size={14} aria-hidden="true" /></Button>,
+          }}
+          columns={[
+            {
+              key: 'child', header: 'Child', sortValue: (row) => { const c = one(row.child); return c ? fullName(c) : '' },
+              cell: (row) => { const c = one(row.child); return c ? <span className="font-semibold text-brand-navy">{fullName(c)}</span> : <span className="text-muted-foreground">—</span> },
+            },
+            { key: 'vaccine', header: 'Vaccine', sortValue: (row) => vaccineLabel(one(row.vaccine)), cell: (row) => <span className="font-medium">{vaccineLabel(one(row.vaccine))}</span> },
+            { key: 'dose', header: 'Dose', sortValue: (row) => row.dose_number, cell: (row) => `Dose ${row.dose_number}` },
+            { key: 'date', header: 'Date', sortValue: (row) => row.vaccination_date, cell: (row) => formatYmd(row.vaccination_date) },
+            { key: 'batch', header: 'Batch', cell: (row) => row.batch_number ?? '—' },
+            { key: 'recorder', header: 'Recorded by', sortValue: (row) => recorderName(one(row.recorder)), cell: (row) => recorderName(one(row.recorder)) },
+            { key: 'status', header: 'Status', sortValue: (row) => row.status, cell: (row) => <StatusBadge status={row.status} label={RECORD_STATUS_META[row.status].label} /> },
+            ...(canReview ? [{
+              key: 'review', header: 'Review',
+              cell: (row: RecordRow) => row.status === 'PENDING' ? (
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" onClick={() => openReview(row, 'APPROVE')}><CheckCircle2 size={14} aria-hidden="true" /> Approve</Button>
+                  <Button size="sm" variant="secondary" className="text-danger" onClick={() => openReview(row, 'REJECT')}><XCircle size={14} aria-hidden="true" /> Reject</Button>
+                </div>
+              ) : <span className="text-xs text-muted-foreground">—</span>,
+            }] : []),
+          ]}
+        />
       )}
 
       {/* Record modal */}
@@ -399,15 +336,9 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
                 onClick={() => { setReviewing(null); setReviewRemarks('') }}
                
               >Cancel</Button>
-              <button
-                onClick={submitReview}
-                disabled={submittingReview}
-                className={`rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 ${
-                  reviewing.action === 'APPROVE' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
-                }`}
-              >
-                {submittingReview && <Spinner className="mr-2" />}{submittingReview ? 'Submitting...' : reviewing.action === 'APPROVE' ? 'Confirm approve' : 'Confirm reject'}
-              </button>
+              <Button variant={reviewing.action === 'APPROVE' ? 'primary' : 'danger'} onClick={submitReview} loading={submittingReview}>
+                {reviewing.action === 'APPROVE' ? 'Confirm approve' : 'Confirm reject'}
+              </Button>
             </div>
           </div>
         </div>
