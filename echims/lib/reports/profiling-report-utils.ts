@@ -164,6 +164,7 @@ export const registerSections: { title: string; columns: { label: string; cell: 
   {
     title: "Household Information",
     columns: [
+      { label: "Family Serial No.", cell: (m) => value(m.household.family_serial_no) },
       { label: "Household No.", cell: (m) => value(m.household.household_no ?? m.household.household_id ?? m.child.household_id) },
       { label: "Barangay", cell: (m) => value(m.household.barangay_name ?? m.child.barangay_name) },
       { label: "4Ps", cell: (m) => fourPs(m.household) },

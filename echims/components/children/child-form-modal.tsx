@@ -29,7 +29,7 @@ type Guardian = {
   guardian_id: number; first_name: string; middle_name: string | null; last_name: string;
   relationship_to_child: string | null; contact_number?: string | null; address?: string | null;
 };
-type Household = { household_id: number; household_no: string | null; household_address: string | null; purok?: string | null };
+type Household = { household_id: number; household_no: string | null; family_serial_no?: string | null; household_address: string | null; purok?: string | null };
 
 const fetcher = async (url: string) => {
   const response = await fetch(url);
@@ -481,7 +481,7 @@ export function ChildFormModal({
                     value={householdQuery}
                     onChange={(e) => { setHouseholdQuery(e.target.value); if (form.household_id) set("household_id", ""); }}
                     disabled={newHousehold || !form.barangay_id}
-                    placeholder={form.barangay_id ? "Type the household number or address to search…" : "Choose a barangay first"}
+                    placeholder={form.barangay_id ? "Search by household number, address or Family Serial No." : "Choose a barangay first"}
                     autoComplete="off"
                   />
                   {!newHousehold && !form.household_id && householdQuery.length > 1 && (
@@ -491,6 +491,7 @@ export function ChildFormModal({
                           onClick={() => { set("household_id", String(h.household_id)); setHouseholdQuery(`${h.household_no} — ${h.household_address}`); }}
                           className="block w-full px-3 py-2 text-left text-sm hover:bg-muted">
                           {h.household_no} — {h.household_address}
+                          {h.family_serial_no && <span className="block font-mono text-xs text-muted-foreground">{h.family_serial_no}</span>}
                         </button>
                       )) : <p className="px-3 py-2 text-xs text-muted-foreground">No household found. Tick “Create new household” below.</p>}
                     </div>

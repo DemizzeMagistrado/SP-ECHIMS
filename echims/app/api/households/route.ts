@@ -9,8 +9,9 @@ export async function GET(request: Request) {
   const query = params.get('q')?.trim() ?? ''
   const barangayId = Number(params.get('barangayId'))
   if (!query || !Number.isSafeInteger(barangayId) || barangayId <= 0) return NextResponse.json([])
-  const pattern = `%${query}%`
-  const { data, error } = await supabase.from('household').select('household_id, household_no, household_address, purok, barangay_id').eq('barangay_id', barangayId).or(`household_no.ilike.${pattern},household_address.ilike.${pattern}`).order('household_no').limit(20)
+  // Characters that are PostgREST filter syntax would break the or() below.
+  const pattern = `%${query.replace(/[,()*%\\]/g, ' ').trim()}%`
+  const { data, error } = await supabase.from('household').select('household_id, household_no, family_serial_no, household_address, purok, barangay_id').eq('barangay_id', barangayId).or(`household_no.ilike.${pattern},household_address.ilike.${pattern},family_serial_no.ilike.${pattern}`).order('household_no').limit(20)
   if (error) return NextResponse.json({ error: 'Unable to search households.' }, { status: 500 })
   return NextResponse.json(data ?? [])
 }

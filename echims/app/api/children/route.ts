@@ -30,7 +30,7 @@ function parseId(value: unknown) {
   // and padded zeroes parse cleanly as Number("00047") === 47.
   const parsed = Number(
     String(value ?? "")
-      .replace(/^CH-/, "")
+      .replace(/^E?CH-/i, "")
       .split("-")
       .pop(),
   );
@@ -61,6 +61,10 @@ async function session(permission: "view" | "create" | "edit") {
     ? { supabase, user, role }
     : { supabase, user, role, forbidden: true as const };
 }
+/** PostgREST returns a to-one embed as an object (typed as object | object[]). */
+function embedded<T>(value: T | T[] | null | undefined): T | null {
+  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
+}
 function invalid(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
@@ -74,7 +78,7 @@ export async function GET(request: Request) {
   let query = auth.supabase
     .from("child")
     .select(
-      "child_id, first_name, middle_name, last_name, date_of_birth, sex, birth_place, address, registration_date, status, household_id, barangay_id, guardian_id, birth_weight_kg, birth_height_cm, mother_name, father_name",
+      "child_id, first_name, middle_name, last_name, date_of_birth, sex, birth_place, address, registration_date, status, household_id, barangay_id, guardian_id, birth_weight_kg, birth_height_cm, mother_name, father_name, child_code, household:household(household_no, family_serial_no)",
     )
     .order("child_id", { ascending: false });
   if (childId) query = query.eq("child_id", childId);
@@ -89,8 +93,10 @@ export async function GET(request: Request) {
     return NextResponse.json({currentUserId: auth.user.id, children: rows}, {headers: {"Cache-Control": "private, no-store"}});
   }
   if (childId) {
-    const child = rows[0];
-    if (!child) return invalid("Child could not be found.", 404);
+    const found = rows[0];
+    if (!found) return invalid("Child could not be found.", 404);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { household: _embedded, ...child } = found;
     // Fan out all related-record queries in parallel. The vaccination/nutrition/supplementation
     // calls return full history (ordered newest first) so the profile view can render it;
     // the barangay/household/rhu calls hydrate the names the UI shows next to IDs.
@@ -141,7 +147,7 @@ export async function GET(request: Request) {
         ? auth.supabase
             .from("household")
             .select(
-              "household_id, household_no, household_address, purok, is_4ps_member",
+              "household_id, household_no, family_serial_no, household_address, purok, is_4ps_member",
             )
             .eq("household_id", child.household_id)
             .maybeSingle()
@@ -226,7 +232,9 @@ export async function GET(request: Request) {
   // for callers that need the integer PK (the children list page, parseId above).
   return NextResponse.json(
     rows.map((child) => ({
-      id: formatChildId(child.child_id, child.registration_date),
+      child_id: child.child_id,
+      id: child.child_code ?? formatChildId(child.child_id, child.registration_date),
+      familySerialNo: embedded(child.household)?.family_serial_no ?? "",
       householdNumber: child.household_id
         ? formatHouseholdId(child.household_id, null)
         : "",

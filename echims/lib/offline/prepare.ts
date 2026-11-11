@@ -10,7 +10,7 @@ export function preparedChildIds(data: unknown): number[] {
   return [...new Set(rows.flatMap(row => {
     if (!row || typeof row !== 'object') return []
     const value = String(row.child_id ?? row.id ?? '')
-    const match = /^(?:CH-)?(?:\d{4}-)?(\d+)$/i.exec(value)
+    const match = /^(?:E?CH-)?(?:\d{4}-)?(\d+)$/i.exec(value)
     const id = match ? Number(match[1]) : NaN
     return Number.isSafeInteger(id) && id > 0 ? [id] : []
   }))]

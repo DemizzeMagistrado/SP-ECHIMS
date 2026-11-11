@@ -54,6 +54,7 @@ type ChildRow = {
   birth_height_cm?: number | string | null;
   mother_name?: string | null;
   father_name?: string | null;
+  child_code?: string | null;
 };
 type Guardian = {
   guardian_id: number;
@@ -93,6 +94,7 @@ type BarangayRow = {
 type HouseholdRow = {
   household_id: number;
   household_no: string | null;
+  family_serial_no?: string | null;
   household_address: string | null;
   purok: string | null;
   is_4ps_member: boolean | null;
@@ -425,7 +427,7 @@ function SectionCard({
 }
 // Accept database IDs, formatted display IDs, and links from older child lists.
 function parseChildRouteId(value: string): number {
-  const match = /^(?:CH-)?(?:\d{4}-)?(\d+)$/i.exec(value.trim());
+  const match = /^(?:E?CH-)?(?:\d{4}-)?(\d+)$/i.exec(value.trim());
   if (!match) return Number.NaN;
   const id = Number(match[1]);
   return Number.isSafeInteger(id) && id > 0 ? id : Number.NaN;
@@ -591,10 +593,16 @@ export function ChildProfileView({childId}: {childId: string}) {
               <Baby size={32} />
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Child ID ·{" "}
-                {formatChildId(child.child_id, child.registration_date)}
-              </p>
+              <dl className="flex flex-wrap gap-2 text-xs">
+                <div className="rounded-lg bg-white px-2.5 py-1 ring-1 ring-border">
+                  <dt className="inline font-medium text-muted-foreground">Child ID </dt>
+                  <dd className="inline font-mono font-semibold text-brand-navy">{child.child_code ?? formatChildId(child.child_id, child.registration_date)}</dd>
+                </div>
+                <div className="rounded-lg bg-white px-2.5 py-1 ring-1 ring-border" title="Family no. on the Child Immunization Record card">
+                  <dt className="inline font-medium text-muted-foreground">Family Serial No. </dt>
+                  <dd className="inline font-mono font-semibold text-brand-navy">{household?.family_serial_no ?? "—"}</dd>
+                </div>
+              </dl>
               <h1 className="mt-1 text-3xl font-bold text-foreground">
                 {fullName}
               </h1>
@@ -698,6 +706,7 @@ export function ChildProfileView({childId}: {childId: string}) {
           icon={<Home size={18} />}
         >
           <dl className="divide-y divide-border">
+            <InfoRow label="Family Serial No." value={household?.family_serial_no ? <span className="font-mono font-semibold">{household.family_serial_no}</span> : "—"} />
             <InfoRow
               label="Household no."
               value={household ? (household.household_no ? `HH-${household.household_no}` : `HH-${household.household_id}`) : "—"}

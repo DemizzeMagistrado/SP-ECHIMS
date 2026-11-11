@@ -27,7 +27,9 @@ import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/form'
 
 type Child = {
+  child_id: number
   id: string
+  familySerialNo: string
   householdNumber: string
   name: string
   barangay: string
@@ -98,7 +100,7 @@ export default function ChildHealthPage() {
     const q = search.trim().toLowerCase()
     const ageMatcher = ageBands.find((b) => b.value === ageFilter)?.matches ?? (() => true)
     return records.filter((c) => {
-      if (q && !`${c.name} ${c.id}`.toLowerCase().includes(q)) return false
+      if (q && !`${c.name} ${c.id} ${c.familySerialNo}`.toLowerCase().includes(q)) return false
       if (barangayFilter !== 'all' && c.barangay !== barangayFilter) return false
       if (statusFilter !== 'all' && c.status !== statusFilter) return false
       if (ageFilter !== 'all' && !ageMatcher(c.dob)) return false
@@ -148,7 +150,7 @@ export default function ChildHealthPage() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by child name or ID..."
+            placeholder="Search by name, Child ID or Family Serial No."
             className="pl-10 pr-4"
           />
         </div>
@@ -200,7 +202,7 @@ export default function ChildHealthPage() {
           <table className="w-full">
             <thead className="bg-muted">
               <tr>
-                {['ID', 'Name', 'Household', 'Barangay', 'Age', 'Status', 'Monitoring Status', 'Actions'].map((h) => (
+                {['Child ID', 'Name', 'FSN / Household', 'Barangay', 'Age', 'Status', 'Monitoring Status', 'Actions'].map((h) => (
                   <th key={h} className="px-5 py-4 text-left text-sm font-semibold">{h}</th>
                 ))}
               </tr>
@@ -217,10 +219,10 @@ export default function ChildHealthPage() {
                     : <EmptyState icon={Baby} title="No children registered yet" description="Registered children will be listed here." />}
                 </td></tr>
               ) : filtered.map((c) => (
-                <tr key={c.id}>
-                  <td className="px-5 py-4 text-sm font-medium">{c.id}</td>
+                <tr key={c.child_id}>
+                  <td className="px-5 py-4 font-mono text-sm font-medium">{c.id}</td>
                   <td className="px-5 py-4 text-sm">{c.name}</td>
-                  <td className="px-5 py-4 text-sm">{c.householdNumber}</td>
+                  <td className="px-5 py-4 text-sm"><span className="font-mono">{c.familySerialNo || '—'}</span><span className="block text-xs text-muted-foreground">{c.householdNumber}</span></td>
                   <td className="px-5 py-4 text-sm">{barangayLabelById(c.barangay)}</td>
                   <td className="px-5 py-4 text-sm">{c.age}</td>
                   <td className="px-5 py-4 text-sm">
@@ -233,7 +235,7 @@ export default function ChildHealthPage() {
                   </td>
                   <td className="px-5 py-4 text-sm">{c.monitoringStatus}</td>
                   <td className="px-5 py-4 text-sm">
-                    <Link href={`/child-profiling/children/${c.id.replace('CH-', '')}`} className="inline-flex items-center gap-1.5 rounded-lg border border-primary bg-white px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary hover:text-white">View</Link>
+                    <Link href={`/child-profiling/children/${c.child_id}`} className="inline-flex items-center gap-1.5 rounded-lg border border-primary bg-white px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary hover:text-white">View</Link>
                   </td>
                 </tr>
               ))}
