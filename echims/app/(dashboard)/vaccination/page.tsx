@@ -19,7 +19,7 @@ import { vaccinationKeyMatches } from '@/lib/vaccination-cache'
 import { VaccinationOfflineTools, VaccinationSnapshotNotice } from '@/components/vaccination/vaccination-offline-tools'
 import Link from 'next/link'
 import { usePathname, useRouter } from '@/lib/offline/navigation'
-import { Plus, Package, AlertCircle, CalendarClock, CheckCircle2, Syringe, ArrowRight, Search, Download, CalendarX, HandHelping, MessageSquare, Undo2 } from 'lucide-react'
+import { Plus, AlertCircle, CalendarClock, CheckCircle2, Syringe, ArrowRight, Search, Download, CalendarX, HandHelping, MessageSquare, Undo2 } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { toast } from '@/components/ui/toast'
@@ -243,9 +243,6 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
         title="Vaccination: Records"
         subtitle="Administered vaccines awaiting PHN approval or already logged."
         actions={<>
-          {role && canPerform(role, 'Vaccine Batch Requests', 'view') && (
-            <Link href="/inventory/batch-requests" className={buttonVariants({ variant: 'tonal' })}><Package size={16} aria-hidden="true" /> Batch requests</Link>
-          )}
           {canExport && (
             <Button variant="tonal" onClick={() => toast.info('CSV export is coming in a later update.')}>
               <Download size={16} aria-hidden="true" /> Export CSV

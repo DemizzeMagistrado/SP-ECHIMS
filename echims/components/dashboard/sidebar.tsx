@@ -12,18 +12,13 @@ import {
   Home, Baby, Syringe, Apple, Package, AlertCircle, FileText, Settings,
   Users, Activity, Boxes, X,
 } from 'lucide-react'
-import { moduleRoutes, roleModules, type UserRole } from '@/lib/echims-data'
+import { ROLE_NAME, moduleRoutes, roleModules, type UserRole } from '@/lib/echims-data'
 import type { Role } from '@/lib/auth/permissions'
 import { Logo } from '@/components/brand/logo'
 import { useShell } from './shell'
 
-const roleLabels: Record<Role, UserRole> = {
-  Administrator: 'Administrator',
-  PHN: 'Public Health Nurse',
-  RHM: 'Rural Health Midwife',
-  BHW: 'Barangay Health Worker',
-  BNS: 'Barangay Nutrition Scholar',
-}
+// Role code → display name from the one role matrix (lib/echims-data).
+const roleLabels: Record<Role, UserRole> = ROLE_NAME
 
 type MenuItem = {
   icon: typeof Home

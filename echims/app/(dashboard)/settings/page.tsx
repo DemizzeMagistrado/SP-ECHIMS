@@ -1,5 +1,6 @@
 'use client'
 
+import { canPerform, toUserRole } from '@/lib/echims-data'
 import { useState } from 'react'
 import { Save, Lock, Bell, Shield, User, Building, LogOut } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
@@ -10,9 +11,13 @@ import { TabBar } from '@/components/ui/module-tabs'
 import { TabPanel } from '@/components/brand/page-gate'
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState('general')
+  const [chosenTab, setActiveTab] = useState('general')
   const { logout, user } = useAuth()
   const isAdmin = user?.role === 'Administrator'
+  // Organization and Notifications follow the role matrix; BHW gets Profile and Security only.
+  const role = toUserRole(user?.role)
+  const canSeeOrg = Boolean(role && canPerform(role, 'Organization', 'view'))
+  const activeTab = !canSeeOrg && (chosenTab === 'general' || chosenTab === 'notifications') ? 'account' : chosenTab
 
   // logout() covers the page with the loader and navigates to the landing page itself.
   function handleLogout() {
@@ -27,11 +32,11 @@ export default function SettingsPage() {
         value={activeTab}
         onChange={setActiveTab}
         items={[
-          { value: 'general', label: 'Organization', icon: Building },
-          { value: 'account', label: 'Profile', icon: User },
-          { value: 'notifications', label: 'Notifications', icon: Bell },
-          { value: 'security', label: 'Security', icon: Lock },
-        ].map(({ value, label, icon: Icon }) => ({
+          { value: 'general', label: 'Organization', icon: Building, org: true },
+          { value: 'account', label: 'Profile', icon: User, org: false },
+          { value: 'notifications', label: 'Notifications', icon: Bell, org: true },
+          { value: 'security', label: 'Security', icon: Lock, org: false },
+        ].filter((t) => !t.org || canSeeOrg).map(({ value, label, icon: Icon }) => ({
           value,
           label: <span className="inline-flex items-center gap-2"><Icon size={16} aria-hidden="true" />{label}</span>,
         }))}

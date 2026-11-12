@@ -65,3 +65,4 @@ RLS: readable by whoever can read the record; written only by the two functions.
 | `guard_targeted_alert_update()` | trigger fn (changed) | 10 | Also allows the NIP engine's automatic resolution (status / resolved_at / resolution_note only). |
 | `alert_notification_feed` | view (changed) | 10 | Adds `resolution_note`. |
 | `echims_assign_child_household(bigint, bigint)` | function (new) | 11 | Links a household to a child that has none (Household not assigned task). |
+| `phn_rhu_select / update / delete_vaccination_record` | RLS policies on `vaccination_record` (replace `phn_rhu_all_vaccination_record`) | 12 | PHN reads, edits and deletes records in their RHU; no insert (role matrix, docs/permissions.md). |

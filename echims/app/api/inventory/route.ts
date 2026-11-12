@@ -1,3 +1,4 @@
+import { canPerform } from '@/lib/echims-data'
 import { loadBatchRule } from '@/lib/batch-rule-server'
 import { batchNumberError, normalizeBatchNumber } from '@/lib/vaccination-config'
 import { NextResponse } from 'next/server'
@@ -34,7 +35,8 @@ async function authenticate() {
   if (account.data?.account_status !== 'ACTIVE') return { error: json({ error: 'An active account is required.' }, 403) }
   const profile = await db.rpc('get_my_profile').maybeSingle()
   const role = roleAliases[String((profile.data as { role?: string } | null)?.role ?? '').trim().toLowerCase()]
-  if (!role) return { error: json({ error: 'You cannot access inventory.' }, 403) }
+  // Role matrix (lib/echims-data): Inventory is for Admin, PHN and RHM; BHW / BNS have no access.
+  if (!role || !canPerform(role, 'Inventory', 'view')) return { error: json({ error: 'You cannot access inventory.' }, 403) }
   return { db, user, role }
 }
 

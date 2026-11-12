@@ -1,220 +1,58 @@
-export type Role =
-  | 'Administrator'
-  | 'PHN'
-  | 'RHM'
-  | 'BHW'
-  | 'BNS'
+// Auth-layer permission names (role codes PHN / RHM / BHW / BNS / Administrator), derived from the
+// one role → module → actions matrix in lib/echims-data.ts (NIP-REV01). There is no second list
+// here any more: each permission name maps to a (module, action) of that matrix.
 
-export type Permission =
-  | 'dashboard.view'
+import { canPerform, ROLE_NAME, type Permission as Action, type RoleCode } from '@/lib/echims-data'
 
-  | 'health_activities.view'
-  | 'health_activities.request'
-  | 'health_activities.review'
-  | 'health_activities.approve'
-  | 'health_activities.announce'
+export type Role = RoleCode
 
-  | 'gis.view'
-  | 'masterlist.import'
+const PERMISSIONS = {
+  'dashboard.view': ['Dashboard', 'view'],
 
-  | 'vaccination.view'
-  | 'vaccination.create'
-  | 'vaccination.update'
-  | 'vaccination.approve'
+  'health_activities.view': ['Health Activities', 'view'],
+  'health_activities.request': ['Health Activities', 'create'],
+  'health_activities.review': ['Health Activities', 'approve'],
+  'health_activities.approve': ['Health Activities', 'approve'],
+  'health_activities.announce': ['Health Activities', 'approve'],
 
-  | 'nutrition.view'
-  | 'nutrition.create'
-  | 'nutrition.update'
+  'gis.view': ['Geospatial', 'view'],
+  'masterlist.import': ['Masterlist Upload', 'create'],
 
-  | 'supplementation.view'
-  | 'supplementation.create'
-  | 'supplementation.update'
+  'vaccination.view': ['Vaccination', 'view'],
+  'vaccination.create': ['Vaccination', 'create'],
+  'vaccination.update': ['Vaccination', 'edit'],
+  'vaccination.approve': ['Vaccination', 'approve'],
 
-  | 'inventory.view'
-  | 'inventory.create'
-  | 'inventory.approve'
+  'nutrition.view': ['Nutritional Assessment', 'view'],
+  'nutrition.create': ['Nutritional Assessment', 'create'],
+  'nutrition.update': ['Nutritional Assessment', 'edit'],
 
-  | 'reports.view'
+  'supplementation.view': ['Supplementation', 'view'],
+  'supplementation.create': ['Supplementation', 'create'],
+  'supplementation.update': ['Supplementation', 'edit'],
 
-  | 'users.view'
-  | 'users.manage'
+  'inventory.view': ['Inventory', 'view'],
+  'inventory.create': ['Inventory', 'create'],
+  'inventory.approve': ['Inventory', 'approve'],
 
-  | 'security_logs.view'
-  | 'settings.manage'
+  'reports.view': ['Reports', 'view'],
 
+  'users.view': ['User Management', 'view'],
+  'users.manage': ['User Management', 'edit'],
+  'security_logs.view': ['User Management', 'view'],
+  'settings.manage': ['Organization', 'edit'],
+} as const satisfies Record<string, readonly [string, Action]>
 
-export const rolePermissions: Record<
-  Role,
-  Permission[]
-> = {
+export type Permission = keyof typeof PERMISSIONS
 
-  /* =====================================================
-     ADMINISTRATOR
-  ===================================================== */
-
-  Administrator: [
-    'dashboard.view',
-
-    'health_activities.view',
-    'health_activities.request',
-    'health_activities.review',
-    'health_activities.approve',
-    'health_activities.announce',
-
-    'gis.view',
-    'masterlist.import',
-
-    'vaccination.view',
-    'vaccination.create',
-    'vaccination.update',
-    'vaccination.approve',
-
-    'nutrition.view',
-    'nutrition.create',
-    'nutrition.update',
-
-    'supplementation.view',
-    'supplementation.create',
-    'supplementation.update',
-
-    'inventory.view',
-    'inventory.create',
-    'inventory.approve',
-
-    'reports.view',
-
-    'users.view',
-    'users.manage',
-
-    'security_logs.view',
-    'settings.manage',
-  ],
-
-
-  /* =====================================================
-     PUBLIC HEALTH NURSE
-  ===================================================== */
-
-  PHN: [
-    'dashboard.view',
-
-    'health_activities.view',
-    'health_activities.request',
-    'health_activities.review',
-    'health_activities.approve',
-    'health_activities.announce',
-
-    'gis.view',
-    'masterlist.import',
-
-    'vaccination.view',
-    'vaccination.create',
-    'vaccination.update',
-    'vaccination.approve',
-
-    'nutrition.view',
-    'nutrition.create',
-    'nutrition.update',
-
-    'supplementation.view',
-    'supplementation.create',
-    'supplementation.update',
-
-    'inventory.view',
-    'inventory.create',
-    'inventory.approve',
-
-    'reports.view',
-  ],
-
-
-  /* =====================================================
-     RURAL HEALTH MIDWIFE
-  ===================================================== */
-
-  RHM: [
-    'dashboard.view',
-
-    'health_activities.view',
-    'health_activities.request',
-
-    'gis.view',
-
-    'vaccination.view',
-    'vaccination.create',
-    'vaccination.update',
-
-    'nutrition.view',
-    'nutrition.create',
-    'nutrition.update',
-
-    'supplementation.view',
-    'supplementation.create',
-    'supplementation.update',
-
-    'inventory.view',
-    'inventory.create',
-
-    'reports.view',
-  ],
-
-
-  /* =====================================================
-     BARANGAY HEALTH WORKER
-  ===================================================== */
-
-  BHW: [
-    'dashboard.view',
-
-    'health_activities.view',
-    'health_activities.request',
-
-    'gis.view',
-
-    'vaccination.view',
-    'vaccination.create',
-
-    'nutrition.view',
-
-    'supplementation.view',
-
-    'reports.view',
-  ],
-
-
-  /* =====================================================
-     BARANGAY NUTRITION SCHOLAR
-  ===================================================== */
-
-  BNS: [
-    'dashboard.view',
-
-    'health_activities.view',
-    'health_activities.request',
-
-
-    'gis.view',
-
-    'nutrition.view',
-    'nutrition.create',
-    'nutrition.update',
-
-    'supplementation.view',
-    'supplementation.create',
-    'supplementation.update',
-
-    'reports.view',
-  ],
+export function hasPermission(role: Role, permission: Permission): boolean {
+  const name = ROLE_NAME[role]
+  if (!name) return false
+  const [module, action] = PERMISSIONS[permission]
+  return canPerform(name, module, action)
 }
 
-
-/* =======================================================
-   PERMISSION CHECK
-======================================================= */
-
-export function hasPermission(
-  role: Role,
-  permission: Permission
-): boolean {
-  return rolePermissions[role]?.includes(permission) ?? false
+/** Every permission a role has (derived), e.g. for display or tests. */
+export function permissionsOf(role: Role): Permission[] {
+  return (Object.keys(PERMISSIONS) as Permission[]).filter((p) => hasPermission(role, p))
 }
