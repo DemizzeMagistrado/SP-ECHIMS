@@ -16,7 +16,7 @@ import { vaccinationKeyMatches } from '@/lib/vaccination-cache'
 import { VaccinationOfflineTools, VaccinationSnapshotNotice } from '@/components/vaccination/vaccination-offline-tools'
 import Link from 'next/link'
 import { usePathname, useRouter } from '@/lib/offline/navigation'
-import { Plus, Package, AlertCircle, CalendarClock, CheckCircle2, XCircle, Syringe, ArrowRight, Search, Download, CalendarX, HandHelping, MessageSquare } from 'lucide-react'
+import { Plus, Package, AlertCircle, CalendarClock, CheckCircle2, Syringe, ArrowRight, Search, Download, CalendarX, HandHelping, MessageSquare, Undo2 } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { toast } from '@/components/ui/toast'
@@ -121,8 +121,12 @@ type RecordsPayload = {
 const RECORD_STATUS_META = {
   PENDING: { label: 'Awaiting approval' },
   APPROVED: { label: 'Approved' },
-  REJECTED: { label: 'Rejected' },
+  // RHU QA: nothing is "rejected"; the PHN returns the record to the recorder to fix (UI wording;
+  // the stored status is still REJECTED until the backend flow changes, see docs/known-issues.md).
+  REJECTED: { label: 'Returned for correction' },
 } as const
+// Returned = amber (the badge's default for REJECTED is red); other statuses keep their usual tone.
+const recordTone = (s: RecordRow['status']) => (s === 'REJECTED' ? 'warn' as const : undefined)
 
 function userName(u: UserRef | null) { return u?.full_name || (u ? u.user_id.slice(0, 6) : '—') }
 function recorderName(r: RecorderRef | null) {
@@ -158,6 +162,19 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
   }, [q, statusFilter])
 
   const url = `/api/vaccination/records${qs ? `?${qs}` : ''}`
+  // Next dose per child from the same data as the Schedule tab: a missed dose (its new date)
+  // first, else the earliest pending dose.
+  const schedule = useVaccinationView<DosesPayload>(isReady && canView ? '/api/vaccination/defaulters?include=pending' : null)
+  const nextByChild = useMemo(() => {
+    const map = new Map<number, DoseRow>()
+    const better = (a: DoseRow, b: DoseRow | undefined) => {
+      if (!b) return true
+      if ((a.status === 'OVERDUE') !== (b.status === 'OVERDUE')) return a.status === 'OVERDUE'
+      return doseDate(a) < doseDate(b)
+    }
+    for (const d of [...(schedule.data?.defaulters ?? []), ...(schedule.data?.pending ?? [])]) if (better(d, map.get(d.child_id))) map.set(d.child_id, d)
+    return map
+  }, [schedule.data])
   const { data, error, isLoading, refreshing, readOnly, savedAt, mutate } = useVaccinationView<RecordsPayload>(isReady && canView ? url : null)
   const router = useRouter()
 
@@ -176,7 +193,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
   async function submitReview() {
     if (readOnly || !reviewing) return
     if (!navigator.onLine) { toast.warning('You are offline. Reconnect to review this record; nothing was changed.'); return }
-    if (reviewing.action === 'REJECT' && !reviewRemarks.trim()) { setRemarksError('Say why the record is rejected so the recorder can correct it.'); return }
+    if (reviewing.action === 'REJECT' && !reviewRemarks.trim()) { setRemarksError('Say what needs fixing so the recorder can correct it.'); return }
     setSubmittingReview(true)
     try {
       const r = await fetch(`/api/vaccination/record-review`, {
@@ -190,7 +207,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
       const notDeducted = comp.filter((c) => !c.deducted).map((c) => c.item_name)
       toast.success(reviewing.action === 'APPROVE'
         ? `Record approved. Vaccine stock deducted${comp.length ? `; ${comp.filter((c) => c.deducted).map((c) => c.item_name).join(', ') || 'no companion'} deducted too` : ''}.`
-        : 'Record rejected. The recorder can see your reason.')
+        : 'Record returned for correction. The recorder can see your note.')
       if (notDeducted.length) toast.warning(`${notDeducted.join(', ')} had no stock in this barangay, so it was recorded but not deducted. Restock it in Inventory.`)
       setReviewing(null)
       revalidateVaccination('/api/vaccination/records')
@@ -251,7 +268,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
                 { value: '', label: 'All' },
                 { value: 'PENDING', label: 'Awaiting approval' },
                 { value: 'APPROVED', label: 'Approved' },
-                { value: 'REJECTED', label: 'Rejected' },
+                { value: 'REJECTED', label: 'Returned for correction' },
               ]} />
             </fieldset>
           }
@@ -294,18 +311,32 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
               },
             },
             { key: 'date', header: 'Date given', sortValue: (row) => row.vaccination_date, cell: (row) => formatYmd(row.vaccination_date) },
-            { key: 'status', header: 'Status', sortValue: (row) => row.status, cell: (row) => <StatusBadge status={row.status} label={RECORD_STATUS_META[row.status].label} /> },
+            { key: 'status', header: 'Status', sortValue: (row) => row.status, cell: (row) => <StatusBadge status={row.status} tone={recordTone(row.status)} label={RECORD_STATUS_META[row.status].label} /> },
+            {
+              key: 'next', header: 'Next schedule', sortValue: (row) => { const c = one(row.child); const n = c ? nextByChild.get(c.child_id) : undefined; return n ? doseDate(n) : null },
+              cell: (row) => {
+                const c = one(row.child)
+                const n = c ? nextByChild.get(c.child_id) : undefined
+                if (!c || !n) return <span className="text-muted-foreground" title={schedule.isLoading ? 'Loading the schedule…' : 'No missed or pending dose found for this child'}>—</span>
+                return (
+                  <span className="flex flex-col items-end gap-1 sm:items-start">
+                    <Link href={`/child-profiling/children/${c.child_id}#vaccination-schedule`} className="font-medium text-brand-blue underline-offset-4 hover:underline">
+                      {formatYmd(doseDate(n))} · {n.vaccine_type} {n.dose_number}
+                    </Link>
+                    {n.status === 'OVERDUE' && <StatusBadge status="missed" tone="danger" label={n.rescheduled_date ? `Missed · rescheduled to ${formatYmd(n.rescheduled_date)}` : 'Missed'} />}
+                  </span>
+                )
+              },
+            },
             {
               key: 'actions', header: <span className="sr-only">Actions</span>,
               cell: (row: RecordRow) => {
-                const c = one(row.child)
                 return (
                   <div className="flex flex-wrap justify-end gap-2 sm:justify-start">
                     {canReview && row.status === 'PENDING' && <>
                       <Button size="sm" onClick={() => openReview(row, 'APPROVE')}><CheckCircle2 size={14} aria-hidden="true" /> Approve</Button>
-                      <Button size="sm" variant="secondary" className="text-danger" onClick={() => openReview(row, 'REJECT')}><XCircle size={14} aria-hidden="true" /> Reject record</Button>
+                      <Button size="sm" variant="tonal" onClick={() => openReview(row, 'REJECT')}><Undo2 size={14} aria-hidden="true" /> Return for correction</Button>
                     </>}
-                    {c && <Link href={`/child-profiling/children/${c.child_id}#vaccination-schedule`} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>Child schedule</Link>}
                   </div>
                 )
               },
@@ -326,19 +357,19 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
         size="sm"
         onClose={() => setReviewing(null)}
         busy={submittingReview}
-        title={reviewing?.action === 'REJECT' ? 'Reject this record' : 'Approve record'}
+        title={reviewing?.action === 'REJECT' ? 'Return for correction' : 'Approve record'}
         subtitle={reviewing ? `${vaccineLabel(one(reviewing.row.vaccine))} dose ${reviewing.row.dose_number}${reviewChild ? ` for ${fullName(reviewChild)}` : ''}` : undefined}
         onSubmit={(e) => { e.preventDefault(); void submitReview() }}
         bodyClassName="space-y-4"
-        footer={<Button type="submit" variant={reviewing?.action === 'REJECT' ? 'danger' : 'primary'} loading={submittingReview}>{reviewing?.action === 'REJECT' ? 'Reject record' : 'Approve'}</Button>}
+        footer={<Button type="submit" loading={submittingReview}>{reviewing?.action === 'REJECT' ? 'Return to recorder' : 'Approve'}</Button>}
       >
         {reviewing?.action === 'APPROVE' && (
           <p className="rounded-lg bg-warn-soft px-3 py-2 text-xs text-warn">
             One dose is deducted from the child&rsquo;s barangay stock{(one(reviewing.row.vaccine)?.companions ?? []).length ? `, plus ${(one(reviewing.row.vaccine)?.companions ?? []).map((x) => one(x.item)?.item_name).filter(Boolean).join(', ')}` : ''}.
           </p>
         )}
-        {reviewing?.action === 'REJECT' && <p className="text-sm text-brand-muted">Use this when the record itself is wrong (wrong child, dose or date). The child&rsquo;s schedule is not affected.</p>}
-        <Field label={reviewing?.action === 'REJECT' ? 'Reason' : 'Remarks (optional)'} required={reviewing?.action === 'REJECT'} error={remarksError}>
+        {reviewing?.action === 'REJECT' && <p className="text-sm text-brand-muted">Use this when something in the record needs fixing (child, dose, date or batch). The recorder sees your note. The child&rsquo;s schedule is not affected.</p>}
+        <Field label={reviewing?.action === 'REJECT' ? 'What needs fixing?' : 'Remarks (optional)'} required={reviewing?.action === 'REJECT'} error={remarksError}>
           <Textarea value={reviewRemarks} onChange={(e) => { setReviewRemarks(e.target.value); setRemarksError(null) }} rows={3} />
         </Field>
       </Modal>
@@ -377,7 +408,7 @@ const SCHEDULE_STATUS_META: Record<ScheduleRow['status'], { label: string }> = {
   ONGOING: { label: 'Ongoing' },
   COMPLETED: { label: 'Completed' },
   CANCELLED: { label: 'Cancelled' },
-  REJECTED: { label: 'Rejected (old)' },
+  REJECTED: { label: 'Returned (old)' },
 }
 
 type DoseRow = {

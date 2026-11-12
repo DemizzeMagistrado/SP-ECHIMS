@@ -33,7 +33,7 @@ type HistoryRow = {
 
 const LABEL: Record<string, string> = {
   PENDING: 'Awaiting approval', APPROVED: 'Approved', NEEDS_REVISION: 'Needs new date', ONGOING: 'Ongoing',
-  COMPLETED: 'Completed', CANCELLED: 'Cancelled', REJECTED: 'Rejected (old)',
+  COMPLETED: 'Completed', CANCELLED: 'Cancelled', REJECTED: 'Returned (old)',
 }
 const day = (ymd: string) => new Date(`${ymd}T00:00:00`).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
 const stamp = (ts: string) => new Date(ts).toLocaleString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
