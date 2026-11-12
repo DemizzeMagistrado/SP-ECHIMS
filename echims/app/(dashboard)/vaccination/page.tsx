@@ -123,9 +123,9 @@ const RECORD_STATUS_META = {
   APPROVED: { label: 'Approved' },
   // RHU QA: nothing is "rejected"; the PHN returns the record to the recorder to fix (UI wording;
   // the stored status is still REJECTED until the backend flow changes, see docs/known-issues.md).
-  REJECTED: { label: 'Returned for correction' },
+  REJECTED: { label: 'Needs correction' },
 } as const
-// Returned = amber (the badge's default for REJECTED is red); other statuses keep their usual tone.
+// Needs correction = amber (the badge's default for REJECTED is red); other statuses keep their usual tone.
 const recordTone = (s: RecordRow['status']) => (s === 'REJECTED' ? 'warn' as const : undefined)
 
 function userName(u: UserRef | null) { return u?.full_name || (u ? u.user_id.slice(0, 6) : '—') }
@@ -207,7 +207,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
       const notDeducted = comp.filter((c) => !c.deducted).map((c) => c.item_name)
       toast.success(reviewing.action === 'APPROVE'
         ? `Record approved. Vaccine stock deducted${comp.length ? `; ${comp.filter((c) => c.deducted).map((c) => c.item_name).join(', ') || 'no companion'} deducted too` : ''}.`
-        : 'Record returned for correction. The recorder can see your note.')
+        : 'Record marked Needs correction. The recorder can see your note.')
       if (notDeducted.length) toast.warning(`${notDeducted.join(', ')} had no stock in this barangay, so it was recorded but not deducted. Restock it in Inventory.`)
       setReviewing(null)
       revalidateVaccination('/api/vaccination/records')
@@ -268,7 +268,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
                 { value: '', label: 'All' },
                 { value: 'PENDING', label: 'Awaiting approval' },
                 { value: 'APPROVED', label: 'Approved' },
-                { value: 'REJECTED', label: 'Returned for correction' },
+                { value: 'REJECTED', label: 'Needs correction' },
               ]} />
             </fieldset>
           }
@@ -408,7 +408,7 @@ const SCHEDULE_STATUS_META: Record<ScheduleRow['status'], { label: string }> = {
   ONGOING: { label: 'Ongoing' },
   COMPLETED: { label: 'Completed' },
   CANCELLED: { label: 'Cancelled' },
-  REJECTED: { label: 'Returned (old)' },
+  REJECTED: { label: 'Needs correction (old)' },
 }
 
 type DoseRow = {
