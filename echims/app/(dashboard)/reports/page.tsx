@@ -338,6 +338,8 @@ export default function ReportsPage() {
           : shown.module
       ]
     : [];
+  // BHW: read-only approved reports for their barangay (no preview / generate / validate).
+  const isBhw = options?.role === "BHW";
   return (
     <div className="space-y-6">
       <TabBar
@@ -349,13 +351,14 @@ export default function ReportsPage() {
           setSection(s);
         }}
         items={[
-          { value: "SAVED", label: "Generated Reports", disabled: busy },
-          { value: "PREVIEW", label: "Report Preview", disabled: busy },
+          { value: "SAVED", label: isBhw ? "Approved Reports" : "Generated Reports", disabled: busy },
+          // BHW: read-only approved reports only (no live preview / generate; migration 13).
+          ...(isBhw ? [] : [{ value: "PREVIEW" as const, label: "Report Preview", disabled: busy }]),
         ]}
       />
       <PageHeader
         title={<>Reports & Analytics</>}
-        subtitle={<>{options?.role === "Administrator" ? "System-wide report viewing." : options?.role === "PHN" ? "Review and validate reports within your RHU." : options?.role === "BNS" ? "Generate nutrition reports within assigned barangays." : "Generate reports within assigned barangays."}</>}
+        subtitle={<>{options?.role === "Administrator" ? "System-wide report viewing." : options?.role === "PHN" ? "Review and validate reports within your RHU." : options?.role === "BNS" ? "Generate nutrition reports within assigned barangays." : isBhw ? "Approved child, vaccination and supplementation reports for your barangay. View, print or download." : "Generate reports within assigned barangays."}</>}
       />
       {error && (
         <p
@@ -464,7 +467,9 @@ export default function ReportsPage() {
                 ))}
                 {!options.reports.length && (
                   <tr>
-                    <td colSpan={6}><EmptyState icon={FileText} title="No saved reports yet" description="Reports you generate and save will appear here." /></td>
+                    <td colSpan={6}>{isBhw
+                      ? <EmptyState icon={FileText} title="No approved reports for your barangay yet" description="Child, vaccination and supplementation reports for your barangay appear here once the PHN approves them." />
+                      : <EmptyState icon={FileText} title="No saved reports yet" description="Reports you generate and save will appear here." />}</td>
                   </tr>
                 )}
               </tbody>
@@ -473,7 +478,7 @@ export default function ReportsPage() {
           <Pagination {...reportPagerProps} label="Saved report pages" />
         </section>
       )}
-      {section === "PREVIEW" && options && (
+      {section === "PREVIEW" && options && !isBhw && (
         <section className="space-y-4 rounded-2xl border bg-white p-5">
           <nav aria-label="Report modules" className="flex flex-wrap border-b">
             {options.modules.map((m) => (

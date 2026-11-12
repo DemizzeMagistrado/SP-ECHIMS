@@ -41,7 +41,7 @@ V view · C create · E edit · A approve / review / decide · X export · R req
 | Batch Trace | V | — | — | — |
 | Health Activities | V A (review requests) | V C E | V C E (as is, ACT-REV01) | V C E (as is, ACT-REV01) |
 | Alerts | V | V | V | V |
-| Reports | V C X A (validate) | V C X | V X | V X (nutrition) |
+| Reports | V C X A (validate) | V C X | V X: **approved** Child / Household / Vaccination / Supplementation reports of own barangay(s), print / download | V X (nutrition) |
 | Settings | V E | V E | V E (Profile, Security only) | V E |
 | Organization (settings tab) | V | V | — | V |
 
@@ -65,11 +65,12 @@ assignment, Organization edit.
 | 11 | BHW Settings showed Organization and Notifications. | Shown only with Organization view (BHW: Profile and Security only). |
 | 12 | Unused `SMS` module / `/sms` route in the matrix. | Removed. SMS reminders are actions on Vaccination › Schedule; history in Alerts. |
 
-### Still open (needs a decision or database work)
+| 13 | BHW Reports in the matrix, but the database refused BHW (`list_generated_reports`), so the page errored. | Decision (manuscript "View Approved Reports", barangay-level for BHWs): migration 13. BHW sees VALIDATED reports for modules CHILD, HOUSEHOLD, VACCINATION, SUPPLEMENTATION whose barangays are all theirs; open and print / download. No preview / generate / save / validate, no nutrition or inventory, no other barangays. The Reports page shows only "Approved Reports" for BHW (no Report Preview tab) and "No approved reports for your barangay yet" when empty. RHM, BNS, PHN, Admin unchanged (same totals and report IDs before and after). |
+
+### Still open
 
 | # | Item | Needed |
 |---|---|---|
-| A | **BHW reports.** The matrix gives BHW Reports (view / export) per the decisions, but the database refuses BHW (`rep_role` → "Report access is unavailable for this account"), so the Reports page shows an error for BHW. | Decide which reports BHW may see (e.g. own-barangay vaccination and child lists, read-only) and extend `rep_role` / `list_generated_reports` accordingly. |
 | B | Supplementation "create" covers both recording an administration and registering a supply plan at module level; the API separates them (`record` for RHM/BHW/BNS, `stock` / plans for PHN/RHM). | None for now; noted so the matrix is not read as "PHN records administrations". |
 
 ## Manuscript parts to update (BHW Supplementation)

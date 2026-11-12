@@ -150,6 +150,8 @@ const rolePermissions: Record<UserRole, Partial<Record<string, Permission[]>>> =
     Supplementation: ['view', 'create'],
     'Health Activities': ['view', 'create', 'edit'],            // as is (ACT-REV01)
     Alerts: ['view'],
+    // View Approved Reports: own barangay(s), approved Child / Vaccination / Supplementation only,
+    // print / download; no generate, save or validate (migration 13).
     Reports: ['view', 'export'],
     Settings: ['view', 'edit'],                                 // Profile and Security only (no Organization)
   },

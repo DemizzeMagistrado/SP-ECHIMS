@@ -66,3 +66,4 @@ RLS: readable by whoever can read the record; written only by the two functions.
 | `alert_notification_feed` | view (changed) | 10 | Adds `resolution_note`. |
 | `echims_assign_child_household(bigint, bigint)` | function (new) | 11 | Links a household to a child that has none (Household not assigned task). |
 | `phn_rhu_select / update / delete_vaccination_record` | RLS policies on `vaccination_record` (replace `phn_rhu_all_vaccination_record`) | 12 | PHN reads, edits and deletes records in their RHU; no insert (role matrix, docs/permissions.md). |
+| `rep_scope(bigint)`, `rep_can_view(bigint)`, `list_generated_reports(integer)` | functions (changed) | 13 | BHW: read-only access to approved (VALIDATED) Child / Household / Vaccination / Supplementation reports of their assigned barangays. |
