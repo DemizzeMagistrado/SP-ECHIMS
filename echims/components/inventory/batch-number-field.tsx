@@ -10,7 +10,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { Field, Input } from '@/components/ui/form'
 import { DEFAULT_BATCH_RULE, batchNumberError, describeBatchRule, normalizeBatchNumber, parseBatchRule, type BatchRule } from '@/lib/vaccination-config'
 
-// The format set in Settings › Vaccine Catalog. Kept module-wide so submit checks use the same
+// The format set in Vaccination › Vaccines (Catalog settings). Kept module-wide so submit checks use the same
 // rule the field shows; the APIs check against the stored rule anyway.
 let currentRule: BatchRule = DEFAULT_BATCH_RULE
 const ruleFetcher = async (url: string) => {

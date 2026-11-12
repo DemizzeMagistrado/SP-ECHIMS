@@ -1,6 +1,6 @@
 'use client'
 
-// Settings › Vaccine Catalog extras (Admin / PHN): companion medicines per vaccine and the batch
+// Vaccination › Vaccines (Catalog settings) extras (Admin / PHN): companion medicines per vaccine and the batch
 // number format. Both used to be database-only.
 
 import { useState } from 'react'

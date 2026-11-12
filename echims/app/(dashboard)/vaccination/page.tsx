@@ -764,12 +764,12 @@ function ScheduleSection() {
 /* ═════════════════════════ Page ═════════════════════════ */
 
 // Three tabs (NIP-REV01): Defaulters is Schedule's "Defaulters (Missed)" chip (with a count on the
-// tab), SMS reminders are on Schedule rows, NIP Catalog is view-only (editing in Settings › Vaccine
-// Catalog) and Batch Requests live in Inventory.
+// tab), SMS reminders are on Schedule rows, Vaccines is the NIP catalog (Admin/PHN edit it there;
+// /vaccination/catalog and /settings/vaccine-catalog redirect to it) and Batch Requests live in Inventory.
 const TABS = [
   { id: 'records', label: 'Records', resource: 'Vaccination' },
   { id: 'schedule', label: 'Schedule', resource: 'Vaccination' },
-  { id: 'catalog', label: 'NIP Catalog', resource: 'NIP Catalog' },
+  { id: 'vaccines', label: 'Vaccines', resource: 'NIP Catalog' },
 ] as const
 
 /** Schedule tab label with the number of defaulters (children with a missed dose). Same URL as
@@ -792,7 +792,7 @@ export default function VaccinationPage() {
   const { user, isReady } = useAuth()
   const role = user?.role as UserRole | undefined
   const [chosen, setTab] = useState<TabId | null>(null)
-  const tab: TabId = chosen ?? (pathname?.endsWith('/schedule') ? 'schedule' : pathname?.endsWith('/catalog') ? 'catalog' : 'records')
+  const tab: TabId = chosen ?? (pathname?.endsWith('/schedule') ? 'schedule' : pathname?.endsWith('/vaccines') ? 'vaccines' : 'records')
 
   if (!isReady) {
     return <LogoLoader />
@@ -819,14 +819,16 @@ export default function VaccinationPage() {
         group="vaccination"
         value={active}
         onChange={setTab}
-        items={visible.map((t) => ({ value: t.id, label: t.id === 'schedule' ? <ScheduleTabLabel enabled={Boolean(role && canPerform(role, 'Vaccination', 'view'))} /> : t.label }))}
+        items={visible.map((t) => ({ value: t.id, label: t.id === 'schedule' ? <ScheduleTabLabel enabled={Boolean(role && canPerform(role, 'Vaccination', 'view'))} /> : t.id === 'vaccines'
+          ? <span className="inline-flex items-center gap-2"><Syringe size={15} aria-hidden="true" />{t.label}</span>
+          : t.label }))}
       />
 
       {/* Holds the previous tab's height and fades the new one in once its data is in. */}
       <TabPanel tabKey={active}>
         {active === 'records' && <RecordsSection key={user?.id} onGoToSchedule={() => setTab('schedule')} />}
         {active === 'schedule' && <ScheduleSection key={user?.id} />}
-        {active === 'catalog' && <CatalogSection key={user?.id} viewOnly />}
+        {active === 'vaccines' && <CatalogSection key={user?.id} />}
       </TabPanel>
     </div>
   )

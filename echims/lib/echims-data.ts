@@ -24,12 +24,12 @@ export const moduleTabs: Record<string, { label: string; href: string; module: s
     { label: 'Masterlist Import', href: '/masterlist-upload', module: 'Masterlist Upload' },
   ],
   // NIP-REV01: three tabs. Defaulters = Schedule's "Defaulters (Missed)" chip, SMS reminders sit on
-  // Schedule rows, NIP Catalog is view-only here (editing in Settings › Vaccine Catalog), Batch
-  // Requests → Inventory › Batch Requests.
+  // Schedule rows, Vaccines = the NIP catalog (editing in the tab for Admin/PHN; was Settings ›
+  // Vaccine Catalog), Batch Requests → Inventory › Batch Requests.
   Vaccination: [
     { label: 'Records', href: '/vaccination/records', module: 'Vaccination' },
     { label: 'Schedule', href: '/vaccination/schedule', module: 'Vaccination' },
-    { label: 'NIP Catalog', href: '/vaccination/catalog', module: 'NIP Catalog' },
+    { label: 'Vaccines', href: '/vaccination/vaccines', module: 'NIP Catalog' },
   ],
    Inventory: [
     { label: 'Stock Overview', href: '/inventory/stock-overview', module: 'Inventory' },

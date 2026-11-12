@@ -11,7 +11,7 @@ import { refreshOfflineViews as globalMutate } from '@/lib/offline/refresh'
 import { useVaccinationView } from '@/hooks/use-vaccination-view'
 import { vaccinationKeyMatches } from '@/lib/vaccination-cache'
 import { VaccinationSnapshotNotice } from '@/components/vaccination/vaccination-offline-tools'
-import { Plus, AlertCircle, CheckCircle2, Pencil, Power, Syringe, Eye, History, BookOpen, Shield, Info, ExternalLink, Search } from 'lucide-react'
+import { Plus, AlertCircle, CheckCircle2, Pencil, Power, Syringe, Settings2, History, BookOpen, Shield, Info, ExternalLink, Search } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { toast } from '@/components/ui/toast'
@@ -21,8 +21,8 @@ import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { LoadError } from '@/components/ui/load-error'
-import Link from 'next/link'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
+import { BatchFormatPanel, CompanionMedicinesPanel } from '@/components/vaccination/vaccine-settings-panels'
 import { Input, Select } from '@/components/ui/form'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { AccordionCard, ExpandCollapseAll } from '@/components/ui/accordion-card'
@@ -63,8 +63,10 @@ type CatalogPayload = {
   role: UserRole
 }
 
-/** viewOnly: the Vaccination › NIP Catalog tab. Nobody edits there; Admin/PHN get "Edit in Settings". */
-export function CatalogSection({ viewOnly = false }: { viewOnly?: boolean } = {}) {
+/** Vaccination › Vaccines. Everyone who can open Vaccination sees the list; Admin adds/edits/
+ *  deactivates vaccines; Admin and PHN also get Catalog settings (companion medicines, batch
+ *  number format). The APIs enforce the same rules (vaccine edits: Admin; settings: Admin/PHN). */
+export function CatalogSection() {
   const confirm = useConfirm()
   const { user, isReady } = useAuth()
   const role = user?.role as UserRole | undefined
@@ -73,11 +75,9 @@ export function CatalogSection({ viewOnly = false }: { viewOnly?: boolean } = {}
   const canView = role ? canPerform(role, 'NIP Catalog', 'view') : false
 
   const { data, error, isLoading, readOnly, savedAt, mutate } = useVaccinationView<CatalogPayload>(isReady && canView ? '/api/vaccines/catalog' : null)
-  const isAdmin = administrator && !readOnly && !viewOnly
-  const canManage = role === 'Administrator' || role === 'Public Health Nurse'
-  const settingsLink = viewOnly && canManage && (
-    <Link href="/settings/vaccine-catalog" className={buttonVariants({ variant: 'tonal' })}><Pencil size={15} aria-hidden="true" /> Edit in Settings</Link>
-  )
+  const isAdmin = administrator && !readOnly
+  const canManage = (role === 'Administrator' || role === 'Public Health Nurse') && !readOnly
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<VaccineCatalogRow | null>(null)
   const [togglingId, setTogglingId] = useState<number | null>(null)
@@ -156,19 +156,30 @@ export function CatalogSection({ viewOnly = false }: { viewOnly?: boolean } = {}
     <div className="space-y-6">
       <VaccinationSnapshotNotice savedAt={savedAt} readOnly={readOnly} />
       <PageHeader
-        title="NIP Vaccine Catalog"
+        title="Vaccines"
         subtitle="The DOH immunization catalog and schedule rules. Open a vaccine for eligibility and guidelines; every change is logged."
-        actions={isAdmin ? (
-          <Button onClick={openCreate}><Plus size={17} aria-hidden="true" /> Add new vaccine</Button>
-        ) : settingsLink}
+        actions={(isAdmin || canManage) && <>
+          {canManage && (
+            <Button variant="tonal" aria-expanded={settingsOpen} aria-controls="catalog-settings" onClick={() => setSettingsOpen((o) => !o)}>
+              <Settings2 size={16} aria-hidden="true" /> Catalog settings
+            </Button>
+          )}
+          {isAdmin && <Button onClick={openCreate}><Plus size={17} aria-hidden="true" /> Add vaccine</Button>}
+        </>}
       />
 
-      {!isAdmin && (
+      {canManage && settingsOpen && (
+        <section id="catalog-settings" aria-label="Catalog settings" className="space-y-6 rounded-2xl border border-brand-blue/20 bg-brand-ice/40 p-4 sm:p-5">
+          <CompanionMedicinesPanel />
+          <BatchFormatPanel canManage />
+        </section>
+      )}
+
+      {/* PHN only: says why there is no Add/Edit. View-only roles see no management UI at all. */}
+      {canManage && !isAdmin && (
         <div className="flex items-start gap-2 rounded-xl border border-brand-blue/20 bg-brand-ice px-4 py-3 text-sm text-brand-navy">
-          <Eye size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
-          <span><strong>Read-only view.</strong> {viewOnly && canManage
-            ? 'Edit vaccines, companion medicines and the batch number format in Settings › Vaccine Catalog.'
-            : 'Only administrators can add, edit or deactivate vaccines.'}</span>
+          <Info size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+          <span>Only administrators add, edit or deactivate vaccines. You can manage companion medicines and the batch number format in <strong>Catalog settings</strong>.</span>
         </div>
       )}
 

@@ -1,6 +1,6 @@
 // One place for the vaccination form rules that RHU staff may ask to adjust.
 // The batch number format is stored in the database (vaccination_setting 'batch_number_format',
-// edited in Settings › Vaccine Catalog); DEFAULT_BATCH_RULE is used until it loads or if it is
+// edited in Vaccination › Vaccines (Catalog settings)); DEFAULT_BATCH_RULE is used until it loads or if it is
 // missing. The database keeps batch numbers in the normalized form (echims_normalize_batch).
 
 export const VACCINATION_SITES = [

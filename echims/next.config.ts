@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
       { source: '/vaccination/defaulters', destination: '/vaccination/schedule?status=missed', permanent: true },
       { source: '/vaccination/sms', destination: '/vaccination/schedule', permanent: true },
       { source: '/vaccination/batch-requests', destination: '/inventory/batch-requests', permanent: true },
+      // Vaccines tab (NIP-REV01). Not permanent: these moved twice, so browsers must not cache them.
+      { source: '/vaccination/catalog', destination: '/vaccination/vaccines', permanent: false },
+      { source: '/settings/vaccine-catalog', destination: '/vaccination/vaccines', permanent: false },
     ]
   },
 }

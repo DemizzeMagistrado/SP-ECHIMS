@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { loadBatchRule } from '@/lib/batch-rule-server'
 import { BATCH_SEPARATOR_CHOICES, batchPattern, normalizeBatchNumber, type BatchRule } from '@/lib/vaccination-config'
 
-// NIP-REV01 — vaccination settings (Settings › Vaccine Catalog).
+// NIP-REV01 — vaccination settings (Vaccination › Vaccines (Catalog settings)).
 // GET  /api/vaccination/settings  → { batch_number_format } for any signed-in user (forms use it)
 // POST /api/vaccination/settings  → Admin / PHN save { batch_number_format: { min, max, separators, example } }
 // RLS on vaccination_setting allows writes for Admin and PHN only.
