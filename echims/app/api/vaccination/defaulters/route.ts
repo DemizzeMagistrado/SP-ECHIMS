@@ -10,9 +10,12 @@ import {
   nipDaysBetween,
 } from '@/lib/nip-schedule'
 // NIP-USR005 — Defaulters list.
-// GET /api/vaccination/defaulters?vaccine=BCG&limit=100[&include=pending]
+// GET /api/vaccination/defaulters?vaccine=BCG[&limit=100][&include=pending]
 // include=pending also returns `pending`: each child's next Pending date (every dose due that
-// day), for the merged Vaccination › Schedule view.
+// day), for the merged Vaccination › Schedule view, and `completed`: children in scope with no
+// missed or pending dose (every dose given or past its eligibility window).
+// No caps: every child in scope is loaded (in pages) and every missed dose is listed unless the
+// caller passes `limit`; counts are always exact.
 //
 // Returns children (RLS-scoped by barangay/RHU) with Missed doses (due date passed, not given,
 // still eligible) against the NIP schedule, each with its rescheduled date. Computed on-demand — no scheduled job or new table.
@@ -54,19 +57,32 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const vaccineFilter = (url.searchParams.get('vaccine') ?? '').toUpperCase()
   const includePending = url.searchParams.get('include') === 'pending'
-  const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? 200) || 200, 10), 500)
+  // Optional: only for callers that want a short list (e.g. a dashboard tile); the counts stay exact.
+  const limitParam = url.searchParams.get('limit')
+  const limit = limitParam ? Math.min(Math.max(Number(limitParam) || 1, 1), 5000) : null
 
   if (vaccineFilter && !NIP_CATALOG.some((v) => v.code === vaccineFilter)) {
     return invalid(`vaccine must be one of: ${NIP_CATALOG.filter((v) => v.routine_enabled !== false).map((v) => v.code).join(', ')}.`)
   }
 
-  // Fetch all children in scope (RLS filters). We cap at 1,000 to protect compute.
+  // Every child in scope (RLS filters), loaded 1,000 at a time so nobody is left out.
   // The BHW-assist flag is optional: without its table/embed, load children without it.
   const childSelect = 'child_id, child_code, first_name, middle_name, last_name, date_of_birth, barangay_id, status, barangay:barangay(barangay_id, barangay_name), household:household(family_serial_no)'
-  const loadChildren = (withAssist: boolean) => supabase.from('child')
-    .select((withAssist ? `${childSelect}, assist:child_vaccination_assist(reason)` : childSelect) as string)
-    .in('status', ['ACTIVE', 'MONITORING'])  // skip MOVED/LOST/DECEASED
-    .limit(1000)
+  const PAGE = 1000
+  const loadChildren = async (withAssist: boolean) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const all: any[] = []
+    for (let from = 0; ; from += PAGE) {
+      const res = await supabase.from('child')
+        .select((withAssist ? `${childSelect}, assist:child_vaccination_assist(reason)` : childSelect) as string)
+        .in('status', ['ACTIVE', 'MONITORING'])  // skip MOVED/LOST/DECEASED
+        .order('child_id')
+        .range(from, from + PAGE - 1)
+      if (res.error) return { data: null, error: res.error }
+      all.push(...(res.data ?? []))
+      if ((res.data ?? []).length < PAGE) return { data: all, error: null }
+    }
+  }
   let childRes = await loadChildren(true)
   if (childRes.error && ['PGRST200', 'PGRST201', '42P01'].includes(childRes.error.code)) {
     console.warn('Defaulters: BHW-assist flag unavailable, loading without it.', childRes.error)
@@ -82,7 +98,8 @@ export async function GET(request: Request) {
   if (children.length === 0) {
     return NextResponse.json({
       defaulters: [],
-      counts: { overdue: 0, unique_children_affected: 0, total_children_in_scope: 0, total_shown: 0, total_matched: 0 },
+      ...(includePending ? { pending: [], completed: [] } : {}),
+      counts: { overdue: 0, unique_children_affected: 0, total_children_in_scope: 0, total_shown: 0, total_matched: 0, completed: 0 },
       role,
     })
   }
@@ -156,12 +173,15 @@ for (const rec of [...approvedRecords].sort((a, b) => (a.status === 'APPROVED' ?
   }
   const defaulters: DefaulterRow[] = []
   const pending: DefaulterRow[] = []
+  type CompletedRow = Pick<DefaulterRow, 'child_id' | 'child_name' | 'child_code' | 'family_serial_no' | 'bhw_assist' | 'date_of_birth' | 'barangay_id' | 'barangay_name'>
+  const completed: CompletedRow[] = []
 
   for (const c of children) {
     const dob = String(c.date_of_birth)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const b: any = Array.isArray(c.barangay) ? c.barangay[0] : c.barangay
     const upcoming: DefaulterRow[] = []
+    const missedBefore = defaulters.length
 
     for (const v of catalog) {
       if (v.routine_enabled === false) continue
@@ -201,6 +221,18 @@ for (const rec of [...approvedRecords].sort((a, b) => (a.status === 'APPROVED' ?
     const dateOf = (d: DefaulterRow) => d.rescheduled_date ?? d.due_date
     const next = upcoming.reduce<string | null>((min, d) => (min === null || dateOf(d) < min ? dateOf(d) : min), null)
     if (next) pending.push(...upcoming.filter((d) => dateOf(d) === next))
+    // Nothing missed or pending (all routine doses given or past their window): Completed.
+    if (!vaccineFilter && upcoming.length === 0 && defaulters.length === missedBefore) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const h: any = Array.isArray(c.household) ? c.household[0] : c.household
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const a: any = Array.isArray(c.assist) ? c.assist[0] : c.assist
+      completed.push({
+        child_id: c.child_id, child_name: [c.first_name, c.middle_name, c.last_name].filter(Boolean).join(' '),
+        child_code: c.child_code ?? null, family_serial_no: h?.family_serial_no ?? null, bhw_assist: a ? { reason: a.reason ?? null } : null,
+        date_of_birth: dob, barangay_id: c.barangay_id, barangay_name: b?.barangay_name ?? null,
+      })
+    }
   }
 
   // Sort: longest missed first, then by child name
@@ -209,7 +241,7 @@ for (const rec of [...approvedRecords].sort((a, b) => (a.status === 'APPROVED' ?
     return a.child_name.localeCompare(b.child_name)
   })
 
-  const capped = defaulters.slice(0, limit)
+  const capped = limit ? defaulters.slice(0, limit) : defaulters
   const overdueCount = defaulters.length
   const uniqueChildrenAffected = new Set(defaulters.map((d) => d.child_id)).size
 
@@ -217,13 +249,14 @@ for (const rec of [...approvedRecords].sort((a, b) => (a.status === 'APPROVED' ?
 
   return NextResponse.json({
     defaulters: capped,
-    ...(includePending ? { pending } : {}),
+    ...(includePending ? { pending, completed } : {}),
     counts: {
       overdue: overdueCount,
       unique_children_affected: uniqueChildrenAffected,
       total_children_in_scope: children.length,
       total_shown: capped.length,
       total_matched: defaulters.length,
+      completed: completed.length,
     },
     filters: {
       vaccine: vaccineFilter || null,

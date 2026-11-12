@@ -188,6 +188,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
     for (const d of [...(schedule.data?.defaulters ?? []), ...(schedule.data?.pending ?? [])]) if (nextFirst(d, map.get(d.child_id))) map.set(d.child_id, d)
     return map
   }, [schedule.data])
+  const completedIds = useMemo(() => new Set((schedule.data?.completed ?? []).map((c) => c.child_id)), [schedule.data])
   const { data, error, isLoading, refreshing, readOnly, savedAt, mutate } = useVaccinationView<RecordsPayload>(isReady && canView ? url : null)
   const router = useRouter()
 
@@ -337,6 +338,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
               cell: (row) => {
                 const c = one(row.child)
                 const n = c ? nextByChild.get(c.child_id) : undefined
+                if (c && !n && completedIds.has(c.child_id)) return <span className="text-sm font-medium text-good" title="Every routine dose given or past its age limit">Completed</span>
                 if (!c || !n) return <span className="text-muted-foreground" title={schedule.isLoading ? 'Loading the schedule…' : 'No missed or pending dose'}>—</span>
                 const missed = n.status === 'OVERDUE'
                 return <NextDose date={doseDate(n)} vaccine={n.vaccine_type} dose={n.dose_number} missed={missed} provisional={n.provisional} href={vaccinationProfileHref(c.child_id, missed ? n.vaccine_code : null)} />
@@ -450,10 +452,13 @@ type DoseRow = {
   /** Depends on a dose recorded but still awaiting approval. */
   provisional?: boolean
 }
+type CompletedChild = Pick<DoseRow, 'child_id' | 'child_name' | 'child_code' | 'family_serial_no' | 'bhw_assist' | 'date_of_birth' | 'barangay_name'>
 type DosesPayload = {
   defaulters: DoseRow[]
   pending?: DoseRow[]
-  counts: { overdue: number; unique_children_affected: number; total_children_in_scope: number; total_shown: number; total_matched: number }
+  /** Children with no missed or pending dose (every dose given or past its window). */
+  completed?: CompletedChild[]
+  counts: { overdue: number; unique_children_affected: number; total_children_in_scope: number; total_shown: number; total_matched: number; completed?: number }
 }
 type ChildCard = {
   child_id: number
@@ -469,6 +474,8 @@ type ChildCard = {
   request: ScheduleRow | null
   /** Earliest date the child should come in (rescheduled missed date or next pending date). */
   nextDate: string | null
+  /** Every routine dose given or past its eligibility window. */
+  completed?: boolean
 }
 
 type StatusChip = 'all' | 'pending' | 'missed' | 'assist'
@@ -549,6 +556,9 @@ function ScheduleSection() {
       if (!c.worst || d.days_overdue > c.worst.days_overdue) c.worst = d
     }
     for (const d of doses.data?.pending ?? []) card(d).pending.push(d)
+    for (const d of doses.data?.completed ?? []) {
+      if (!byChild.has(d.child_id)) byChild.set(d.child_id, { ...d, missed: [], pending: [], worst: null, request: null, nextDate: null, completed: true })
+    }
     // Latest request per child (rows are newest first). A child with a request but no due doses still shows.
     for (const r of requests.data?.rows ?? []) {
       const ch = one(r.child)
@@ -575,6 +585,7 @@ function ScheduleSection() {
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase()
     return cards.filter((c) => {
+      if (c.completed && chip !== 'all') return false
       if (chip === 'missed' && c.missed.length === 0) return false
       if (chip === 'pending' && c.pending.length === 0) return false
       if (chip === 'assist' && !c.bhw_assist) return false
@@ -717,6 +728,7 @@ function ScheduleSection() {
                         <span className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
                           {next && <NextDose date={doseDate(next)} vaccine={next.vaccine_type} dose={next.dose_number} missed={next.status === 'OVERDUE'} provisional={next.provisional} />}
                           {c.missed.length > 1 && <StatusBadge status="missed" tone="danger" label={`${c.missed.length} missed`} />}
+                          {c.completed && <StatusBadge status="completed" tone="good" label="Completed" />}
                           {req && (req.status === 'PENDING' || req.status === 'NEEDS_REVISION') && <StatusBadge status={req.status === 'PENDING' ? 'pending' : 'upcoming'} label={SCHEDULE_STATUS_META[req.status].label} />}
                           <BhwAssistBadge assist={c.bhw_assist} />
                         </span>
@@ -756,7 +768,7 @@ function ScheduleSection() {
                             <NextDose date={doseDate(d)} provisional={d.provisional} />
                           </li>
                         ))}
-                        {c.missed.length === 0 && c.pending.length === 0 && <li className="text-sm text-muted-foreground">No routine doses due right now.</li>}
+                        {c.missed.length === 0 && c.pending.length === 0 && <li className="text-sm text-muted-foreground">{c.completed ? 'Completed: every routine dose is given or past its age limit.' : 'No routine doses due right now.'}</li>}
                       </ul>
                       </div>
                     </AccordionCard>
