@@ -5,6 +5,8 @@
 //   Penta · Dose 2                 ← vaccine + dose (muted, truncated with a tooltip)
 // Missed doses get a small red "Missed" pill (tooltip: "Missed · new date …"); normal pending
 // doses get no badge. The date is computed by the system (lib/nip-schedule), never typed in.
+// `provisional`: the date counts a dose that is recorded but still awaiting approval ("Pending
+// approval"); it becomes final when the PHN approves, and reverts if the record is returned.
 
 import Link from 'next/link'
 import { manilaTodayYMD, nipDaysBetween } from '@/lib/nip-schedule'
@@ -28,12 +30,13 @@ export function relativeDay(ymd: string, today = manilaTodayYMD()): string | nul
   return d > 0 ? `in ${d} days` : `${-d} days ago`
 }
 
-export function NextDose({ date, vaccine, dose, missed = false, href, className }: {
+export function NextDose({ date, vaccine, dose, missed = false, provisional = false, href, className }: {
   /** YYYY-MM-DD; for a missed dose, its new (rescheduled) date. */
   date: string | null | undefined
   vaccine?: string | null
   dose?: number | null
   missed?: boolean
+  provisional?: boolean
   /** Makes the date a link (not inside buttons such as accordion headers). */
   href?: string
   className?: string
@@ -55,6 +58,11 @@ export function NextDose({ date, vaccine, dose, missed = false, href, className 
           </span>
         )}
         {rel && <span className="text-xs text-muted-foreground">{rel}</span>}
+        {provisional && (
+          <span title="Counts a dose that is recorded but not yet approved. Final once the PHN approves it." className="rounded-full bg-slate-100 px-1.5 text-[11px] font-medium leading-4 text-slate-600">
+            Pending approval
+          </span>
+        )}
       </span>
       {what && <span title={what} className="max-w-[14rem] truncate text-xs text-muted-foreground">{what}</span>}
     </span>

@@ -87,20 +87,24 @@ export async function GET(request: Request) {
     })
   }
 
-  // Fetch APPROVED records for those children in one shot
+  // Approved doses, plus doses recorded but still awaiting approval: those move the next date at
+  // once, marked provisional ("Pending approval") until the PHN approves. A record returned for
+  // correction does not count, so the next date goes back to what it was.
   const childIds = children.map((c) => c.child_id)
   const recRes = await supabase.from('vaccination_record')
     .select('vaccination_record_id, child_id, vaccine_id, dose_number, vaccination_date, status, vaccine:vaccine(vaccine_type)')
     .in('child_id', childIds)
-    .eq('status', 'APPROVED')
+    .in('status', ['APPROVED', 'PENDING'])
 
   if (recRes.error) return invalid(`Unable to load vaccination records. ${recRes.error.message ?? ''}`.trim(), 500)
   const approvedRecords = recRes.data ?? []
 
   // Index approved records by (child_id → vaccine code → dose number → date given)
 const doneMap = new Map<number, Map<string, Map<number, string>>>()
+const provisional = new Set<string>() // `${child_id}:${vaccine code}` with a dose awaiting approval
 
-for (const rec of approvedRecords) {
+// Approved first, so an approved dose wins over a pending duplicate.
+for (const rec of [...approvedRecords].sort((a, b) => (a.status === 'APPROVED' ? 0 : 1) - (b.status === 'APPROVED' ? 0 : 1))) {
   const vaccine = (
     Array.isArray(rec.vaccine) ? rec.vaccine[0] : rec.vaccine
   ) as { vaccine_type?: string } | null
@@ -121,7 +125,9 @@ for (const rec of approvedRecords) {
     perChild.set(code, doses)
   }
 
+  if (doses.has(rec.dose_number)) continue
   doses.set(rec.dose_number, String(rec.vaccination_date))
+  if (rec.status === 'PENDING') provisional.add(`${rec.child_id}:${code}`)
 }
   const today = manilaTodayYMD()
   // Editable rules from the vaccine catalog: doses past their eligibility window are Not
@@ -145,6 +151,8 @@ for (const rec of approvedRecords) {
     days_overdue: number
     rescheduled_date: string | null
     status: Status
+    /** The date depends on a dose still awaiting approval. */
+    provisional: boolean
   }
   const defaulters: DefaulterRow[] = []
   const pending: DefaulterRow[] = []
@@ -185,6 +193,7 @@ for (const rec of approvedRecords) {
           days_overdue: daysPast,
           rescheduled_date: t.rescheduled_date,
           status: t.status === 'OVERDUE' ? 'OVERDUE' : 'UPCOMING',
+          provisional: provisional.has(`${c.child_id}:${v.code}`),
         })
       }
     }

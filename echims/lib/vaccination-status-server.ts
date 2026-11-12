@@ -11,13 +11,14 @@ type Given = Map<string, Map<number, string>> // vaccine code → dose → date 
 
 const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null)
 
-/** Approved doses per child: child_id → vaccine code → dose number → date given. */
+/** Doses given per child (approved, or recorded and awaiting approval — same rule as the
+ *  Schedule tab): child_id → vaccine code → dose number → date given. */
 export async function approvedDoses(db: Db, childIds: number[]): Promise<Map<number, Given>> {
   const out = new Map<number, Given>()
   for (let i = 0; i < childIds.length; i += 300) {
     const { data, error } = await db.from('vaccination_record')
       .select('child_id, dose_number, vaccination_date, vaccine:vaccine(vaccine_type)')
-      .eq('status', 'APPROVED')
+      .in('status', ['APPROVED', 'PENDING'])
       .in('child_id', childIds.slice(i, i + 300))
     if (error) throw error
     for (const r of (data ?? []) as { child_id: number; dose_number: number; vaccination_date: string; vaccine: unknown }[]) {

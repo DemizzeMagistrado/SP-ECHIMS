@@ -43,6 +43,10 @@ type DoseRow = {
   // NIP-USR008 — flag + source for retrospective records (Baby Book, prior RHU).
   is_prior?: boolean
   prior_source?: string | null
+  /** Given, but the record is still awaiting PHN approval. */
+  pending_approval?: boolean
+  /** Open dose whose date depends on a dose awaiting approval. */
+  provisional?: boolean
 }
 type VaccineStatus = {
   code: string
@@ -213,7 +217,7 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
                   {next && nextDate ? (
                     <div className="mt-3 flex items-start gap-3 text-sm">
                       <span className="pt-0.5 text-xs font-semibold uppercase tracking-wide text-brand-muted">Next dose</span>
-                      <NextDose date={nextDate} vaccine={next.vaccine_type} dose={next.dose_number} missed={next.status === 'OVERDUE'} className="items-start text-left" />
+                      <NextDose date={nextDate} vaccine={next.vaccine_type} dose={next.dose_number} missed={next.status === 'OVERDUE'} provisional={next.provisional} className="items-start text-left" />
                     </div>
                   ) : <p className="mt-2 text-sm text-brand-muted">All doses for this age are given or past their age limit.</p>}
                 </div>
@@ -280,7 +284,7 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
                           <span className="text-xs text-muted-foreground sm:w-40 sm:text-right">
                             {/* Compact next date (the Missed badge is already on the left). */}
                             {g.next
-                              ? <NextDose date={g.next.rescheduled_date ?? g.next.due_date} dose={g.next.dose_number} className="sm:items-end sm:text-right" />
+                              ? <NextDose date={g.next.rescheduled_date ?? g.next.due_date} dose={g.next.dose_number} provisional={g.next.provisional} className="sm:items-end sm:text-right" />
                               : g.state === 'NOT_ELIGIBLE' ? 'Past the age limit' : 'All doses given'}
                           </span>
                         </span>
@@ -308,6 +312,7 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
                                       <td className="py-2.5 pr-3 text-foreground">
                                         {formatDate(r.given_date)}
                                         {r.is_prior && <PriorChip source={r.prior_source} />}
+                                        {r.pending_approval && <AwaitingChip />}
                                       </td>
                                       <td className="py-2.5 pr-3 text-muted-foreground"><BatchLink batch={r.batch_number} canTrace={canTrace} /></td>
                                       <td className="py-2.5 pr-3 text-muted-foreground">{doseRemarks(r)}</td>
@@ -329,7 +334,7 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
                                     </div>
                                     <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
                                       <dt className="text-brand-muted">Due</dt><dd>{formatDate(r.due_date)}</dd>
-                                      <dt className="text-brand-muted">Given</dt><dd>{formatDate(r.given_date)}{r.is_prior && <PriorChip source={r.prior_source} />}</dd>
+                                      <dt className="text-brand-muted">Given</dt><dd>{formatDate(r.given_date)}{r.is_prior && <PriorChip source={r.prior_source} />}{r.pending_approval && <AwaitingChip />}</dd>
                                       <dt className="text-brand-muted">Batch</dt><dd><BatchLink batch={r.batch_number} canTrace={canTrace} /></dd>
                                       <dt className="text-brand-muted">Site / remarks</dt><dd>{doseRemarks(r)}</dd>
                                     </dl>
@@ -373,6 +378,11 @@ function BatchLink({ batch, canTrace }: { batch: string | null; canTrace: boolea
   if (!batch) return <>—</>
   if (!canTrace) return <>{batch}</>
   return <Link href={`/inventory/batch-trace?batch_number=${encodeURIComponent(batch)}`} className="font-medium text-brand-blue underline-offset-2 hover:underline">{batch}</Link>
+}
+
+/** A given dose whose record the PHN has not approved yet (counts provisionally). */
+function AwaitingChip() {
+  return <span title="Recorded; counts once the PHN approves it" className="ml-1.5 inline-flex rounded-full bg-slate-100 px-1.5 text-[11px] font-medium leading-4 text-slate-600">Awaiting approval</span>
 }
 
 function PriorChip({ source }: { source: string | null | undefined }) {

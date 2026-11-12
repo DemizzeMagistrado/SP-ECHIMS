@@ -339,7 +339,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
                 const n = c ? nextByChild.get(c.child_id) : undefined
                 if (!c || !n) return <span className="text-muted-foreground" title={schedule.isLoading ? 'Loading the schedule…' : 'No missed or pending dose'}>—</span>
                 const missed = n.status === 'OVERDUE'
-                return <NextDose date={doseDate(n)} vaccine={n.vaccine_type} dose={n.dose_number} missed={missed} href={vaccinationProfileHref(c.child_id, missed ? n.vaccine_code : null)} />
+                return <NextDose date={doseDate(n)} vaccine={n.vaccine_type} dose={n.dose_number} missed={missed} provisional={n.provisional} href={vaccinationProfileHref(c.child_id, missed ? n.vaccine_code : null)} />
               },
             },
             {
@@ -447,6 +447,8 @@ type DoseRow = {
   days_overdue: number
   rescheduled_date: string | null
   status: 'OVERDUE' | 'UPCOMING'
+  /** Depends on a dose recorded but still awaiting approval. */
+  provisional?: boolean
 }
 type DosesPayload = {
   defaulters: DoseRow[]
@@ -713,7 +715,7 @@ function ScheduleSection() {
                         {/* Status summary: the next dose (compact), a missed count only when more than one,
                             and the request only when it needs action. */}
                         <span className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
-                          {next && <NextDose date={doseDate(next)} vaccine={next.vaccine_type} dose={next.dose_number} missed={next.status === 'OVERDUE'} />}
+                          {next && <NextDose date={doseDate(next)} vaccine={next.vaccine_type} dose={next.dose_number} missed={next.status === 'OVERDUE'} provisional={next.provisional} />}
                           {c.missed.length > 1 && <StatusBadge status="missed" tone="danger" label={`${c.missed.length} missed`} />}
                           {req && (req.status === 'PENDING' || req.status === 'NEEDS_REVISION') && <StatusBadge status={req.status === 'PENDING' ? 'pending' : 'upcoming'} label={SCHEDULE_STATUS_META[req.status].label} />}
                           <BhwAssistBadge assist={c.bhw_assist} />
@@ -745,13 +747,13 @@ function ScheduleSection() {
                               <Link href={vaccinationProfileHref(c.child_id, d.vaccine_code)} className="font-medium text-brand-navy underline-offset-4 hover:text-brand-blue hover:underline">{d.vaccine_type} · Dose {d.dose_number}</Link>
                               <span className="mt-0.5 block text-xs text-muted-foreground">Due {formatYmd(d.due_date)} · missed for {days(d.days_overdue)}</span>
                             </span>
-                            <NextDose date={doseDate(d)} missed />
+                            <NextDose date={doseDate(d)} missed provisional={d.provisional} />
                           </li>
                         ))}
                         {c.pending.map((d) => (
                           <li key={`p-${d.vaccine_code}-${d.dose_number}`} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-border/70">
                             <span className="font-medium text-brand-navy">{d.vaccine_type} · Dose {d.dose_number}</span>
-                            <NextDose date={doseDate(d)} />
+                            <NextDose date={doseDate(d)} provisional={d.provisional} />
                           </li>
                         ))}
                         {c.missed.length === 0 && c.pending.length === 0 && <li className="text-sm text-muted-foreground">No routine doses due right now.</li>}
