@@ -26,6 +26,7 @@ import { FileText, SearchX } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
+import { Pagination, usePagination } from '@/components/ui/pagination'
 type Options = {
   currentUserId: string;
   role: string;
@@ -327,6 +328,7 @@ export default function ReportsPage() {
       if (active.current) setBusy(false);
     }
   }
+  const { visible: reportsPage, bindList: bindReportList, listStyle: reportListStyle, props: reportPagerProps } = usePagination(options?.reports ?? []);
   const shown = detail?.report.snapshot ?? preview;
   const fields = shown
     ? columns[
@@ -405,7 +407,7 @@ export default function ReportsPage() {
               Refresh
             </Button>
           </div>
-          <div className="overflow-x-auto">
+          <div ref={bindReportList} style={reportListStyle} className="scroll-mt-4 overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-muted/50">
                 <tr>
@@ -424,7 +426,7 @@ export default function ReportsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {options.reports.map((r) => (
+                {reportsPage.map((r) => (
                   <tr key={r.report_id}>
                     <td className="p-3">
                       {r.title}
@@ -467,29 +469,17 @@ export default function ReportsPage() {
               </tbody>
             </table>
           </div>
-          <div className="flex items-center gap-3">
-            <Button variant="secondary" size="sm"
-              disabled={page === 1 || busy || loading}
-              onClick={() => {
-                clear();
-                setPage((v) => v - 1);
-              }}
-             
-            >
-              Previous
-            </Button>
-            <span>Page {page}</span>
-            <Button variant="secondary" size="sm"
-              disabled={page * 50 >= options.total || busy || loading}
-              onClick={() => {
-                clear();
-                setPage((v) => v + 1);
-              }}
-             
-            >
-              Next
-            </Button>
-          </div>
+          <Pagination {...reportPagerProps} label="Saved report pages" />
+          {/* The server sends 50 saved reports at a time. */}
+          {options.total > 50 && (
+            <div className="flex items-center justify-between gap-3 text-xs text-brand-muted">
+              <span>Batch {page} of {Math.ceil(options.total / 50)} (50 reports each)</span>
+              <span className="flex gap-2">
+                <Button variant="ghost" size="sm" disabled={page === 1 || busy || loading} onClick={() => { clear(); setPage((v) => v - 1); }}>Newer</Button>
+                <Button variant="ghost" size="sm" disabled={page * 50 >= options.total || busy || loading} onClick={() => { clear(); setPage((v) => v + 1); }}>Older</Button>
+              </span>
+            </div>
+          )}
         </section>
       )}
       {section === "PREVIEW" && options && (

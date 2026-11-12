@@ -26,6 +26,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/form'
+import { Pagination, usePagination } from '@/components/ui/pagination'
 type Rule = {
   rule_id: number;
   rule_name: string;
@@ -531,6 +532,7 @@ function AlertsWorkspace() {
         (filter === "info" && alert.severity === "LOW") ||
         (filter === "resolved" && alert.status === "RESOLVED")),
   );
+  const { visible: alertsPage, bindList: bindAlertList, listStyle: alertListStyle, props: alertPagerProps } = usePagination(alerts);
   const programs = [
     ...new Set(
       (data?.alerts ?? []).map(
@@ -640,7 +642,7 @@ function AlertsWorkspace() {
             Cards count all alerts you can access. Filters apply to the current
             page of 50 alerts. High and medium severity appear under Warning.
           </p>
-          <div className="space-y-3">
+          <div ref={bindAlertList} style={alertListStyle} className="scroll-mt-4 space-y-3">
             {alerts.length === 0 ? (
               <div className="rounded-2xl border border-border bg-white p-10 text-center">
                 <CheckCircle size={40} className="mx-auto mb-3 text-teal-700" />
@@ -649,7 +651,7 @@ function AlertsWorkspace() {
                 </h3>
               </div>
             ) : (
-              alerts.map((alert) => {
+              alertsPage.map((alert) => {
                 const destination = alertDestination(alert);
                 const resolved = alert.status === "RESOLVED";
                 const critical = alert.severity === "CRITICAL";
@@ -754,23 +756,18 @@ function AlertsWorkspace() {
               })
             )}
           </div>
-          <div className="flex items-center justify-between">
-            <Button variant="secondary"
-              disabled={page === 1 || loading}
-              onClick={() => setPage((value) => value - 1)}
-            >
-              Previous
-            </Button>
-            <span className="text-sm">
-              Page {page} of{" "}
-              {Math.max(1, Math.ceil((summary?.total ?? 0) / 50))}
-            </span>
-            <Button variant="secondary"
-              disabled={page * 50 >= (summary?.total ?? 0) || loading}
-              onClick={() => setPage((value) => value + 1)}
-            >
-              Next
-            </Button>
+          <div className="overflow-hidden rounded-2xl border border-brand-line bg-white">
+            <Pagination {...alertPagerProps} label="Alert pages" className="border-t-0" />
+            {/* The server sends 50 alerts at a time; the filters above work on this batch. */}
+            {(summary?.total ?? 0) > 50 && (
+              <div className="flex items-center justify-between gap-3 border-t border-brand-line px-4 py-2.5 text-xs text-brand-muted">
+                <span>Batch {page} of {Math.ceil((summary?.total ?? 0) / 50)} (50 alerts each)</span>
+                <span className="flex gap-2">
+                  <Button variant="ghost" size="sm" disabled={page === 1 || loading} onClick={() => setPage((value) => value - 1)}>Newer alerts</Button>
+                  <Button variant="ghost" size="sm" disabled={page * 50 >= (summary?.total ?? 0) || loading} onClick={() => setPage((value) => value + 1)}>Older alerts</Button>
+                </span>
+              </div>
+            )}
           </div>
         </>
       )}

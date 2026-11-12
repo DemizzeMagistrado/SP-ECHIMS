@@ -8,8 +8,9 @@
 //   ]} empty={{ title: 'No stock yet', description: '…' }} toolbar={<SearchInput … />} />
 
 import { useMemo, useState, type ReactNode } from 'react'
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight } from 'lucide-react'
 import { EmptyState } from './empty-state'
+import { PAGE_SIZE, Pagination, usePagination } from './pagination'
 import { cn } from '@/lib/utils'
 
 export type Column<T> = {
@@ -36,21 +37,17 @@ type Props<T> = {
   onRowClick?: (row: T) => void
   /** Accessible name for an openable row, e.g. "Open Juan Dela Cruz's profile". */
   rowLabel?: (row: T) => string
-  /** 0 turns pagination off. */
+  /** Items per page (default and max: 6, the shared PAGE_SIZE); 0 turns pagination off. */
   pageSize?: number
   /** scroll = horizontal scroll on narrow screens; cards = one card per row below sm. */
   mobile?: 'scroll' | 'cards'
   className?: string
 }
 
-const PAGE_SIZES = [10, 25, 50, 100]
-
 export function DataTable<T>({
-  rows, columns, rowKey, caption, toolbar, empty, refreshing = false, onRowClick, rowLabel, pageSize: initialSize = 25, mobile = 'scroll', className,
+  rows, columns, rowKey, caption, toolbar, empty, refreshing = false, onRowClick, rowLabel, pageSize = PAGE_SIZE, mobile = 'scroll', className,
 }: Props<T>) {
   const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null)
-  const [size, setSize] = useState(initialSize)
-  const [page, setPage] = useState(0)
 
   // Openable rows: whole row clicks, Enter/Space from the keyboard, but links/buttons inside the
   // row keep their own action.
@@ -83,9 +80,7 @@ export function DataTable<T>({
     })
   }, [rows, columns, sort])
 
-  const pages = size > 0 ? Math.max(1, Math.ceil(sorted.length / size)) : 1
-  const current = Math.min(page, pages - 1)
-  const visible = size > 0 ? sorted.slice(current * size, current * size + size) : sorted
+  const { visible, setPage, bindList, listStyle, props: pagerProps } = usePagination(sorted, Math.min(pageSize, PAGE_SIZE))
 
   const toggle = (key: string) => {
     setSort((s) => (s?.key !== key ? { key, dir: 'asc' } : s.dir === 'asc' ? { key, dir: 'desc' } : null))
@@ -100,7 +95,8 @@ export function DataTable<T>({
       {rows.length === 0 ? (
         <EmptyState {...(empty ?? { title: 'Nothing to show yet' })} />
       ) : (
-        <div className={cn('transition-opacity duration-200', refreshing && 'opacity-60')} aria-busy={refreshing || undefined}>
+        <div ref={bindList} className={cn('scroll-mt-4 transition-opacity duration-200', refreshing && 'opacity-60')} aria-busy={refreshing || undefined}>
+          <div style={listStyle}>
           {/* Sticky header: the scroll box is capped in height so the header has something to stick to. */}
           <div className={cn('scroll-subtle max-h-[70vh] overflow-auto', mobile === 'cards' && 'hidden sm:block')}>
             <table className="w-full border-separate border-spacing-0 text-sm">
@@ -168,21 +164,8 @@ export function DataTable<T>({
             </ul>
           )}
 
-          {size > 0 && sorted.length > PAGE_SIZES[0] && (
-            <nav aria-label="Table pages" className="flex flex-wrap items-center justify-between gap-3 border-t border-brand-line px-4 py-3 text-sm text-brand-muted">
-              <label className="flex items-center gap-2">
-                Rows per page
-                <select value={size} onChange={(e) => { setSize(Number(e.target.value)); setPage(0) }} className="h-8 rounded-lg border border-brand-line bg-white px-2 text-brand-navy outline-none focus-visible:ring-3 focus-visible:ring-brand-blue/20">
-                  {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </label>
-              <div className="flex items-center gap-1">
-                <span className="mr-2" aria-live="polite">{current * size + 1}–{Math.min(sorted.length, (current + 1) * size)} of {sorted.length}</span>
-                <button type="button" aria-label="Previous page" disabled={current === 0} onClick={() => setPage(current - 1)} className="rounded-lg p-1.5 hover:bg-brand-ice disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-ring"><ChevronLeft size={16} aria-hidden="true" /></button>
-                <button type="button" aria-label="Next page" disabled={current >= pages - 1} onClick={() => setPage(current + 1)} className="rounded-lg p-1.5 hover:bg-brand-ice disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-ring"><ChevronRight size={16} aria-hidden="true" /></button>
-              </div>
-            </nav>
-          )}
+          </div>
+          {pageSize > 0 && <Pagination {...pagerProps} label="Table pages" />}
         </div>
       )}
     </div>

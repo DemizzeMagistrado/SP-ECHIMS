@@ -60,7 +60,7 @@ Display-font title, one-line muted subtitle, `actions` on the right (wrap below 
 
 ## DataTable — `data-table.tsx`
 Client-side table with sticky header, sortable columns (give a column `sortValue`), pagination
-with page size (`pageSize`, 0 = off), right-aligned numbers (`align: 'right'`), `toolbar` slot for
+(6 per page, the shared `PAGE_SIZE`; `pageSize={0}` turns it off), right-aligned numbers (`align: 'right'`), `toolbar` slot for
 search/filters, EmptyState when empty (`empty` = EmptyState props), `refreshing` dims rows in place
 while a refetch runs (`isLoading && !!data` with SWR `keepPreviousData`). `mobile="cards"` stacks rows
 as cards below `sm`; default is horizontal scroll.
@@ -71,6 +71,17 @@ as cards below `sm`; default is horizontal scroll.
     { key: 'item', header: 'Item', cell: (r) => r.name, sortValue: (r) => r.name },
     { key: 'qty', header: 'Qty', cell: (r) => r.qty, sortValue: (r) => r.qty, align: 'right' },
   ]} />
+```
+
+## Pagination — `pagination.tsx`
+Every paginated list shows at most 6 items (`PAGE_SIZE`). `usePagination(rows)` returns `visible`,
+`bindList` (ref for the list's outer element: keeps its height steady and scrolls back to its top)
+and `props` for `<Pagination/>` (Previous / Next, page numbers, "Showing 1–6 of 42"; compact on phones).
+Destructure the result (the React compiler lint reads `pager.bindList` as a ref access).
+```tsx
+const { visible, bindList, listStyle, props } = usePagination(rows)
+<ul ref={bindList} style={listStyle}>{visible.map(…)}</ul>
+<Pagination {...props} label="Child pages" />
 ```
 
 ## StatusBadge — `status-badge.tsx`
