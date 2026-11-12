@@ -842,7 +842,8 @@ function CatalogSection() {
     })
   }
   const [search, setSearch] = useState('')
-  const [activeFilter, setActiveFilter] = useState<'all' | 'ACTIVE' | 'INACTIVE'>('all')
+  // Active vaccines by default (Rotavirus is kept as inactive for old records).
+  const [activeFilter, setActiveFilter] = useState<'all' | 'ACTIVE' | 'INACTIVE'>('ACTIVE')
 
   function openCreate() { setEditing(null); setModalOpen(true) }
   function openEdit(v: VaccineCatalogRow) { setEditing(v); setModalOpen(true) }
@@ -1133,6 +1134,7 @@ function BatchRequestsSection() {
   const { user, isReady } = useAuth()
   const role = user?.role as UserRole | undefined
   const canView = role ? canPerform(role, 'Vaccine Batch Requests', 'view') : false
+  const canTrace = role === 'Public Health Nurse' || role === 'Administrator'
 
   const [statusFilter, setStatusFilter] = useState<string>('')
   const url = statusFilter
@@ -1224,19 +1226,29 @@ function BatchRequestsSection() {
             description: canCreate ? 'Use “New request” to submit a batch request.' : 'Nothing to review right now.',
           }}
           columns={[
-            { key: 'id', header: '#', sortValue: (r) => r.stock_request_id, cell: (r) => <span className="font-mono text-xs text-muted-foreground">#{r.stock_request_id}</span> },
             {
               key: 'vaccine', header: 'Vaccine · Batch', sortValue: (r) => one(r.item)?.item_name ?? one(r.vaccine)?.vaccine_type ?? '',
               cell: (r) => (
                 <div>
                   <div className="font-semibold text-brand-navy">{one(r.item)?.item_name ?? one(r.vaccine)?.vaccine_type ?? '—'}</div>
-                  <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground"><Hash size={10} aria-hidden="true" /> {r.batch_number ?? '—'}</div>
+                  <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                    <Hash size={10} aria-hidden="true" />
+                    {r.batch_number && canTrace ? <Link href={`/inventory/batch-trace?batch_number=${encodeURIComponent(r.batch_number)}`} className="font-medium text-brand-blue hover:underline">{r.batch_number}</Link> : r.batch_number ?? '—'}
+                    <span className="font-mono">· #{r.stock_request_id}</span>
+                  </div>
                 </div>
               ),
             },
             { key: 'qty', header: 'Qty', align: 'right', sortValue: (r) => r.requested_quantity, cell: (r) => <span><strong>{r.requested_quantity}</strong> <span className="text-xs text-muted-foreground">{one(r.item)?.unit ?? 'dose(s)'}</span></span> },
-            { key: 'barangay', header: 'Target barangay', sortValue: (r) => one(r.target_barangay)?.barangay_name ?? '', cell: (r) => <span className="flex items-center gap-1 text-muted-foreground"><MapPin size={11} aria-hidden="true" /> {one(r.target_barangay)?.barangay_name ?? '—'}</span> },
-            { key: 'requested', header: 'Requested', sortValue: (r) => r.request_date, cell: (r) => <span className="flex items-center gap-1 text-xs text-muted-foreground"><CalendarClock size={10} aria-hidden="true" /> {formatYmd(r.request_date)}</span> },
+            {
+              key: 'barangay', header: 'Barangay · requested', sortValue: (r) => r.request_date,
+              cell: (r) => (
+                <span className="flex flex-col items-end text-muted-foreground sm:items-start">
+                  <span className="flex items-center gap-1"><MapPin size={11} aria-hidden="true" /> {one(r.target_barangay)?.barangay_name ?? '—'}</span>
+                  <span className="flex items-center gap-1 text-xs"><CalendarClock size={10} aria-hidden="true" /> {formatYmd(r.request_date)}</span>
+                </span>
+              ),
+            },
             { key: 'status', header: 'Status', sortValue: (r) => r.status, cell: (r) => { const meta = BATCH_STATUS_META[r.status] ?? BATCH_STATUS_META.PENDING; return <StatusBadge status={r.status} label={meta.label} icon={meta.icon} /> } },
             {
               key: 'action', header: 'Action',

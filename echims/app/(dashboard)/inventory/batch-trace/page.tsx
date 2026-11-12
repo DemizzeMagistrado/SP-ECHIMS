@@ -8,7 +8,8 @@
 // Export: CSV download of the children + transactions tables.
 
 import { StatCard } from '@/components/ui/stat-card'
-import { useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
+import { normalizeBatchNumber } from '@/lib/vaccination-config'
 import useSWR from 'swr'
 import {
   Search, Package, Hash, MapPin, CalendarClock, AlertCircle, Download, Users, Syringe, Pill,
@@ -62,8 +63,12 @@ export default function BatchTracePage() {
   const canView = role === 'Public Health Nurse' || role === 'Administrator'
   const _hasModule = role ? canPerform(role, 'Inventory', 'view') : false
 
-  const [query, setQuery] = useState('')
-  const [submitted, setSubmitted] = useState('')
+  // Links from vaccination records open this page with ?batch_number=… (read without an effect).
+  const linked = useSyncExternalStore(() => () => {}, () => normalizeBatchNumber(new URLSearchParams(window.location.search).get('batch_number')) ?? '', () => '')
+  const [typed, setQuery] = useState<string | null>(null)
+  const [chosen, setSubmitted] = useState<string | null>(null)
+  const query = typed ?? linked
+  const submitted = chosen ?? linked
 
   const { data, error, isLoading } = useSWR<TracePayload>(
     canView && submitted ? `/api/inventory/batch-trace?batch_number=${encodeURIComponent(submitted)}` : null,

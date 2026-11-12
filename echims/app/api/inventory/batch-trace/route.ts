@@ -6,6 +6,7 @@
 // inventory_transaction linked to them, plus the child-level records
 // (vaccination + supplementation) that referenced the same batch_number.
 
+import { normalizeBatchNumber } from '@/lib/vaccination-config'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
@@ -35,7 +36,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Not authorized to view inventory.' }, { status: 403 })
   }
 
-  const batchNumber = (new URL(request.url).searchParams.get('batch_number') ?? '').trim()
+  const batchNumber = normalizeBatchNumber(new URL(request.url).searchParams.get('batch_number')) ?? ''
   if (!batchNumber) return NextResponse.json({ error: 'batch_number query param is required.' }, { status: 400 })
 
   // Step 1: matching batches (one per barangay — same batch_number can be
