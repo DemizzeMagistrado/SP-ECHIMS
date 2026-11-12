@@ -1,6 +1,7 @@
 'use client'
 import { StatCard } from '@/components/ui/stat-card'
-import { X, UserX } from 'lucide-react'
+import { Modal } from '@/components/ui/modal'
+import { UserX } from 'lucide-react'
 import { UserActions } from '@/components/user-management/user-actions'
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
@@ -883,40 +884,16 @@ export default function UserManagementClient({
       {/* USER DETAILS MODAL */}
 
       {selectedUser && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white shadow-2xl">
-
+        <Modal
+          open
+          size="lg"
+          onClose={closeModal}
+          title="User Details"
+          subtitle="Review account and workplace information."
+          cancelLabel="Close"
+          bodyClassName="space-y-6"
+        >
             {!readOnly && currentUser && <UserActions user={selectedUser} currentUserId={currentUser.id} onChanged={() => window.location.reload()} />}
-            {/* MODAL HEADER */}
-
-            <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5">
-
-              <div>
-                <h2 className="text-xl font-bold text-[#023E8A]">
-                  User Details
-                </h2>
-
-                <p className="mt-1 text-sm text-gray-500">
-                  Review account and
-                  workplace information.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={
-                  closeModal
-                }
-                aria-label="Close user details"
-                className="rounded-lg px-3 py-1 text-2xl text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
-              >
-                <X size={20} aria-hidden="true" />
-              </button>
-
-            </div>
-
-            <div className="space-y-6 p-6">
 
               {/* ACCOUNT INFORMATION */}
 
@@ -1548,10 +1525,7 @@ export default function UserManagementClient({
 
                 </div>
               </section>
-
-            </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
     </div>

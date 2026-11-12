@@ -7,9 +7,11 @@ import { useAuth } from '@/components/auth/auth-provider'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { createClient } from '@/lib/supabase/client'
 import type { UserRole } from '@/lib/echims-data'
-import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
+import { LogoLoader } from '@/components/brand/logo-loader'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
+import { Modal } from '@/components/ui/modal'
+import { Button } from '@/components/ui/button'
 import { Select, DateInput } from '@/components/ui/form'
 
 // INV-USR001 / INV-USR002 — Stock Overview.
@@ -406,16 +408,15 @@ function StockInForm({ items, barangays, onClose, onSaved }: {
   const supplements = items.filter((i) => i.kind === 'Supplement')
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="stock-in-title">
-      <form onSubmit={submit} noValidate className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-        <div className="mb-5 flex items-start justify-between">
-          <div>
-            <h2 id="stock-in-title" className="text-xl font-bold text-[#03045E]">Record stock-in</h2>
-            <p className="mt-1 text-sm text-[#6B7280]">Log stock received. Quantity on hand updates when saved.</p>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="text-[#6B7280] hover:text-[#03045E]"><X size={20} /></button>
-        </div>
-
+    <Modal
+      open
+      onClose={onClose}
+      busy={saving}
+      title="Record stock-in"
+      subtitle="Log stock received. Quantity on hand updates when saved."
+      onSubmit={submit}
+      footer={<Button type="submit" loading={saving}>{saving ? 'Saving...' : 'Save stock-in'}</Button>}
+    >
         {formError && <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{formError}</div>}
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -462,13 +463,6 @@ function StockInForm({ items, barangays, onClose, onSaved }: {
           </label>
         </div>
 
-        <div className="mt-6 flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="rounded-lg border border-[#E5E7EB] px-4 py-2.5 text-sm font-semibold text-[#374151] hover:bg-[#F9FAFB]">Cancel</button>
-          <button type="submit" disabled={saving} className="rounded-lg bg-[#0077B6] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#03045E] disabled:opacity-60">
-            {saving && <Spinner className="mr-2" />}{saving ? 'Saving...' : 'Save stock-in'}
-          </button>
-        </div>
-      </form>
-    </div>
+    </Modal>
   )
 }

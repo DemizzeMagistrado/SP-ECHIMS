@@ -2,11 +2,12 @@
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { X, HeartPulse } from "lucide-react";
+import { HeartPulse } from "lucide-react";
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 
 type Event = {
@@ -417,36 +418,20 @@ export function NutritionAdmissionPanel({
         required. At most the latest 500 scoped entries are displayed.
       </p>
       {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
-          <form
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="admission-title"
-            className="max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-3xl bg-white p-6"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void save();
-            }}
-          >
-            <header className="flex justify-between gap-3">
-              <div>
-                <h3 id="admission-title" className="text-lg font-semibold">
-                  Confirm admission / care details
-                </h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {selected.child_name} · Source assessment #
-                  {selected.source_assessment_id}
-                </p>
-              </div>
-              <button
-                type="button"
-                aria-label="Close care form"
-                disabled={busy}
-                onClick={() => setSelected(null)}
-              >
-                <X size={20} />
-              </button>
-            </header>
+        <Modal
+          open
+          size="lg"
+          onClose={() => setSelected(null)}
+          busy={busy}
+          title="Confirm admission / care details"
+          subtitle={<>{selected.child_name} · Source assessment #{selected.source_assessment_id}</>}
+          bodyClassName="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void save();
+          }}
+          footer={<Button type="submit" loading={busy} disabled={!online}>{busy ? "Saving…" : "Save care details"}</Button>}
+        >
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm">
                 Care type *
@@ -525,22 +510,7 @@ export function NutritionAdmissionPanel({
               Record what was confirmed at the checkup. The system does not
               choose treatment or infer recovery.
             </p>
-            <footer className="flex justify-end gap-2 border-t pt-4">
-              <Button variant="secondary"
-                disabled={busy}
-                onClick={() => setSelected(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={busy || !online}
-              >
-                {busy && <Spinner className="mr-2" />}{busy ? "Saving…" : "Save care details"}
-              </Button>
-            </footer>
-          </form>
-        </div>
+        </Modal>
       )}
     </section>
   );

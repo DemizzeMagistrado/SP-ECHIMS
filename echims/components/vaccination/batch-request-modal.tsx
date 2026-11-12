@@ -12,10 +12,11 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import { useEffect, useState } from 'react'
 import useSWR from 'swr'
-import { X, AlertCircle, Syringe, Hash, MapPin, Package, FileText } from 'lucide-react'
+import { AlertCircle, Syringe, Hash, MapPin, Package, FileText } from 'lucide-react'
 import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
 import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
 import { Input, Select, Textarea } from '@/components/ui/form'
 
 type VaccineOption = {
@@ -101,33 +102,31 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
     }
   }
 
-  if (!open) return null
 
   const selectedVaccine = vaccines.find((v) => String(v.vaccine_id) === vaccineId) ?? null
 
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 border-b border-border p-6">
-          <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-primary">
-              <Package size={18} />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-foreground">New vaccine batch request</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                Request a vaccine batch to be allocated to a barangay. Submits as <strong>PENDING</strong> for PHN review.
-              </p>
-            </div>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-1 text-muted-foreground hover:bg-muted">
-            <X size={20} />
-          </button>
-        </div>
+    <Modal
+      open={open}
+      onClose={onClose}
+      busy={saving}
+      size="lg"
+      icon={<Package />}
+      title="New vaccine batch request"
+      subtitle={<>Request a vaccine batch to be allocated to a barangay. Submits as <strong>PENDING</strong> for PHN review.</>}
+      onSubmit={submit}
+      footer={<>
 
-        {/* Form */}
-        <form onSubmit={submit} className="space-y-5 p-6">
+            <Button
+              type="submit"
+              disabled={saving}
+            >
+              {saving ? <Spinner /> : <Package size={14} />}
+              {saving ? 'Submitting…' : 'Submit request'}
+            </Button>
+      </>}
+    >
+        <div className="space-y-5">
           {/* Vaccine + Barangay row */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
@@ -229,23 +228,7 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
           )}
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-            <Button variant="secondary"
-              onClick={onClose}
-              disabled={saving}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={saving}
-            >
-              {saving ? <Spinner /> : <Package size={14} />}
-              {saving ? 'Submitting…' : 'Submit request'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </div>
+    </Modal>
   )
 }

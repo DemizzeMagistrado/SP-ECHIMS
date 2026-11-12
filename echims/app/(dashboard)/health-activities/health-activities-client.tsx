@@ -8,17 +8,7 @@ import { submitSafeDraft } from '@/lib/offline/safe-submit'
 import { listActivityDrafts,saveActivityDraft,deleteActivityDraft,type ActivityDraft } from '@/lib/activity-drafts'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
-import {
-  AlertTriangle,
-  CalendarDays,
-  CheckCircle2,
-  Clock3,
-  Plus,
-  RefreshCw,
-  Search,
-  X,
-  XCircle,
-} from 'lucide-react'
+import { AlertTriangle, CalendarDays, CheckCircle2, Clock3, Plus, RefreshCw, Search, XCircle } from 'lucide-react'
 
 import {
   FormEvent,
@@ -38,6 +28,7 @@ import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
 import { StatusBadge } from '@/components/ui/status-badge'
 
 /* =========================================================
@@ -299,7 +290,7 @@ function ActivityDetailsModal({
   ]
 
   return (
-    <ModalShell title="Health Activity Details" onClose={onClose}>
+    <ModalShell title="Health Activity Details" onClose={onClose} cancelLabel="Close" footer={canReview && activity.status === 'PENDING' ? <Button onClick={onReview}>Review Request</Button> : null}>
       <div className="space-y-5">
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-[#087db9]">
@@ -335,26 +326,6 @@ function ActivityDetailsModal({
             </p>
           </div>
         )}
-
-        <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-brand-navy hover:bg-slate-50"
-          >
-            Close
-          </button>
-
-          {canReview && activity.status === 'PENDING' && (
-            <button
-              type="button"
-              onClick={onReview}
-              className="rounded-full bg-primary px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-primary/90"
-            >
-              Review Request
-            </button>
-          )}
-        </div>
       </div>
     </ModalShell>
   )
@@ -1054,11 +1025,12 @@ function EditActivityModal({
   return (
     <ModalShell
       title="Edit & Resubmit Activity"
-      onClose={() => {
-        if (!submitting) onClose()
-      }}
+      onClose={onClose}
+      busy={submitting}
+      onSubmit={handleResubmit}
+      footer={<Button type="submit" loading={submitting}>{submitting ? 'Resubmitting…' : 'Resubmit for Review'}</Button>}
     >
-      <form onSubmit={handleResubmit} className="space-y-5">
+      <div className="space-y-5">
         <div className="rounded-xl bg-orange-50 p-4">
           <p className="text-sm font-semibold text-orange-900">
             PHN Revision Instructions
@@ -1129,27 +1101,7 @@ function EditActivityModal({
         </p>
 
         {error && <ErrorBox>{error}</ErrorBox>}
-
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-brand-navy hover:bg-slate-50 disabled:opacity-50"
-          >
-            Cancel
-          </button>
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-primary/90 disabled:opacity-50"
-          >
-            {submitting && <Spinner />}
-            {submitting ? 'Resubmitting…' : 'Resubmit for Review'}
-          </button>
-        </div>
-      </form>
+      </div>
     </ModalShell>
   )
 }
@@ -1259,14 +1211,12 @@ function UpdateStatusModal({
   return (
     <ModalShell
       title="Update Activity Status"
-      onClose={() => {
-        if (!submitting) onClose()
-      }}
+      onClose={onClose}
+      busy={submitting}
+      onSubmit={handleSubmit}
+      footer={<Button type="submit" loading={submitting} disabled={!status}>{submitting ? 'Saving…' : 'Save status'}</Button>}
     >
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-5"
-      >
+      <div className="space-y-5">
         <div className="rounded-xl bg-slate-50 p-4">
           <p className="font-bold text-brand-navy">
             {formatActivityType(activity.activity_type)}
@@ -1349,29 +1299,7 @@ function UpdateStatusModal({
         )}
 
         {error && <ErrorBox>{error}</ErrorBox>}
-
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-brand-navy hover:bg-slate-50 disabled:opacity-50"
-          >
-            Back
-          </button>
-
-          <button
-            type="submit"
-            disabled={submitting || !status}
-            className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-50"
-          >
-            {submitting && (
-              <Spinner />
-            )}
-            {submitting ? 'Saving…' : 'Save status'}
-          </button>
-        </div>
-      </form>
+      </div>
     </ModalShell>
   )
 }
@@ -1513,8 +1441,18 @@ function RequestActivityModal({
   }
 
   return (
-    <ModalShell title="Request Health Activity" onClose={onClose}>
-      <form ref={formRef} onSubmit={handleSubmit} className="grid gap-4">
+    <ModalShell
+      title="Request Health Activity"
+      onClose={onClose}
+      busy={submitting}
+      onSubmit={handleSubmit}
+      formRef={formRef}
+      footer={<>
+        {online===false && <Button variant="secondary" disabled={submitting} onClick={()=>void saveLocal()}>Save Draft on Device</Button>}
+        {online===true && <Button type="submit" loading={submitting} disabled={loadingOptions || barangays.length === 0 || Boolean(draft&&!reviewed)}>{submitting ? 'Submitting...' : draft?'Submit Reviewed Request':'Submit Request'}</Button>}
+      </>}
+    >
+      <div className="grid gap-4">
         <div className="rounded-2xl bg-[#f1fbfd] px-3 py-3">
           <p className="text-xs font-medium uppercase text-slate-500">
             Requesting as
@@ -1601,28 +1539,7 @@ function RequestActivityModal({
         <p className="text-sm text-amber-800">{online===false?'Save on this device, then review and submit after reconnecting. A draft does not reserve a schedule.':'Requests are checked against current scheduling rules when submitted.'}</p>
         {draft&&online===true&&<label className="flex gap-2 text-sm"><input type="checkbox" checked={reviewed} onChange={e=>setReviewed(e.target.checked)}/>I reviewed the date, time, activity and barangay.</label>}
         {error && <ErrorBox>{error}</ErrorBox>}
-
-        <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-brand-navy hover:bg-slate-50 disabled:opacity-50"
-          >
-            Cancel
-          </button>
-
-          {online===false && <button type="button" disabled={submitting} onClick={()=>void saveLocal()} className="rounded-full border border-sky-600 px-4 py-2 text-sm font-bold text-sky-800">Save Draft on Device</button>}
-          {online===true && <button
-            type="submit"
-            disabled={submitting || loadingOptions || barangays.length === 0 || Boolean(draft&&!reviewed)}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {submitting && <Spinner />}
-            {submitting ? 'Submitting...' : draft?'Submit Reviewed Request':'Submit Request'}
-          </button>}
-        </div>
-      </form>
+      </div>
     </ModalShell>
   )
 }
@@ -1704,7 +1621,34 @@ function ReviewActivityModal({
   }
 
   return (
-    <ModalShell title="Review Health Activity" onClose={onClose}>
+    <ModalShell title="Review Health Activity" onClose={onClose} busy={loadingAction !== null} footer={<>
+          <ActionButton
+            label="Reject"
+            icon={XCircle}
+            loading={loadingAction === 'REJECT'}
+            disabled={loadingAction !== null}
+            onClick={() => void review('REJECT')}
+            className="border border-rose-200 bg-white text-rose-700 hover:bg-rose-50"
+          />
+
+          <ActionButton
+            label="Reschedule"
+            icon={CalendarDays}
+            loading={loadingAction === 'RESCHEDULE'}
+            disabled={loadingAction !== null}
+            onClick={() => void review('RESCHEDULE')}
+            className="border border-[#087db9] bg-white text-[#087db9] hover:bg-[#f1fbfd]"
+          />
+
+          <ActionButton
+            label="Approve"
+            icon={CheckCircle2}
+            loading={loadingAction === 'APPROVE'}
+            disabled={loadingAction !== null}
+            onClick={() => void review('APPROVE')}
+            className="bg-primary text-white shadow-sm hover:bg-primary/90"
+          />
+      </>}>
       <div className="space-y-5">
         <div className="rounded-xl bg-slate-50 p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -1809,35 +1753,6 @@ function ReviewActivityModal({
         )}
 
         {error && <ErrorBox>{error}</ErrorBox>}
-
-        <div className="grid grid-cols-1 gap-2 pt-2 sm:grid-cols-3">
-          <ActionButton
-            label="Reject"
-            icon={XCircle}
-            loading={loadingAction === 'REJECT'}
-            disabled={loadingAction !== null}
-            onClick={() => void review('REJECT')}
-            className="border border-rose-200 bg-white text-rose-700 hover:bg-rose-50"
-          />
-
-          <ActionButton
-            label="Reschedule"
-            icon={CalendarDays}
-            loading={loadingAction === 'RESCHEDULE'}
-            disabled={loadingAction !== null}
-            onClick={() => void review('RESCHEDULE')}
-            className="border border-[#087db9] bg-white text-[#087db9] hover:bg-[#f1fbfd]"
-          />
-
-          <ActionButton
-            label="Approve"
-            icon={CheckCircle2}
-            loading={loadingAction === 'APPROVE'}
-            disabled={loadingAction !== null}
-            onClick={() => void review('APPROVE')}
-            className="bg-primary text-white shadow-sm hover:bg-primary/90"
-          />
-        </div>
       </div>
     </ModalShell>
   )
@@ -1899,41 +1814,12 @@ function ErrorBox({ children }: { children: React.ReactNode }) {
    MODAL SHELL
 ========================================================= */
 
-function ModalShell({
-  title,
-  children,
-  onClose,
-}: {
+function ModalShell({ title, children, onClose, ...rest }: {
   title: string
   children: React.ReactNode
   onClose: () => void
-}) {
-  return (
-    <div role="dialog" aria-modal="true"
-      className="fixed inset-0 z-40 grid place-items-center bg-slate-950/35 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="mb-6 flex items-start justify-between border-b border-slate-100 pb-5">
-          <h2 className="text-lg font-black text-brand-navy">{title}</h2>
-
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="text-slate-500 hover:text-slate-700"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        {children}
-      </div>
-    </div>
-  )
+} & Omit<React.ComponentProps<typeof Modal>, 'open' | 'title' | 'children' | 'onClose'>) {
+  return <Modal open title={title} onClose={onClose} {...rest}>{children}</Modal>
 }
 
 /* =========================================================

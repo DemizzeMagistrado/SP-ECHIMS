@@ -7,10 +7,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import useSWR from 'swr'
-import { X, Package, MapPin, AlertCircle, PackagePlus } from 'lucide-react'
+import { Package, MapPin, AlertCircle, PackagePlus } from 'lucide-react'
 import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
 import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
 import { Input, Select, Textarea } from '@/components/ui/form'
 
 type Item = { item_id: number; item_name: string; unit: string; kind: string }
@@ -99,30 +100,28 @@ export function ReplenishmentRequestModal({ open, onClose, onSaved }: Props) {
     }
   }
 
-  if (!open) return null
   const selectedItem = items.find((i) => String(i.item_id) === itemId) ?? null
 
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-border p-6">
-          <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-primary">
-              <PackagePlus size={18} />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-foreground">Request replenishment</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                RHM-only. Submits as <strong>PENDING</strong> for PHN review and allocation.
-              </p>
-            </div>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-1 text-muted-foreground hover:bg-muted">
-            <X size={20} />
-          </button>
-        </div>
+    <Modal
+      open={open}
+      onClose={onClose}
+      busy={saving}
+      size="lg"
+      icon={<PackagePlus />}
+      title="Request replenishment"
+      subtitle={<>RHM-only. Submits as <strong>PENDING</strong> for PHN review and allocation.</>}
+      onSubmit={submit}
+      footer={<>
 
-        <form onSubmit={submit} className="space-y-5 p-6">
+            <Button type="submit" disabled={saving}
+             >
+              {saving ? <Spinner /> : <PackagePlus size={14} />}
+              {saving ? 'Submitting…' : 'Submit request'}
+            </Button>
+      </>}
+    >
+        <div className="space-y-5">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <label htmlFor="rr-item" className="mb-1 block text-sm font-semibold text-foreground">
@@ -185,19 +184,7 @@ export function ReplenishmentRequestModal({ open, onClose, onSaved }: Props) {
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-            <Button variant="secondary" onClick={onClose} disabled={saving}
-             >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={saving}
-             >
-              {saving ? <Spinner /> : <PackagePlus size={14} />}
-              {saving ? 'Submitting…' : 'Submit request'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </div>
+    </Modal>
   )
 }

@@ -6,7 +6,7 @@ import { useAuth } from '@/components/auth/auth-provider'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Plus, Package, X, AlertTriangle, SearchX, ClipboardList } from "lucide-react";
+import { Plus, Package, AlertTriangle, SearchX, ClipboardList } from "lucide-react";
 import {
   latestNutrition,
   nutritionReview,
@@ -24,7 +24,7 @@ import {
 import { SupplementationMonitoringPanel } from "@/components/supplementation/supplementation-monitoring-panel";
 import { SupplementStockRequestsPanel } from "@/components/supplementation/supplement-stock-requests-panel";
 import { SupplementationSmsPanel } from "@/components/supplementation/supplementation-sms-panel";
-import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
+import { LogoLoader } from '@/components/brand/logo-loader'
 import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { toast } from '@/components/ui/toast'
@@ -32,6 +32,7 @@ import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
 import { Input, Select } from '@/components/ui/form'
 
 type Child = {
@@ -1937,17 +1938,12 @@ export default function SupplementsPage() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-          <form
-            onSubmit={save}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="supplement-dialog"
-            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6"
-          >
-            <div className="mb-5 flex justify-between">
-              <h2 id="supplement-dialog" className="text-xl font-bold">
-                {modal === "CLINICAL"
+        <Modal
+          open
+          size="xl"
+          onClose={() => setModal(null)}
+          busy={saving}
+          title={modal === "CLINICAL"
                   ? "Record Clinical-Tier Supplementation"
                   : modal === "RECORD"
                     ? "Record Actual Administration"
@@ -1956,16 +1952,27 @@ export default function SupplementsPage() {
                       : modal === "DISPENSE"
                         ? "Record Supply Dispensing"
                         : "Receive / Allocate Batch"}
-              </h2>
-              <button
-                type="button"
-                disabled={saving}
-                aria-label="Close"
-                onClick={() => setModal(null)}
-              >
-                <X />
-              </button>
-            </div>
+          onSubmit={save}
+          footer={<Button type="submit" loading={saving} disabled={
+                  saving ||
+                  loading ||
+                  (!online &&
+                    modal !== "RECORD" &&
+                    modal !== "DISPENSE" &&
+                    modal !== "CLINICAL") ||
+                  (editingDraft !== null && online && !draftConfirmed) ||
+                  (modal === "PLAN" && ageEligibility?.eligible === false) ||
+                  (modal === "CLINICAL" && !retryClinicalProtocol())
+                }>
+{saving
+                  ? "Saving…"
+                  : !online
+                    ? "Save Offline Draft"
+                    : editingDraft
+                      ? "Confirm & Submit"
+                      : "Save"}
+          </Button>}
+        >
             {error && (
               <p role="alert" className="mb-4 text-sm text-red-700">
                 {error}
@@ -2324,39 +2331,7 @@ export default function SupplementsPage() {
                 checks still apply.
               </label>
             )}
-            <div className="mt-6 flex justify-end gap-3">
-              <Button variant="secondary"
-                disabled={saving}
-                onClick={() => setModal(null)}
-              >
-                Cancel
-              </Button>
-              <button
-                disabled={
-                  saving ||
-                  loading ||
-                  (!online &&
-                    modal !== "RECORD" &&
-                    modal !== "DISPENSE" &&
-                    modal !== "CLINICAL") ||
-                  (editingDraft !== null && online && !draftConfirmed) ||
-                  (modal === "PLAN" && ageEligibility?.eligible === false) ||
-                  (modal === "CLINICAL" && !retryClinicalProtocol())
-                }
-                className={button}
-              >
-                {saving && <Spinner className="mr-2" />}
-                {saving
-                  ? "Saving…"
-                  : !online
-                    ? "Save Offline Draft"
-                    : editingDraft
-                      ? "Confirm & Submit"
-                      : "Save"}
-              </button>
-            </div>
-          </form>
-        </div>
+        </Modal>
       )}
     </div>
   );

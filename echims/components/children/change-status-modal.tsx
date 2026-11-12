@@ -12,9 +12,10 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 //   ACTIVE   → re-activation note (reason optional)
 
 import { FormEvent, useState } from 'react'
-import { X, AlertTriangle } from 'lucide-react'
-import { Spinner } from '@/components/brand/logo-loader'
+import { AlertTriangle } from 'lucide-react'
+
 import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 
 type ChildStatus = 'ACTIVE' | 'INACTIVE' | 'MOVED' | 'LOST' | 'DECEASED'
@@ -92,18 +93,16 @@ export function ChangeStatusModal({ childId, currentStatus, childName, onClose, 
   }
 
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 overflow-y-auto bg-black/30 p-4">
-      <form onSubmit={submit} className="mx-auto max-w-xl space-y-5 rounded-2xl bg-white p-6 shadow-xl">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold">Change child status</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {childName} · currently <span className="font-semibold">{currentStatus}</span>
-            </p>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close"><X /></button>
-        </div>
-
+    <Modal
+      open
+      onClose={onClose}
+      busy={saving}
+      title="Change child status"
+      subtitle={<>{childName} · currently <span className="font-semibold">{currentStatus}</span></>}
+      onSubmit={submit}
+      bodyClassName="space-y-5"
+      footer={<Button type="submit" variant={meta?.tone === 'danger' ? 'danger' : 'primary'} loading={saving} disabled={!canSubmit}>{saving ? 'Saving...' : meta ? `Mark as ${meta.label}` : 'Save status change'}</Button>}
+    >
         {message && <p role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{message}</p>}
 
         <label className="grid gap-1 text-sm">
@@ -180,17 +179,6 @@ export function ChangeStatusModal({ childId, currentStatus, childName, onClose, 
           />
         </label>
 
-        <div className="flex justify-end gap-3 border-t border-border pt-4">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <button
-            type="submit"
-            disabled={saving || !canSubmit}
-            className={`rounded-lg px-5 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed ${meta?.tone === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-primary/90'}`}
-          >
-            {saving && <Spinner className="mr-2" />}{saving ? 'Saving...' : meta ? `Mark as ${meta.label}` : 'Save status change'}
-          </button>
-        </div>
-      </form>
-    </div>
+    </Modal>
   )
 }

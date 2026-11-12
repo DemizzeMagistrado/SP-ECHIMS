@@ -8,7 +8,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import { FormEvent, useEffect, useRef, useState, type ReactNode } from "react";
 import useSWR from "swr";
-import { Check, X } from "lucide-react";
+import { Check } from "lucide-react";
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineScope } from '@/lib/offline/fetch'
 import { submitSafeDraft } from '@/lib/offline/safe-submit'
@@ -17,6 +17,7 @@ import { RecordConflict } from '@/components/children/record-conflict'
 import { PhilippineAddressPicker } from "@/components/children/philippine-address-picker";
 import { Spinner } from '@/components/brand/logo-loader'
 import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
 import { toast } from '@/components/ui/toast'
 import { CHILD_ID_HELP, FSN_HELP, InfoTip } from '@/components/ui/info-tip'
 import { MOBILE_HINT, formatPhMobile, normalizePhMobile, toLocalMobileDigits } from '@/lib/phone'
@@ -342,11 +343,9 @@ export function ChildFormModal({
 
   if (loadingChild) {
     return (
-      <div role="dialog" aria-modal="true" aria-label="Loading child record" className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-        <div className="w-64 rounded-2xl bg-white p-6 shadow-xl">
-          <Spinner showLabel label="Loading child record…" className="w-full justify-center py-6 text-sm text-muted-foreground" />
-        </div>
-      </div>
+      <Modal open onClose={onClose} size="sm" title="Loading child record" confirmDiscard={false}>
+        <Spinner showLabel label="Loading child record…" className="w-full justify-center py-6 text-sm text-muted-foreground" />
+      </Modal>
     );
   }
 
@@ -383,18 +382,30 @@ export function ChildFormModal({
   const barangayName = barangays?.find((b) => String(b.barangay_id) === str("barangay_id"))?.barangay_name;
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="child-form-title" className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/30 sm:items-center sm:p-4">
-      <form onSubmit={submit} noValidate className="flex max-h-dvh w-full max-w-4xl flex-col bg-white shadow-xl sm:max-h-[92dvh] sm:rounded-2xl">
-        <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4 sm:px-6">
-          <h2 id="child-form-title" className="font-display text-xl font-bold text-brand-navy">
-            {mode === "edit" ? "Edit Child" : draft ? "Review Child Draft" : "Register Child"}
-          </h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"><X /></button>
-        </div>
-
-        <Stepper current={step} visited={visited} onSelect={goTo} />
-
-        <div ref={body} className="flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
+    <Modal
+      open
+      onClose={onClose}
+      busy={saving}
+      size="xl"
+      title={mode === "edit" ? "Edit Child" : draft ? "Review Child Draft" : "Register Child"}
+      subtitle={STEPS[step].label}
+      belowHeader={<Stepper current={step} visited={visited} onSelect={goTo} />}
+      bodyRef={body}
+      bodyClassName="space-y-5"
+      onSubmit={submit}
+      noValidate
+      footerStart={step > 0 ? <Button variant="ghost" onClick={() => goTo(step - 1)}>Back</Button> : null}
+      footer={conflict ? null : (<>
+        {mode === 'create' && <Button variant="secondary" disabled={saving} onClick={saveLocalDraft}>Save draft on device</Button>}
+        {current !== "review" ? (
+          <Button type="submit">Next: {STEPS[step + 1].label}</Button>
+        ) : (
+          <Button type="submit" loading={saving} disabled={Boolean(draft && online && !reviewed)}>
+            {mode === "edit" ? "Save changes" : !online ? "Save draft on device" : draft ? "Upload reviewed draft" : "Save child record"}
+          </Button>
+        )}
+      </>)}
+    >
           {message && <p role="alert" className="rounded-xl border border-danger/20 bg-danger-soft px-4 py-3 text-sm text-danger">{message}</p>}
           {mode === 'create' && !online && (
             <p className="rounded-xl border border-warn/25 bg-warn-soft px-4 py-3 text-sm text-warn">
@@ -668,26 +679,7 @@ export function ChildFormModal({
               )}
             </div>
           )}
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-4 sm:px-6">
-          <div>
-            {step > 0 && <Button variant="ghost" onClick={() => goTo(step - 1)}>Back</Button>}
-          </div>
-          <div className={cn("flex flex-wrap gap-2", conflict && "hidden")}>
-            {mode === 'create' && <Button variant="secondary" disabled={saving} onClick={saveLocalDraft}>Save draft on device</Button>}
-            <Button variant="secondary" onClick={onClose}>Cancel</Button>
-            {current !== "review" ? (
-              <Button type="submit">Next: {STEPS[step + 1].label}</Button>
-            ) : (
-              <Button type="submit" loading={saving} disabled={Boolean(draft && online && !reviewed)}>
-                {mode === "edit" ? "Save changes" : !online ? "Save draft on device" : draft ? "Upload reviewed draft" : "Save child record"}
-              </Button>
-            )}
-          </div>
-        </div>
-      </form>
-    </div>
+    </Modal>
   );
 }
 

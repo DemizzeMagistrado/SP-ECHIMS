@@ -2,29 +2,20 @@
 import { StatCard } from '@/components/ui/stat-card'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  AlertTriangle,
-  AlertCircle,
-  Info,
-  CheckCircle,
-  X,
-  Plus,
-  RefreshCw,
-  Settings,
-  History,
-} from "lucide-react";
+import { AlertTriangle, AlertCircle, Info, CheckCircle, Plus, RefreshCw, Settings, History } from "lucide-react";
 import Link from "next/link";
 import { alertDestination } from "@/lib/alerts/alert-destination";
 import { SmsSimulationPanel } from "@/components/alerts/sms-simulation-panel";
 import { useAuth } from "@/components/auth/auth-provider";
 import { offlineScope } from "@/lib/offline/fetch";
-import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
+import { LogoLoader } from '@/components/brand/logo-loader'
 import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { FilterChips, TabBar } from '@/components/ui/module-tabs'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
 import { Select } from '@/components/ui/form'
 import { Pagination, usePagination } from '@/components/ui/pagination'
 type Rule = {
@@ -917,19 +908,16 @@ function AlertsWorkspace() {
       )}
       </TabPanel>
       {resolveTarget && resolveTarget.recipient_id === owner && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="resolve-alert-title"
-            className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-xl"
-          >
-            <h2 id="resolve-alert-title" className="font-semibold">
-              Resolve assigned alert
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {resolveTarget.alert_message}
-            </p>
+        <Modal
+          open
+          size="sm"
+          onClose={() => setResolveTarget(null)}
+          busy={resolving}
+          title="Resolve assigned alert"
+          subtitle={resolveTarget.alert_message}
+          bodyClassName="space-y-4"
+          footer={<Button disabled={!resolutionReviewed} loading={resolving} onClick={() => void resolveAlert()}>{resolving ? "Resolving…" : "Confirm Resolution"}</Button>}
+        >
             <label className="flex items-start gap-2 text-sm">
               <input
                 type="checkbox"
@@ -950,51 +938,27 @@ function AlertsWorkspace() {
                 {error}
               </p>
             )}
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary"
-                disabled={resolving}
-                onClick={() => setResolveTarget(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                disabled={!resolutionReviewed || resolving}
-                onClick={() => void resolveAlert()}
-              >
-                {resolving ? "Resolving…" : "Confirm Resolution"}
-              </Button>
-            </div>
-          </section>
-        </div>
+        </Modal>
       )}
       {draft && data?.canConfigure && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="rule-dialog-title"
-            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6"
-          >
-            <div className="mb-5 flex justify-between gap-3">
-              <h2 id="rule-dialog-title" className="text-xl font-bold">
-                {review
-                  ? "Confirm rule changes"
-                  : draft.ruleId
-                    ? "Edit alert rule"
-                    : "Add inventory rule"}
-              </h2>
-              <button
-                type="button"
-                aria-label="Close rule form"
-                disabled={saving}
-                onClick={() => {
-                  setDraft(null);
-                  setReview(false);
-                }}
-              >
-                <X />
-              </button>
-            </div>
+        <Modal
+          open
+          size="lg"
+          onClose={() => { setDraft(null); setReview(false); }}
+          busy={saving}
+          title={review ? "Confirm rule changes" : draft.ruleId ? "Edit alert rule" : "Add inventory rule"}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (review) void saveRule();
+            else if (checkDraft()) setReview(true);
+          }}
+          footer={review ? (
+            <>
+              <Button variant="secondary" disabled={saving} onClick={() => setReview(false)}>Back to edit</Button>
+              <Button type="submit" loading={saving}>{saving ? "Saving…" : "Confirm and save"}</Button>
+            </>
+          ) : <Button type="submit">Review changes</Button>}
+        >
             {error && (
               <p
                 role="alert"
@@ -1041,29 +1005,9 @@ function AlertsWorkspace() {
                   monitor may resolve reminders whose conditions are no longer
                   active.
                 </p>
-                <div className="mt-6 flex justify-end gap-3">
-                  <Button variant="secondary"
-                    disabled={saving}
-                    onClick={() => setReview(false)}
-                  >
-                    Back to edit
-                  </Button>
-                  <Button
-                    disabled={saving}
-                    onClick={() => void saveRule()}
-                  >
-                    {saving && <Spinner className="mr-2" />}{saving ? "Saving…" : "Confirm and save"}
-                  </Button>
-                </div>
               </>
             ) : (
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (checkDraft()) setReview(true);
-                }}
-                className="space-y-4"
-              >
+              <div className="space-y-4">
                 <label className="block text-sm font-medium">
                   Rule name
                   <input
@@ -1205,22 +1149,9 @@ function AlertsWorkspace() {
                     </span>
                   </label>
                 )}
-                <div className="flex justify-end gap-3">
-                  <Button variant="secondary"
-                    onClick={() => setDraft(null)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                  >
-                    Review changes
-                  </Button>
-                </div>
-              </form>
+              </div>
             )}
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

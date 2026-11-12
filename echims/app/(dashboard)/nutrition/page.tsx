@@ -1,13 +1,6 @@
 "use client";
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import useSWR from "swr";
 import { useAuth } from "@/components/auth/auth-provider";
 import Link from "next/link";
@@ -25,20 +18,14 @@ import {
   type NutritionPayload,
   type QueuedAssessment,
 } from "@/lib/nutrition-offline";
-import {
-  AlertCircle,
-  Plus,
-  RefreshCw,
-  Printer,
-  X,
-  SearchX,
-} from "lucide-react";
+import { AlertCircle, Plus, RefreshCw, Printer, SearchX } from "lucide-react";
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { FilterChips, TabBar } from '@/components/ui/module-tabs'
 import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
 import { Select, DateInput } from '@/components/ui/form'
 import { reportSync } from '@/lib/offline/refresh'
 type Relation<T> = T | T[] | null;
@@ -373,53 +360,6 @@ function followUp(item: Assessment) {
     return "Complete or verify assessment";
   return "Routine growth monitoring";
 }
-function Modal({
-  title,
-  children,
-  onClose,
-  busy = false,
-}: {
-  title: string;
-  children: ReactNode;
-  onClose: () => void;
-  busy?: boolean;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const dialog = ref.current;
-    if (dialog && !dialog.open) dialog.showModal();
-    return () => {
-      if (dialog?.open) dialog.close();
-    };
-  }, []);
-  return (
-    <dialog
-      ref={ref}
-      aria-label={title}
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!busy) onClose();
-      }}
-      className="fixed inset-0 m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-4xl overflow-y-auto rounded-2xl bg-white p-0 text-foreground shadow-xl backdrop:bg-slate-950/50"
-    >
-      <div className="p-6">
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <h2 className="text-2xl font-bold text-[#03045E]">{title}</h2>
-          <button
-            type="button"
-            aria-label="Close dialog"
-            disabled={busy}
-            onClick={onClose}
-            className="rounded-lg p-2 hover:bg-muted disabled:opacity-50"
-          >
-            <X size={22} />
-          </button>
-        </div>
-        {children}
-      </div>
-    </dialog>
-  );
-}
 function AssessmentDetails({
   assessment,
   onClose,
@@ -488,7 +428,7 @@ function AssessmentDetails({
     ["Engine", item.engine_version ?? "Not engine evaluated"],
   ];
   return (
-    <Modal title="Assessment details" onClose={onClose}>
+    <Modal open size="lg" title="Assessment details" onClose={onClose} cancelLabel="Close">
       <p className="mb-4 rounded-lg bg-sky-50 p-3 text-sm">
         {followUp(item)}. Each growth indicator is interpreted separately.
       </p>
@@ -2506,9 +2446,13 @@ export default function NutritionPage() {
       </div>
       {syncReview && (
         <Modal
+          open
+          size="xl"
           title="Review drafts before upload"
           busy={syncing}
           onClose={() => setSyncReview(null)}
+          cancelLabel="Back to drafts"
+          footer={<Button loading={syncing} disabled={!online || !canRecord || syncReview.selectedIds.length === 0} onClick={() => void confirmReview()}>Confirm upload ({syncReview.selectedIds.length})</Button>}
         >
           <p className="mb-4 text-sm text-muted-foreground">
             Check the measurements and any existing records. Select drafts to
@@ -2606,33 +2550,21 @@ export default function NutritionPage() {
               );
             })}
           </div>
-          <div className="mt-6 flex justify-end gap-3">
-            <Button variant="secondary"
-              onClick={() => setSyncReview(null)}
-            >
-              Back to drafts
-            </Button>
-            <Button
-              disabled={
-                !online ||
-                !canRecord ||
-                syncReview.selectedIds.length === 0 ||
-                syncing
-              }
-              onClick={() => void confirmReview()}
-            >
-              Confirm upload ({syncReview.selectedIds.length})
-            </Button>
-          </div>
         </Modal>
       )}
       {draft && (
         <Modal
+          open
+          size="xl"
           title="Record nutritional assessment"
           busy={saving}
           onClose={() => setDraft(null)}
+          onSubmit={save}
+          footer={<Button type="submit" loading={saving} disabled={!child || !canRecord || accessDenied || !ownerId}>
+            {saving ? "Saving…" : editingRequest.current ? "Save draft changes" : online ? "Save Assessment" : "Save Offline Draft"}
+          </Button>}
         >
-          <form onSubmit={save} className="space-y-6">
+          <div className="space-y-6">
             {formError && (
               <p role="alert" className={alertClass}>
                 {formError}
@@ -2927,30 +2859,7 @@ export default function NutritionPage() {
                 and confirm upload.
               </p>
             </fieldset>
-            <div className="flex justify-end gap-3">
-              <Button variant="secondary"
-                disabled={saving}
-                onClick={() => setDraft(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={
-                  saving || !child || !canRecord || accessDenied || !ownerId
-                }
-              >
-                {saving && <Spinner />}
-                {saving
-                  ? "Saving…"
-                  : editingRequest.current
-                    ? "Save draft changes"
-                    : online
-                      ? "Save Assessment"
-                      : "Save Offline Draft"}
-              </Button>
-            </div>
-          </form>
+          </div>
         </Modal>
       )}
       {selected && (

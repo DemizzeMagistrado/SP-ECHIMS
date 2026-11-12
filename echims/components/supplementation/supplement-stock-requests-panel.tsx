@@ -1,11 +1,12 @@
 "use client";
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useEffect, useRef, useState } from "react";
-import { Package, X } from "lucide-react";
+import { Package } from "lucide-react";
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 type Product = { supplement_id: number; name: string; unit: string };
 type Barangay = {
@@ -439,42 +440,21 @@ export function SupplementStockRequestsPanel({
         )
       )}
       {open && data?.canRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
-          <form
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="stock-request-heading"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void submit("REQUEST");
-            }}
-            className="max-h-[90vh] w-full max-w-2xl space-y-5 overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl"
-          >
-            <header className="flex items-start gap-3 border-b pb-5">
-              <span className="rounded-full bg-sky-100 p-3 text-primary">
-                <Package size={20} />
-              </span>
-              <div className="flex-1">
-                <h3
-                  id="stock-request-heading"
-                  className="text-lg font-semibold"
-                >
-                  New supplement batch request
-                </h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Request stock for an assigned barangay. Submits as{" "}
-                  <strong>PENDING</strong> for PHN review.
-                </p>
-              </div>
-              <button
-                type="button"
-                aria-label="Close request form"
-                disabled={busy}
-                onClick={() => setOpen(false)}
-              >
-                <X size={20} />
-              </button>
-            </header>
+        <Modal
+          open
+          size="lg"
+          onClose={() => setOpen(false)}
+          busy={busy}
+          title="New supplement batch request"
+          subtitle={<>Request stock for an assigned barangay. Submits as <strong>PENDING</strong> for PHN review.</>}
+          icon={<Package />}
+          bodyClassName="space-y-5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit("REQUEST");
+          }}
+          footer={<Button type="submit" loading={busy} disabled={!online}>{busy ? "Saving…" : "Submit Request"}</Button>}
+        >
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block text-sm">
                 Supplement
@@ -545,59 +525,25 @@ export function SupplementStockRequestsPanel({
                 {error}
               </p>
             )}
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className={button}
-                disabled={busy || !online}
-              >
-                {busy && <Spinner className="mr-2" />}{busy ? "Saving…" : "Submit Request"}
-              </button>
-              <Button variant="secondary"
-                disabled={busy}
-                onClick={() => setOpen(false)}
-              >
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </div>
+        </Modal>
       )}
 
       {approve && data?.canApprove && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
-          <form
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="stock-approve-heading"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void submit("APPROVE");
-            }}
-            className="max-h-[90vh] w-full max-w-2xl space-y-5 overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl"
-          >
-            <header className="flex items-start justify-between gap-3 border-b pb-4">
-              <div>
-                <h3
-                  id="stock-approve-heading"
-                  className="text-lg font-semibold"
-                >
-                  Approve Request #{approve.stock_request_id}
-                </h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {approve.item_name} · {approve.barangay_name} ·{" "}
-                  {approve.requested_quantity} {approve.unit}
-                </p>
-              </div>
-              <button
-                type="button"
-                disabled={busy}
-                aria-label="Close approval"
-                onClick={() => setApprove(null)}
-              >
-                <X size={20} />
-              </button>
-            </header>
+        <Modal
+          open
+          size="lg"
+          onClose={() => setApprove(null)}
+          busy={busy}
+          title={`Approve Request #${approve.stock_request_id}`}
+          subtitle={<>{approve.item_name} · {approve.barangay_name} · {approve.requested_quantity} {approve.unit}</>}
+          
+          bodyClassName="space-y-5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit("APPROVE");
+          }}
+          footer={<Button type="submit" loading={busy} disabled={!online}>{busy ? "Saving…" : "Approve and Add Batch Stock"}</Button>}
+        >
             <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
               Temporary barangay receipt. Approving adds the full requested
               quantity immediately. RHU source stock is not deducted.
@@ -648,39 +594,24 @@ export function SupplementStockRequestsPanel({
                 {error}
               </p>
             )}
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={busy || !online}
-                className={button}
-              >
-                {busy && <Spinner className="mr-2" />}{busy ? "Saving…" : "Approve and Add Batch Stock"}
-              </button>
-              <Button variant="secondary"
-                disabled={busy}
-                onClick={() => setApprove(null)}
-              >
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </div>
+        </Modal>
       )}
       {reject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
-          <form
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="stock-reject-heading"
-            className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void submit("REJECT");
-            }}
-          >
-            <h3 id="stock-reject-heading" className="font-semibold">
-              Reject Request #{reject.stock_request_id}
-            </h3>
+        <Modal
+          open
+          size="md"
+          onClose={() => setReject(null)}
+          busy={busy}
+          title={`Reject Request #${reject.stock_request_id}`}
+          
+          
+          bodyClassName="space-y-5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit("REJECT");
+          }}
+          footer={<Button type="submit" loading={busy} disabled={!online}>Confirm Rejection</Button>}
+        >
             <label className="block text-sm">
               Reason
               <Textarea
@@ -697,23 +628,7 @@ export function SupplementStockRequestsPanel({
                 {error}
               </p>
             )}
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={busy || !online}
-                className={button}
-              >
-                Confirm Rejection
-              </button>
-              <Button variant="secondary"
-                disabled={busy}
-                onClick={() => setReject(null)}
-              >
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </div>
+        </Modal>
       )}
     </section>
   );

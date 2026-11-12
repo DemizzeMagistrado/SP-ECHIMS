@@ -111,6 +111,22 @@ danger, upcoming/ongoing → info, cancelled/inactive → neutral). Props: `stat
 `toast.dismiss(id)`; optional `{ durationMs }`. Works outside React too. Use for save/update/delete/
 approve/upload/sync results instead of inline "Saved!" banners.
 
+## Modal — `modal.tsx`
+Every button that opens a form (Add, Record, Edit, Register, Request…) opens it in this one Modal:
+centered on desktop (backdrop fade + panel scale, ~200ms), bottom sheet on phones. Header = title,
+short subtitle, close button; footer = Cancel on the left, your actions (`footer`) on the right;
+the body scrolls. Esc, backdrop, Cancel and ✕ close it, asking "Discard changes?" when something
+was typed. `onSubmit` makes body + footer one `<form>` (a `type="submit"` button in `footer`
+submits). Focus trap and focus return come from `<ModalA11y/>`. Don't hand-build overlays.
+```tsx
+<Modal open={open} onClose={close} title="Record stock-in" subtitle="Adds a batch to inventory."
+  busy={saving} onSubmit={save} footer={<Button type="submit" loading={saving}>Save</Button>}>
+  …fields…
+</Modal>
+```
+Also: `size` (sm·md·lg·xl), `icon`, `footerStart`, `belowHeader` (e.g. a stepper), `bodyRef`,
+`formRef`, `cancelLabel`/`hideCancel`, `dirty`/`confirmDiscard`.
+
 ## ConfirmDialog — `confirm-dialog.tsx`
 ```tsx
 const confirm = useConfirm()
@@ -125,6 +141,6 @@ Logo + title + message + actions, used by the 404 and error pages. `area="conten
 
 ## Others
 - `arrow-key-tabs.tsx`: arrow keys for any `[role=tablist]` and `[data-arrow-nav]` link bar — just use the roles.
-- `modal-a11y.tsx`: give a hand-built overlay `role="dialog" aria-modal="true"` and it gets focus-in, a Tab trap, focus return and Esc (presses its Close/Cancel button, only while nothing has been typed). Prefer a native `<dialog>` for new modals.
+- `modal-a11y.tsx`: gives `role="dialog" aria-modal="true"` overlays (the shared Modal) focus-in, a Tab trap and focus return. Don't use a native `<dialog>` for forms: it sits in the browser's top layer, so Select/DatePicker menus would open behind it.
 - `print-header.tsx`: wordmark + print time, visible only on paper. Mark extra screen-only bits with `print-hide`.
 - Offline: call `reportSync(sent, failed)` from `lib/offline/refresh` when a queue drains; the banner shows the toast.
