@@ -13,4 +13,4 @@ export const metadata: Metadata = {
  description:'Comprehensive healthcare management system for Rural Health Units',generator:'v0.app',manifest:'/manifest.webmanifest',
 }
 export const viewport:Viewport={colorScheme:'light',themeColor:[{media:'(prefers-color-scheme: light)',color:'#f5f7fa'}],userScalable:false}
-export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="en" className={`light ${fontVariables}`}><body className="antialiased bg-background"><AuthProvider><OfflineProvider>{children}</OfflineProvider></AuthProvider><Toaster/><ConfirmHost/><ArrowKeyTabs/><ModalA11y/>{process.env.NODE_ENV==='production'&&<Analytics/>}</body></html>}
+export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="en" data-scroll-behavior="smooth" className={`light ${fontVariables}`}><body className="antialiased bg-background"><AuthProvider><OfflineProvider>{children}</OfflineProvider></AuthProvider><Toaster/><ConfirmHost/><ArrowKeyTabs/><ModalA11y/>{process.env.NODE_ENV==='production'&&<Analytics/>}</body></html>}

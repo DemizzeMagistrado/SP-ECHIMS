@@ -13,15 +13,18 @@ import { DEFAULT_BATCH_RULE, batchNumberError, describeBatchRule, normalizeBatch
 // The format set in Vaccination › Vaccines (Catalog settings). Kept module-wide so submit checks use the same
 // rule the field shows; the APIs check against the stored rule anyway.
 let currentRule: BatchRule = DEFAULT_BATCH_RULE
-const ruleFetcher = async (url: string) => {
+export type VaccinationSettings = { batch_number_format: BatchRule }
+/** The one fetcher for the '/api/vaccination/settings' SWR key. Every user of that key must use it:
+ *  SWR shares the cache by key, and a second data shape there gave maxLength={NaN}. */
+export const settingsFetcher = async (url: string): Promise<VaccinationSettings> => {
   const r = await fetch(url)
   const d = await r.json().catch(() => ({}))
   currentRule = r.ok ? parseBatchRule(d.batch_number_format) : DEFAULT_BATCH_RULE
-  return currentRule
+  return { batch_number_format: currentRule }
 }
 export function useBatchRule(): BatchRule {
-  const { data } = useSWR('/api/vaccination/settings', ruleFetcher, { revalidateOnFocus: false })
-  return data ?? DEFAULT_BATCH_RULE
+  const { data } = useSWR('/api/vaccination/settings', settingsFetcher, { revalidateOnFocus: false })
+  return parseBatchRule(data?.batch_number_format)
 }
 
 export function BatchNumberField({ value, onChange, required = false, label = 'Batch number', hint, error, className, id }: {

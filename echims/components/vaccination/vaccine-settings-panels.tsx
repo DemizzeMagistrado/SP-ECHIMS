@@ -15,6 +15,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Spinner } from '@/components/brand/logo-loader'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { toast } from '@/components/ui/toast'
+import { settingsFetcher } from '@/components/inventory/batch-number-field'
 import { BATCH_SEPARATOR_CHOICES, batchPattern, describeBatchRule, normalizeBatchNumber, parseBatchRule, type BatchRule } from '@/lib/vaccination-config'
 
 const fetcher = async (url: string) => {
@@ -146,7 +147,7 @@ export function CompanionMedicinesPanel() {
 }
 
 export function BatchFormatPanel({ canManage }: { canManage: boolean }) {
-  const { data, mutate } = useSWR<{ batch_number_format: BatchRule }>('/api/vaccination/settings', fetcher)
+  const { data, mutate } = useSWR('/api/vaccination/settings', settingsFetcher)
   const saved = parseBatchRule(data?.batch_number_format)
   const [form, setForm] = useState<{ min: string; max: string; separators: string; example: string } | null>(null)
   const [test, setTest] = useState('')
