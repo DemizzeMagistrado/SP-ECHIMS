@@ -290,6 +290,8 @@ export async function GET(request: Request) {
       id: child.child_code ?? formatChildId(child.child_id, child.registration_date),
       familySerialNo: embedded(child.household)?.family_serial_no ?? "",
       householdNo: embedded(child.household)?.household_no ?? "",
+      // Transfer accepted without a household (NIP-REV01): "Household not assigned" task.
+      householdMissing: !child.household_id,
       guardianName: [embedded(child.guardian)?.first_name, embedded(child.guardian)?.last_name].filter(Boolean).join(" "),
       motherName: child.mother_name ?? "",
       householdNumber: child.household_id

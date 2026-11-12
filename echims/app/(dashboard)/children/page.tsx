@@ -40,6 +40,8 @@ type Child = {
   sex: string
   status: string
   monitoringStatus: string
+  /** No household linked (transfer accepted with an address only). */
+  householdMissing?: boolean
 }
 type Barangay = { barangay_id: number; barangay_name: string }
 
@@ -119,7 +121,9 @@ export default function ChildHealthPage() {
           {c.familySerialNo ? (
             <button type="button" title="Show this household's children" onClick={(e) => { e.stopPropagation(); setSearch(c.familySerialNo) }}
               className="font-mono text-xs text-brand-navy underline-offset-4 hover:underline">{c.familySerialNo}</button>
-          ) : <span className="text-muted-foreground">—</span>}
+          ) : c.householdMissing
+            ? <StatusBadge status="household-missing" tone="warn" label="Household not assigned" />
+            : <span className="text-muted-foreground">—</span>}
           {c.householdNo && <span className="block text-xs text-muted-foreground">HH {c.householdNo}</span>}
         </div>
       ),

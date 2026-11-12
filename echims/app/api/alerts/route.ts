@@ -61,7 +61,7 @@ export async function GET(request: Request) {
       applyFilters(supabase
         .from("alert_notification_feed")
         .select(
-          "alert_id,alert_type,alert_message,severity,status,created_at,read_at,source_module,child_id,inventory_id,schedule_id,recipient_id,rule_id,resolved_by,resolved_at",
+          "alert_id,alert_type,alert_message,severity,status,created_at,read_at,source_module,child_id,inventory_id,schedule_id,recipient_id,rule_id,resolved_by,resolved_at,resolution_note",
           { count: "exact" },
         ))
         .order("created_at", { ascending: false })

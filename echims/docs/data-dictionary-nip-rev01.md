@@ -40,6 +40,12 @@ the multi-dose vaccines.
 
 RLS: readable by whoever can read the record; written only by the two functions.
 
+### alert (migration 10)
+
+| Column | Type | Meaning |
+|---|---|---|
+| `resolution_note` *(new)* | text ≤ 500 | Set when the system resolves an alert itself, e.g. "Resolved automatically: dose no longer missed". Shown in `alert_notification_feed`. |
+
 ## 2. New and changed functions and policies
 
 | Object | Type | Migration | Purpose |
@@ -52,3 +58,10 @@ RLS: readable by whoever can read the record; written only by the two functions.
 | `echims_guard_vaccination_record_status()` | trigger fn (new) | 07 | Blocks direct status / approval changes outside the two functions. |
 | `echims_bump_vaccination_record_revision()` | trigger fn (new) | 08 | Raises `vaccination_record.revision` on every update. |
 | `alr_vaccination_schedule_candidates(date)` | function (changed) | 06 | Missed-dose candidates for alerts and SMS reminders now skip doses past `vaccine.max_age_days` (was a hard-coded BCG rule). |
+| `alr_vaccination_schedule_candidates(date)` | function (changed again) | 10 | Doses awaiting approval (PENDING) count as given; NEEDS_CORRECTION does not. |
+| `echims_resolve_stale_nip_alerts(bigint)` | function (new, no client grants) | 10 | Resolves open missed-dose alerts whose child has no missed dose, with the system note. |
+| `echims_vaccination_record_resolve_alerts()` | trigger fn (new) | 10 | After a record is inserted or its status changes: resolves that child's stale alerts. |
+| `run_alert_vaccination_monitoring()` | function (changed) | 10 | Numbered key after an automatic resolution (re-alert possible); resolves stale alerts at the end of each run. |
+| `guard_targeted_alert_update()` | trigger fn (changed) | 10 | Also allows the NIP engine's automatic resolution (status / resolved_at / resolution_note only). |
+| `alert_notification_feed` | view (changed) | 10 | Adds `resolution_note`. |
+| `echims_assign_child_household(bigint, bigint)` | function (new) | 11 | Links a household to a child that has none (Household not assigned task). |

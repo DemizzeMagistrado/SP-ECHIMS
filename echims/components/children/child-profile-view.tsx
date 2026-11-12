@@ -1,4 +1,5 @@
 "use client";
+import { HouseholdNotAssigned } from "@/components/children/assign-household";
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 // CHILD-USR003 — View Child Profile
 // Centralized profile view that pulls the child record, their linked guardian,
@@ -628,6 +629,10 @@ export function ChildProfileView({childId}: {childId: string}) {
             </>)}
           </div>
       </div>
+      {/* Transfer accepted without a household: a task until one is assigned (NIP-REV01). */}
+      {!household && (
+        <HouseholdNotAssigned childId={child.child_id} childName={fullName} barangayId={child.barangay_id ?? null} canEdit={canEdit} onAssigned={() => void mutate()} />
+      )}
       {/* Header: white card with a navy accent; name first, identifiers and details muted. */}
       <section className="rounded-2xl border border-border border-l-4 border-l-primary bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">

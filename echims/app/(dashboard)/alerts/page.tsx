@@ -46,6 +46,8 @@ type Alert = {
   recipient_id: string | null;
   resolved_by: string | null;
   resolved_at: string | null;
+  /** Set when the system resolved the alert itself. */
+  resolution_note?: string | null;
 };
 type Audit = {
   audit_id: number;
@@ -720,9 +722,11 @@ function AlertsWorkspace() {
                           {alert.status === "RESOLVED" && alert.resolved_at && (
                             <span className="text-muted-foreground">
                               Resolved {formatTime(alert.resolved_at)} ·{" "}
-                              {alert.resolved_by === owner
-                                ? "by you"
-                                : "handler recorded"}
+                              {alert.resolution_note
+                                ? alert.resolution_note
+                                : alert.resolved_by === owner
+                                  ? "by you"
+                                  : "handler recorded"}
                             </span>
                           )}
                         </div>
