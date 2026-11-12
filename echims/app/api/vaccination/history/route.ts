@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { loadNipCatalog } from '@/lib/nip-catalog-server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import {
-  NIP_CATALOG,
   nipVaccineTimeline,
   normalizeVaccineCode,
   manilaTodayYMD,
@@ -169,7 +169,8 @@ export async function GET(request: Request) {
     const today = manilaTodayYMD()
     const vaccineStatus: VaccineStatusRow[] = []
 
-    for (const vaccine of NIP_CATALOG) {
+    // Editable rules from the vaccine catalog (eligibility windows included).
+    for (const vaccine of await loadNipCatalog(supabase)) {
       if (vaccine.routine_enabled === false) continue
 
       const doses: DoseRow[] = []

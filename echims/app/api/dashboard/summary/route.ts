@@ -10,6 +10,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { scopeBarangays, trustedRole } from '@/lib/dashboard-scope'
+import { missedDoseCount } from '@/lib/vaccination-status-server'
 
 function parseDate(v: string | null): string | null {
   if (!v) return null
@@ -68,20 +69,11 @@ export async function GET(request: Request) {
       const r = await q
       return { count: r.count ?? 0 }
     })(),
-    // Overdue vaccinations in scope (uses existing vaccination_record approach)
+    // Missed NIP doses in scope: same rule as Vaccination › Schedule (Not eligible doses excluded).
+    // Was a count of PENDING vaccination records (records awaiting approval), not missed doses.
     (async () => {
-      const q = supabase.from('vaccination_record')
-        .select('vaccination_record_id, child:child(barangay_id)', { count: 'exact', head: false })
-        .eq('status', 'PENDING')
-        .lte('vaccination_date', todayYMD())
-      const r = await q
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows = (r.data ?? []).filter((v: any) => {
-        if (scopeBarangayIds === null) return true
-        const brgy = Array.isArray(v.child) ? v.child[0]?.barangay_id : v.child?.barangay_id
-        return scopeBarangayIds.includes(brgy)
-      })
-      return { count: rows.length }
+      try { return { count: await missedDoseCount(supabase, scopeBarangayIds) } }
+      catch (e) { console.error('Dashboard missed doses:', e); return { count: 0 } }
     })(),
     // Vaccinations due in next 14 days
     (async () => {

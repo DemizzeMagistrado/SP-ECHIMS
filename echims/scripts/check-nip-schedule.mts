@@ -27,6 +27,12 @@ assert.deepEqual([t[0].status, t[0].rescheduled_date], ['OVERDUE', '2026-01-02']
 // Due today = Pending; day after = Missed.
 assert.equal(nipVaccineTimeline('2026-01-01', v('HEPB'), [], '2026-01-01')[0].status, 'UPCOMING')
 assert.equal(nipVaccineTimeline('2026-01-01', v('HEPB'), [], '2026-01-02')[0].status, 'OVERDUE')
+// Hep-B birth dose: Missed up to day 13, Not eligible from day 14 (e.g. Ashley, missed 1826 days).
+assert.equal(nipVaccineTimeline('2026-01-01', v('HEPB'), [], '2026-01-14')[0].status, 'OVERDUE')
+assert.equal(nipVaccineTimeline('2026-01-01', v('HEPB'), [], '2026-01-15')[0].status, 'NOT_ELIGIBLE')
+assert.equal(nipVaccineTimeline('2021-11-13', v('HEPB'), [], '2026-11-13')[0].status, 'NOT_ELIGIBLE')
+// A missed dose whose new date falls past the cutoff is Not eligible, not rescheduled.
+assert.equal(nipVaccineTimeline('2026-01-01', { ...v('PENTA'), max_age_days: 100 }, [], '2026-03-20')[2].status, 'NOT_ELIGIBLE')
 
 assert.equal(normalizeBatchNumber('  bt  2026--0012 '), 'BT-2026-0012')
 assert.equal(batchNumberError('bt 2026 0012'), null)

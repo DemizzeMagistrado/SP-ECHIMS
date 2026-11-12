@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { loadNipCatalog } from '@/lib/nip-catalog-server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import {
   NIP_CATALOG,
@@ -123,6 +124,9 @@ for (const rec of approvedRecords) {
   doses.set(rec.dose_number, String(rec.vaccination_date))
 }
   const today = manilaTodayYMD()
+  // Editable rules from the vaccine catalog: doses past their eligibility window are Not
+  // eligible, never Missed, so they are not listed or counted here.
+  const catalog = await loadNipCatalog(supabase)
 
   // Walk each child × each vaccine × each dose and compute status
   type DefaulterRow = {
@@ -151,7 +155,7 @@ for (const rec of approvedRecords) {
     const b: any = Array.isArray(c.barangay) ? c.barangay[0] : c.barangay
     const upcoming: DefaulterRow[] = []
 
-    for (const v of NIP_CATALOG) {
+    for (const v of catalog) {
       if (v.routine_enabled === false) continue
       if (vaccineFilter && v.code !== vaccineFilter) continue
       const given = doneMap.get(c.child_id)?.get(v.code)

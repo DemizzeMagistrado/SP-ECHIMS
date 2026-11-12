@@ -231,7 +231,7 @@ export function CatalogSection() {
                           <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-slate-700">{v.vaccine_type}</span>
                         </span>
                         <span className="block text-xs text-muted-foreground">
-                          {v.total_doses} dose{v.total_doses === 1 ? '' : 's'} · from day {v.min_age_days}{v.interval_days ? `, +${v.interval_days} days each` : ''}{v.target_age ? ` · ${v.target_age}` : ''}
+                          {v.total_doses} dose{v.total_doses === 1 ? '' : 's'}{v.max_age_days ? ` · up to day ${v.max_age_days}` : ''} · from day {v.min_age_days}{v.interval_days ? `, +${v.interval_days} days each` : ''}{v.target_age ? ` · ${v.target_age}` : ''}
                         </span>
                       </span>
                       <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">

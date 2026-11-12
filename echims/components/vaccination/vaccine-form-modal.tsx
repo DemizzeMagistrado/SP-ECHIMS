@@ -19,6 +19,8 @@ export type VaccineCatalogRow = {
   min_age_days: number
   interval_days: number | null
   total_doses: number
+  max_age_days?: number | null
+  min_interval_days?: number | null
   updated_at: string
   // NIP-USR011 — DOH guideline fields (nullable; "" means user cleared it).
   eligibility: string | null
@@ -54,6 +56,8 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
   const [minAgeDays, setMinAgeDays] = useState<string>('0')
   const [intervalDays, setIntervalDays] = useState<string>('')
   const [totalDoses, setTotalDoses] = useState<string>('1')
+  const [maxAgeDays, setMaxAgeDays] = useState<string>('')
+  const [minIntervalDays, setMinIntervalDays] = useState<string>('')
   // NIP-USR011 — guideline fields (free text, admin edits here).
   const [eligibility, setEligibility] = useState('')
   const [contraindications, setContraindications] = useState('')
@@ -76,6 +80,8 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
     setMinAgeDays(String(editing?.min_age_days ?? 0))
     setIntervalDays(editing?.interval_days != null ? String(editing.interval_days) : '')
     setTotalDoses(String(editing?.total_doses ?? 1))
+    setMaxAgeDays(editing?.max_age_days != null ? String(editing.max_age_days) : '')
+    setMinIntervalDays(editing?.min_interval_days != null ? String(editing.min_interval_days) : '')
     setEligibility(editing?.eligibility ?? '')
     setContraindications(editing?.contraindications ?? '')
     setDohGuidelines(editing?.doh_guidelines ?? '')
@@ -99,6 +105,15 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
     if (dose > 1) {
       const iv = Number(intervalDays)
       if (!Number.isSafeInteger(iv) || iv <= 0) return 'Interval (days) must be a positive integer when total doses > 1.'
+    }
+    if (maxAgeDays.trim()) {
+      const mx = Number(maxAgeDays)
+      if (!Number.isSafeInteger(mx) || mx < 1 || mx > 3650) return 'Age limit must be 1–3650 days, or empty for no limit.'
+      if (mx <= min) return 'Age limit must be later than the minimum age of dose 1.'
+    }
+    if (minIntervalDays.trim()) {
+      const mi = Number(minIntervalDays)
+      if (!Number.isSafeInteger(mi) || mi < 1 || mi > 730) return 'Minimum interval must be 1–730 days, or empty.'
     }
     return null
   }
@@ -126,6 +141,8 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
         min_age_days: Number(minAgeDays),
         interval_days: totalDosesNum > 1 ? Number(intervalDays) : null,
         total_doses: Number(totalDoses),
+        max_age_days: maxAgeDays.trim() ? Number(maxAgeDays) : null,
+        min_interval_days: minIntervalDays.trim() ? Number(minIntervalDays) : null,
         // NIP-USR011 — guideline fields (empty string → NULL at the API).
         eligibility: eligibility.trim() || null,
         contraindications: contraindications.trim() || null,
@@ -227,6 +244,14 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
                   className={`${INPUT} ${!intervalRequired ? 'bg-slate-100 text-muted-foreground' : ''}`}
                   required={intervalRequired}
                 />
+              </Field>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Age limit (days)" hint="From this age a dose not yet given is Not eligible, not Missed. Empty = no limit. E.g. BCG 365, Hep-B birth dose 14.">
+                <input type="number" min={1} max={3650} value={maxAgeDays} onChange={(e) => setMaxAgeDays(e.target.value)} placeholder="No limit" className={INPUT} />
+              </Field>
+              <Field label="Minimum interval (days)" hint="Shortest gap after the previous dose when a missed dose is rescheduled. Empty = interval or 28.">
+                <input type="number" min={1} max={730} value={minIntervalDays} onChange={(e) => setMinIntervalDays(e.target.value)} placeholder="28" className={INPUT} />
               </Field>
             </div>
           </section>

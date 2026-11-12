@@ -4,9 +4,10 @@
 // GET  → computed preview of due/overdue doses for this child
 // POST → BHW/RHM creates a PENDING schedule request with date + optional time
 
-import { NIP_CATALOG, manilaTodayYMD, nipVaccineTimeline, normalizeVaccineCode } from '@/lib/nip-schedule'
+import { manilaTodayYMD, nipVaccineTimeline, normalizeVaccineCode } from '@/lib/nip-schedule'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { loadNipCatalog } from '@/lib/nip-catalog-server'
 
 /* ──────────────── GET: due/overdue preview ──────────────── */
 
@@ -65,7 +66,8 @@ export async function GET(
   const preview: Entry[] = []
   let excluded_count = 0
   const dob = String(child.date_of_birth)
-  for (const vaccine of NIP_CATALOG) {
+  // Editable rules from the vaccine catalog (eligibility windows included).
+  for (const vaccine of await loadNipCatalog(supabase)) {
     if (vaccine.routine_enabled === false) continue
     const dates = Array.from({ length: vaccine.total_doses }, (_, i) => givenOn.get(`${vaccine.code}:${i + 1}`) ?? null)
     for (const t of nipVaccineTimeline(dob, vaccine, dates, today)) {
