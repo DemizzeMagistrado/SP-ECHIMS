@@ -736,8 +736,8 @@ function ScheduleSection() {
 // Two tabs (NIP-REV01): Defaulters is the Missed chip of Schedule, SMS reminders are on Schedule
 // rows, the NIP Catalog moved to Settings › Vaccine Catalog and Batch Requests to Inventory.
 const TABS = [
-  { id: 'schedule', label: 'Schedule', resource: 'Vaccination' },
   { id: 'records', label: 'Records', resource: 'Vaccination' },
+  { id: 'schedule', label: 'Schedule', resource: 'Vaccination' },
 ] as const
 
 type TabId = (typeof TABS)[number]['id']

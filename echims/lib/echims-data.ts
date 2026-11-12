@@ -26,8 +26,8 @@ export const moduleTabs: Record<string, { label: string; href: string; module: s
   // NIP-REV01: two tabs. Defaulters = Schedule's Missed chip, SMS reminders sit on Schedule rows,
   // NIP Catalog → Settings › Vaccine Catalog, Batch Requests → Inventory › Batch Requests.
   Vaccination: [
-    { label: 'Schedule', href: '/vaccination/schedule', module: 'Vaccination' },
     { label: 'Records', href: '/vaccination/records', module: 'Vaccination' },
+    { label: 'Schedule', href: '/vaccination/schedule', module: 'Vaccination' },
   ],
    Inventory: [
     { label: 'Stock Overview', href: '/inventory/stock-overview', module: 'Inventory' },
