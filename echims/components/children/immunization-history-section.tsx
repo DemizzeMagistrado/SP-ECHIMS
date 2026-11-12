@@ -27,6 +27,8 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { manilaTodayYMD, nipDaysBetween } from '@/lib/nip-schedule'
 import { BhwAssistBadge, BhwAssistToggle } from '@/components/vaccination/bhw-assist'
+import { NextDose } from '@/components/vaccination/next-dose'
+import { routeSearch } from '@/lib/offline/navigation'
 type DoseStatus = 'COMPLETE' | 'DUE' | 'OVERDUE' | 'UPCOMING' | 'NOT_ELIGIBLE'
 type DoseRow = {
   dose_number: number
@@ -136,7 +138,12 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
     })
   }, [rows, data])
   // Every card starts collapsed on each visit (not remembered); headers keep the status badges.
-  const [openOverride, setOpenOverride] = useState<Record<string, boolean>>({})
+  // ?dose=<vaccine code> (a "View" link from a specific dose in Vaccination) opens that card only.
+  // This list renders after its data loads on the client, so reading the URL here is safe.
+  const [openOverride, setOpenOverride] = useState<Record<string, boolean>>(() => {
+    const dose = typeof window === 'undefined' ? null : new URLSearchParams(routeSearch()).get('dose')
+    return dose ? { [dose]: true } : {}
+  })
   const isOpen = (code: string) => openOverride[code] ?? false
   const setAll = (open: boolean) => setOpenOverride(Object.fromEntries(groups.map((g) => [g.code, open])))
   const allOpen = groups.length > 0 && groups.every((g) => isOpen(g.code))
@@ -203,11 +210,12 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
                     {worst && <span className="text-sm text-brand-navy">Longest missed: <span className="font-semibold">{worst.vaccine_type} {worst.dose_number}, {worst.days} {worst.days === 1 ? 'day' : 'days'}</span></span>}
                     <BhwAssistBadge assist={data.bhw_assist ?? null} />
                   </div>
-                  <p className="mt-2 text-sm text-brand-muted">
-                    {next && nextDate
-                      ? <>Next dose: <span className="font-semibold text-brand-navy">{next.vaccine_type} dose {next.dose_number}</span> on <span className="font-semibold text-brand-navy">{formatDate(nextDate)}</span>{next.status === 'OVERDUE' ? ' (rescheduled after a missed date)' : ''}.</>
-                      : 'All doses for this age are given or past their age limit.'}
-                  </p>
+                  {next && nextDate ? (
+                    <div className="mt-3 flex items-start gap-3 text-sm">
+                      <span className="pt-0.5 text-xs font-semibold uppercase tracking-wide text-brand-muted">Next dose</span>
+                      <NextDose date={nextDate} vaccine={next.vaccine_type} dose={next.dose_number} missed={next.status === 'OVERDUE'} className="items-start text-left" />
+                    </div>
+                  ) : <p className="mt-2 text-sm text-brand-muted">All doses for this age are given or past their age limit.</p>}
                 </div>
               )
             })()}
@@ -270,10 +278,9 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
                             label={g.state === 'COMPLETED' ? 'Completed' : g.state === 'MISSED' ? 'Missed' : g.state === 'NOT_ELIGIBLE' ? 'Not eligible' : 'Pending'}
                           />
                           <span className="text-xs text-muted-foreground sm:w-40 sm:text-right">
+                            {/* Compact next date (the Missed badge is already on the left). */}
                             {g.next
-                              ? g.next.status === 'OVERDUE'
-                                ? <>Missed · rescheduled to <span className="font-medium text-danger">{formatDate(g.next.rescheduled_date ?? g.next.due_date)}</span></>
-                                : <>Next due <span className="font-medium text-brand-navy">{formatDate(g.next.rescheduled_date ?? g.next.due_date)}</span></>
+                              ? <NextDose date={g.next.rescheduled_date ?? g.next.due_date} dose={g.next.dose_number} className="sm:items-end sm:text-right" />
                               : g.state === 'NOT_ELIGIBLE' ? 'Past the age limit' : 'All doses given'}
                           </span>
                         </span>

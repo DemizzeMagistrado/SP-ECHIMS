@@ -44,11 +44,14 @@ type Props<T> = {
   /** Keep the rows area as tall as a full page on every page (short last page = blank space), so
    *  the pagination bar stays put at the bottom of the card. */
   stableHeight?: boolean
+  /** Controlled page (0-based), e.g. kept in useSessionState so Back returns to it. */
+  page?: number
+  onPageChange?: (page: number) => void
   className?: string
 }
 
 export function DataTable<T>({
-  rows, columns, rowKey, caption, toolbar, empty, refreshing = false, onRowClick, rowLabel, pageSize = PAGE_SIZE, mobile = 'scroll', stableHeight = false, className,
+  rows, columns, rowKey, caption, toolbar, empty, refreshing = false, onRowClick, rowLabel, pageSize = PAGE_SIZE, mobile = 'scroll', stableHeight = false, page, onPageChange, className,
 }: Props<T>) {
   const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null)
 
@@ -83,7 +86,8 @@ export function DataTable<T>({
     })
   }, [rows, columns, sort])
 
-  const { visible, setPage, bindList, listStyle, props: pagerProps } = usePagination(sorted, Math.min(pageSize, PAGE_SIZE))
+  const control = useMemo(() => (page !== undefined && onPageChange ? { page, onPageChange } : undefined), [page, onPageChange])
+  const { visible, setPage, bindList, listStyle, props: pagerProps } = usePagination(sorted, Math.min(pageSize, PAGE_SIZE), control)
 
   // stableHeight: remember the tallest full page and give every page that height.
   // shortcut: only grows (e.g. after a narrow-to-wide resize it stays tall), reset on remount.

@@ -95,7 +95,7 @@ export function StickySubnav({ items, extra, label }: {
     }
   }, [ids])
 
-  function jump(id: string) {
+  function jump(id: string, arriving = false) {
     const el = document.getElementById(id)
     if (!el) return
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -103,7 +103,7 @@ export function StickySubnav({ items, extra, label }: {
     clicked.current = id
     setActive(id)
     scrolling.current = true
-    window.scrollTo({ top: target(), behavior: reduce ? 'auto' : 'smooth' })
+    window.scrollTo({ top: target(), behavior: reduce || arriving ? 'auto' : 'smooth' })
     let done = false
     const finish = () => {
       if (done) return
@@ -112,10 +112,32 @@ export function StickySubnav({ items, extra, label }: {
       // Content above may have grown (sections loading) during the scroll: land exactly.
       if (Math.abs(target() - window.scrollY) > 2) window.scrollTo({ top: target(), behavior: 'auto' })
       requestAnimationFrame(() => { scrolling.current = false })
+      if (!arriving) return
+      // Arriving from a link: sections above may still be loading. Stay aligned while the page
+      // grows (up to 2s, until the user scrolls), then flash the section so it is easy to spot.
+      const keep = new ResizeObserver(() => { if (clicked.current === id && Math.abs(target() - window.scrollY) > 2) window.scrollTo({ top: target(), behavior: 'auto' }) })
+      keep.observe(document.body)
+      setTimeout(() => keep.disconnect(), 2000)
+      if (!reduce) el.animate(
+        [{ boxShadow: '0 0 0 4px rgba(0,119,182,0.28)', borderRadius: '16px' }, { boxShadow: '0 0 0 4px rgba(0,119,182,0)', borderRadius: '16px' }],
+        { duration: 1600, easing: 'ease-out', delay: 150 },
+      )
     }
     window.addEventListener('scrollend', finish, { once: true })
-    setTimeout(finish, reduce ? 50 : 900) // browsers without scrollend
+    setTimeout(finish, reduce || arriving ? 50 : 900) // browsers without scrollend
   }
+
+  // Opened with #<section> (e.g. "View" from Vaccination): land on it like a jump-bar click.
+  // Links without a matching hash keep opening the page at the top.
+  const arrived = useRef(false)
+  useEffect(() => {
+    if (arrived.current) return
+    const id = decodeURIComponent(window.location.hash.slice(1))
+    if (!id || !ids.split('|').includes(id)) return
+    arrived.current = true
+    // Two frames: let this render's layout (and the measured offset) settle first.
+    requestAnimationFrame(() => requestAnimationFrame(() => jump(id, true)))
+  })
 
   return (
     <>

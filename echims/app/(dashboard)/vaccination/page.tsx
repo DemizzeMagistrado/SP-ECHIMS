@@ -2,6 +2,8 @@
 import { StatCard } from '@/components/ui/stat-card'
 import { FilterBar } from '@/components/ui/filter-bar'
 import { CatalogSection } from '@/components/vaccination/vaccine-catalog'
+import { NextDose, vaccinationProfileHref } from '@/components/vaccination/next-dose'
+import { useSessionState } from '@/lib/use-session-state'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 // Vaccination module — all sections merged into one page (one route).
@@ -34,7 +36,7 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { AccordionCard, ExpandCollapseAll } from '@/components/ui/accordion-card'
 import { DataTable } from '@/components/ui/data-table'
 import { Modal } from '@/components/ui/modal'
-import { Pagination, usePagination } from '@/components/ui/pagination'
+import { PAGE_SIZE, Pagination, usePagination } from '@/components/ui/pagination'
 import { Field } from '@/components/ui/form'
 import { BhwAssistBadge, BhwAssistToggle } from '@/components/vaccination/bhw-assist'
 import { ScheduleHistoryButton } from '@/components/vaccination/schedule-history'
@@ -153,8 +155,13 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
   const canView = role ? canPerform(role, 'Vaccination', 'view') : false
   const canTrace = role === 'Public Health Nurse' || role === 'Administrator'
 
-  const [q, setQ] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('')
+  // Search, chip and page survive opening a child and pressing Back.
+  const key = (n: string) => `vacc.${user?.id ?? 'anon'}.records.${n}`
+  const [q, setQRaw] = useSessionState(key('q'), '')
+  const [statusFilter, setStatusRaw] = useSessionState(key('status'), '')
+  const [page, setPage] = useSessionState(key('page'), 0)
+  const setQ = (v: string) => { setQRaw(v); setPage(0) }
+  const setStatusFilter = (v: string) => { setStatusRaw(v); setPage(0) }
   const [modalOpen, setModalOpen] = useState(false)
   const [reviewing, setReviewing] = useState<{ row: RecordRow; action: 'APPROVE' | 'REJECT' } | null>(null)
   const [reviewRemarks, setReviewRemarks] = useState('')
@@ -174,12 +181,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
   const schedule = useVaccinationView<DosesPayload>(isReady && canView ? '/api/vaccination/defaulters?include=pending' : null)
   const nextByChild = useMemo(() => {
     const map = new Map<number, DoseRow>()
-    const better = (a: DoseRow, b: DoseRow | undefined) => {
-      if (!b) return true
-      if ((a.status === 'OVERDUE') !== (b.status === 'OVERDUE')) return a.status === 'OVERDUE'
-      return doseDate(a) < doseDate(b)
-    }
-    for (const d of [...(schedule.data?.defaulters ?? []), ...(schedule.data?.pending ?? [])]) if (better(d, map.get(d.child_id))) map.set(d.child_id, d)
+    for (const d of [...(schedule.data?.defaulters ?? []), ...(schedule.data?.pending ?? [])]) if (nextFirst(d, map.get(d.child_id))) map.set(d.child_id, d)
     return map
   }, [schedule.data])
   const { data, error, isLoading, refreshing, readOnly, savedAt, mutate } = useVaccinationView<RecordsPayload>(isReady && canView ? url : null)
@@ -263,8 +265,10 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
           caption="Vaccination records"
           refreshing={refreshing}
           mobile="cards"
-          onRowClick={(row) => { const c = one(row.child); if (c) router.push(`/child-profiling/children/${c.child_id}`) }}
-          rowLabel={(row) => { const c = one(row.child); return c ? `Open ${fullName(c)}'s profile` : 'Record' }}
+          page={page}
+          onPageChange={setPage}
+          onRowClick={(row) => { const c = one(row.child); if (c) router.push(vaccinationProfileHref(c.child_id)) }}
+          rowLabel={(row) => { const c = one(row.child); return c ? `Open ${fullName(c)}'s vaccination schedule` : 'Record' }}
           toolbar={
             <fieldset disabled={readOnly} className="flex w-full flex-col gap-3">
               <div className="relative">
@@ -320,19 +324,13 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
             { key: 'date', header: 'Date given', sortValue: (row) => row.vaccination_date, cell: (row) => formatYmd(row.vaccination_date) },
             { key: 'status', header: 'Status', sortValue: (row) => row.status, cell: (row) => <StatusBadge status={row.status} tone={recordTone(row.status)} label={RECORD_STATUS_META[row.status].label} /> },
             {
-              key: 'next', header: 'Next schedule', sortValue: (row) => { const c = one(row.child); const n = c ? nextByChild.get(c.child_id) : undefined; return n ? doseDate(n) : null },
+              key: 'next', header: 'Next schedule', className: 'w-48', sortValue: (row) => { const c = one(row.child); const n = c ? nextByChild.get(c.child_id) : undefined; return n ? doseDate(n) : null },
               cell: (row) => {
                 const c = one(row.child)
                 const n = c ? nextByChild.get(c.child_id) : undefined
-                if (!c || !n) return <span className="text-muted-foreground" title={schedule.isLoading ? 'Loading the schedule…' : 'No missed or pending dose found for this child'}>—</span>
-                return (
-                  <span className="flex flex-col items-end gap-1 sm:items-start">
-                    <Link href={`/child-profiling/children/${c.child_id}#vaccination-schedule`} className="font-medium text-brand-blue underline-offset-4 hover:underline">
-                      {formatYmd(doseDate(n))} · {n.vaccine_type} {n.dose_number}
-                    </Link>
-                    {n.status === 'OVERDUE' && <StatusBadge status="missed" tone="danger" label={n.rescheduled_date ? `Missed · rescheduled to ${formatYmd(n.rescheduled_date)}` : 'Missed'} />}
-                  </span>
-                )
+                if (!c || !n) return <span className="text-muted-foreground" title={schedule.isLoading ? 'Loading the schedule…' : 'No missed or pending dose'}>—</span>
+                const missed = n.status === 'OVERDUE'
+                return <NextDose date={doseDate(n)} vaccine={n.vaccine_type} dose={n.dose_number} missed={missed} href={vaccinationProfileHref(c.child_id, missed ? n.vaccine_code : null)} />
               },
             },
             {
@@ -459,6 +457,12 @@ type StatusChip = 'all' | 'pending' | 'missed' | 'assist'
 const CHIPS: StatusChip[] = ['all', 'pending', 'missed', 'assist']
 const days = (n: number) => `${n} ${n === 1 ? 'day' : 'days'}`
 const doseDate = (d: DoseRow) => d.rescheduled_date ?? d.due_date
+/** Is `a` the better "next dose" than `b`? Missed doses first, then the earliest date. */
+function nextFirst(a: DoseRow, b: DoseRow | undefined) {
+  if (!b) return true
+  if ((a.status === 'OVERDUE') !== (b.status === 'OVERDUE')) return a.status === 'OVERDUE'
+  return doseDate(a) < doseDate(b)
+}
 const subscribeNoop = () => () => {}
 
 function ScheduleSection() {
@@ -473,13 +477,27 @@ function ScheduleSection() {
     const v = new URLSearchParams(window.location.search).get('status') ?? ''
     return (CHIPS as string[]).includes(v) ? (v as StatusChip) : 'all'
   }, () => 'all' as StatusChip)
-  const [chipChoice, setChip] = useState<StatusChip | null>(null)
+  const [chipChoice, setChipChoice] = useState<StatusChip | null>(null)
   const chip = chipChoice ?? linkedChip
-  const [requestFilter, setRequestFilter] = useState('')
-  const [vaccineFilter, setVaccineFilter] = useState('')
-  const [search, setSearch] = useState('')
-  const [from, setFrom] = useState('')
-  const [to, setTo] = useState('')
+  // Filters, search and page survive opening a child and pressing Back; the chip lives in the
+  // URL (?status=), so Back and dashboard links land on the same view.
+  const key = (n: string) => `vacc.${user?.id ?? 'anon'}.schedule.${n}`
+  const [requestFilter, setRequestRaw] = useSessionState(key('request'), '')
+  const [vaccineFilter, setVaccineRaw] = useSessionState(key('vaccine'), '')
+  const [search, setSearchRaw] = useSessionState(key('q'), '')
+  const [from, setFromRaw] = useSessionState(key('from'), '')
+  const [to, setToRaw] = useSessionState(key('to'), '')
+  const [page, setPage] = useSessionState(key('page'), 0)
+  const reset = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPage(0) }
+  const setRequestFilter = reset(setRequestRaw), setVaccineFilter = reset(setVaccineRaw), setSearch = reset(setSearchRaw), setFrom = reset(setFromRaw), setTo = reset(setToRaw)
+  const setChip = (c: StatusChip) => {
+    setChipChoice(c); setPage(0)
+    if (window.location.pathname.startsWith('/vaccination')) {
+      const u = new URL(window.location.href)
+      if (c === 'all') u.searchParams.delete('status'); else u.searchParams.set('status', c)
+      window.history.replaceState(null, '', u)
+    }
+  }
   const [openOverride, setOpenOverride] = useState<Record<number, boolean>>({})
   const [reviewing, setReviewing] = useState<ScheduleRow | null>(null)
   const [reviewAction, setReviewAction] = useState<'APPROVE' | 'REVISE'>('APPROVE')
@@ -550,7 +568,8 @@ function ScheduleSection() {
         .filter(Boolean).join(' ').toLowerCase().includes(q)
     })
   }, [cards, chip, requestFilter, from, to, search])
-  const { visible, bindList, listStyle, props: pagerProps } = usePagination(shown)
+  const pageControl = useMemo(() => ({ page, onPageChange: setPage }), [page, setPage])
+  const { visible, bindList, listStyle, props: pagerProps } = usePagination(shown, PAGE_SIZE, pageControl)
 
   const isOpen = (id: number) => openOverride[id] ?? false
   const allOpen = shown.length > 0 && shown.every((c) => isOpen(c.child_id))
@@ -663,7 +682,7 @@ function ScheduleSection() {
                 {visible.map((c) => {
                   const open = isOpen(c.child_id)
                   const req = c.request
-                  const pendingDate = c.pending[0] ? doseDate(c.pending[0]) : null
+                  const next = [...c.missed, ...c.pending].reduce<DoseRow | undefined>((b, d) => (nextFirst(d, b) ? d : b), undefined)
                   return (
                     <AccordionCard
                       key={c.child_id}
@@ -675,11 +694,11 @@ function ScheduleSection() {
                           <span className="block font-semibold text-brand-navy">{c.child_name}</span>
                           <span className="mt-0.5 block text-xs text-muted-foreground">{c.child_code ?? `#${c.child_id}`} · {c.barangay_name ?? '—'}{c.date_of_birth ? ` · Born ${formatYmd(c.date_of_birth)}` : ''}</span>
                         </span>
-                        {/* Status summary: one dose badge, plus the request only when it needs action. */}
-                        <span className="flex flex-wrap items-center justify-end gap-1.5">
-                          {c.missed.length > 0
-                            ? <StatusBadge status="missed" tone="danger" label={`${c.missed.length} missed`} />
-                            : pendingDate && <StatusBadge status="pending" tone="info" label={`Next · ${formatYmd(pendingDate)}`} />}
+                        {/* Status summary: the next dose (compact), a missed count only when more than one,
+                            and the request only when it needs action. */}
+                        <span className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
+                          {next && <NextDose date={doseDate(next)} vaccine={next.vaccine_type} dose={next.dose_number} missed={next.status === 'OVERDUE'} />}
+                          {c.missed.length > 1 && <StatusBadge status="missed" tone="danger" label={`${c.missed.length} missed`} />}
                           {req && (req.status === 'PENDING' || req.status === 'NEEDS_REVISION') && <StatusBadge status={req.status === 'PENDING' ? 'pending' : 'upcoming'} label={SCHEDULE_STATUS_META[req.status].label} />}
                           <BhwAssistBadge assist={c.bhw_assist} />
                         </span>
@@ -694,8 +713,7 @@ function ScheduleSection() {
                         {!readOnly && (c.missed.length > 0 || c.pending.length > 0) && <SendReminderButton row={reminders.get(c.child_id)} data={sms.data} onSent={refreshAll} />}
                         {canFlag && !readOnly && <BhwAssistToggle variant="ghost" childId={c.child_id} childName={c.child_name} assist={c.bhw_assist} onChanged={refreshAll} />}
                         {canSeeRequests && <ScheduleHistoryButton variant="ghost" childId={c.child_id} childName={c.child_name} />}
-                        <Link href={`/child-profiling/children/${c.child_id}#vaccination-schedule`} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>Child schedule</Link>
-                        <Link href={`/child-profiling/children/${c.child_id}`} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>View child <ArrowRight size={12} aria-hidden="true" /></Link>
+                        <Link href={vaccinationProfileHref(c.child_id)} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>View <ArrowRight size={12} aria-hidden="true" /></Link>
                       </div>
                       {req && (
                         <p className="rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-border/70">
@@ -708,16 +726,16 @@ function ScheduleSection() {
                         {c.missed.map((d) => (
                           <li key={`m-${d.vaccine_code}-${d.dose_number}`} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-border/70">
                             <span>
-                              <span className="font-medium text-brand-navy">{d.vaccine_type} · Dose {d.dose_number}</span>
+                              <Link href={vaccinationProfileHref(c.child_id, d.vaccine_code)} className="font-medium text-brand-navy underline-offset-4 hover:text-brand-blue hover:underline">{d.vaccine_type} · Dose {d.dose_number}</Link>
                               <span className="mt-0.5 block text-xs text-muted-foreground">Due {formatYmd(d.due_date)} · missed for {days(d.days_overdue)}</span>
                             </span>
-                            <StatusBadge status="missed" tone="danger" label={d.rescheduled_date ? `Missed · rescheduled to ${formatYmd(d.rescheduled_date)}` : 'Missed'} />
+                            <NextDose date={doseDate(d)} missed />
                           </li>
                         ))}
                         {c.pending.map((d) => (
                           <li key={`p-${d.vaccine_code}-${d.dose_number}`} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-border/70">
                             <span className="font-medium text-brand-navy">{d.vaccine_type} · Dose {d.dose_number}</span>
-                            <StatusBadge status="pending" tone="info" label={d.rescheduled_date ? `Pending · moved to ${formatYmd(d.rescheduled_date)}` : `Pending · ${formatYmd(d.due_date)}`} />
+                            <NextDose date={doseDate(d)} />
                           </li>
                         ))}
                         {c.missed.length === 0 && c.pending.length === 0 && <li className="text-sm text-muted-foreground">No routine doses due right now.</li>}
@@ -800,6 +818,11 @@ export default function VaccinationPage() {
   const role = user?.role as UserRole | undefined
   const [chosen, setTab] = useState<TabId | null>(null)
   const tab: TabId = chosen ?? (pathname?.endsWith('/schedule') ? 'schedule' : pathname?.endsWith('/vaccines') ? 'vaccines' : 'records')
+  // The tab's own URL (filters reset), so opening a child and pressing Back returns here.
+  const chooseTab = (t: TabId) => {
+    setTab(t)
+    if (window.location.pathname.startsWith('/vaccination')) window.history.replaceState(null, '', `/vaccination/${t}`)
+  }
 
   if (!isReady) {
     return <LogoLoader />
@@ -825,7 +848,7 @@ export default function VaccinationPage() {
         label="Vaccination sections"
         group="vaccination"
         value={active}
-        onChange={setTab}
+        onChange={chooseTab}
         items={visible.map((t) => ({ value: t.id, label: t.id === 'schedule' ? <ScheduleTabLabel enabled={Boolean(role && canPerform(role, 'Vaccination', 'view'))} /> : t.id === 'vaccines'
           ? <span className="inline-flex items-center gap-2"><Syringe size={15} aria-hidden="true" />{t.label}</span>
           : t.label }))}
@@ -833,7 +856,7 @@ export default function VaccinationPage() {
 
       {/* Holds the previous tab's height and fades the new one in once its data is in. */}
       <TabPanel tabKey={active}>
-        {active === 'records' && <RecordsSection key={user?.id} onGoToSchedule={() => setTab('schedule')} />}
+        {active === 'records' && <RecordsSection key={user?.id} onGoToSchedule={() => chooseTab('schedule')} />}
         {active === 'schedule' && <ScheduleSection key={user?.id} />}
         {active === 'vaccines' && <CatalogSection key={user?.id} />}
       </TabPanel>

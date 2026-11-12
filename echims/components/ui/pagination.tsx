@@ -15,8 +15,11 @@ import { cn } from '@/lib/utils'
 
 export const PAGE_SIZE = 6
 
-export function usePagination<T>(rows: T[], pageSize = PAGE_SIZE) {
-  const [page, setPageState] = useState(0)
+/** `control` keeps the page outside (e.g. useSessionState, so Back returns to the same page). The
+ *  caller then resets it when filters change; it is only clamped here. */
+export function usePagination<T>(rows: T[], pageSize = PAGE_SIZE, control?: { page: number; onPageChange: (page: number) => void }) {
+  const [ownPage, setPageState] = useState(0)
+  const page = control ? control.page : ownPage
   const [minHeight, setMinHeight] = useState<number | undefined>()
   // The list element lives in state (not a ref) so the returned object is safe to read in render.
   const [listEl, setListEl] = useState<HTMLElement | null>(null)
@@ -26,7 +29,7 @@ export function usePagination<T>(rows: T[], pageSize = PAGE_SIZE) {
 
   // A new data set (filter/search) starts on page 1 with its own height (reset during render).
   const [seenLength, setSeenLength] = useState(rows.length)
-  if (seenLength !== rows.length) { setSeenLength(rows.length); setPageState(0); setMinHeight(undefined) }
+  if (seenLength !== rows.length) { setSeenLength(rows.length); if (!control) setPageState(0); setMinHeight(undefined) }
 
   const setPage = useCallback((next: number) => {
     const el = listEl
@@ -35,8 +38,9 @@ export function usePagination<T>(rows: T[], pageSize = PAGE_SIZE) {
       el.querySelectorAll<HTMLElement>('.scroll-subtle').forEach((box) => { box.scrollTop = 0 })
       if (el.getBoundingClientRect().top < 0) el.scrollIntoView({ block: 'start', behavior: 'smooth' })
     }
-    setPageState(next)
-  }, [listEl])
+    if (control) control.onPageChange(next)
+    else setPageState(next)
+  }, [listEl, control])
 
   const visible = useMemo(() => (pageSize > 0 ? rows.slice(current * size, current * size + size) : rows), [rows, current, size, pageSize])
   const listStyle: CSSProperties | undefined = minHeight && pageCount > 1 ? { minHeight } : undefined
