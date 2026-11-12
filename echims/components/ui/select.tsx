@@ -7,6 +7,10 @@
 // is a styled panel in a portal (no clipping in cards/modals), flips near screen edges, highlights
 // the selected and active option, supports arrow keys / Home / End / Enter / Esc / type-ahead,
 // and shows a search box for long lists (more than 10 options).
+// An empty-value option that is a prompt ("Select", "Choose a status…", "Loading…") is the
+// placeholder: gray text in the closed field, never an item in the menu. Empty-value options that
+// are real choices ("All vaccines", "Any request", "None", "Not recorded") stay in the menu.
+// Optional fields with a placeholder get a small × to clear the value back to ''.
 // A visually hidden native <select> carries name/value/required for forms and fires the real
 // change event, so onChange handlers receive a normal event whose target.value is the new value.
 
@@ -14,7 +18,7 @@ import {
   Children, Fragment, isValidElement, useId, useMemo, useRef, useState,
   type ReactElement, type ReactNode, type SelectHTMLAttributes,
 } from 'react'
-import { Check, ChevronDown, Search } from 'lucide-react'
+import { Check, ChevronDown, Search, X } from 'lucide-react'
 import { FloatingPanel } from './floating-panel'
 import { cn } from '@/lib/utils'
 
@@ -42,6 +46,9 @@ function collect(children: ReactNode, out: Opt[] = [], group?: string): Opt[] {
 }
 
 const SEARCH_AFTER = 10
+/** '' options worded as a real choice; any other '' option is a placeholder prompt. */
+const EMPTY_CHOICE = /^\s*(all|any|every|latest|none|no|not)\b/i
+const isPrompt = (o: Opt) => o.value === '' && !EMPTY_CHOICE.test(o.label)
 
 export type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
   /** Force the in-menu search on/off (default: on for more than 10 options). */
@@ -51,9 +58,11 @@ export type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
 }
 
 export function Select({ className, children, value, defaultValue, onChange, disabled, required, name, id, searchable, placeholder, ...rest }: SelectProps) {
-  const options = useMemo(() => collect(children), [children])
+  const all = useMemo(() => collect(children), [children])
+  const prompt = all.find(isPrompt)
+  const options = useMemo(() => all.filter((o) => !isPrompt(o)), [all])
   const controlled = value !== undefined
-  const [inner, setInner] = useState(() => String(defaultValue ?? options[0]?.value ?? ''))
+  const [inner, setInner] = useState(() => String(defaultValue ?? all[0]?.value ?? ''))
   const current = controlled ? String(value ?? '') : inner
   const selected = options.find((o) => o.value === current)
 
@@ -133,9 +142,12 @@ export function Select({ className, children, value, defaultValue, onChange, dis
   }
 
   const isPlaceholder = !selected || selected.value === ''
+  // Optional field with a prompt: an × inside the field clears it (the wrapper is always there so
+  // the trigger keeps focus across clears).
+  const canClear = Boolean(prompt) && !required && !rest['aria-required']
+  const clearable = canClear && !disabled && current !== ''
 
-  return (
-    <>
+  const triggerEl = (
       <button
         ref={trigger}
         id={triggerId}
@@ -157,12 +169,33 @@ export function Select({ className, children, value, defaultValue, onChange, dis
         className={cn(
           'flex h-10 w-full min-w-0 cursor-pointer items-center justify-between gap-2 rounded-lg border border-brand-line bg-white px-3 text-left text-sm text-brand-navy outline-none transition-[border-color,box-shadow,background-color] hover:border-brand-blue/50 hover:bg-brand-ice/40 focus-visible:border-brand-blue focus-visible:ring-3 focus-visible:ring-brand-blue/20 disabled:cursor-not-allowed disabled:bg-brand-ice disabled:text-brand-muted aria-invalid:border-danger aria-invalid:focus-visible:ring-danger/15',
           open && 'border-brand-blue ring-3 ring-brand-blue/20',
+          clearable && 'pr-[3.75rem]',
           className,
         )}
       >
-        <span className={cn('truncate', isPlaceholder && 'text-brand-muted')}>{selected?.label || placeholder || 'Select…'}</span>
+        <span className={cn('truncate', isPlaceholder && 'text-brand-muted')}>{selected?.label || placeholder || prompt?.label || 'Select…'}</span>
         <ChevronDown size={16} aria-hidden="true" className={cn('shrink-0 text-brand-muted transition-transform duration-150', open && 'rotate-180')} />
       </button>
+  )
+
+  return (
+    <>
+      {canClear ? (
+        <span className="relative block w-full min-w-0">
+          {triggerEl}
+          {clearable && (
+            <button
+              type="button"
+              aria-label={`Clear ${rest['aria-label'] ?? 'selection'}`}
+              title="Clear"
+              onClick={() => choose({ value: '', label: '', disabled: false })}
+              className="absolute right-8 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-brand-muted outline-none hover:bg-brand-ice hover:text-brand-navy focus-visible:ring-2 focus-visible:ring-brand-blue/35"
+            >
+              <X size={14} aria-hidden="true" />
+            </button>
+          )}
+        </span>
+      ) : triggerEl}
       <select
         ref={native}
         tabIndex={-1}
@@ -176,7 +209,7 @@ export function Select({ className, children, value, defaultValue, onChange, dis
         onFocus={() => trigger.current?.focus()}
         className="sr-only"
       >
-        {options.map((o) => <option key={`${o.group ?? ''}:${o.value}`} value={o.value} disabled={o.disabled}>{o.label}</option>)}
+        {all.map((o) => <option key={`${o.group ?? ''}:${o.value}`} value={o.value} disabled={o.disabled}>{o.label}</option>)}
       </select>
       <FloatingPanel anchor={trigger} open={open} onClose={() => close(false)} minWidth={200} maxHeight={300}>
         {withSearch && (

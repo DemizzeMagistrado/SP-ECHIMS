@@ -58,7 +58,10 @@ suggestions that filter as you type: `value`, `onChange(value)`, `options`; neve
 `Select` keeps the native `<select>` API (`<option>`/`<optgroup>` children, `value`/`onChange(e)`,
 or `name` + `defaultValue` in a FormData form) but renders the shared dropdown: styled menu in a
 portal (no clipping in cards/modals, flips near screen edges), keyboard navigation and type-ahead,
-and a search box when there are more than 10 options (`searchable` forces it). Never use a raw `<select>`.
+and a search box when there are more than 10 options (`searchable` forces it). An empty-value prompt option
+(`<option value="">Select…</option>`, "Choose…", "Loading…") is only the gray placeholder, never a menu item;
+empty-value options worded as a choice (All, Any, Every, Latest, None, No, Not…) stay in the menu.
+Optional fields with a prompt show a small × that clears the value back to `''`. Never use a raw `<select>`.
 `DateInput` is the shared date picker with the `<input type="date">` API (`value`/`min`/`max` as
 YYYY-MM-DD, `onChange(e)` gives `e.target.value`, or `name` + `defaultValue`): typing MM/DD/YYYY
 (validated against min/max), calendar popover with month/year quick pick, Today and Clear, keyboard
