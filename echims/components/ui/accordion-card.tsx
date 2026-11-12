@@ -7,7 +7,6 @@
 
 import type { ReactNode } from 'react'
 import { ChevronDown, ChevronsDown, ChevronsUp } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 export function AccordionCard({ id, open, onToggle, header, children, className }: {
@@ -46,17 +45,20 @@ export function AccordionCard({ id, open, onToggle, header, children, className 
   )
 }
 
-/** Expand all / Collapse all, each disabled when it would do nothing. Lists using it start fully
- *  collapsed on every visit (keep open state in component state, never storage). */
+/** Expand all / Collapse all as one small segmented pair, each half disabled when it would do
+ *  nothing. Lists using it start fully collapsed on every visit (keep open state in component
+ *  state, never storage). */
 export function ExpandCollapseAll({ allOpen, noneOpen, onSet }: { allOpen: boolean; noneOpen: boolean; onSet: (open: boolean) => void }) {
+  const half = 'inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-brand-navy outline-none transition-colors hover:bg-white hover:shadow-sm focus-visible:ring-2 focus-visible:ring-brand-blue/35 disabled:pointer-events-none disabled:text-slate-500 [&_svg]:text-brand-blue disabled:[&_svg]:text-slate-400'
   return (
-    <div className="flex justify-end gap-2">
-      <Button variant="tonal" size="sm" onClick={() => onSet(true)} disabled={allOpen}>
+    <div role="group" aria-label="Expand or collapse all" className="inline-flex items-center gap-0.5 rounded-lg bg-brand-blue/[0.07] p-0.5">
+      <button type="button" className={half} onClick={() => onSet(true)} disabled={allOpen}>
         <ChevronsDown size={14} aria-hidden="true" />Expand all
-      </Button>
-      <Button variant="tonal" size="sm" onClick={() => onSet(false)} disabled={noneOpen}>
+      </button>
+      <span aria-hidden="true" className="h-4 w-px bg-brand-blue/15" />
+      <button type="button" className={half} onClick={() => onSet(false)} disabled={noneOpen}>
         <ChevronsUp size={14} aria-hidden="true" />Collapse all
-      </Button>
+      </button>
     </div>
   )
 }

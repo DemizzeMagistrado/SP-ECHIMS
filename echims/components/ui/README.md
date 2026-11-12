@@ -40,9 +40,10 @@ Display-font title, one-line muted subtitle, `actions` on the right (wrap below 
 ```
 
 ## Button — `button.tsx`
-`variant`: `primary` (default, solid navy: the main action) · `secondary` (white outline: neutral) · `tonal`
-(light brand-blue fill, navy text, blue icon: added/secondary actions that should stand out, e.g. Send
-reminders, Print, Export, Refresh, Expand all, Batch requests, View history) · `ghost` · `danger`; `size`: `sm` · `md` (default) · `icon`;
+`variant`: `primary` (default, solid navy: the one main action) · `secondary` (white outline: neutral) · `tonal`
+(very light brand-blue fill, no border, navy medium text, blue icon; flat gray when disabled: secondary
+actions that should stand out a little, e.g. Send reminder, Print, Export, Refresh, SMS history; use
+it sparingly, one or two per area, and `ghost` for the rest) · `ghost` · `danger`; `size`: `sm` · `md` (default) · `icon`;
 `loading` shows a spinner and disables. Defaults to `type="button"`. For links use `buttonVariants()`:
 ```tsx
 <Button variant="danger" loading={deleting} onClick={remove}>Delete</Button>
@@ -52,7 +53,8 @@ reminders, Print, Export, Refresh, Expand all, Batch requests, View history) · 
 ## Form controls — `form.tsx`
 `Field` wires label, required marker, hint and error (red, linked with `aria-describedby`, sets
 `aria-invalid`) to the control inside it. Controls: `Input`, `DateInput`, `Select`, `Textarea`,
-`Checkbox`, `Radio` (the last two take `label` and `hint`). `controlClass` is exported for odd cases.
+`Checkbox`, `Radio` (the last two take `label` and `hint`), `Combobox` (pick-or-type text with styled
+suggestions that filter as you type: `value`, `onChange(value)`, `options`; never use `<datalist>`). `controlClass` is exported for odd cases.
 `Select` keeps the native `<select>` API (`<option>`/`<optgroup>` children, `value`/`onChange(e)`,
 or `name` + `defaultValue` in a FormData form) but renders the shared dropdown: styled menu in a
 portal (no clipping in cards/modals, flips near screen edges), keyboard navigation and type-ahead,
