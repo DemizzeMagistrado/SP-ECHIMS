@@ -9,6 +9,7 @@
 import { createContext, useContext, useId, type AriaAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react'
 import { cn } from '@/lib/utils'
 import { Select as BaseSelect, type SelectProps } from './select'
+import { DatePicker, type DatePickerProps } from './date-picker'
 
 type FieldContext = { id: string; describedBy?: string; invalid: boolean; required: boolean }
 const Ctx = createContext<FieldContext | null>(null)
@@ -55,8 +56,9 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
   return <input {...useFieldProps(props)} className={cn(controlClass, 'h-10', className)} />
 }
 
-export function DateInput(props: Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>) {
-  return <Input type="date" {...props} />
+/** Shared date picker (see date-picker.tsx): same API as <input type="date">. */
+export function DateInput(props: DatePickerProps) {
+  return <DatePicker {...useFieldProps(props)} />
 }
 
 /** Shared dropdown (see select.tsx): native <select> API, styled menu, search for long lists. */

@@ -10,7 +10,7 @@ import type { UserRole } from '@/lib/echims-data'
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
-import { Select } from '@/components/ui/form'
+import { Select, DateInput } from '@/components/ui/form'
 
 // INV-USR001 / INV-USR002 — Stock Overview.
 // Reads go straight to Supabase (RLS applies): PHN sees the RHU, RHM only the
@@ -452,12 +452,12 @@ function StockInForm({ items, barangays, onClose, onSaved }: {
           </label>
           <label>
             <span className="mb-1 block text-sm font-medium text-[#374151]">Received date</span>
-            <input type="date" max={today} value={form.received_date} onChange={(e) => set('received_date', e.target.value)} className={`${field} ${border('received_date')}`} />
+            <DateInput max={today} value={form.received_date} onChange={(e) => set('received_date', e.target.value)} aria-invalid={Boolean(errors.received_date) || undefined} />
             <Err k="received_date" />
           </label>
           <label>
             <span className="mb-1 block text-sm font-medium text-[#374151]">Expiry date</span>
-            <input type="date" min={today} value={form.expiry_date} onChange={(e) => set('expiry_date', e.target.value)} className={`${field} ${border('expiry_date')}`} />
+            <DateInput min={today} value={form.expiry_date} onChange={(e) => set('expiry_date', e.target.value)} aria-invalid={Boolean(errors.expiry_date) || undefined} />
             <Err k="expiry_date" />
           </label>
         </div>

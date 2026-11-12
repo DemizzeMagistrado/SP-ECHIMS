@@ -55,6 +55,11 @@ Display-font title, one-line muted subtitle, `actions` on the right (wrap below 
 or `name` + `defaultValue` in a FormData form) but renders the shared dropdown: styled menu in a
 portal (no clipping in cards/modals, flips near screen edges), keyboard navigation and type-ahead,
 and a search box when there are more than 10 options (`searchable` forces it). Never use a raw `<select>`.
+`DateInput` is the shared date picker with the `<input type="date">` API (`value`/`min`/`max` as
+YYYY-MM-DD, `onChange(e)` gives `e.target.value`, or `name` + `defaultValue`): typing MM/DD/YYYY
+(validated against min/max), calendar popover with month/year quick pick, Today and Clear, keyboard
+navigation, bottom sheet on phones. Always pass `min`/`max` where they apply (no future birth dates,
+no vaccination before birth). Never use a raw `type="date"`.
 ```tsx
 <Field label="Birth date" required hint="As on the birth certificate" error={errors.dob}>
   <DateInput value={dob} onChange={(e) => setDob(e.target.value)} />

@@ -1,5 +1,6 @@
 'use client'
 
+import { DateInput } from '@/components/ui/form'
 // RPT-USR001 — Role-scoped dashboard overview.
 // Reads live data from /api/dashboard/summary, which handles role scoping
 // (BHW/BNS/RHM = assigned barangays; PHN = RHU-wide; Admin = everything).
@@ -288,12 +289,12 @@ export function DashboardOverview() {
             {days === null && (
               <div className="flex flex-wrap items-center gap-2 text-sm animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none">
                 <label className="sr-only" htmlFor="range-from">From</label>
-                <input id="range-from" type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)}
-                  className="rounded-lg border border-white/15 bg-white/5 px-2.5 py-1.5 text-white outline-none [color-scheme:dark] focus:border-brand-aqua" />
+                <DateInput id="range-from" className="w-40" value={from} max={to} onChange={(e) => setFrom(e.target.value)}
+                  />
                 <span className="text-white/60">to</span>
                 <label className="sr-only" htmlFor="range-to">To</label>
-                <input id="range-to" type="date" value={to} min={from} max={todayYMD()} onChange={(e) => setTo(e.target.value)}
-                  className="rounded-lg border border-white/15 bg-white/5 px-2.5 py-1.5 text-white outline-none [color-scheme:dark] focus:border-brand-aqua" />
+                <DateInput id="range-to" className="w-40" value={to} min={from} max={todayYMD()} onChange={(e) => setTo(e.target.value)}
+                  />
               </div>
             )}
           </div>

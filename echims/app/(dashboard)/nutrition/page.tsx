@@ -39,7 +39,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { FilterChips, TabBar } from '@/components/ui/module-tabs'
 import { Button } from '@/components/ui/button'
-import { Select } from '@/components/ui/form'
+import { Select, DateInput } from '@/components/ui/form'
 import { reportSync } from '@/lib/offline/refresh'
 type Relation<T> = T | T[] | null;
 type Barangay = {
@@ -2728,11 +2728,9 @@ export default function NutritionPage() {
                   </label>
                   <label className="text-sm font-medium">
                     Date of birth
-                    <input
-                      readOnly
-                      type="date"
+                    <DateInput disabled
                       value={child?.date_of_birth ?? ""}
-                      className={inputClass}
+                     
                     />
                   </label>
                 </div>
@@ -2761,16 +2759,15 @@ export default function NutritionPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="text-sm font-medium">
                     Date measured
-                    <input
+                    <DateInput
                       required
-                      type="date"
                       value={draft.assessment_date}
                       min={child?.date_of_birth}
                       max={todayKey()}
                       onChange={(event) =>
                         change("assessment_date", event.target.value)
                       }
-                      className={inputClass}
+                     
                     />
                   </label>
                   <label className="text-sm font-medium">

@@ -1,5 +1,5 @@
 'use client'
-import { Select } from '@/components/ui/form'
+import { Select, DateInput } from '@/components/ui/form'
 import { StatCard } from '@/components/ui/stat-card'
 import { FilterChips, TabBar } from '@/components/ui/module-tabs'
 import { useAuth } from '@/components/auth/auth-provider'
@@ -1080,14 +1080,13 @@ function EditActivityModal({
 
         <div className="grid gap-4 sm:grid-cols-3">
           <Field label="Date">
-            <input
-              type="date"
+            <DateInput
               required
               min={getTodayString()}
               value={date}
               onChange={(event) => setDate(event.target.value)}
               disabled={submitting}
-              className={inputClass}
+             
             />
           </Field>
 
@@ -1327,9 +1326,8 @@ function UpdateStatusModal({
 
         {status === 'COMPLETED' && (
           <Field label="Actual completion date">
-            <input
+            <DateInput
               required
-              type="date"
               min={activity.schedule_date}
               max={getTodayString()}
               value={completionDate}
@@ -1337,7 +1335,7 @@ function UpdateStatusModal({
                 setCompletionDate(event.target.value)
               }
               disabled={submitting}
-              className={inputClass}
+             
             />
           </Field>
         )}
@@ -1574,12 +1572,11 @@ function RequestActivityModal({
         </Field>
 
         <Field label="Date">
-          <input
-            type="date"
+          <DateInput
             name="scheduleDate" defaultValue={String(draft?.form.scheduleDate??'')}
             min={minDate}
             required
-            className={inputClass}
+           
           />
         </Field>
 
@@ -1736,12 +1733,11 @@ function ReviewActivityModal({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Field label="Date">
-            <input
-              type="date"
+            <DateInput
               min={minDate}
               value={date}
               onChange={(event) => setDate(event.target.value)}
-              className={inputClass}
+             
             />
           </Field>
 
