@@ -1,4 +1,5 @@
 "use client";
+import { Select } from '@/components/ui/form'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useEffect, useState } from "react";
 import { Spinner } from '@/components/brand/logo-loader'
@@ -108,15 +109,15 @@ export function SmsSimulationPanel({ ownerId }: { ownerId: string }) {
       </div>
       <label className="block text-sm">
         Program
-        <select
+        <Select
           value={program}
           onChange={(event) => setProgram(event.target.value)}
-          className="ml-3 rounded-lg border px-3 py-2"
+          className="ml-3"
         >
           <option value="ALL">All programs</option>
           <option value="VACCINATION">Vaccination</option>
           <option value="SUPPLEMENTATION">Supplementation</option>
-        </select>
+        </Select>
       </label>
       {error && (
         <p role="alert" className="text-sm text-red-600">

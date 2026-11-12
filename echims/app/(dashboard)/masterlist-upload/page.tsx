@@ -4,15 +4,19 @@
 
 'use client'
 
+import { FilterChips } from '@/components/ui/module-tabs'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { ModuleTabs } from '@/components/dashboard/module-tabs'
+import { useAuth } from '@/components/auth/auth-provider'
+import type { UserRole } from '@/lib/echims-data'
 import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FileSpreadsheet } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
 import { Input } from '@/components/ui/form'
 import { StatusBadge } from '@/components/ui/status-badge'
 
@@ -41,31 +45,8 @@ type StagingRow = {
   matched_child_id: number | null
 }
 
-const CHILD_PROFILING_TABS = [
-  { label: 'Children', href: '/child-profiling/children' },
-  { label: 'Map', href: '/geospatial' },
-  { label: 'Masterlist Import', href: '/masterlist-upload' },
-]
-
-function ChildProfilingTabs() {
-  const pathname = usePathname()
-  return (
-    <div className="flex items-center gap-6 border-b border-border/60">
-      {CHILD_PROFILING_TABS.map((t) => {
-        const active = pathname === t.href || (t.href === '/masterlist-upload' && pathname.startsWith('/masterlist-upload'))
-        return (
-          <Link key={t.href} href={t.href}
-            className={'relative pb-2 text-sm font-semibold transition ' + (active ? 'text-primary' : 'text-muted-foreground hover:text-foreground')}>
-            {t.label}
-            {active && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-primary" />}
-          </Link>
-        )
-      })}
-    </div>
-  )
-}
-
 export default function MasterlistUploadPage() {
+  const { user } = useAuth()
   const confirm = useConfirm()
   const [batch, setBatch] = useState<Batch | null>(null)
   const [rows, setRows] = useState<StagingRow[]>([])
@@ -171,8 +152,8 @@ export default function MasterlistUploadPage() {
   }
 
   return (
-    <div className="space-y-5">
-      <ChildProfilingTabs />
+    <div className="space-y-6">
+      <ModuleTabs parent="Child Profiling" role={user?.role as UserRole | undefined} />
 
       <PageHeader
         title="Masterlist Upload"
@@ -247,14 +228,17 @@ export default function MasterlistUploadPage() {
 
           <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex gap-2">
-                {(['all','error','duplicate','valid'] as const).map((t) => (
-                  <button key={t} onClick={() => setTab(t)}
-                    className={'rounded-full px-3 py-1 text-xs font-semibold ' + (tab === t ? 'bg-primary text-white' : 'border border-border text-muted-foreground hover:bg-muted')}>
-                    {t === 'all' ? 'All' : t === 'error' ? 'Errors' : t === 'duplicate' ? 'Duplicates' : 'Valid'}
-                  </button>
-                ))}
-              </div>
+              <FilterChips
+                label="Filter rows"
+                value={tab}
+                onChange={setTab}
+                options={[
+                  { value: 'all', label: 'All', count: batch.row_count },
+                  { value: 'error', label: 'Errors', count: batch.error_count },
+                  { value: 'duplicate', label: 'Duplicates', count: batch.duplicate_count },
+                  { value: 'valid', label: 'Valid', count: batch.valid_count },
+                ]}
+              />
               <div className="flex gap-2">
                 <Button variant="secondary" size="sm" onClick={reset}>
                   Cancel
@@ -409,18 +393,20 @@ function EditModal({ row, onClose, onSave }: { row: StagingRow; onClose: () => v
   const [draft, setDraft] = useState<Record<string, string>>({ ...row.raw })
   const fields = Object.keys(row.raw)
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-2xl rounded-2xl border border-border bg-white p-5 shadow-xl">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Edit row #{row.row_number}</h3>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1 text-muted-foreground hover:bg-muted">✕</button>
-        </div>
+    <Modal
+      open
+      size="lg"
+      onClose={onClose}
+      title={`Edit row #${row.row_number}`}
+      subtitle="Fix the values, then save to validate the row again."
+      footer={<Button onClick={() => onSave(draft)}>Save & re-validate</Button>}
+    >
         {row.errors.length > 0 && (
           <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
             {row.errors.join(' · ')}
           </div>
         )}
-        <div className="grid max-h-[60vh] grid-cols-1 gap-2 overflow-y-auto md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
           {fields.map((k) => (
             <label key={k} className="text-xs">
               <div className="mb-1 font-semibold text-muted-foreground">{k}</div>
@@ -431,11 +417,6 @@ function EditModal({ row, onClose, onSave }: { row: StagingRow; onClose: () => v
             </label>
           ))}
         </div>
-        <div className="mt-4 flex justify-end gap-2">
-          <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
-          <Button size="sm" onClick={() => onSave(draft)}>Save & re-validate</Button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

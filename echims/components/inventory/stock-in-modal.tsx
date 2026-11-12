@@ -13,10 +13,12 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import useSWR from 'swr'
-import { X, Package, Hash, Calendar, MapPin, Syringe, Pill, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Package, Calendar, MapPin, Syringe, Pill, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { toast } from '@/components/ui/toast'
-import { Spinner } from '@/components/brand/logo-loader'
+
 import { Button } from '@/components/ui/button'
+import { BatchNumberField, checkBatchNumber } from '@/components/inventory/batch-number-field'
+import { Modal } from '@/components/ui/modal'
 import { DateInput, Input, Select } from '@/components/ui/form'
 
 type Item = { item_id: number; item_name: string; unit: string; kind: 'vaccine' | 'supplement'; code: string }
@@ -78,7 +80,8 @@ export function StockInModal({ open, onClose, onSaved }: Props) {
     setFormError('')
     if (!itemId) return setFormError('Please pick an item.')
     if (!barangayId) return setFormError('Please pick a barangay.')
-    if (!batchNumber.trim()) return setFormError('Batch number is required.')
+    const batch = checkBatchNumber(batchNumber, true)
+    if (batch.error) return setFormError(`Batch number: ${batch.error}`)
     const qty = Number(quantity)
     if (!Number.isFinite(qty) || qty <= 0) return setFormError('Quantity must be positive.')
     if (!expiryDate) return setFormError('Expiry date is required.')
@@ -93,7 +96,7 @@ export function StockInModal({ open, onClose, onSaved }: Props) {
         body: JSON.stringify({
           item_id: Number(itemId),
           barangay_id: Number(barangayId),
-          batch_number: batchNumber.trim(),
+          batch_number: batch.value,
           quantity: qty,
           expiry_date: expiryDate,
           received_date: receivedDate,
@@ -112,29 +115,19 @@ export function StockInModal({ open, onClose, onSaved }: Props) {
     }
   }
 
-  if (!open) return null
-
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-border p-6">
-          <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
-              <Package size={18} />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-foreground">Record stock-in</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                PHN-only. Adds a received shipment to a barangay&rsquo;s inventory with batch and expiry.
-              </p>
-            </div>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-1 text-muted-foreground hover:bg-muted">
-            <X size={20} />
-          </button>
-        </div>
-
-        <form onSubmit={submit} className="space-y-5 p-6">
+    <Modal
+      open={open}
+      onClose={onClose}
+      busy={saving}
+      size="lg"
+      icon={<Package />}
+      title="Record stock-in"
+      subtitle={<>PHN-only. Adds a received shipment to a barangay&rsquo;s inventory with batch and expiry.</>}
+      onSubmit={submit}
+      footer={<Button type="submit" loading={saving}>{!saving && <CheckCircle2 size={14} aria-hidden="true" />}{saving ? 'Saving…' : 'Record stock-in'}</Button>}
+    >
+        <div className="space-y-5">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <label htmlFor="si-item" className="mb-1 block text-sm font-semibold text-foreground">
@@ -169,14 +162,7 @@ export function StockInModal({ open, onClose, onSaved }: Props) {
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label htmlFor="si-batch" className="mb-1 block text-sm font-semibold text-foreground">
-                <Hash size={13} className="mr-1 inline" /> Batch number *
-              </label>
-              <Input id="si-batch" type="text" value={batchNumber} onChange={(e) => setBatchNumber(e.target.value)} required
-                placeholder="e.g. BCG-2026-001"
-                />
-            </div>
+            <BatchNumberField id="si-batch" required value={batchNumber} onChange={setBatchNumber} />
             <div>
               <label htmlFor="si-qty" className="mb-1 block text-sm font-semibold text-foreground">
                 <Package size={13} className="mr-1 inline" /> Quantity *
@@ -210,19 +196,7 @@ export function StockInModal({ open, onClose, onSaved }: Props) {
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-            <Button variant="secondary" onClick={onClose} disabled={saving}
-             >
-              Cancel
-            </Button>
-            <button type="submit" disabled={saving}
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
-              {saving ? <Spinner /> : <CheckCircle2 size={14} />}
-              {saving ? 'Saving…' : 'Record stock-in'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </div>
+    </Modal>
   )
 }

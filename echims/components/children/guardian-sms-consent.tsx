@@ -1,4 +1,5 @@
 "use client";
+import { toSmsGatewayNumber } from "@/lib/phone";
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import { useState } from "react";
@@ -17,13 +18,8 @@ type Props = {
   onSaved: () => Promise<unknown> | void;
 };
 
-function normalizeMobile(value: string | null | undefined): string | null {
-  const number = value?.trim() ?? "";
-  if (/^09[0-9]{9}$/.test(number)) return `63${number.slice(1)}`;
-  if (/^639[0-9]{9}$/.test(number)) return number;
-  if (/^\+639[0-9]{9}$/.test(number)) return number.slice(1);
-  return null;
-}
+// SMS gateway format (639XXXXXXXXX), matching the database's normalize_guardian_mobile.
+const normalizeMobile = toSmsGatewayNumber;
 
 export function GuardianSmsConsent({ guardian, canEdit, onSaved }: Props) {
   const [confirmed, setConfirmed] = useState(false);

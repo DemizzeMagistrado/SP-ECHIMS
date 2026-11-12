@@ -1,3 +1,5 @@
+import { loadBatchRule } from '@/lib/batch-rule-server'
+import { batchNumberError, normalizeBatchNumber } from '@/lib/vaccination-config'
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
@@ -61,21 +63,21 @@ export async function POST(request: Request) {
       if (
         !id(body.stockRequestId) ||
         typeof body.batchNumber !== "string" ||
-        !body.batchNumber.trim() ||
-        body.batchNumber.trim().length > 100 ||
+        !normalizeBatchNumber(body.batchNumber) ||
+        batchNumberError(body.batchNumber, await loadBatchRule(auth.db)) !== null ||
         !validDate(body.expiryDate) ||
         !validDate(body.receivedDate)
       )
         return json(
           {
             error:
-              "Choose a request and provide a batch number and valid expiry/allocation dates.",
+              "Choose a request and provide a batch number (letters and numbers joined by dashes, e.g. BT-2026-0012) and valid expiry/allocation dates.",
           },
           400,
         );
       result = await auth.db.rpc("approve_supplement_stock_receipt", {
         p_stock_request_id: body.stockRequestId,
-        p_batch_number: body.batchNumber.trim(),
+        p_batch_number: normalizeBatchNumber(body.batchNumber),
         p_expiry_date: body.expiryDate,
         p_received_date: body.receivedDate,
       });

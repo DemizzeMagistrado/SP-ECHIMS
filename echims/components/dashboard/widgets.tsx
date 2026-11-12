@@ -16,7 +16,7 @@ import { listQueuedVaccinations } from '@/lib/vaccination-offline'
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
-import { AlertCircle, AlertTriangle, ArrowUpRight, BellOff, Info } from 'lucide-react'
+import { AlertCircle, AlertTriangle, ArrowUpRight, Info } from 'lucide-react'
 import { manilaTodayYMD } from '@/lib/nip-schedule'
 import { alertDestination } from '@/lib/alerts/alert-destination'
 import { Donut } from './mini-charts'
@@ -158,7 +158,7 @@ export function FicWidget({ range, style, size = 'tall' }: WidgetProps & { range
   const needed = data ? Math.max(0, Math.ceil((data.target / 100) * data.eligible) - data.fully_immunized) : 0
   return (
     <WidgetShell id="fic" title="Fully immunized (FIC)" note="Turned 1 in this period"
-      link={{ href: '/vaccination/defaulters', label: 'Defaulters' }} style={style} size={size}
+      link={{ href: '/vaccination/schedule?status=missed', label: 'Missed doses' }} style={style} size={size}
       loading={isLoading} refreshing={refreshing} error={error} empty={data?.eligible === 0 && 'No children turned 12 months old in this period.'}>
       {data && (
         <div className="flex flex-1 flex-wrap items-center justify-center gap-6">
@@ -188,19 +188,19 @@ export function BarangayRankingWidget({ style, size = 'tall' }: WidgetProps) {
   const { data, error, isLoading } = useWidget<{ barangays: BarangayRow[] }>('barangays')
   const [by, setBy] = useState<'overdue' | 'at_risk'>('overdue')
   const top = (data?.barangays ?? []).filter((b) => b[by] > 0).sort((a, b) => b[by] - a[by]).slice(0, SHOWN)
-  const what = by === 'overdue' ? 'overdue vaccinations' : 'malnourished children'
+  const what = by === 'overdue' ? 'missed vaccinations' : 'malnourished children'
   return (
     <WidgetShell id="ranking" title="Barangays at risk" note="Top 5 by children needing follow-up"
       link={{ href: '/geospatial', label: 'Map' }} style={style} size={size}
       loading={isLoading} error={error}>
       <div role="tablist" aria-label="Rank barangays by" className="relative mb-3 flex shrink-0 gap-1 rounded-lg bg-brand-ice p-1">
-        {([['overdue', 'Overdue vaccines'], ['at_risk', 'Malnourished']] as const).map(([key, label]) => (
+        {([['overdue', 'Missed vaccines'], ['at_risk', 'Malnourished']] as const).map(([key, label]) => (
           <button key={key} type="button" role="tab" aria-selected={by === key} onClick={() => setBy(key)}
             className={`relative z-10 flex-1 rounded-md leading-tight px-3 py-1.5 text-sm font-semibold transition-colors duration-200 ${focusRing} ${by === key ? 'text-brand-navy' : 'text-brand-muted hover:text-brand-navy'}`}>
             {label}
           </button>
         ))}
-        <TabIndicator group="barangay-ranking" activeKey={by} variant="pill" className="rounded-md bg-white shadow-sm" />
+        <TabIndicator group="barangay-ranking" activeKey={by} className="rounded-md bg-white shadow-sm" />
       </div>
       {top.length === 0 ? (
         <p className="flex flex-1 items-center justify-center rounded-xl bg-brand-ice/60 p-4 text-center text-sm text-brand-muted">No barangay has {what}.</p>
@@ -225,7 +225,7 @@ export function MyBarangayWidget({ style, size = 'tall' }: WidgetProps) {
             <p className="truncate font-semibold">{b.name}</p>
             <dl className="mt-2 grid grid-cols-3 gap-2 text-sm">
               <div><dt className="text-brand-muted">Children</dt><dd className="text-xl font-semibold tabular-nums">{b.children.toLocaleString()}</dd></div>
-              <div><dt className="text-brand-muted">Overdue</dt><dd className={`text-xl font-semibold tabular-nums ${b.overdue ? 'text-danger' : ''}`}>{b.overdue.toLocaleString()}</dd></div>
+              <div><dt className="text-brand-muted">Missed</dt><dd className={`text-xl font-semibold tabular-nums ${b.overdue ? 'text-danger' : ''}`}>{b.overdue.toLocaleString()}</dd></div>
               <div><dt className="text-brand-muted">At risk</dt><dd className={`text-xl font-semibold tabular-nums ${b.at_risk ? 'text-nutrition' : ''}`}>{b.at_risk.toLocaleString()}</dd></div>
             </dl>
           </li>
@@ -252,7 +252,7 @@ export function UpcomingWidget({ programs, style, size = 'tall' }: WidgetProps &
   const children = new Set(upcoming.map((r) => r.child_id)).size
   return (
     <WidgetShell id="upcoming" title="Due in the next 7 days" note={data ? `${children} child${children === 1 ? '' : 'ren'}, ${upcoming.length} dose${upcoming.length === 1 ? '' : 's'}` : 'Vaccination and supplementation'}
-      link={{ href: '/vaccination/sms', label: 'Send SMS reminder' }} style={style} size={size}
+      link={{ href: '/vaccination/schedule', label: 'Send SMS reminder' }} style={style} size={size}
       loading={isLoading} error={error} empty={data && upcoming.length === 0 && 'Nobody is due in the next 7 days.'}>
       <ul className="divide-y divide-brand-ice">
         {upcoming.slice(0, SHOWN).map((r) => (
@@ -279,7 +279,7 @@ export function ApprovalsWidget({ showInventory, style, size = 'compact' }: Widg
   const items = q ? [
     { key: 'vacc', label: 'Vaccination records', value: q.vaccinations, href: '/vaccination/records' },
     { key: 'act', label: 'Health activities', value: q.activities, href: '/health-activities' },
-    { key: 'batch', label: 'Vaccine & supplement batches', value: q.batches, href: '/vaccination/batch-requests' },
+    { key: 'batch', label: 'Vaccine & supplement batches', value: q.batches, href: '/inventory/batch-requests' },
     ...(showInventory ? [{ key: 'repl', label: 'Stock replenishment', value: q.replenishment, href: '/inventory/replenishment' }] : []),
   ] : []
   const total = items.reduce((n, i) => n + i.value, 0)

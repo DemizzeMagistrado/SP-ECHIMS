@@ -1,5 +1,6 @@
 'use client'
 
+import { DateInput } from '@/components/ui/form'
 // RPT-USR001 — Role-scoped dashboard overview.
 // Reads live data from /api/dashboard/summary, which handles role scoping
 // (BHW/BNS/RHM = assigned barangays; PHN = RHU-wide; Admin = everything).
@@ -91,19 +92,19 @@ const quickActions: Record<UserRole, (QuickAction & { module: string })[]> = {
   ],
   'Public Health Nurse': [
     { label: 'Health activities', href: '/health-activities', module: 'Health Activities', icon: <ClipboardCheck size={17} strokeWidth={1.75} /> },
-    { label: 'Defaulters', href: '/vaccination/defaulters', module: 'Vaccination', icon: <AlertTriangle size={17} strokeWidth={1.75} /> },
+    { label: 'Missed doses', href: '/vaccination/schedule?status=missed', module: 'Vaccination', icon: <AlertTriangle size={17} strokeWidth={1.75} /> },
     { label: 'Stock overview', href: '/inventory/stock-overview', module: 'Inventory', icon: <Boxes size={17} strokeWidth={1.75} /> },
     { label: 'Reports', href: '/reports', module: 'Reports', icon: <FileText size={17} strokeWidth={1.75} /> },
   ],
   'Rural Health Midwife': [
     { label: 'Vaccinations', href: '/vaccination/records', module: 'Vaccination', icon: <Syringe size={17} strokeWidth={1.75} /> },
-    { label: 'Defaulters', href: '/vaccination/defaulters', module: 'Vaccination', icon: <AlertTriangle size={17} strokeWidth={1.75} /> },
+    { label: 'Missed doses', href: '/vaccination/schedule?status=missed', module: 'Vaccination', icon: <AlertTriangle size={17} strokeWidth={1.75} /> },
     { label: 'Schedule', href: '/vaccination/schedule', module: 'Vaccination', icon: <CalendarClock size={17} strokeWidth={1.75} /> },
     { label: 'Supplementation', href: '/supplementation', module: 'Supplementation', icon: <Pill size={17} strokeWidth={1.75} /> },
   ],
   'Barangay Health Worker': [
     { label: 'Children', href: '/child-profiling/children', module: 'Child Profiling', icon: <Baby size={17} strokeWidth={1.75} /> },
-    { label: 'Defaulters', href: '/vaccination/defaulters', module: 'Vaccination', icon: <AlertTriangle size={17} strokeWidth={1.75} /> },
+    { label: 'Missed doses', href: '/vaccination/schedule?status=missed', module: 'Vaccination', icon: <AlertTriangle size={17} strokeWidth={1.75} /> },
     { label: 'Health activities', href: '/health-activities', module: 'Health Activities', icon: <ClipboardCheck size={17} strokeWidth={1.75} /> },
     { label: 'Alerts', href: '/alerts', module: 'Alerts', icon: <Bell size={17} strokeWidth={1.75} /> },
   ],
@@ -158,7 +159,7 @@ export function DashboardOverview() {
 
   // Card definitions depend only on the role, so the loading skeleton has the same count.
   const attention = ([
-    can('Vaccination') && { label: 'Overdue vaccinations', value: (x) => x.vaccinations_overdue, note: () => 'Past their due date', href: '/vaccination/defaulters', tone: 'danger', icon: <AlertTriangle size={19} strokeWidth={1.75} /> },
+    can('Vaccination') && { label: 'Missed vaccinations', value: (x) => x.vaccinations_overdue, note: () => 'Past their due date', href: '/vaccination/schedule?status=missed', tone: 'danger', icon: <AlertTriangle size={19} strokeWidth={1.75} /> },
     can('Vaccination') && { label: 'Due in 14 days', value: (x) => x.vaccinations_due_soon, note: () => 'Remind guardians early', href: '/vaccination/schedule', tone: 'warn', icon: <CalendarClock size={19} strokeWidth={1.75} /> },
     can('Nutritional Assessment') && { label: 'At nutritional risk', value: (x) => x.at_risk_children, note: (x) => x.children > 0 ? `${Math.round((x.at_risk_children / x.children) * 100)}% of registered children` : 'From latest assessments', href: '/nutrition', tone: 'nutrition', icon: <Apple size={19} strokeWidth={1.75} /> },
     can('Inventory') && { label: 'Low-stock items', value: (x) => x.low_stock_items, note: () => '10 or fewer on hand', href: '/inventory/stock-overview', tone: 'neutral', icon: <Boxes size={19} strokeWidth={1.75} /> },
@@ -288,12 +289,12 @@ export function DashboardOverview() {
             {days === null && (
               <div className="flex flex-wrap items-center gap-2 text-sm animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none">
                 <label className="sr-only" htmlFor="range-from">From</label>
-                <input id="range-from" type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)}
-                  className="rounded-lg border border-white/15 bg-white/5 px-2.5 py-1.5 text-white outline-none [color-scheme:dark] focus:border-brand-aqua" />
+                <DateInput id="range-from" className="w-40" value={from} max={to} onChange={(e) => setFrom(e.target.value)}
+                  />
                 <span className="text-white/60">to</span>
                 <label className="sr-only" htmlFor="range-to">To</label>
-                <input id="range-to" type="date" value={to} min={from} max={todayYMD()} onChange={(e) => setTo(e.target.value)}
-                  className="rounded-lg border border-white/15 bg-white/5 px-2.5 py-1.5 text-white outline-none [color-scheme:dark] focus:border-brand-aqua" />
+                <DateInput id="range-to" className="w-40" value={to} min={from} max={todayYMD()} onChange={(e) => setTo(e.target.value)}
+                  />
               </div>
             )}
           </div>
@@ -393,7 +394,7 @@ function ActivityChart({ trends, trendKey, onTrend, totals, metrics, loading, di
                 {t.label}
               </button>
             ))}
-            <TabIndicator group="overview-chart" activeKey={trend.key} variant="pill" className="rounded-md bg-white shadow-sm" />
+            <TabIndicator group="overview-chart" activeKey={trend.key} className="rounded-md bg-white shadow-sm" />
           </div>
         )}
       </div>

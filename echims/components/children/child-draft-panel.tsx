@@ -17,8 +17,10 @@ export function ChildDraftPanel({onUploaded}:{onUploaded:()=>void}){
     refresh();window.addEventListener('echims-child-drafts',refresh)
     return()=>{cancelled=true;window.removeEventListener('echims-child-drafts',refresh)}
   },[user?.id,scope])
-  return <section className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-    <h2 className="font-semibold">Child registration drafts on this device ({rows.length})</h2>
+  // Nothing to show until a draft exists on this device.
+  if(!rows.length&&!error&&!selected)return null
+  return <section className="space-y-3 rounded-2xl border border-warn/25 bg-warn-soft p-4">
+    <h2 className="font-semibold text-brand-navy">Registration drafts on this device</h2>
     <p className="text-sm">Drafts stay here after reconnecting. Review each draft before uploading; they do not upload automatically.</p>
     {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
     {rows.map(row=><div key={row.requestId} className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-white p-3 text-sm">

@@ -1,0 +1,223 @@
+import { fromStructured } from './medical-history'
+import { MOBILE_ERROR, normalizePhMobile } from '@/lib/phone'
+
+// Child Profiling form model: the three sections (Child → Guardian → Household), their option
+// lists and per-step validation. Shared by the registration/edit form, the profile page and drafts.
+// The child is the one registered; guardian and household details are given by the parent or
+// guardian (the informant) and encoded by the health worker.
+
+export type ChildForm = Record<string, string | boolean>
+
+export const STEPS = [
+  { key: 'child', label: 'Child', title: 'Child Information' },
+  { key: 'guardian', label: 'Guardian', title: 'Guardian Information' },
+  { key: 'household', label: 'Household', title: 'Household Information' },
+  { key: 'review', label: 'Review', title: 'Review' },
+] as const
+export type StepKey = (typeof STEPS)[number]['key']
+
+export const emptyChildForm: ChildForm = {
+  // Child Information
+  first_name: '', middle_name: '', last_name: '', date_of_birth: '', sex: '', birth_place: '',
+  birth_weight_kg: '', birth_height_cm: '',
+  relationship_to_household_head: '', relationship_to_household_head_other: '',
+  religion: '', religion_other: '', ethnicity: '', ethnicity_other: '',
+  philhealth_id_number: '', philhealth_membership_type: '', philhealth_membership_type_other: '',
+  philhealth_category: '', philhealth_category_other: '',
+  medical_codes: '', medical_others: '', medical_none_reported: false, medical_history_notes: '',
+  medical_history: '', last_menstrual_period: '',
+  // Guardian Information
+  mother_name: '', father_name: '',
+  guardian_id: '', guardian_first_name: '', guardian_middle_name: '', guardian_last_name: '',
+  guardian_contact_number: '', guardian_address: '', guardian_relationship_to_child: '',
+  informant_name: '', informant_relationship: '',
+  // Household Information
+  barangay_id: '', address: '', household_id: '', household_no: '', household_address: '', purok: '',
+  is_4ps_member: false,
+  water_source_type: '', water_source_type_other: '', toilet_facility_type: '', toilet_facility_type_other: '',
+}
+
+export const otherAwareFields = [
+  'relationship_to_household_head', 'religion', 'ethnicity',
+  'philhealth_membership_type', 'philhealth_category', 'water_source_type', 'toilet_facility_type',
+] as const
+
+export const options = {
+  relationship_to_household_head: [
+    'Head', 'Spouse', 'Son', 'Daughter', 'Sister', 'Brother', 'Father', 'Mother', 'Grandmother',
+    'Grandfather', 'Aunt', 'Uncle', 'Brother-in-Law', 'Sister-in-Law', 'Mother-in-Law', 'Father-in-Law',
+    'Grandson', 'Granddaughter', 'Cousin', 'Step-Sibling', 'Step-Child', 'Son/Daughter-in-Law', 'Other',
+  ],
+  religion: [
+    'Roman Catholic', 'Christian', 'Iglesia ni Cristo', 'Catholic', 'Islam', 'Baptist', 'Born Again Christian',
+    'Buddhism', 'Church of God', "Jehovah's Witness", 'Protestant', 'Seventh Day Adventist', 'LDS-Mormons',
+    'Evangelical', 'Pentecostal', 'Unknown', 'Other',
+  ],
+  ethnicity: ['IP', 'Non-IP', 'Other'],
+  philhealth_membership_type: ['Member', 'Dependent', 'N/A', 'No PhilHealth', 'Other'],
+  philhealth_category: ['Direct Contributors', 'Indirect Contributors', 'Other'],
+  water_source_type: ['Level 1', 'Level 2', 'Level 3', 'Unknown', 'Other'],
+  toilet_facility_type: [
+    'Pour/flush toilet connected to septic tank',
+    'Pour/flush toilet connected to septic tank and sewerage system',
+    'Ventilated Improved Pit (VIP) latrine or composting toilet',
+    'Water-sealed connected to open drain', 'Overhung latrine', 'Open-pit latrine', 'Without toilet', 'Other',
+  ],
+  guardian_relationship_to_child: ['Mother', 'Father', 'Grandparent', 'Other Relative', 'Legal Guardian'],
+}
+
+/** No PhilHealth number or category applies to these memberships. */
+export const NO_PHILHEALTH = new Set(['N/A', 'No PhilHealth'])
+
+/** Drafts saved before CP-REV01 used condition checkboxes; keep what they recorded as "Other". */
+export function upgradeLegacyDraft(form: ChildForm): ChildForm {
+  const legacy = [
+    form.has_hypertension && 'Hypertension', form.has_diabetes_mellitus && 'Diabetes Mellitus',
+    form.has_tuberculosis && 'Tuberculosis', form.has_others && String(form.medical_history_other ?? '').trim(),
+  ].filter((x): x is string => Boolean(x))
+  if (!legacy.length || form.medical_others) return form
+  return { ...form, medical_others: legacy.join('; ') }
+}
+
+export function monthsOld(date: string) {
+  const birth = new Date(`${date}T00:00:00Z`)
+  const now = new Date()
+  return (now.getUTCFullYear() - birth.getUTCFullYear()) * 12 + now.getUTCMonth() - birth.getUTCMonth() -
+    (now.getUTCDate() < birth.getUTCDate() ? 1 : 0)
+}
+
+export function classificationForDob(dob: string) {
+  if (!dob) return ''
+  const birth = new Date(`${dob}T00:00:00Z`)
+  if (isNaN(birth.getTime())) return ''
+  const days = Math.floor((Date.now() - birth.getTime()) / 86400000)
+  const months = monthsOld(dob)
+  if (days < 0) return ''
+  if (days <= 28) return 'Newborn (0-28 days)'
+  if (months < 12) return 'Infant (0-1 y/o)'
+  if (months <= 59) return 'PSAC (1-4 y/o)'
+  return 'Out of 0-59 months range'
+}
+
+
+type StepContext = { mode: 'create' | 'edit'; newGuardian: boolean; newHousehold: boolean; contactChanged: boolean }
+
+/** Plain-language errors for one step, keyed by form field. Empty object = step is valid. */
+export function validateStep(step: StepKey, f: ChildForm, ctx: StepContext): Record<string, string> {
+  const e: Record<string, string> = {}
+  const s = (k: string) => String(f[k] ?? '').trim()
+  if (step === 'child') {
+    if (!s('first_name')) e.first_name = 'Enter the child’s first name.'
+    if (!s('last_name')) e.last_name = 'Enter the child’s last name.'
+    if (!s('sex')) e.sex = 'Choose the child’s sex.'
+    const dob = s('date_of_birth')
+    if (!dob) e.date_of_birth = 'Enter the date of birth.'
+    else if (dob > new Date().toISOString().slice(0, 10)) e.date_of_birth = 'The date of birth cannot be in the future.'
+    else if (monthsOld(dob) > 59) e.date_of_birth = 'eCHIMS covers children 0–59 months old. Check the year of birth.'
+    const w = s('birth_weight_kg')
+    if (w && !(Number(w) >= 0.3 && Number(w) <= 7)) e.birth_weight_kg = 'Enter birth weight in kilograms, between 0.3 and 7 (e.g. 3.2).'
+    const h = s('birth_height_cm')
+    if (h && !(Number(h) >= 20 && Number(h) <= 70)) e.birth_height_cm = 'Enter birth height in centimeters, between 20 and 70 (e.g. 49).'
+  }
+  if (step === 'guardian') {
+    if (ctx.newGuardian) {
+      if (!s('guardian_first_name')) e.guardian_first_name = 'Enter the guardian’s first name.'
+      if (!s('guardian_last_name')) e.guardian_last_name = 'Enter the guardian’s last name.'
+      if (!s('guardian_relationship_to_child')) e.guardian_relationship_to_child = 'Choose how the guardian is related to the child.'
+    }
+    const phone = s('guardian_contact_number')
+    if (phone && (ctx.newGuardian || ctx.contactChanged) && !normalizePhMobile(phone))
+      e.guardian_contact_number = MOBILE_ERROR
+    if (Boolean(s('informant_name')) !== Boolean(s('informant_relationship'))) {
+      if (!s('informant_name')) e.informant_name = 'Enter who gave the information, or clear the relationship.'
+      else e.informant_relationship = 'Enter how the informant is related to the child.'
+    }
+  }
+  if (step === 'household') {
+    if (!s('barangay_id')) e.barangay_id = 'Choose the barangay where the child lives.'
+    if (ctx.mode === 'create' && !s('household_id') && !ctx.newHousehold)
+      e.household_id = 'Search for the child’s household, or tick “Create new household”.'
+    if (ctx.newHousehold && !s('household_address')) e.household_address = 'Enter the household address.'
+  }
+  return e
+}
+
+/** A saved value that is not one of the options was typed under "Other": show it that way. */
+function withOtherSplit(form: ChildForm): ChildForm {
+  const next = { ...form }
+  for (const field of otherAwareFields) {
+    const value = String(next[field] ?? '')
+    if (value && !(options[field] as readonly string[]).includes(value)) {
+      next[field] = 'Other'
+      next[`${field}_other`] = value
+    }
+  }
+  return next
+}
+
+type Row = Record<string, unknown>
+/** GET /api/children?childId= payload → form values (the edit form and conflict checks use this). */
+export function recordToForm(d: { child?: Row | null; guardian?: Row | null; profile?: Row | null; household?: Row | null }): ChildForm {
+  const child = d.child ?? {}
+  const guardian = d.guardian ?? null
+  const profile = d.profile ?? {}
+  const str = (v: unknown) => (v === null || v === undefined ? '' : String(v))
+  return withOtherSplit({
+    ...emptyChildForm,
+    first_name: str(child.first_name), middle_name: str(child.middle_name), last_name: str(child.last_name),
+    date_of_birth: str(child.date_of_birth),
+    sex: child.sex === "MALE" ? "Male" : child.sex === "FEMALE" ? "Female" : "",
+    birth_place: str(child.birth_place), address: str(child.address),
+    birth_weight_kg: str(child.birth_weight_kg), birth_height_cm: str(child.birth_height_cm),
+    mother_name: str(child.mother_name), father_name: str(child.father_name),
+    barangay_id: str(child.barangay_id), household_id: str(child.household_id), guardian_id: str(child.guardian_id),
+    guardian_contact_number: normalizePhMobile(str(guardian?.contact_number)) ?? str(guardian?.contact_number),
+    relationship_to_household_head: str(profile.relationship_to_household_head),
+    religion: str(profile.religion), ethnicity: str(profile.ethnicity),
+    philhealth_id_number: str(profile.philhealth_id_number),
+    philhealth_membership_type: str(profile.philhealth_membership_type),
+    philhealth_category: str(profile.philhealth_category),
+    ...fromStructured(profile.medical_history_structured, profile.medical_history),
+    last_menstrual_period: str(profile.last_menstrual_period),
+    household_revision: str(d.household?.information_revision),
+    water_source_type: str(d.household?.water_source_type ?? profile.water_source_type),
+    toilet_facility_type: str(d.household?.toilet_facility_type ?? profile.toilet_facility_type),
+    informant_name: str(profile.informant_name), informant_relationship: str(profile.informant_relationship),
+  })
+}
+
+/** Labels for comparing two versions of a record field by field. */
+export const FIELD_LABELS: Record<string, string> = {
+  first_name: 'First name', middle_name: 'Middle name', last_name: 'Last name', date_of_birth: 'Date of birth',
+  sex: 'Sex', birth_place: 'Place of birth', birth_weight_kg: 'Birth weight (kg)', birth_height_cm: 'Birth height (cm)',
+  relationship_to_household_head: 'Relationship to household head', religion: 'Religion',
+  ethnicity: 'Ethnicity', philhealth_membership_type: 'PhilHealth membership', philhealth_id_number: 'PhilHealth ID',
+  philhealth_category: 'PhilHealth category', medical_codes: 'Medical history', medical_others: 'Medical history (other)',
+  medical_history_notes: 'Medical notes', mother_name: 'Mother', father_name: 'Father',
+  guardian_id: 'Present guardian', guardian_contact_number: 'Guardian contact number',
+  informant_name: 'Informant', informant_relationship: 'Informant relationship',
+  barangay_id: 'Barangay', address: "Child's address", household_id: 'Household',
+  water_source_type: 'Water source', toilet_facility_type: 'Toilet facility',
+}
+
+export type FieldChange = { field: string; label: string; yours: string; saved: string }
+
+/**
+ * Three-way merge for an edit: `base` = values when the form opened, `mine` = the form now,
+ * `saved` = the record as saved now. Fields only someone else changed are taken from `saved`;
+ * fields both changed to different values are conflicts.
+ */
+export function mergeEdit(base: ChildForm, mine: ChildForm, saved: ChildForm) {
+  const merged: ChildForm = { ...mine }
+  const conflicts: FieldChange[] = []
+  const v = (f: ChildForm, k: string) => String(f[k] ?? '').trim()
+  for (const field of Object.keys(FIELD_LABELS)) {
+    for (const key of [field, `${field}_other`]) {
+      if (v(saved, key) === v(base, key)) continue
+      if (v(mine, key) === v(base, key)) merged[key] = saved[key] ?? ''
+      else if (v(mine, key) !== v(saved, key))
+        conflicts.push({ field: key, label: FIELD_LABELS[field] + (key === field ? '' : ' (specify)'), yours: v(mine, key), saved: v(saved, key) })
+    }
+  }
+  return { merged, conflicts }
+}

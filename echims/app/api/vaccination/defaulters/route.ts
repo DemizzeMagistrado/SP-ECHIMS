@@ -1,19 +1,24 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { loadNipCatalog } from '@/lib/nip-catalog-server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import {
   NIP_CATALOG,
-  GRACE_PERIOD_DAYS,
-  getNipDoseDate,
+  nipVaccineTimeline,
   normalizeVaccineCode,
   manilaTodayYMD,
   nipDaysBetween,
 } from '@/lib/nip-schedule'
 // NIP-USR005 — Defaulters list.
-// GET /api/vaccination/defaulters?status=OVERDUE&vaccine=BCG&limit=100
+// GET /api/vaccination/defaulters?vaccine=BCG[&limit=100][&include=pending]
+// include=pending also returns `pending`: each child's next Pending date (every dose due that
+// day), for the merged Vaccination › Schedule view, and `completed`: children in scope with no
+// missed or pending dose (every dose given or past its eligibility window).
+// No caps: every child in scope is loaded (in pages) and every missed dose is listed unless the
+// caller passes `limit`; counts are always exact.
 //
-// Returns children (RLS-scoped by barangay/RHU) with doses that are DUE or OVERDUE
-// against the NIP schedule. Computed on-demand — no scheduled job or new table.
+// Returns children (RLS-scoped by barangay/RHU) with Missed doses (due date passed, not given,
+// still eligible) against the NIP schedule, each with its rescheduled date. Computed on-demand — no scheduled job or new table.
 // The same payload drives the dashboard overdue count tile and feeds the (future)
 // alert engine.
 //
@@ -38,24 +43,7 @@ function invalid(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status })
 }
 
-type Status = 'DUE' | 'OVERDUE'
-
-function todayYMD(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function addDays(iso: string, days: number): string {
-  const d = new Date(iso + 'T00:00:00')
-  d.setDate(d.getDate() + days)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function daysBetween(fromISO: string, toISO: string): number {
-  const a = new Date(fromISO + 'T00:00:00').getTime()
-  const b = new Date(toISO + 'T00:00:00').getTime()
-  return Math.floor((b - a) / 86400000)
-}
+type Status = 'OVERDUE' | 'UPCOMING'
 
 export async function GET(request: Request) {
   const supabase = await createClient()
@@ -67,50 +55,73 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url)
-  const statusFilter = (url.searchParams.get('status') ?? '').toUpperCase() as Status | ''
   const vaccineFilter = (url.searchParams.get('vaccine') ?? '').toUpperCase()
-  const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? 200) || 200, 10), 500)
+  const includePending = url.searchParams.get('include') === 'pending'
+  // Optional: only for callers that want a short list (e.g. a dashboard tile); the counts stay exact.
+  const limitParam = url.searchParams.get('limit')
+  const limit = limitParam ? Math.min(Math.max(Number(limitParam) || 1, 1), 5000) : null
 
-  if (statusFilter && statusFilter !== 'DUE' && statusFilter !== 'OVERDUE') {
-    return invalid('status must be DUE or OVERDUE.')
-  }
   if (vaccineFilter && !NIP_CATALOG.some((v) => v.code === vaccineFilter)) {
-    return invalid('vaccine must be a valid NIP code (BCG, HEPB, PENTA, OPV, IPV, PCV13, ROTA, MMR).')
+    return invalid(`vaccine must be one of: ${NIP_CATALOG.filter((v) => v.routine_enabled !== false).map((v) => v.code).join(', ')}.`)
   }
 
-  // Fetch all children in scope (RLS filters). We cap at 1,000 to protect compute.
-  const childRes = await supabase.from('child')
-    .select(`
-      child_id, first_name, middle_name, last_name, date_of_birth, barangay_id, status,
-      barangay:barangay(barangay_id, barangay_name)
-    `)
-    .in('status', ['ACTIVE', 'MONITORING'])  // skip MOVED/LOST/DECEASED
-    .limit(1000)
+  // Every child in scope (RLS filters), loaded 1,000 at a time so nobody is left out.
+  // The BHW-assist flag is optional: without its table/embed, load children without it.
+  const childSelect = 'child_id, child_code, first_name, middle_name, last_name, date_of_birth, barangay_id, status, barangay:barangay(barangay_id, barangay_name), household:household(family_serial_no)'
+  const PAGE = 1000
+  const loadChildren = async (withAssist: boolean) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const all: any[] = []
+    for (let from = 0; ; from += PAGE) {
+      const res = await supabase.from('child')
+        .select((withAssist ? `${childSelect}, assist:child_vaccination_assist(reason)` : childSelect) as string)
+        .in('status', ['ACTIVE', 'MONITORING'])  // skip MOVED/LOST/DECEASED
+        .order('child_id')
+        .range(from, from + PAGE - 1)
+      if (res.error) return { data: null, error: res.error }
+      all.push(...(res.data ?? []))
+      if ((res.data ?? []).length < PAGE) return { data: all, error: null }
+    }
+  }
+  let childRes = await loadChildren(true)
+  if (childRes.error && ['PGRST200', 'PGRST201', '42P01'].includes(childRes.error.code)) {
+    console.warn('Defaulters: BHW-assist flag unavailable, loading without it.', childRes.error)
+    childRes = await loadChildren(false)
+  }
 
-  if (childRes.error) return invalid(`Unable to load children. ${childRes.error.message ?? ''}`.trim(), 500)
-  const children = childRes.data ?? []
+  if (childRes.error) {
+    console.error('Defaulters GET:', childRes.error)
+    return invalid('Unable to load children.', 500)
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const children = (childRes.data ?? []) as any[]
   if (children.length === 0) {
     return NextResponse.json({
       defaulters: [],
-      counts: { overdue: 0, due: 0, total_children_evaluated: 0, total_children_in_scope: 0 },
-      role, grace_period_days: GRACE_PERIOD_DAYS,
+      ...(includePending ? { pending: [], completed: [] } : {}),
+      counts: { overdue: 0, unique_children_affected: 0, total_children_in_scope: 0, total_shown: 0, total_matched: 0, completed: 0 },
+      role,
     })
   }
 
-  // Fetch APPROVED records for those children in one shot
+  // Approved doses, plus doses recorded but still awaiting approval: those move the next date at
+  // once, marked provisional ("Pending approval") until the PHN approves. A record returned for
+  // correction does not count, so the next date goes back to what it was.
   const childIds = children.map((c) => c.child_id)
   const recRes = await supabase.from('vaccination_record')
     .select('vaccination_record_id, child_id, vaccine_id, dose_number, vaccination_date, status, vaccine:vaccine(vaccine_type)')
     .in('child_id', childIds)
-    .eq('status', 'APPROVED')
+    .in('status', ['APPROVED', 'PENDING'])
 
   if (recRes.error) return invalid(`Unable to load vaccination records. ${recRes.error.message ?? ''}`.trim(), 500)
   const approvedRecords = recRes.data ?? []
 
-  // Index approved records by (child_id → vaccine_type → set of done dose_numbers)
-const doneMap = new Map<number, Map<string, Set<number>>>()
+  // Index approved records by (child_id → vaccine code → dose number → date given)
+const doneMap = new Map<number, Map<string, Map<number, string>>>()
+const provisional = new Set<string>() // `${child_id}:${vaccine code}` with a dose awaiting approval
 
-for (const rec of approvedRecords) {
+// Approved first, so an approved dose wins over a pending duplicate.
+for (const rec of [...approvedRecords].sort((a, b) => (a.status === 'APPROVED' ? 0 : 1) - (b.status === 'APPROVED' ? 0 : 1))) {
   const vaccine = (
     Array.isArray(rec.vaccine) ? rec.vaccine[0] : rec.vaccine
   ) as { vaccine_type?: string } | null
@@ -121,24 +132,32 @@ for (const rec of approvedRecords) {
 
   let perChild = doneMap.get(rec.child_id)
   if (!perChild) {
-    perChild = new Map<string, Set<number>>()
+    perChild = new Map<string, Map<number, string>>()
     doneMap.set(rec.child_id, perChild)
   }
 
   let doses = perChild.get(code)
   if (!doses) {
-    doses = new Set<number>()
+    doses = new Map<number, string>()
     perChild.set(code, doses)
   }
 
-  doses.add(rec.dose_number)
+  if (doses.has(rec.dose_number)) continue
+  doses.set(rec.dose_number, String(rec.vaccination_date))
+  if (rec.status === 'PENDING') provisional.add(`${rec.child_id}:${code}`)
 }
   const today = manilaTodayYMD()
+  // Editable rules from the vaccine catalog: doses past their eligibility window are Not
+  // eligible, never Missed, so they are not listed or counted here.
+  const catalog = await loadNipCatalog(supabase)
 
   // Walk each child × each vaccine × each dose and compute status
   type DefaulterRow = {
     child_id: number
     child_name: string
+    child_code: string | null
+    family_serial_no: string | null
+    bhw_assist: { reason: string | null } | null
     date_of_birth: string
     barangay_id: number | null
     barangay_name: string | null
@@ -147,95 +166,102 @@ for (const rec of approvedRecords) {
     dose_number: number
     due_date: string
     days_overdue: number
+    rescheduled_date: string | null
     status: Status
+    /** The date depends on a dose still awaiting approval. */
+    provisional: boolean
   }
   const defaulters: DefaulterRow[] = []
+  const pending: DefaulterRow[] = []
+  type CompletedRow = Pick<DefaulterRow, 'child_id' | 'child_name' | 'child_code' | 'family_serial_no' | 'bhw_assist' | 'date_of_birth' | 'barangay_id' | 'barangay_name'>
+  const completed: CompletedRow[] = []
 
   for (const c of children) {
     const dob = String(c.date_of_birth)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const b: any = Array.isArray(c.barangay) ? c.barangay[0] : c.barangay
+    const upcoming: DefaulterRow[] = []
+    const missedBefore = defaulters.length
 
-    for (const v of NIP_CATALOG) {
+    for (const v of catalog) {
+      if (v.routine_enabled === false) continue
       if (vaccineFilter && v.code !== vaccineFilter) continue
-      const doneForVaccine = doneMap.get(c.child_id)?.get(v.vaccine_type) ?? new Set<number>()
-
-      for (let n = 1; n <= v.total_doses; n++) {
-        if (doneForVaccine.has(n)) continue   // already administered — not a defaulter
-        const offsetDays = v.min_age_days + (v.interval_days ? (n - 1) * v.interval_days : 0)
-        const dueDate = addDays(dob, offsetDays)
-        if (dueDate > today) continue          // not due yet — upcoming, not a defaulter
-        const daysPast = daysBetween(dueDate, today)
-        const status: Status = daysPast > GRACE_PERIOD_DAYS ? 'OVERDUE' : 'DUE'
-        if (statusFilter && status !== statusFilter) continue
-        
-      for (const v of NIP_CATALOG) {
-        if (v.routine_enabled === false) continue
-        if (vaccineFilter && v.code !== vaccineFilter) continue
-
-        const doneForVaccine =
-          doneMap.get(c.child_id)?.get(v.code) ?? new Set<number>()
-
-        for (let n = 1; n <= v.total_doses; n++) {
-          if (doneForVaccine.has(n)) continue
-
-          const dueDate = getNipDoseDate(dob, v, n)
-          if (!dueDate || dueDate > today) continue
-
-          const daysPast = nipDaysBetween(dueDate, today)
-          if (!Number.isFinite(daysPast)) continue
-
-          const status: Status =
-            daysPast > GRACE_PERIOD_DAYS ? 'OVERDUE' : 'DUE'
-
-          if (statusFilter && status !== statusFilter) continue
-
-        defaulters.push({
+      const given = doneMap.get(c.child_id)?.get(v.code)
+      // Same schedule and rules as the child profile (lib/nip-schedule).
+      const timeline = nipVaccineTimeline(dob, v, Array.from({ length: v.total_doses }, (_, i) => given?.get(i + 1) ?? null), today)
+      for (const t of timeline) {
+        if (t.status !== 'OVERDUE' && !(includePending && t.status === 'UPCOMING')) continue
+        const daysPast = t.status === 'OVERDUE' ? nipDaysBetween(t.due_date, today) : 0
+        if (!Number.isFinite(daysPast)) continue
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const h: any = Array.isArray(c.household) ? c.household[0] : c.household
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const a: any = Array.isArray(c.assist) ? c.assist[0] : c.assist
+        ;(t.status === 'OVERDUE' ? defaulters : upcoming).push({
           child_id: c.child_id,
           child_name: [c.first_name, c.middle_name, c.last_name].filter(Boolean).join(' '),
+          child_code: c.child_code ?? null,
+          family_serial_no: h?.family_serial_no ?? null,
+          bhw_assist: a ? { reason: a.reason ?? null } : null,
           date_of_birth: dob,
           barangay_id: c.barangay_id,
           barangay_name: b?.barangay_name ?? null,
           vaccine_code: v.code,
           vaccine_type: v.vaccine_type,
-          dose_number: n,
-          due_date: dueDate,
+          dose_number: t.dose_number,
+          due_date: t.due_date,
           days_overdue: daysPast,
-          status,
+          rescheduled_date: t.rescheduled_date,
+          status: t.status === 'OVERDUE' ? 'OVERDUE' : 'UPCOMING',
+          provisional: provisional.has(`${c.child_id}:${v.code}`),
         })
       }
     }
-  }
+    // Only the child's next Pending date (every dose due that day).
+    const dateOf = (d: DefaulterRow) => d.rescheduled_date ?? d.due_date
+    const next = upcoming.reduce<string | null>((min, d) => (min === null || dateOf(d) < min ? dateOf(d) : min), null)
+    if (next) pending.push(...upcoming.filter((d) => dateOf(d) === next))
+    // Nothing missed or pending (all routine doses given or past their window): Completed.
+    if (!vaccineFilter && upcoming.length === 0 && defaulters.length === missedBefore) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const h: any = Array.isArray(c.household) ? c.household[0] : c.household
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const a: any = Array.isArray(c.assist) ? c.assist[0] : c.assist
+      completed.push({
+        child_id: c.child_id, child_name: [c.first_name, c.middle_name, c.last_name].filter(Boolean).join(' '),
+        child_code: c.child_code ?? null, family_serial_no: h?.family_serial_no ?? null, bhw_assist: a ? { reason: a.reason ?? null } : null,
+        date_of_birth: dob, barangay_id: c.barangay_id, barangay_name: b?.barangay_name ?? null,
+      })
+    }
   }
 
-  // Sort: OVERDUE first, most-overdue first, then by child name
+  // Sort: longest missed first, then by child name
   defaulters.sort((a, b) => {
-    if (a.status !== b.status) return a.status === 'OVERDUE' ? -1 : 1
     if (a.days_overdue !== b.days_overdue) return b.days_overdue - a.days_overdue
     return a.child_name.localeCompare(b.child_name)
   })
 
-  const capped = defaulters.slice(0, limit)
-  const overdueCount = defaulters.filter((d) => d.status === 'OVERDUE').length
-  const dueCount = defaulters.filter((d) => d.status === 'DUE').length
+  const capped = limit ? defaulters.slice(0, limit) : defaulters
+  const overdueCount = defaulters.length
   const uniqueChildrenAffected = new Set(defaulters.map((d) => d.child_id)).size
+
+  pending.sort((a, b) => (a.rescheduled_date ?? a.due_date).localeCompare(b.rescheduled_date ?? b.due_date) || a.child_name.localeCompare(b.child_name))
 
   return NextResponse.json({
     defaulters: capped,
+    ...(includePending ? { pending, completed } : {}),
     counts: {
       overdue: overdueCount,
-      due: dueCount,
       unique_children_affected: uniqueChildrenAffected,
       total_children_in_scope: children.length,
       total_shown: capped.length,
       total_matched: defaulters.length,
+      completed: completed.length,
     },
     filters: {
-      status: statusFilter || null,
       vaccine: vaccineFilter || null,
       limit,
     },
     role,
-    grace_period_days: GRACE_PERIOD_DAYS,
   })
-}}  
+}

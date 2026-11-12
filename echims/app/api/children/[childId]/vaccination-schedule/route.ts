@@ -4,8 +4,10 @@
 // GET  → computed preview of due/overdue doses for this child
 // POST → BHW/RHM creates a PENDING schedule request with date + optional time
 
+import { manilaTodayYMD, nipVaccineTimeline, normalizeVaccineCode } from '@/lib/nip-schedule'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { loadNipCatalog } from '@/lib/nip-catalog-server'
 
 /* ──────────────── GET: due/overdue preview ──────────────── */
 
@@ -31,52 +33,50 @@ export async function GET(
   if (childErr) return NextResponse.json({ error: childErr.message }, { status: 500 })
   if (!child) return NextResponse.json({ error: 'Child not found.' }, { status: 404 })
 
-  const dob = new Date(`${child.date_of_birth}T00:00:00Z`)
   const fullName = [child.first_name, child.middle_name, child.last_name].filter(Boolean).join(' ')
 
   const { data: vaccines } = await supabase
     .from('vaccine')
-    .select('vaccine_id, vaccine_type, dose_volume, route, min_age_days, interval_days, total_doses')
-    .order('min_age_days', { ascending: true })
+    .select('vaccine_id, vaccine_type')
 
-  let given: Array<{ vaccine_id: number; dose_number: number }> = []
+  let given: Array<{ vaccine_id: number; dose_number: number; vaccination_date: string; status: string }> = []
   try {
     const { data } = await supabase
       .from('vaccination_record')
-      .select('vaccine_id, dose_number')
+      .select('vaccine_id, dose_number, vaccination_date, status')
       .eq('child_id', id)
-    if (data) given = data as Array<{ vaccine_id: number; dose_number: number }>
+      .in('status', ['PENDING', 'APPROVED'])
+    if (data) given = data as typeof given
   } catch { /* ok */ }
 
-  const key = (vid: number, dose: number) => `${vid}:${dose}`
-  const givenSet = new Set(given.map((g) => key(g.vaccine_id, g.dose_number)))
+  // Same schedule as the immunization history and defaulters (lib/nip-schedule): every date is
+  // counted from this child's date of birth. Given doses are matched by vaccine code + dose.
+  const codeById = new Map((vaccines ?? []).map((v) => [v.vaccine_id as number, normalizeVaccineCode(String(v.vaccine_type))]))
+  const givenOn = new Map(given.map((g) => [`${codeById.get(g.vaccine_id) ?? ''}:${g.dose_number}`, String(g.vaccination_date)]))
+  const today = manilaTodayYMD()
 
   type Entry = {
     vaccine_code: string; vaccine_type: string; dose_number: number
     recommended_date: string; route: string; dose_volume: string
+    /** Missed (or pushed back): the next valid date. */
+    rescheduled_date?: string
+    /** Past the vaccine's age limit (e.g. BCG after 12 months): shown, not counted as missed. */
+    not_eligible?: boolean
   }
   const preview: Entry[] = []
   let excluded_count = 0
-
-  for (const v of (vaccines ?? []) as Array<{
-    vaccine_id: number; vaccine_type: string; dose_volume: string | null; route: string | null
-    min_age_days: number; interval_days: number | null; total_doses: number | null
-  }>) {
-    const totalDoses = Math.max(1, v.total_doses ?? 1)
-    const interval = Math.max(0, v.interval_days ?? 0)
-    for (let dose = 1; dose <= totalDoses; dose++) {
-      if (givenSet.has(key(v.vaccine_id, dose))) { excluded_count++; continue }
-      const daysOffset = v.min_age_days + (dose - 1) * interval
-      const dueDate = new Date(dob.getTime() + daysOffset * 86400000)
-      const ageMonthsAtDue = (dueDate.getTime() - dob.getTime()) / (86400000 * 30.44)
-      if (ageMonthsAtDue > 60) continue
+  const dob = String(child.date_of_birth)
+  // Editable rules from the vaccine catalog (eligibility windows included).
+  for (const vaccine of await loadNipCatalog(supabase)) {
+    if (vaccine.routine_enabled === false) continue
+    const dates = Array.from({ length: vaccine.total_doses }, (_, i) => givenOn.get(`${vaccine.code}:${i + 1}`) ?? null)
+    for (const t of nipVaccineTimeline(dob, vaccine, dates, today)) {
+      if (t.status === 'COMPLETE') { excluded_count++; continue }
       preview.push({
-        vaccine_code: v.vaccine_type,
-        vaccine_type: v.vaccine_type,
-        dose_number: dose,
-        recommended_date: dueDate.toISOString().slice(0, 10),
-        route: v.route ?? '',
-        dose_volume: v.dose_volume ?? '',
+        vaccine_code: vaccine.code, vaccine_type: vaccine.vaccine_type, dose_number: t.dose_number,
+        recommended_date: t.due_date, route: vaccine.route, dose_volume: vaccine.dose_volume,
+        ...(t.rescheduled_date ? { rescheduled_date: t.rescheduled_date } : {}),
+        ...(t.status === 'NOT_ELIGIBLE' ? { not_eligible: true } : {}),
       })
     }
   }

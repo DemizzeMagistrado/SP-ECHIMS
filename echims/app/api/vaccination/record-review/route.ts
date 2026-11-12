@@ -2,9 +2,11 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type { UserRole } from '@/lib/echims-data'
 
-// NIP-USR003 — Approve / reject an administered-vaccination record.
+// NIP-USR003 — Approve, or return for correction, an administered-vaccination record.
 // POST /api/vaccination/record-review
-// Body: { record_id: number, action: 'APPROVE' | 'REJECT', review_remarks?: string }
+// Body: { record_id: number, action: 'APPROVE' | 'RETURN', review_remarks?: string }
+// RETURN (needs a note) sets NEEDS_CORRECTION and alerts the recorder; there is no permanent
+// rejection. 'REJECT' is still accepted and means RETURN.
 //
 // Only PHN or Admin can review. RHM records but does not approve.
 // APPROVE is atomic in Supabase: vaccine batch, aggregate inventory,
@@ -80,21 +82,25 @@ export async function POST(request: Request) {
     .trim()
     .toUpperCase()
 
-  if (action !== 'APPROVE' && action !== 'REJECT') {
-    return invalid('action must be APPROVE or REJECT.')
+  if (action !== 'APPROVE' && action !== 'RETURN' && action !== 'REJECT') {
+    return invalid('action must be APPROVE or RETURN.')
   }
+  const isReturn = action !== 'APPROVE'
 
   const reviewRemarks = body?.review_remarks?.trim() || null
 
-  if (action === 'REJECT' && !reviewRemarks) {
-    return invalid('A reason is required when rejecting a record.')
+  if (isReturn && !reviewRemarks) {
+    return invalid('Say what needs fixing so the recorder can correct it.')
   }
 
-  const result = await supabase.rpc('msp_review_vaccination_record', {
+  const review = (a: string) => supabase.rpc('msp_review_vaccination_record', {
     p_record_id: recordId,
-    p_action: action,
+    p_action: a,
     p_review_remarks: reviewRemarks,
   })
+  let result = await review(isReturn ? 'RETURN' : 'APPROVE')
+  // Before migration 07 the function only knows REJECT (it then stores REJECTED).
+  if (isReturn && result.error && /INVALID_ACTION/.test(result.error.message ?? '')) result = await review('REJECT')
 
   if (result.error) {
     const code = result.error.code
@@ -126,14 +132,17 @@ export async function POST(request: Request) {
     stock_deducted?: boolean
     inventory_batch_id?: number
     inventory_transaction_id?: number
+    companions?: { item_id: number; item_name: string; quantity: number; deducted: boolean }[]
   } | null
 
   return NextResponse.json({
     vaccination_record_id: data?.vaccination_record_id ?? recordId,
-    status: data?.status ?? action,
+    status: data?.status ?? (isReturn ? 'NEEDS_CORRECTION' : 'APPROVED'),
     review_remarks: data?.review_remarks ?? reviewRemarks,
     stock_deducted: data?.stock_deducted ?? false,
     inventory_batch_id: data?.inventory_batch_id ?? null,
     inventory_transaction_id: data?.inventory_transaction_id ?? null,
+    // Companion medications (e.g. Paracetamol Drops with Pentavalent); deducted=false means no stock.
+    companions: data?.companions ?? [],
   })
 }

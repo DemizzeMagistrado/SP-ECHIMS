@@ -37,7 +37,7 @@ export async function submitSafeDraft<T extends Draft>(module:Module,draft:T,pay
  await access(draft)
  if(!response.ok){
   if(result?.canEdit===true)await update(module,draft.requestId,(row,s)=>{if(row.ownerId===draft.ownerId&&JSON.stringify(row.submission)===JSON.stringify(frozen))s.put({...row,status:'DRAFT',safeRetry:false,submission:undefined})})
-  throw new Error(result?.error??'Submission could not be confirmed. Retry unchanged.')
+  throw Object.assign(new Error(result?.error??'The upload could not be confirmed. Retry unchanged.'),{code:typeof result?.code==='string'?result.code:undefined,status:response.status})
  }
  const id=module==='CHILD'?result?.child_id:result?.schedule?.schedule_id
  if(!Number.isSafeInteger(Number(id))||Number(id)<=0)throw new Error('Server acknowledgement is incomplete. Draft retained; retry unchanged.')

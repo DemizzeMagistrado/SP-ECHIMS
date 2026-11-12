@@ -1,5 +1,7 @@
 'use client'
-import { X, UserX } from 'lucide-react'
+import { StatCard } from '@/components/ui/stat-card'
+import { Modal } from '@/components/ui/modal'
+import { UserX } from 'lucide-react'
 import { UserActions } from '@/components/user-management/user-actions'
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
@@ -581,31 +583,15 @@ export default function UserManagementClient({
 
       {/* SUMMARY CARDS */}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
 
-        <SummaryCard
-          title="Pending"
-          value={pendingCount}
-          description="Awaiting verification"
-        />
+        <StatCard label="Pending" value={pendingCount} hint="Awaiting verification" tone="warn" />
 
-        <SummaryCard
-          title="Active"
-          value={activeCount}
-          description="Authorized accounts"
-        />
+        <StatCard label="Active" value={activeCount} hint="Authorized accounts" tone="good" />
 
-        <SummaryCard
-          title="Inactive"
-          value={inactiveCount}
-          description="Deactivated accounts"
-        />
+        <StatCard label="Inactive" value={inactiveCount} hint="Deactivated accounts" />
 
-        <SummaryCard
-          title="Suspended"
-          value={suspendedCount}
-          description="Suspended accounts"
-        />
+        <StatCard label="Suspended" value={suspendedCount} hint="Suspended accounts" tone="danger" />
 
       </div>
 
@@ -898,40 +884,16 @@ export default function UserManagementClient({
       {/* USER DETAILS MODAL */}
 
       {selectedUser && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white shadow-2xl">
-
+        <Modal
+          open
+          size="lg"
+          onClose={closeModal}
+          title="User Details"
+          subtitle="Review account and workplace information."
+          cancelLabel="Close"
+          bodyClassName="space-y-6"
+        >
             {!readOnly && currentUser && <UserActions user={selectedUser} currentUserId={currentUser.id} onChanged={() => window.location.reload()} />}
-            {/* MODAL HEADER */}
-
-            <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5">
-
-              <div>
-                <h2 className="text-xl font-bold text-[#023E8A]">
-                  User Details
-                </h2>
-
-                <p className="mt-1 text-sm text-gray-500">
-                  Review account and
-                  workplace information.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={
-                  closeModal
-                }
-                aria-label="Close user details"
-                className="rounded-lg px-3 py-1 text-2xl text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
-              >
-                <X size={20} aria-hidden="true" />
-              </button>
-
-            </div>
-
-            <div className="space-y-6 p-6">
 
               {/* ACCOUNT INFORMATION */}
 
@@ -1563,43 +1525,8 @@ export default function UserManagementClient({
 
                 </div>
               </section>
-
-            </div>
-          </div>
-        </div>
+        </Modal>
       )}
-
-    </div>
-  )
-}
-
-/* =========================================================
-   SUMMARY CARD
-========================================================= */
-
-function SummaryCard({
-  title,
-  value,
-  description,
-}: {
-  title: string
-  value: number
-  description: string
-}) {
-  return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm">
-
-      <p className="text-sm font-medium text-gray-500">
-        {title}
-      </p>
-
-      <p className="mt-2 text-3xl font-bold text-[#023E8A]">
-        {value}
-      </p>
-
-      <p className="mt-1 text-xs text-gray-500">
-        {description}
-      </p>
 
     </div>
   )

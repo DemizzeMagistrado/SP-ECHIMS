@@ -16,13 +16,21 @@
 //   role: 'Administrator' | 'Public Health Nurse' | 'Rural Health Midwife' | 'Barangay Health Worker' | 'Barangay Nutrition Scholar' | null,
 //   scopeLabel: 'All barangays' | 'Daet RHU' | '3 barangays' | 'Alawihao',
 //   allowedBarangayIds: number[],
-//   perBarangay: [{ barangay_id, barangay_name, municipality, child_count }]
+//   perBarangay: [{ barangay_id, barangay_name, municipality, child_count }],
+//   children: [{ child_id, child_code, name, status, barangay_id, household_id,
+//                family_serial_no, lat, lng, at_risk }],  // lat/lng from the household
+//   scopeLevel: 'barangay' | 'municipality',
+//   focusBarangayIds: number[],          // barangay-level users: their barangay
+//   municipalities: [{ code, name, geojson, barangayIds }]   // map extent per municipality
 // }
+// Every child, count and barangay row is limited to allowedBarangayIds (and RLS); the map
+// draws other barangays of the municipality only as unlabeled-data outlines.
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { MUNICIPALITY_GEOJSON, municipalityCode } from '@/lib/geospatial/municipalities'
 
-type BarangayRow = { barangay_id: number; barangay_name: string; municipality: string; rhu_id: number | null }
+type BarangayRow = { barangay_id: number; barangay_name: string; municipality: string; rhu_id: number | null; psgc_barangay_code: string | null }
 
 export async function GET() {
   const supabase = await createClient()
@@ -46,7 +54,7 @@ export async function GET() {
     role = 'Administrator'
     const { data } = await supabase
       .from('barangay')
-      .select('barangay_id, barangay_name, municipality, rhu_id')
+      .select('barangay_id, barangay_name, municipality, rhu_id, psgc_barangay_code')
     allowed = (data ?? []) as BarangayRow[]
     scopeLabel = `All barangays (${allowed.length})`
   } else if (phnRow.data) {
@@ -54,7 +62,7 @@ export async function GET() {
     const rhuId = (phnRow.data as { rhu_id: number }).rhu_id
     const { data } = await supabase
       .from('barangay')
-      .select('barangay_id, barangay_name, municipality, rhu_id')
+      .select('barangay_id, barangay_name, municipality, rhu_id, psgc_barangay_code')
       .eq('rhu_id', rhuId)
     allowed = (data ?? []) as BarangayRow[]
     const muni = allowed[0]?.municipality ?? 'RHU'
@@ -67,7 +75,7 @@ export async function GET() {
         : 'Barangay Nutrition Scholar'
     const { data: assigns } = await supabase
       .from('health_worker_assignment')
-      .select('barangay_id, barangay:barangay(barangay_id, barangay_name, municipality, rhu_id)')
+      .select('barangay_id, barangay:barangay(barangay_id, barangay_name, municipality, rhu_id, psgc_barangay_code)')
       .eq('user_id', user.id)
       .eq('status', 'ACTIVE')
     allowed = (assigns ?? []).flatMap((a) => {
@@ -114,5 +122,64 @@ export async function GET() {
     child_count: counts.get(b.barangay_id) ?? 0,
   }))
 
-  return NextResponse.json({ role, scopeLabel, allowedBarangayIds, perBarangay })
+  // ─── 3. Children in scope, for markers and lists (RLS applies as well) ───
+  // Pins use the household's coordinates, so siblings share one location. Only the signed-in
+  // worker's own scope is returned; the latest nutrition assessment gives the at-risk flag.
+  const { data: kids, error: kidsErr } = await supabase
+    .from('child')
+    .select('child_id, child_code, first_name, middle_name, last_name, status, barangay_id, household_id, household:household(family_serial_no, latitude, longitude)')
+    .in('barangay_id', allowedBarangayIds)
+    .order('last_name')
+  if (kidsErr) return NextResponse.json({ error: 'The children for the map could not be loaded. Refresh to try again.' }, { status: 500 })
+  const ids = (kids ?? []).map((k) => k.child_id as number)
+  const atRisk = new Map<number, boolean>()
+  if (ids.length) {
+    const { data: assessments } = await supabase
+      .from('nutritional_assessment')
+      .select('child_id, is_at_risk')
+      .in('child_id', ids)
+      .order('assessment_date', { ascending: false })
+      .order('assessment_id', { ascending: false })
+    for (const a of assessments ?? []) if (!atRisk.has(a.child_id as number)) atRisk.set(a.child_id as number, a.is_at_risk === true)
+  }
+  const byBarangay = new Map(allowed.map((b) => [b.barangay_id, b]))
+  const childRows = (kids ?? []).map((k) => {
+    const h = (Array.isArray(k.household) ? k.household[0] : k.household) as { family_serial_no?: string | null; latitude?: number | string | null; longitude?: number | string | null } | null
+    const lat = h?.latitude == null ? null : Number(h.latitude)
+    const lng = h?.longitude == null ? null : Number(h.longitude)
+    const b = byBarangay.get(k.barangay_id as number)
+    return {
+      child_id: k.child_id,
+      child_code: k.child_code ?? null,
+      name: [k.first_name, k.middle_name, k.last_name].filter(Boolean).join(' '),
+      status: k.status,
+      barangay_id: k.barangay_id,
+      barangay_name: b?.barangay_name ?? '',
+      municipality: b?.municipality ?? '',
+      household_id: k.household_id,
+      family_serial_no: h?.family_serial_no ?? null,
+      lat: Number.isFinite(lat) ? lat : null,
+      lng: Number.isFinite(lng) ? lng : null,
+      at_risk: atRisk.get(k.child_id as number) ?? false,
+    }
+  })
+
+  // ─── 4. Map extent: the municipalities in scope and where to start ───
+  // Barangay-level users (BHW / BNS assigned to one barangay) start on it; RHM, PHN, Admin and
+  // multi-barangay workers start on the municipality. Data is the assigned scope either way.
+  const municipalities = new Map<string, { code: string; name: string; geojson: string | null; barangayIds: number[] }>()
+  for (const b of allowed) {
+    const code = municipalityCode(b.psgc_barangay_code) ?? `name:${b.municipality}`
+    const m = municipalities.get(code) ?? { code, name: b.municipality, geojson: MUNICIPALITY_GEOJSON[code] ?? null, barangayIds: [] }
+    m.barangayIds.push(b.barangay_id)
+    municipalities.set(code, m)
+  }
+  const scopeLevel = (role === 'Barangay Health Worker' || role === 'Barangay Nutrition Scholar') && allowed.length === 1 ? 'barangay' : 'municipality'
+
+  return NextResponse.json({
+    role, scopeLabel, allowedBarangayIds, perBarangay, children: childRows,
+    scopeLevel,
+    focusBarangayIds: scopeLevel === 'barangay' ? allowedBarangayIds : [],
+    municipalities: [...municipalities.values()],
+  })
 }

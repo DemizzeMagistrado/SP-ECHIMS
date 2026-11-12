@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { MOBILE_ERROR, normalizePhMobile } from '@/lib/phone'
 import { createClient } from '@/lib/supabase/server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 
@@ -55,10 +56,11 @@ export async function POST(request: Request) {
   const firstName = typeof body?.firstName === 'string' ? body.firstName.trim() : ''
   const lastName = typeof body?.lastName === 'string' ? body.lastName.trim() : ''
   const relationship = typeof body?.relationshipToChild === 'string' ? body.relationshipToChild.trim() : ''
-  const contactNumber = typeof body?.contactNumber === 'string' ? body.contactNumber.trim() : ''
+  const typedContact = typeof body?.contactNumber === 'string' ? body.contactNumber.trim() : ''
+  const contactNumber = typedContact ? normalizePhMobile(typedContact) ?? '' : ''
   const address = typeof body?.address === 'string' ? body.address.trim() : ''
   if (!childId || !firstName || !lastName || !relationship) return NextResponse.json({ error: 'First name, last name, and relationship to the child are required.' }, { status: 400 })
-  if (contactNumber && !/^[+0-9()\s-]{7,20}$/.test(contactNumber)) return NextResponse.json({ error: 'Enter a valid contact number.' }, { status: 400 })
+  if (typedContact && !contactNumber) return NextResponse.json({ error: MOBILE_ERROR }, { status: 400 })
   const { data: child, error: childError } = await supabase.from('child').select('guardian_id').eq('child_id', childId).maybeSingle()
   if (childError || !child) return NextResponse.json({ error: 'Child could not be found.' }, { status: 404 })
   if (child.guardian_id) return NextResponse.json({ error: 'This child already has a registered guardian.' }, { status: 409 })

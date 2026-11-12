@@ -78,7 +78,7 @@ export default function ChildrenMapPage() {
   }, [data])
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <PageHeader
         title="Child Profiling · Map"
         subtitle="Where your registered children live. Polygons show per-barangay counts."

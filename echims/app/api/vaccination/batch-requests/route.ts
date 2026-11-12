@@ -8,6 +8,8 @@
 // a base SELECT with just the item embed, then batch-fetch everything else
 // in parallel and splice client-side. One extra round-trip, but bulletproof.
 
+import { loadBatchRule } from '@/lib/batch-rule-server'
+import { batchNumberError, normalizeBatchNumber } from '@/lib/vaccination-config'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
@@ -79,7 +81,7 @@ export async function GET(request: Request) {
       ? supabase.from('barangay').select('barangay_id, barangay_name').in('barangay_id', barangayIds)
       : Promise.resolve({ data: [] as unknown[], error: null }),
     userIds.length
-      ? supabase.from('users').select('id, email').in('id', userIds)
+      ? supabase.from('users').select('user_id, full_name, email').in('user_id', userIds)
       : Promise.resolve({ data: [] as unknown[], error: null }),
   ])
 
@@ -95,7 +97,7 @@ export async function GET(request: Request) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const userById = new Map<string, any>()
-  for (const u of (hwRes.data ?? []) as Array<{ id: string }>) userById.set(u.id, u)
+  for (const u of (hwRes.data ?? []) as Array<{ user_id: string }>) userById.set(u.user_id, u)
 
   // Step 3: Splice everything back into each row in the shape the UI expects.
   const requests = rows.map((r) => ({
@@ -142,8 +144,10 @@ export async function POST(request: Request) {
   const qty = Number(body.requested_quantity)
   if (!Number.isFinite(qty) || qty <= 0) return invalid('requested_quantity must be a positive number.')
 
-  const batchNumber = String(body.batch_number ?? '').trim()
+  const batchNumber = normalizeBatchNumber(String(body.batch_number ?? '')) ?? ''
   if (!batchNumber) return invalid('batch_number is required for vaccine batch requests.')
+  const batchError = batchNumberError(batchNumber, await loadBatchRule(supabase))
+  if (batchError) return invalid(`Batch number: ${batchError}`)
 
   const targetBarangayId = Number(body.target_barangay_id)
   if (!Number.isSafeInteger(targetBarangayId) || targetBarangayId <= 0) {

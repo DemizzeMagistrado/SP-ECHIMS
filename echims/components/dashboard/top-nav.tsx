@@ -42,6 +42,11 @@ function notificationTarget(item: Notification): { href: string; label: string }
   if (item.source_module === 'SUPPLEMENTATION' && typeof item.child_id === 'number' && item.child_id > 0) {
     return { href: `/child-profiling/children/${item.child_id}`, label: 'View child record' }
   }
+  if (item.source_module === 'VACCINATION') {
+    return typeof item.child_id === 'number' && item.child_id > 0
+      ? { href: `/child-profiling/children/${item.child_id}#vaccination-schedule`, label: 'View child schedule' }
+      : { href: '/vaccination/schedule', label: 'View vaccination schedule' }
+  }
   if (item.source_module === 'HEALTH_ACTIVITY' && typeof item.schedule_id === 'number' && item.schedule_id > 0) {
     return { href: '/health-activities', label: 'View activities' }
   }

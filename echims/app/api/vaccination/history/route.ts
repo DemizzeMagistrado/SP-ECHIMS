@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { loadNipCatalog } from '@/lib/nip-catalog-server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import {
-  NIP_CATALOG,
-  GRACE_PERIOD_DAYS,
-  getNipDoseDate,
+  nipVaccineTimeline,
   normalizeVaccineCode,
   manilaTodayYMD,
-  nipDaysBetween,
 } from '@/lib/nip-schedule'
 
 const roleAliases: Record<string, UserRole> = {
@@ -45,18 +43,24 @@ function invalid(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status })
 }
 
-type DoseStatus = 'COMPLETE' | 'DUE' | 'OVERDUE' | 'UPCOMING'
+type DoseStatus = 'COMPLETE' | 'DUE' | 'OVERDUE' | 'UPCOMING' | 'NOT_ELIGIBLE'
 
 type DoseRow = {
   dose_number: number
   status: DoseStatus
   due_date: string
+  /** Missed (or pushed-back) doses: the next valid date. */
+  rescheduled_date: string | null
   given_date: string | null
   batch_number: string | null
   vaccination_site: string | null
   vaccination_record_id: number | null
   is_prior: boolean
   prior_source: string | null
+  /** Given, but the record is still awaiting PHN approval. */
+  pending_approval: boolean
+  /** An open dose whose date depends on a dose awaiting approval. */
+  provisional: boolean
 }
 
 type VaccineStatusRow = {
@@ -137,6 +141,7 @@ export async function GET(request: Request) {
         vaccination_record_id,
         vaccination_date,
         dose_number,
+        status,
         batch_number,
         vaccination_site,
         remarks,
@@ -149,11 +154,12 @@ export async function GET(request: Request) {
           dose_volume,
           route,
           target_age,
-          item:item(item_id, item_name)
+          item:item!fk_vaccine_item(item_id, item_name)
         )
       `)
       .eq('child_id', childId)
-      .eq('status', 'APPROVED')
+      // Pending (awaiting approval) doses count provisionally; see pending_approval below.
+      .in('status', ['APPROVED', 'PENDING'])
       .order('vaccination_date', { ascending: false })
       .order('vaccination_record_id', { ascending: false })
 
@@ -162,62 +168,47 @@ export async function GET(request: Request) {
       return invalid('Unable to load immunization history.', 500)
     }
 
-    // Retain all approved records, including non-routine vaccines.
-    const approvedRecords = recRes.data ?? []
+    const assistRes = await supabase.from('child_vaccination_assist').select('reason, flagged_at').eq('child_id', childId).maybeSingle()
+
+    // All approved records (non-routine vaccines too) are returned as history; doses still awaiting
+    // approval only count provisionally in the schedule below.
+    const allRecords = recRes.data ?? []
+    const approvedRecords = allRecords.filter((r) => r.status === 'APPROVED')
     const today = manilaTodayYMD()
     const vaccineStatus: VaccineStatusRow[] = []
 
-    for (const vaccine of NIP_CATALOG) {
+    // Editable rules from the vaccine catalog (eligibility windows included).
+    for (const vaccine of await loadNipCatalog(supabase)) {
       if (vaccine.routine_enabled === false) continue
 
       const doses: DoseRow[] = []
+      const sameDose = (i: number) => (record: (typeof allRecords)[number]) => joinedVaccineCode(record.vaccine) === vaccine.code && Number(record.dose_number) === i + 1
+      // Approved wins; otherwise a dose recorded and awaiting approval (provisional).
+      const matches = Array.from({ length: vaccine.total_doses }, (_, i) => approvedRecords.find(sameDose(i)) ?? allRecords.find((r) => r.status === 'PENDING' && sameDose(i)(r)))
+      const provisional = matches.some((m) => m?.status === 'PENDING')
+      // Pending if due today or later, Missed once the date has passed (with the next valid date),
+      // Not eligible after the vaccine's age limit (same rules as the schedule tab and defaulters).
+      const timeline = nipVaccineTimeline(dob, vaccine, matches.map((m) => (m ? String(m.vaccination_date) : null)), today)
+      if (timeline.length !== vaccine.total_doses) {
+        return invalid('Unable to calculate the schedule. Check the child’s birth date and vaccine configuration.', 500)
+      }
 
-      for (let dose = 1; dose <= vaccine.total_doses; dose++) {
-        const dueDate = getNipDoseDate(dob, vaccine, dose)
-
-        if (!dueDate) {
-          return invalid(
-            'Unable to calculate the schedule. Check the child’s birth date and vaccine configuration.',
-            500,
-          )
-        }
-
-        const match = approvedRecords.find(
-          (record) =>
-            joinedVaccineCode(record.vaccine) === vaccine.code &&
-            Number(record.dose_number) === dose,
-        )
-
-        let status: DoseStatus
-
-        if (match) {
-          status = 'COMPLETE'
-        } else if (dueDate > today) {
-          status = 'UPCOMING'
-        } else {
-          const daysPastDue = nipDaysBetween(dueDate, today)
-
-          if (!Number.isFinite(daysPastDue)) {
-            return invalid('Unable to calculate dose status.', 500)
-          }
-
-          status =
-            daysPastDue > GRACE_PERIOD_DAYS ? 'OVERDUE' : 'DUE'
-        }
-
+      for (const t of timeline) {
+        const match = matches[t.dose_number - 1]
         doses.push({
-          dose_number: dose,
-          status,
-          due_date: dueDate,
-          given_date: match
-            ? String(match.vaccination_date)
-            : null,
+          dose_number: t.dose_number,
+          status: t.status,
+          due_date: t.due_date,
+          rescheduled_date: t.rescheduled_date,
+          given_date: match ? String(match.vaccination_date) : null,
           batch_number: match?.batch_number ?? null,
           vaccination_site: match?.vaccination_site ?? null,
-          vaccination_record_id:
-            match?.vaccination_record_id ?? null,
+          vaccination_record_id: match?.vaccination_record_id ?? null,
           is_prior: Boolean(match?.is_prior),
           prior_source: match?.prior_source ?? null,
+          pending_approval: match?.status === 'PENDING',
+          // Open doses: their date depends on a dose awaiting approval.
+          provisional: provisional && (t.status === 'OVERDUE' || t.status === 'UPCOMING'),
         })
       }
 
@@ -236,7 +227,7 @@ export async function GET(request: Request) {
         vaccine.doses
           .filter(
             (dose) =>
-              dose.status === 'OVERDUE' || dose.status === 'DUE',
+              dose.status === 'OVERDUE' || dose.status === 'UPCOMING',
           )
           .map((dose) => ({
             vaccine_code: vaccine.code,
@@ -244,7 +235,8 @@ export async function GET(request: Request) {
             ...dose,
           })),
       )
-      .sort((a, b) => a.due_date.localeCompare(b.due_date))
+      // Earliest date the child can come in (rescheduled date for missed doses).
+      .sort((a, b) => (a.rescheduled_date ?? a.due_date).localeCompare(b.rescheduled_date ?? b.due_date) || (a.status === 'OVERDUE' ? -1 : 1))
 
     function countStatus(status: DoseStatus): number {
       return vaccineStatus.reduce(
@@ -262,11 +254,13 @@ export async function GET(request: Request) {
         approved_records: approvedRecords,
         vaccine_status: vaccineStatus,
         next_due: pendingDoses[0] ?? null,
+        bhw_assist: assistRes.data ?? null,
         counts: {
           complete: countStatus('COMPLETE'),
           due: countStatus('DUE'),
           overdue: countStatus('OVERDUE'),
           upcoming: countStatus('UPCOMING'),
+          not_eligible: countStatus('NOT_ELIGIBLE'),
         },
       },
       {

@@ -6,7 +6,9 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { scopeBarangays, trustedRole } from '@/lib/dashboard-scope'
-import { GRACE_PERIOD_DAYS, computeSchedule, excludeGivenDoses, manilaTodayYMD, nipDaysBetween } from '@/lib/nip-schedule'
+import { GRACE_PERIOD_DAYS, manilaTodayYMD } from '@/lib/nip-schedule'
+import { loadNipCatalog } from '@/lib/nip-catalog-server'
+import { approvedDoses, missedDoses } from '@/lib/vaccination-status-server'
 
 const headers = { 'Cache-Control': 'private, max-age=60' }
 const fail = (error: string, status: number) => NextResponse.json({ error }, { status, headers: { 'Cache-Control': 'private, no-store' } })
@@ -46,34 +48,27 @@ async function byIds<T = any>(ids: number[], query: (chunk: number[]) => Promise
   return out
 }
 
-// Active children in scope with their latest assessment and whether any NIP dose is
-// past the defaulter grace period (same rule as /api/vaccination/defaulters).
+// Active children in scope with their latest assessment and whether any NIP dose is Missed past
+// the defaulter grace period (same timeline and eligibility windows as /api/vaccination/defaulters;
+// Not eligible doses never count).
 async function childStatus(ctx: Ctx) {
   const children = await rows(scoped(ctx, ctx.supabase.from('child')
     .select('child_id, date_of_birth, barangay_id')
     .in('status', ['ACTIVE', 'MONITORING'])))
   const ids = children.map((c) => c.child_id)
-  const [records, assessments] = await Promise.all([
-    byIds(ids, (chunk) => ctx.supabase.from('vaccination_record')
-      .select('child_id, dose_number, vaccine:vaccine(vaccine_type)')
-      .eq('status', 'APPROVED')
-      .in('child_id', chunk)),
+  const [given, catalog, assessments] = await Promise.all([
+    approvedDoses(ctx.supabase, ids),
+    loadNipCatalog(ctx.supabase),
     byIds(ids, (chunk) => ctx.supabase.from('nutritional_assessment')
       .select('child_id, assessment_date, is_at_risk, weight_for_age, height_for_age, weight_for_height, nutritional_status, bmi_for_age')
       .in('child_id', chunk)
       .order('assessment_date', { ascending: false })),
   ])
-  const given = new Map<number, { vaccine_type: string; dose_number: number }[]>()
-  for (const r of records) {
-    const vt = one(r.vaccine)?.vaccine_type
-    if (vt) given.set(r.child_id, [...(given.get(r.child_id) ?? []), { vaccine_type: vt, dose_number: r.dose_number }])
-  }
   const latest = new Map<number, Record<string, unknown>>()
   for (const a of assessments) if (!latest.has(a.child_id)) latest.set(a.child_id, a)
   return children.map((c) => ({
     ...c,
-    overdue: excludeGivenDoses(computeSchedule(String(c.date_of_birth)), given.get(c.child_id) ?? [])
-      .some((e) => e.recommended_date <= ctx.today && nipDaysBetween(e.recommended_date, ctx.today) > GRACE_PERIOD_DAYS),
+    overdue: missedDoses(String(c.date_of_birth), given.get(c.child_id), catalog, ctx.today).some((d) => d.daysPast > GRACE_PERIOD_DAYS),
     assessment: latest.get(c.child_id) ?? null,
   }))
 }

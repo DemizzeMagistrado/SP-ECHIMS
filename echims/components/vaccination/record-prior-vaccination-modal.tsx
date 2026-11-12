@@ -19,13 +19,13 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import { useEffect, useMemo, useState } from 'react'
 import useSWR from 'swr'
-import {
-  X, AlertCircle, Syringe, Calendar, Hash, MapPin, FileText,
-  CheckCircle2, History,
-} from 'lucide-react'
+import { AlertCircle, Syringe, Calendar, Hash, MapPin, FileText, CheckCircle2, History } from 'lucide-react'
 import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
 import { Button } from '@/components/ui/button'
+import { VACCINATION_SITES } from '@/lib/vaccination-config'
+import { BatchNumberField, checkBatchNumber } from '@/components/inventory/batch-number-field'
+import { Modal } from '@/components/ui/modal'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 
 type VaccineOption = {
@@ -129,7 +129,7 @@ export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, c
           vaccine_id: Number(vaccineId),
           dose_number: dose,
           vaccination_date: vaccinationDate,
-          batch_number: batchNumber.trim() || undefined,
+          batch_number: checkBatchNumber(batchNumber, false).value ?? undefined,
           vaccination_site: site.trim() || undefined,
           prior_source: source,
           remarks: remarks.trim() || undefined,
@@ -148,31 +148,29 @@ export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, c
     }
   }
 
-  if (!open) return null
 
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 border-b border-border p-6">
-          <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
-              <History size={18} />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-foreground">Add past vaccination</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                For <strong>{childName}</strong>. Use this for shots given before eCHIMS enrollment (Baby Book, prior RHU, etc.).
-              </p>
-            </div>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-1 text-muted-foreground hover:bg-muted">
-            <X size={20} />
-          </button>
-        </div>
+    <Modal
+      open={open}
+      onClose={onClose}
+      busy={saving}
+      size="lg"
+      icon={<History />}
+      title="Add past vaccination"
+      subtitle={<>For <strong>{childName}</strong>. Use this for shots given before eCHIMS enrollment (Baby Book, prior RHU, etc.).</>}
+      onSubmit={submit}
+      footer={<>
 
-        {/* Body */}
-        <form onSubmit={submit} className="space-y-5 p-6">
+            <Button
+              type="submit"
+              disabled={saving}
+            >
+              {saving ? <Spinner /> : <History size={14} />}
+              {saving ? 'Saving…' : 'Save prior record'}
+            </Button>
+      </>}
+    >
+        <div className="space-y-5">
           {/* Info banner */}
           <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
@@ -274,29 +272,15 @@ export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, c
 
           {/* Batch + Site row (both optional) */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label htmlFor="batch" className="mb-1 block text-sm font-semibold text-foreground">
-                Batch number <span className="text-muted-foreground font-normal">(optional)</span>
-              </label>
-              <Input
-                id="batch"
-                type="text"
-                value={batchNumber}
-                onChange={(e) => setBatchNumber(e.target.value)}
-                placeholder="If known"
-              />
-            </div>
+            <BatchNumberField id="batch" label="Batch number (optional)" value={batchNumber} onChange={setBatchNumber} hint="If written on the card, e.g. BT-2026-0012." />
             <div>
               <label htmlFor="site" className="mb-1 block text-sm font-semibold text-foreground">
                 <MapPin size={13} className="mr-1 inline" /> Site <span className="text-muted-foreground font-normal">(optional)</span>
               </label>
-              <Input
-                id="site"
-                type="text"
-                value={site}
-                onChange={(e) => setSite(e.target.value)}
-                placeholder="e.g. Left thigh"
-              />
+              <Select id="site" value={site} onChange={(e) => setSite(e.target.value)}>
+                <option value="">Not recorded</option>
+                {VACCINATION_SITES.map((v) => <option key={v} value={v}>{v}</option>)}
+              </Select>
             </div>
           </div>
 
@@ -323,23 +307,7 @@ export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, c
           )}
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-            <Button variant="secondary"
-              onClick={onClose}
-              disabled={saving}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={saving}
-            >
-              {saving ? <Spinner /> : <History size={14} />}
-              {saving ? 'Saving…' : 'Save prior record'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </div>
+    </Modal>
   )
 }

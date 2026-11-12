@@ -228,7 +228,7 @@ export function VaccinationReportFormat({
                       )}
                     />
                     <Counts
-                      label="Hepatitis B within24 hours after birth"
+                      label="Hep-B within 24 hours after birth"
                       unavailable="Exact birth/administration times are not recorded."
                     />
                   </tr>
@@ -251,7 +251,7 @@ export function VaccinationReportFormat({
                       )}
                     />
                     <Counts
-                      label="Hepatitis B more than24 hours up to14 days"
+                      label="Hep-B more than 24 hours up to 14 days"
                       unavailable="Exact timing is not verified in the saved records."
                     />
                   </tr>

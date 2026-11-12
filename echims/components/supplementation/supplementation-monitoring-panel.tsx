@@ -1,4 +1,5 @@
 'use client'
+import { Select } from '@/components/ui/form'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import Link from 'next/link'
@@ -169,7 +170,7 @@ export function SupplementationMonitoringPanel({
             applies.
           </p>
         </div>
-        <Button variant="secondary"
+        <Button variant="tonal"
           disabled={loading || !online}
           onClick={refresh}
         >
@@ -203,8 +204,8 @@ export function SupplementationMonitoringPanel({
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               <label className="text-xs font-medium">
                 Barangay
-                <select
-                  className={input}
+                <Select
+                 
                   value={barangay}
                   onChange={(e) => setBarangay(e.target.value)}
                 >
@@ -214,12 +215,12 @@ export function SupplementationMonitoringPanel({
                       {name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label className="text-xs font-medium">
                 Supplement type
-                <select
-                  className={input}
+                <Select
+                 
                   value={type}
                   onChange={(e) => setType(e.target.value)}
                 >
@@ -229,12 +230,12 @@ export function SupplementationMonitoringPanel({
                       {readable(value)}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label className="text-xs font-medium">
                 Tier
-                <select
-                  className={input}
+                <Select
+                 
                   value={tier}
                   onChange={(e) => setTier(e.target.value)}
                 >
@@ -244,12 +245,12 @@ export function SupplementationMonitoringPanel({
                       {readable(value)}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label className="text-xs font-medium">
                 Status
-                <select
-                  className={input}
+                <Select
+                 
                   value={status}
                   onChange={(e) => setStatus(e.target.value as Status | 'ALL')}
                 >
@@ -259,7 +260,7 @@ export function SupplementationMonitoringPanel({
                       {labels[value]}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label className="text-xs font-medium">
                 Child

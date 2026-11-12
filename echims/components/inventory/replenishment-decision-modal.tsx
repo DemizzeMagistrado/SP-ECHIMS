@@ -7,10 +7,11 @@
 // request id for linkage.
 
 import { useState } from 'react'
-import { X, AlertCircle, CheckCircle2, XCircle, Package, MapPin, User, Calendar, FileText } from 'lucide-react'
+import { AlertCircle, CheckCircle2, XCircle, Package, MapPin, User, Calendar, FileText } from 'lucide-react'
 import { toast } from '@/components/ui/toast'
-import { Spinner } from '@/components/brand/logo-loader'
+
 import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
 import { Textarea } from '@/components/ui/form'
 
 export type ReplenishmentRequest = {
@@ -53,7 +54,8 @@ export function ReplenishmentDecisionModal({ open, onClose, onDecided, request }
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
 
-  if (!open || !request) return null
+  if (!request) return null
+  const close = () => { setMode('review'); setReason(''); setFormError(''); onClose() }
 
   const item = one(request.item)
   const brgy = one(request.target_barangay)
@@ -88,26 +90,28 @@ export function ReplenishmentDecisionModal({ open, onClose, onDecided, request }
   }
 
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-border p-6">
-          <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-primary">
-              <Package size={18} />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-foreground">Replenishment request #{request.stock_request_id}</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                Submitted {request.request_date} · <StatusChip status={request.status} />
-              </p>
-            </div>
-          </div>
-          <button type="button" onClick={() => { setMode('review'); setReason(''); setFormError(''); onClose() }} aria-label="Close" className="rounded-lg p-1 text-muted-foreground hover:bg-muted">
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="space-y-4 p-6">
+    <Modal
+      open={open}
+      onClose={close}
+      busy={saving}
+      size="lg"
+      icon={<Package />}
+      title={`Replenishment request #${request.stock_request_id}`}
+      subtitle={<>Submitted {request.request_date} · <StatusChip status={request.status} /></>}
+      cancelLabel={isPending ? 'Cancel' : 'Close'}
+      footer={!isPending ? null : mode === 'review' ? (
+        <>
+          <Button variant="secondary" className="text-danger" onClick={() => setMode('reject')} disabled={saving}><XCircle size={14} aria-hidden="true" /> Reject</Button>
+          <Button onClick={() => send('APPROVE')} loading={saving}>{!saving && <CheckCircle2 size={14} aria-hidden="true" />}{saving ? 'Approving…' : 'Approve'}</Button>
+        </>
+      ) : (
+        <>
+          <Button variant="secondary" onClick={() => { setMode('review'); setReason(''); setFormError('') }} disabled={saving}>Back</Button>
+          <Button variant="danger" onClick={() => send('REJECT')} loading={saving} disabled={!reason.trim()}>{!saving && <XCircle size={14} aria-hidden="true" />}{saving ? 'Rejecting…' : 'Confirm reject'}</Button>
+        </>
+      )}
+    >
+        <div className="space-y-4">
           <div className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-muted/30 p-4 md:grid-cols-2">
             <Row icon={<Package size={13} />} label="Item" value={item?.item_name ?? '—'} />
             <Row icon={<Package size={13} />} label="Quantity requested" value={`${request.requested_quantity} ${item?.unit ?? ''}`} />
@@ -155,36 +159,8 @@ export function ReplenishmentDecisionModal({ open, onClose, onDecided, request }
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-            {!isPending ? (
-              <Button variant="secondary" onClick={onClose}>Close</Button>
-            ) : mode === 'review' ? (
-              <>
-                <button type="button" onClick={() => setMode('reject')} disabled={saving}
-                  className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50">
-                  <XCircle size={14} /> Reject
-                </button>
-                <button type="button" onClick={() => send('APPROVE')} disabled={saving}
-                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
-                  {saving ? <Spinner /> : <CheckCircle2 size={14} />}
-                  {saving ? 'Approving…' : 'Approve'}
-                </button>
-              </>
-            ) : (
-              <>
-                <Button variant="secondary" onClick={() => { setMode('review'); setReason(''); setFormError('') }} disabled={saving}
-                 >Back</Button>
-                <Button variant="danger" onClick={() => send('REJECT')} disabled={saving || !reason.trim()}
-                 >
-                  {saving ? <Spinner /> : <XCircle size={14} />}
-                  {saving ? 'Rejecting…' : 'Confirm reject'}
-                </Button>
-              </>
-            )}
-          </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 

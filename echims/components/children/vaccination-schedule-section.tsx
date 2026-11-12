@@ -3,16 +3,17 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 // NIP-USR001 — Vaccination Schedule section for the child profile page.
 // Loads the computed schedule preview + the latest request status. BHW/RHM see a
 // "Request Schedule" button when no PENDING request exists; everyone sees the preview.
-// Status badges mirror the health_activity_schedule lifecycle (PENDING / APPROVED / REJECTED).
-import { useId, useState, type KeyboardEvent } from 'react'
+// Status badges mirror the health_activity_schedule lifecycle (PENDING / APPROVED / NEEDS_REVISION).
+// Schedules are never rejected (NIP-REV01); a reviewer asks for a new date instead.
+import { useId, useState } from 'react'
 import { ImmunizationHistorySection } from '@/components/children/immunization-history-section'
 import useSWR from 'swr'
-import { Syringe, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react'
+import { Syringe, AlertCircle, CheckCircle2, Clock } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
-import { TabIndicator } from '@/components/dashboard/tab-indicator'
+import { TabBar } from '@/components/ui/module-tabs'
 import { TabPanel } from '@/components/brand/page-gate'
 import { Button } from '@/components/ui/button'
 import { DateInput, Textarea } from '@/components/ui/form'
@@ -24,6 +25,10 @@ type ScheduleEntry = {
   recommended_date: string
   route: string
   dose_volume: string
+  /** Missed (or pushed back): the next valid date. */
+  rescheduled_date?: string
+  /** Past the vaccine's age limit (e.g. BCG after the first birthday). */
+  not_eligible?: boolean
 }
 type LatestRequest = {
   schedule_id: number
@@ -78,7 +83,7 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
   )
   const [submitting, setSubmitting] = useState(false)
   const [remarks, setRemarks] = useState('')
-  // Proposed service date. Pre-fills to the nearest overdue dose (or today if all are
+  // Proposed service date. Pre-fills to the nearest missed dose (or today if all are
   // future) so the BHW/RHM doesn't have to type one from scratch.
   const [proposedDate, setProposedDate] = useState('')
   const [showForm, setShowForm] = useState(false)
@@ -134,8 +139,11 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
     )
   }
   const today = new Date().toISOString().slice(0, 10)
-  const upcomingCount = data.preview.filter((e) => e.recommended_date >= today).length
-  const overdueCount = data.preview.filter((e) => e.recommended_date < today).length
+  const pendingCount = data.preview.filter((e) => !e.not_eligible && e.recommended_date >= today).length
+  const missed = data.preview.filter((e) => !e.not_eligible && e.recommended_date < today)
+  // Longest-missed dose: earliest recommended date among the missed ones.
+  const longest = missed.reduce<typeof missed[number] | null>((a, e) => (!a || e.recommended_date < a.recommended_date ? e : a), null)
+  const longestDays = longest ? daysBetween(longest.recommended_date, today) : 0
   return (
     <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -153,20 +161,20 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
           {data.latest_request && <StatusBadge status={data.latest_request.status} label={data.latest_request.status === 'PENDING' ? 'Pending review' : undefined} dot />}
         </div>
       </div>
-      {/* Status summary bar */}
-      <div className="mb-4 grid grid-cols-3 gap-3 text-sm">
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-          <p className="text-xs font-medium text-amber-800">Overdue</p>
-          <p className="mt-0.5 text-xl font-bold text-amber-900">{overdueCount}</p>
+      {/* Summary: missed doses first (with the longest-missed dose), then counts. */}
+      <div className={`mb-4 rounded-xl border p-4 ${missed.length ? 'border-danger/20 bg-danger-soft' : 'border-good/20 bg-good-soft'}`}>
+        <p className={`flex flex-wrap items-center gap-2 text-sm font-semibold ${missed.length ? 'text-danger' : 'text-good'}`}>
+          {missed.length ? <AlertCircle size={16} aria-hidden="true" /> : <CheckCircle2 size={16} aria-hidden="true" />}
+          {missed.length
+            ? `${missed.length} missed dose${missed.length === 1 ? '' : 's'}${longest ? ` · longest: ${longest.vaccine_type} ${longest.dose_number}, ${longestDays} day${longestDays === 1 ? '' : 's'}` : ''}`
+            : 'No missed doses'}
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <StatusBadge status="missed" tone={missed.length ? 'danger' : 'neutral'} label={`${missed.length} missed`} />
+          <StatusBadge status="pending" tone="info" label={`${pendingCount} pending`} />
+          <StatusBadge status="given" tone="good" label={`${data.excluded_count} already given`} />
         </div>
-        <div className="rounded-lg border border-sky-200 bg-sky-50 p-3">
-          <p className="text-xs font-medium text-sky-800">Upcoming</p>
-          <p className="mt-0.5 text-xl font-bold text-sky-900">{upcomingCount}</p>
-        </div>
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-          <p className="text-xs font-medium text-emerald-800">Already given</p>
-          <p className="mt-0.5 text-xl font-bold text-emerald-900">{data.excluded_count}</p>
-        </div>
+        {missed.length > 0 && <p className="mt-2 text-xs text-brand-muted">Schedule the missed doses at the next vaccination session. Doses are listed below by recommended date.</p>}
       </div>
       {/* Request form or button (BHW/RHM only; hidden when a PENDING request already exists) */}
       {canRequest && (!data.latest_request || data.latest_request.status !== 'PENDING') && (
@@ -214,7 +222,7 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
           )}
         </div>
       )}
-      {/* Pending-request banner with review remarks when rejected */}
+      {/* Review remarks when the reviewer asked for a new date (old rows may be REJECTED) */}
       {data.latest_request && (data.latest_request.status === 'REJECTED' || data.latest_request.status === 'NEEDS_REVISION') && data.latest_request.review_remarks && (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
           <p className="font-semibold">Reviewer remarks:</p>
@@ -247,18 +255,16 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
                     <td className="px-4 py-3 text-sm">Dose {entry.dose_number}</td>
                     <td className="px-4 py-3 text-sm">{formatDate(entry.recommended_date)}</td>
                     <td className="px-4 py-3 text-sm">
-                      {overdue ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">
-                          <AlertCircle size={12} />{Math.abs(diff)} day{Math.abs(diff) === 1 ? '' : 's'} overdue
-                        </span>
+                      {entry.not_eligible ? (
+                        <StatusBadge status="not-eligible" tone="neutral" label="Not eligible (past age limit)" />
+                      ) : overdue ? (
+                        <StatusBadge status="missed" tone="danger" icon={<AlertCircle size={12} aria-hidden="true" />} label={entry.rescheduled_date ? `Missed · rescheduled to ${formatDate(entry.rescheduled_date)}` : 'Missed'} />
+                      ) : entry.rescheduled_date ? (
+                        <StatusBadge status="pending" tone="info" icon={<Clock size={12} aria-hidden="true" />} label={`Pending · moved to ${formatDate(entry.rescheduled_date)}`} />
                       ) : soon ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                          <Clock size={12} />Due in {diff} day{diff === 1 ? '' : 's'}
-                        </span>
+                        <StatusBadge status="pending" tone="warn" icon={<Clock size={12} aria-hidden="true" />} label={diff === 0 ? 'Pending · due today' : `Pending · due in ${diff} day${diff === 1 ? '' : 's'}`} />
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-700">
-                          <Clock size={12} />In {diff} days
-                        </span>
+                        <StatusBadge status="pending" tone="info" icon={<Clock size={12} aria-hidden="true" />} label={`Pending · in ${diff} days`} />
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{entry.route}</td>
@@ -287,17 +293,6 @@ export function VaccinationScheduleSection({ childId }: { childId: number }) {
   const role = user?.role as UserRole | undefined
   const canView = Boolean(isReady && user?.accountStatus === 'APPROVED' && role && canPerform(role, 'Child Profiling', 'view'))
 
-  function navigateTabs(event: KeyboardEvent<HTMLButtonElement>, index: number) {
-    let next: number
-    if (event.key === 'ArrowRight') next = (index + 1) % nipTabs.length
-    else if (event.key === 'ArrowLeft') next = (index + nipTabs.length - 1) % nipTabs.length
-    else if (event.key === 'Home') next = 0
-    else if (event.key === 'End') next = nipTabs.length - 1
-    else return
-    event.preventDefault()
-    setActiveTab(nipTabs[next].key)
-    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus()
-  }
 
   if (!canView) return null
   if (!Number.isSafeInteger(childId) || childId <= 0) {
@@ -310,21 +305,15 @@ export function VaccinationScheduleSection({ childId }: { childId: number }) {
         <h2 className="flex items-center gap-2 text-lg font-semibold text-primary"><Syringe size={18} />National Immunization Program</h2>
         <p className="mt-1 text-sm text-muted-foreground">Saved immunization records, dose status and vaccination schedule requests</p>
       </div>
-      <div role="tablist" aria-label="NIP record sections" className="relative flex flex-wrap gap-2 border-b p-3 print:hidden">
-        {nipTabs.map((tab, index) => <button
-          key={tab.key}
-          id={`${tabId}-tab-${tab.key}`}
-          type="button"
-          role="tab"
-          aria-selected={activeTab === tab.key}
-          aria-controls={`${tabId}-panel-${tab.key}`}
-          tabIndex={activeTab === tab.key ? 0 : -1}
-          onClick={() => setActiveTab(tab.key)}
-          onKeyDown={(event) => navigateTabs(event, index)}
-          className={`relative z-10 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === tab.key ? 'text-white' : 'bg-muted/40 text-foreground hover:bg-muted'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`}
-        >{tab.label}</button>)}
-        <TabIndicator group="nip-records" activeKey={activeTab} variant="pill" className="rounded-lg bg-primary" />
-      </div>
+      <TabBar
+        className="border-b p-3 print:hidden"
+        label="NIP record sections"
+        group="nip-records"
+        idBase={tabId}
+        value={activeTab}
+        onChange={setActiveTab}
+        items={nipTabs.map((tab) => ({ value: tab.key, label: tab.label }))}
+      />
       <TabPanel tabKey={activeTab}>
       {nipTabs.map((tab) => <div
         key={tab.key}

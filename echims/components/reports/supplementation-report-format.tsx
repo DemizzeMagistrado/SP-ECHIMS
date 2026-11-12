@@ -1,4 +1,6 @@
 "use client";
+import { Select } from '@/components/ui/form'
+import { FilterChips } from '@/components/ui/module-tabs'
 import { reportScopeLabel } from "@/lib/reports/report-scope-label";
 import { useState } from "react";
 import { isValidatedReport } from "@/lib/reports/report-output-client";
@@ -162,37 +164,23 @@ export function SupplementationReportFormat({
         "space-y-4 " + (!isValidatedReport(meta) ? "report-output-locked" : "")
       }
     >
-      <nav
-        aria-label="Supplementation report sections"
+      <div
         className="supp-report-no-print flex flex-wrap gap-2 rounded-lg border bg-white p-3"
       >
-        {[
-          ["SUMMARY", "Overview"],
-          ["REGISTER", "Child Supplementation Register"],
-          ["PLANS", "Supply Plans"],
-        ].map(([k, l]) => (
-          <button
-            type="button"
-            key={k}
-            aria-pressed={tab === k}
-            className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${tab === k ? "border-sky-200 bg-sky-100 text-sky-800 hover:bg-sky-200" : "border-transparent text-slate-600 hover:bg-sky-50 hover:text-sky-800"}`}
-            onClick={() => setTab(k as "SUMMARY" | "REGISTER" | "PLANS")}
-          >
-            {l}
-          </button>
-        ))}
+        <FilterChips label="Supplementation report sections" value={tab} onChange={setTab}
+          options={[{ value: "SUMMARY", label: "Overview" }, { value: "REGISTER", label: "Child Supplementation Register" }, { value: "PLANS", label: "Supply Plans" }] as const} />
         {tab !== "PLANS" && (
-          <select
+          <Select
             aria-label="Supplementation record type"
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+           
             value={mode}
             onChange={(e) => setMode(e.target.value as SupplyMode)}
           >
             <option value="ADMINISTERED">Actual administration</option>
             <option value="DISPENSED">Dispensed to guardians</option>
-          </select>
+          </Select>
         )}
-      </nav>
+      </div>
       <div className="supp-report-output space-y-4">
         <header className="rounded-lg border bg-white p-4">
           <h2 className="text-center text-lg font-bold">{meta.title}</h2>

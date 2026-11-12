@@ -3,6 +3,7 @@ import { withHistoryComparisons } from "@/lib/nutrition-history";
 import { createClient } from "@/lib/supabase/server";
 import { canPerform, type UserRole } from "@/lib/echims-data";
 import { formatChildId, formatHouseholdId } from "@/lib/formatters";
+import { MOBILE_ERROR, normalizePhMobile } from "@/lib/phone";
 const roleAliases: Record<string, UserRole> = {
   administrator: "Administrator",
   admin: "Administrator",
@@ -30,11 +31,15 @@ function parseId(value: unknown) {
   // and padded zeroes parse cleanly as Number("00047") === 47.
   const parsed = Number(
     String(value ?? "")
-      .replace(/^CH-/, "")
+      .replace(/^E?CH-/i, "")
       .split("-")
       .pop(),
   );
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+}
+function optionalNumber(value: unknown) {
+  const text = String(value ?? "").trim();
+  return text && Number.isFinite(Number(text)) ? Number(text) : null;
 }
 function monthsOld(value: string) {
   const birth = new Date(`${value}T00:00:00Z`);
@@ -57,8 +62,47 @@ async function session(permission: "view" | "create" | "edit") {
     ? { supabase, user, role }
     : { supabase, user, role, forbidden: true as const };
 }
+/** PostgREST returns a to-one embed as an object (typed as object | object[]). */
+function embedded<T>(value: T | T[] | null | undefined): T | null {
+  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
+}
 function invalid(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
+}
+/**
+ * Water source / toilet belong to the household. Saves them through the database's
+ * echims_update_household_information (RLS-scoped, audited, revision-checked) only when they
+ * differ from what is saved. Returns an error message, or null when saved or unchanged.
+ * `expectedRevision` is the revision the form loaded; omit it to use the current one.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function saveHouseholdFacilities(supabase: any, householdId: number, body: Record<string, unknown>, expectedRevision?: number) {
+  const fields = ["water_source_type", "toilet_facility_type"] as const;
+  if (!fields.some((f) => body[f] !== undefined)) return null;
+  const current = await supabase
+    .from("household")
+    .select("water_source_type, toilet_facility_type, information_revision")
+    .eq("household_id", householdId)
+    .maybeSingle();
+  if (current.error || !current.data) return "The household's water and toilet details could not be checked. Refresh and try again.";
+  const changes: Record<string, string | null> = {};
+  for (const f of fields) {
+    if (body[f] === undefined) continue;
+    const next = String(body[f] ?? "").trim() || null;
+    if (next !== (current.data[f] ?? null)) changes[f] = next;
+  }
+  if (!Object.keys(changes).length) return null;
+  const { error } = await supabase.rpc("echims_update_household_information", {
+    p_household_id: householdId,
+    p_expected_revision: Number.isSafeInteger(expectedRevision) ? expectedRevision : current.data.information_revision,
+    p_changes: changes,
+  });
+  if (!error) return null;
+  return error.code === "40001"
+    ? "Someone else changed this household's water or toilet details while you were editing. Reopen the profile to see their changes, then edit again."
+    : error.code === "42501"
+      ? "You can't change this household's water and toilet details. Your account may not be assigned to its barangay."
+      : "The household's water and toilet details were not saved. Try again.";
 }
 export async function GET(request: Request) {
   const auth = await session("view");
@@ -70,7 +114,7 @@ export async function GET(request: Request) {
   let query = auth.supabase
     .from("child")
     .select(
-      "child_id, first_name, middle_name, last_name, date_of_birth, sex, birth_place, address, registration_date, status, household_id, barangay_id, guardian_id",
+      "child_id, first_name, middle_name, last_name, date_of_birth, sex, birth_place, address, registration_date, status, household_id, barangay_id, guardian_id, birth_weight_kg, birth_height_cm, mother_name, father_name, child_code, household:household(household_no, family_serial_no), guardian:guardian(first_name, middle_name, last_name)",
     )
     .order("child_id", { ascending: false });
   if (childId) query = query.eq("child_id", childId);
@@ -85,8 +129,10 @@ export async function GET(request: Request) {
     return NextResponse.json({currentUserId: auth.user.id, children: rows}, {headers: {"Cache-Control": "private, no-store"}});
   }
   if (childId) {
-    const child = rows[0];
-    if (!child) return invalid("Child could not be found.", 404);
+    const found = rows[0];
+    if (!found) return invalid("Child could not be found.", 404);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { household: _household, guardian: _guardian, ...child } = found;
     // Fan out all related-record queries in parallel. The vaccination/nutrition/supplementation
     // calls return full history (ordered newest first) so the profile view can render it;
     // the barangay/household/rhu calls hydrate the names the UI shows next to IDs.
@@ -99,6 +145,8 @@ export async function GET(request: Request) {
       vaccinations,
       assessments,
       supplementations,
+      siblings,
+      openAlerts,
     ] = await Promise.all([
       child.guardian_id
         ? auth.supabase
@@ -137,7 +185,7 @@ export async function GET(request: Request) {
         ? auth.supabase
             .from("household")
             .select(
-              "household_id, household_no, household_address, purok, is_4ps_member",
+              "household_id, household_no, family_serial_no, household_address, purok, is_4ps_member, water_source_type, toilet_facility_type, information_revision",
             )
             .eq("household_id", child.household_id)
             .maybeSingle()
@@ -164,6 +212,19 @@ export async function GET(request: Request) {
         )
         .eq("child_id", child.child_id)
         .order("supplementation_date", { ascending: false }),
+      // Household members: other children sharing this household (and so its FSN).
+      auth.supabase
+        .from("child")
+        .select("child_id, child_code, first_name, last_name, date_of_birth, status")
+        .eq("household_id", child.household_id)
+        .neq("child_id", child.child_id)
+        .order("date_of_birth"),
+      // Open alerts about this child that the signed-in worker can see (RLS-scoped feed).
+      auth.supabase
+        .from("alert_notification_feed")
+        .select("alert_id", { count: "exact", head: true })
+        .eq("child_id", child.child_id)
+        .neq("status", "RESOLVED"),
     ]);
     if (latestAssessment.error || assessments.error)
       return invalid(
@@ -192,6 +253,9 @@ export async function GET(request: Request) {
       vaccinations: vaccinations.data ?? [],
       assessments: withHistoryComparisons(assessments.data ?? []),
       supplementations: supplementations.data ?? [],
+      // Related-record extras never fail the profile.
+      siblings: siblings.error ? [] : (siblings.data ?? []),
+      openAlertCount: openAlerts.error ? null : (openAlerts.count ?? 0),
     });
   }
   const assessments = await auth.supabase
@@ -222,7 +286,14 @@ export async function GET(request: Request) {
   // for callers that need the integer PK (the children list page, parseId above).
   return NextResponse.json(
     rows.map((child) => ({
-      id: formatChildId(child.child_id, child.registration_date),
+      child_id: child.child_id,
+      id: child.child_code ?? formatChildId(child.child_id, child.registration_date),
+      familySerialNo: embedded(child.household)?.family_serial_no ?? "",
+      householdNo: embedded(child.household)?.household_no ?? "",
+      // Transfer accepted without a household (NIP-REV01): "Household not assigned" task.
+      householdMissing: !child.household_id,
+      guardianName: [embedded(child.guardian)?.first_name, embedded(child.guardian)?.last_name].filter(Boolean).join(" "),
+      motherName: child.mother_name ?? "",
       householdNumber: child.household_id
         ? formatHouseholdId(child.household_id, null)
         : "",
@@ -285,6 +356,9 @@ export async function POST(request: Request) {
         purok: String(household.purok ?? "").trim() || null,
         is_4ps_member: Boolean(household.is_4ps_member),
         barangay_id: barangayId,
+        // Water/toilet belong to the household (same as the offline upload path).
+        water_source_type: String(body.water_source_type ?? "").trim() || null,
+        toilet_facility_type: String(body.toilet_facility_type ?? "").trim() || null,
       })
       .select("household_id")
       .single();
@@ -319,7 +393,7 @@ export async function POST(request: Request) {
         first_name: String(newGuardian.first_name ?? "").trim(),
         middle_name: String(newGuardian.middle_name ?? "").trim() || null,
         last_name: String(newGuardian.last_name ?? "").trim(),
-        contact_number: String(newGuardian.contact_number ?? "").trim() || null,
+        contact_number: normalizePhMobile(String(newGuardian.contact_number ?? "")) ?? (String(newGuardian.contact_number ?? "").trim() || null),
         address: String(newGuardian.address ?? "").trim() || null,
         relationship_to_child:
           String(newGuardian.relationship_to_child ?? "").trim() || null,
@@ -375,6 +449,10 @@ export async function POST(request: Request) {
       household_id: householdId,
       barangay_id: barangayId,
       guardian_id: guardianId,
+      birth_weight_kg: optionalNumber(body.birth_weight_kg),
+      birth_height_cm: optionalNumber(body.birth_height_cm),
+      mother_name: String(body.mother_name ?? "").trim() || null,
+      father_name: String(body.father_name ?? "").trim() || null,
     })
     .select("child_id")
     .single();
@@ -387,16 +465,15 @@ export async function POST(request: Request) {
     );
   const profileFields = [
     "relationship_to_household_head",
-    "civil_status",
-    "educational_attainment",
     "religion",
     "ethnicity",
     "philhealth_membership_type",
     "philhealth_category",
-    "water_source_type",
-    "toilet_facility_type",
     "medical_history",
+    "medical_history_structured",
     "last_menstrual_period",
+    "informant_name",
+    "informant_relationship",
   ];
   const profile = Object.fromEntries(
     profileFields
@@ -415,6 +492,11 @@ export async function POST(request: Request) {
         "Child saved, but profiling details could not be saved.",
         500,
       );
+  }
+  if (!household) {
+    const facilityError = await saveHouseholdFacilities(auth.supabase, householdId, body);
+    if (facilityError)
+      return NextResponse.json({ child_id: inserted.data.child_id, warning: `Child registered. ${facilityError}` }, { status: 201 });
   }
   return NextResponse.json(
     { child_id: inserted.data.child_id },
@@ -438,15 +520,9 @@ export async function PATCH(request: Request) {
   if (changingGuardianContact) {
     if (typeof body?.guardian_contact_number !== "string")
       return invalid("Guardian contact number must be text.");
-    guardianContact = body.guardian_contact_number.trim() || null;
-    if (
-      guardianContact &&
-      !/^(?:09[0-9]{9}|639[0-9]{9}|\+639[0-9]{9})$/.test(guardianContact)
-    ) {
-      return invalid(
-        "Use 09XXXXXXXXX, 639XXXXXXXXX or +639XXXXXXXXX for the guardian mobile number.",
-      );
-    }
+    const typed = body.guardian_contact_number.trim();
+    guardianContact = typed ? normalizePhMobile(typed) : null;
+    if (typed && !guardianContact) return invalid(MOBILE_ERROR);
     // Read through the signed-in client; never accept an unrelated guardian ID.
     const scopedChild = await auth.supabase
       .from("child")
@@ -491,6 +567,10 @@ export async function PATCH(request: Request) {
     "barangay_id",
     "household_id",
     "guardian_id",
+    "birth_weight_kg",
+    "birth_height_cm",
+    "mother_name",
+    "father_name",
   ];
   const updates: Record<string, unknown> = {};
   for (const field of childFields) {
@@ -511,6 +591,8 @@ export async function PATCH(request: Request) {
           return invalid(`Invalid ${field} value.`);
         updates[field] = n;
       }
+    } else if (field === "birth_weight_kg" || field === "birth_height_cm") {
+      updates[field] = optionalNumber(raw);
     } else {
       updates[field] = raw === "" ? null : raw;
     }
@@ -552,17 +634,16 @@ export async function PATCH(request: Request) {
   // added so edits to the PhilHealth ID actually persist.
   const profileFields = [
     "relationship_to_household_head",
-    "civil_status",
-    "educational_attainment",
     "religion",
     "ethnicity",
     "philhealth_id_number",
     "philhealth_membership_type",
     "philhealth_category",
-    "water_source_type",
-    "toilet_facility_type",
     "medical_history",
+    "medical_history_structured",
     "last_menstrual_period",
+    "informant_name",
+    "informant_relationship",
   ];
   const patchBody = body ?? {};
   const profileUpdates = Object.fromEntries(
@@ -614,6 +695,14 @@ export async function PATCH(request: Request) {
         "Child updated, but profiling details were not saved. Your account may not be assigned to this child's barangay.",
         403,
       );
+    }
+  }
+  if (body && (body.water_source_type !== undefined || body.toilet_facility_type !== undefined)) {
+    const linked = await auth.supabase.from("child").select("household_id").eq("child_id", childId).maybeSingle();
+    if (linked.data?.household_id) {
+      const revision = body.household_revision === undefined || body.household_revision === "" ? undefined : Number(body.household_revision);
+      const facilityError = await saveHouseholdFacilities(auth.supabase, Number(linked.data.household_id), body, revision);
+      if (facilityError) return invalid(`Child details saved, but ${facilityError.charAt(0).toLowerCase()}${facilityError.slice(1)}`, 409);
     }
   }
   if (changingGuardianContact) {

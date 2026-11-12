@@ -24,6 +24,15 @@ async function trustedRole(supabase: any): Promise<UserRole | undefined> {
   return roleAliases[String(data?.role ?? '').trim().toLowerCase()]
 }
 
+/** Eligibility window and minimum interval: whole days or null, inside the database limits. */
+function eligibilityError(body: { max_age_days?: number | null; min_interval_days?: number | null }, minAgeDays: number): string | null {
+  const ok = (v: unknown, lo: number, hi: number) => v === null || v === undefined || (Number.isSafeInteger(v) && (v as number) >= lo && (v as number) <= hi)
+  if (!ok(body.max_age_days, 1, 3650)) return 'max_age_days must be 1–3650 days, or empty for no age limit.'
+  if (body.max_age_days != null && body.max_age_days <= minAgeDays) return 'The age limit must be later than the minimum age of the first dose.'
+  if (!ok(body.min_interval_days, 1, 730)) return 'min_interval_days must be 1–730 days, or empty.'
+  return null
+}
+
 function invalid(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status })
 }
@@ -49,9 +58,9 @@ export async function GET() {
   const { data: vaccines, error } = await supabase.from('vaccine')
     .select(`
       vaccine_id, vaccine_type, dose_volume, route, target_age,
-      min_age_days, interval_days, total_doses, updated_at,
+      min_age_days, interval_days, total_doses, max_age_days, min_interval_days, updated_at,
       eligibility, contraindications, doh_guidelines, source_reference,
-      item:item(item_id, item_name, description, unit, status)
+      item:item!fk_vaccine_item(item_id, item_name, description, unit, status)
     `)
     .order('vaccine_id', { ascending: true })
 
@@ -95,6 +104,10 @@ type CreateBody = {
   min_age_days?: number
   interval_days?: number | null
   total_doses?: number
+  /** Eligibility window (days from birth); null = no age limit. */
+  max_age_days?: number | null
+  /** Shortest gap after the previous dose when a missed dose is moved; null = interval/28. */
+  min_interval_days?: number | null
   // NIP-USR011 — DOH guideline fields (all optional, all free text).
   eligibility?: string | null
   contraindications?: string | null
@@ -122,6 +135,8 @@ export async function POST(request: Request) {
   const totalDoses = Number(body.total_doses ?? 1)
   const intervalDays = body.interval_days == null ? null : Number(body.interval_days)
   if (!Number.isSafeInteger(minAgeDays) || minAgeDays < 0) return invalid('min_age_days must be a non-negative integer.')
+  const windowErr = eligibilityError(body, minAgeDays)
+  if (windowErr) return invalid(windowErr)
   if (!Number.isSafeInteger(totalDoses) || totalDoses < 1 || totalDoses > 10) return invalid('total_doses must be 1-10.')
   if (intervalDays != null && (!Number.isSafeInteger(intervalDays) || intervalDays <= 0)) {
     return invalid('interval_days must be a positive integer or null.')
@@ -156,6 +171,8 @@ export async function POST(request: Request) {
       min_age_days: minAgeDays,
       interval_days: intervalDays,
       total_doses: totalDoses,
+      max_age_days: body.max_age_days ?? null,
+      min_interval_days: body.min_interval_days ?? null,
       // NIP-USR011 — guideline fields, trimmed; empty → NULL so the UI can
       // show the "not configured yet" placeholder consistently.
       eligibility: body.eligibility?.trim() || null,
@@ -201,7 +218,7 @@ export async function PATCH(request: Request) {
 
   // Load current state (for audit before/after)
   const beforeRes = await supabase.from('vaccine')
-    .select('*, item:item(item_name, description, unit, status)')
+    .select('*, item:item!fk_vaccine_item(item_name, description, unit, status)')
     .eq('vaccine_id', vaccineId)
     .maybeSingle()
   if (beforeRes.error || !beforeRes.data) return invalid('Vaccine not found.', 404)
@@ -222,6 +239,12 @@ export async function PATCH(request: Request) {
     const n = Number(body.min_age_days)
     if (!Number.isSafeInteger(n) || n < 0) return invalid('min_age_days must be a non-negative integer.')
     vaccinePatch.min_age_days = n
+  }
+  if (body.max_age_days !== undefined || body.min_interval_days !== undefined) {
+    const err = eligibilityError(body, Number(body.min_age_days ?? 0))
+    if (err) return invalid(err)
+    if (body.max_age_days !== undefined) vaccinePatch.max_age_days = body.max_age_days
+    if (body.min_interval_days !== undefined) vaccinePatch.min_interval_days = body.min_interval_days
   }
   if (body.interval_days !== undefined) {
     if (body.interval_days === null) vaccinePatch.interval_days = null
@@ -284,7 +307,7 @@ export async function PATCH(request: Request) {
   const vacUpd = await supabase.from('vaccine')
     .update(vaccinePatch)
     .eq('vaccine_id', vaccineId)
-    .select('*, item:item(item_name, description, unit, status)')
+    .select('*, item:item!fk_vaccine_item(item_name, description, unit, status)')
     .maybeSingle()
   if (vacUpd.error) return invalid(`Unable to update vaccine. ${vacUpd.error.message ?? ''}`.trim(), 500)
 

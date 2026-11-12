@@ -7,11 +7,13 @@
 //
 // Export: CSV download of the children + transactions tables.
 
-import { useState } from 'react'
+import { StatCard } from '@/components/ui/stat-card'
+import { useState, useSyncExternalStore } from 'react'
+import { normalizeBatchNumber } from '@/lib/vaccination-config'
 import useSWR from 'swr'
 import {
   Search, Package, Hash, MapPin, CalendarClock, AlertCircle, Download, Users, Syringe, Pill,
-  CheckCircle2, Clock, XCircle, Send,
+  CheckCircle2, Clock, Send,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
@@ -61,8 +63,12 @@ export default function BatchTracePage() {
   const canView = role === 'Public Health Nurse' || role === 'Administrator'
   const _hasModule = role ? canPerform(role, 'Inventory', 'view') : false
 
-  const [query, setQuery] = useState('')
-  const [submitted, setSubmitted] = useState('')
+  // Links from vaccination records open this page with ?batch_number=… (read without an effect).
+  const linked = useSyncExternalStore(() => () => {}, () => normalizeBatchNumber(new URLSearchParams(window.location.search).get('batch_number')) ?? '', () => '')
+  const [typed, setQuery] = useState<string | null>(null)
+  const [chosen, setSubmitted] = useState<string | null>(null)
+  const query = typed ?? linked
+  const submitted = chosen ?? linked
 
   const { data, error, isLoading } = useSWR<TracePayload>(
     canView && submitted ? `/api/inventory/batch-trace?batch_number=${encodeURIComponent(submitted)}` : null,
@@ -138,7 +144,7 @@ export default function BatchTracePage() {
           <Search size={14} /> Trace
         </Button>
         {data && (
-          <Button variant="secondary" onClick={downloadCsv}
+          <Button variant="tonal" onClick={downloadCsv}
            >
             <Download size={14} /> Export CSV
           </Button>
@@ -162,7 +168,7 @@ export default function BatchTracePage() {
       {data && (
         <>
           {/* Counts */}
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <StatTile icon={<Package size={14} />} label="Barangays holding" value={data.counts.batches} />
             <StatTile icon={<Send size={14} />} label="Transactions" value={data.counts.transactions} />
             <StatTile icon={<Syringe size={14} />} label="Children vaccinated" value={data.counts.children_vaccinated} />
@@ -314,10 +320,5 @@ export default function BatchTracePage() {
 }
 
 function StatTile({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
-  return (
-    <div className="rounded-xl border border-border bg-white p-4">
-      <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{icon} {label}</p>
-      <p className="mt-1 text-2xl font-bold text-foreground">{value.toLocaleString()}</p>
-    </div>
-  )
+  return <StatCard icon={icon} label={label} value={value.toLocaleString()} />
 }

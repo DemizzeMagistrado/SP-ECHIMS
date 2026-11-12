@@ -3,6 +3,7 @@ import { Sidebar } from '@/components/dashboard/sidebar'
 import { TopNav } from '@/components/dashboard/top-nav'
 import { getAuthorizationContext } from '@/lib/auth/authorization'
 import { hasPermission, type Role } from '@/lib/auth/permissions'
+import { RouteGate } from '@/components/auth/route-gate'
 import { DashboardShell } from '@/components/dashboard/shell'
 import { SessionGate } from '@/components/auth/session-gate'
 import { NavProgress } from '@/components/dashboard/nav-progress'
@@ -136,7 +137,7 @@ export default async function DashboardLayout({
             <main id="main-content" tabIndex={-1} className="min-h-0 flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8">
               <div className="mx-auto w-full max-w-7xl">
                 <PrintHeader />
-                <SessionGate>{children}</SessionGate>
+                <SessionGate><RouteGate>{children}</RouteGate></SessionGate>
               </div>
             </main>
           </div>

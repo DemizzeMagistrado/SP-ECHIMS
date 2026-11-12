@@ -1,10 +1,12 @@
 "use client";
+import { StatCard } from '@/components/ui/stat-card'
+import { TabBar } from '@/components/ui/module-tabs'
 import { routeSearch } from '@/lib/offline/navigation'
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Plus, Package, X, AlertTriangle, SearchX, ClipboardList } from "lucide-react";
+import { Plus, Package, AlertTriangle, SearchX, ClipboardList } from "lucide-react";
 import {
   latestNutrition,
   nutritionReview,
@@ -22,16 +24,17 @@ import {
 import { SupplementationMonitoringPanel } from "@/components/supplementation/supplementation-monitoring-panel";
 import { SupplementStockRequestsPanel } from "@/components/supplementation/supplement-stock-requests-panel";
 import { SupplementationSmsPanel } from "@/components/supplementation/supplementation-sms-panel";
-import type { Session, User } from "@supabase/supabase-js";
-import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
-import { usePageLoading } from '@/components/brand/page-gate'
+import { LogoLoader } from '@/components/brand/logo-loader'
+import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/form'
+import { Modal } from '@/components/ui/modal'
+import { BatchNumberField } from '@/components/inventory/batch-number-field'
+import { Input, Select, DateInput } from '@/components/ui/form'
 
 type Child = {
   child_id: number;
@@ -829,8 +832,8 @@ export default function SupplementsPage() {
   const assessmentSelector = (
     <label className="text-sm font-medium">
       Saved nutrition assessment
-      <select
-        className={input}
+      <Select
+       
         value={form.assessmentId}
         onChange={(e) => change("assessmentId", e.target.value)}
       >
@@ -845,7 +848,7 @@ export default function SupplementsPage() {
             {a.nutritional_status ?? "Not evaluated"}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   );
 
@@ -1240,9 +1243,9 @@ export default function SupplementsPage() {
   ) => (
     <label className="text-sm font-medium">
       {label}
-      <select
+      <Select
         required
-        className={input}
+       
         value={String(form[key])}
         onChange={(e) => change(key, e.target.value as never)}
       >
@@ -1259,7 +1262,7 @@ export default function SupplementsPage() {
             {o.label}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   );
 
@@ -1271,15 +1274,24 @@ export default function SupplementsPage() {
   ) => (
     <label className="text-sm font-medium">
       {label}
-      <input
-        required={required}
-        type={type}
-        step={type === "number" ? "any" : undefined}
-        min={type === "number" ? "0.000001" : undefined}
-        className={input}
-        value={String(form[key])}
-        onChange={(e) => change(key, e.target.value as never)}
-      />
+      {type === "date" ? (
+        <DateInput
+          required={required}
+          className="mt-1"
+          value={String(form[key])}
+          onChange={(e) => change(key, e.target.value as never)}
+        />
+      ) : (
+        <input
+          required={required}
+          type={type}
+          step={type === "number" ? "any" : undefined}
+          min={type === "number" ? "0.000001" : undefined}
+          className={input}
+          value={String(form[key])}
+          onChange={(e) => change(key, e.target.value as never)}
+        />
+      )}
     </label>
   );
 
@@ -1461,46 +1473,27 @@ export default function SupplementsPage() {
 
   return (
     <div className="space-y-6">
-      <nav
-        aria-label="Supplementation views"
-        className="flex flex-wrap gap-1 border-b border-border"
-      >
-        {(
-          [
-            "records",
-            "clinical",
-            "stock",
-            "plans",
-            "guidelines",
-            "sms",
-            ...(data?.permissions.monitor &&
-            (data.role === "PHN" || data.role === "Administrator")
-              ? ["monitoring" as const]
-              : []),
-          ] as const
-        ).map((t) => (
-          <button
-            key={t}
-            aria-pressed={tab === t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-3 text-sm font-medium ${tab === t ? "border-b-2 border-primary text-primary" : "text-muted-foreground"}`}
-          >
-            {t === "records"
-              ? "Administration & Dispensing"
-              : t === "clinical"
-                ? "Clinical Records"
-                : t === "stock"
-                  ? "Stock & Batches"
-                  : t === "plans"
-                    ? "Supply Plans"
-                    : t === "sms"
-                      ? "SMS Reminders"
-                      : t === "monitoring"
-                        ? "Compliance Monitoring"
-                        : "Guidelines & Eligibility"}
-          </button>
-        ))}
-      </nav>
+      <TabBar
+        label="Supplementation views"
+        group="supplementation"
+        value={tab}
+        onChange={setTab}
+        items={([
+          "records", "clinical", "stock", "plans", "guidelines", "sms",
+          ...(data?.permissions.monitor && (data.role === "PHN" || data.role === "Administrator") ? ["monitoring" as const] : []),
+        ] as const).map((t) => ({
+          value: t,
+          label: {
+            records: "Administration & Dispensing",
+            clinical: "Clinical Records",
+            stock: "Stock & Batches",
+            plans: "Supply Plans",
+            guidelines: "Guidelines & Eligibility",
+            sms: "SMS Reminders",
+            monitoring: "Compliance Monitoring",
+          }[t],
+        }))}
+      />
       <PageHeader
         title="Vitamin Supplementation"
         subtitle="Child administration records and batch inventory"
@@ -1623,6 +1616,7 @@ export default function SupplementsPage() {
         </p>
       )}
 
+      <TabPanel tabKey={tab} className="space-y-6">
       {tab === "records" && (
         <div className="grid gap-4 sm:grid-cols-3">
           {[
@@ -1642,13 +1636,7 @@ export default function SupplementsPage() {
               ).length ?? 0,
             ],
           ].map(([label, count]) => (
-            <div
-              key={label}
-              className="rounded-2xl border border-border bg-white p-6"
-            >
-              <p className="text-sm text-muted-foreground">{label}</p>
-              <p className="mt-2 text-3xl font-bold">{count}</p>
-            </div>
+            <StatCard key={label} label={label} value={count} />
           ))}
         </div>
       )}
@@ -1942,6 +1930,7 @@ export default function SupplementsPage() {
           </div>
         )
       )}
+      </TabPanel>
 
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
         <p className="flex items-center gap-2 font-semibold">
@@ -1959,17 +1948,12 @@ export default function SupplementsPage() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-          <form
-            onSubmit={save}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="supplement-dialog"
-            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6"
-          >
-            <div className="mb-5 flex justify-between">
-              <h2 id="supplement-dialog" className="text-xl font-bold">
-                {modal === "CLINICAL"
+        <Modal
+          open
+          size="xl"
+          onClose={() => setModal(null)}
+          busy={saving}
+          title={modal === "CLINICAL"
                   ? "Record Clinical-Tier Supplementation"
                   : modal === "RECORD"
                     ? "Record Actual Administration"
@@ -1978,16 +1962,27 @@ export default function SupplementsPage() {
                       : modal === "DISPENSE"
                         ? "Record Supply Dispensing"
                         : "Receive / Allocate Batch"}
-              </h2>
-              <button
-                type="button"
-                disabled={saving}
-                aria-label="Close"
-                onClick={() => setModal(null)}
-              >
-                <X />
-              </button>
-            </div>
+          onSubmit={save}
+          footer={<Button type="submit" loading={saving} disabled={
+                  saving ||
+                  loading ||
+                  (!online &&
+                    modal !== "RECORD" &&
+                    modal !== "DISPENSE" &&
+                    modal !== "CLINICAL") ||
+                  (editingDraft !== null && online && !draftConfirmed) ||
+                  (modal === "PLAN" && ageEligibility?.eligible === false) ||
+                  (modal === "CLINICAL" && !retryClinicalProtocol())
+                }>
+{saving
+                  ? "Saving…"
+                  : !online
+                    ? "Save Offline Draft"
+                    : editingDraft
+                      ? "Confirm & Submit"
+                      : "Save"}
+          </Button>}
+        >
             {error && (
               <p role="alert" className="mb-4 text-sm text-red-700">
                 {error}
@@ -2117,7 +2112,7 @@ export default function SupplementsPage() {
                       label: b.barangay_name,
                     })) ?? [],
                   )}
-                  {field("Batch Number", "batchNumber")}
+                  <BatchNumberField required value={String(form.batchNumber)} onChange={(v) => change("batchNumber", v as never)} />
                   {field(
                     `Quantity Received (${catalog?.unit ?? "stock units"})`,
                     "quantity",
@@ -2346,39 +2341,7 @@ export default function SupplementsPage() {
                 checks still apply.
               </label>
             )}
-            <div className="mt-6 flex justify-end gap-3">
-              <Button variant="secondary"
-                disabled={saving}
-                onClick={() => setModal(null)}
-              >
-                Cancel
-              </Button>
-              <button
-                disabled={
-                  saving ||
-                  loading ||
-                  (!online &&
-                    modal !== "RECORD" &&
-                    modal !== "DISPENSE" &&
-                    modal !== "CLINICAL") ||
-                  (editingDraft !== null && online && !draftConfirmed) ||
-                  (modal === "PLAN" && ageEligibility?.eligible === false) ||
-                  (modal === "CLINICAL" && !retryClinicalProtocol())
-                }
-                className={button}
-              >
-                {saving && <Spinner className="mr-2" />}
-                {saving
-                  ? "Saving…"
-                  : !online
-                    ? "Save Offline Draft"
-                    : editingDraft
-                      ? "Confirm & Submit"
-                      : "Save"}
-              </button>
-            </div>
-          </form>
-        </div>
+        </Modal>
       )}
     </div>
   );

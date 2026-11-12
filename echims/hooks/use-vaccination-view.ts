@@ -12,5 +12,5 @@ export function useVaccinationView<T>(url:string|null){
  const view=query.data?.ownerId===owner&&query.data.scope===scope&&!denied?query.data:undefined
  // A new filter keeps the previous rows on screen (the guard above still rejects another account's or scope's view);
  // isLoading is the first load only, and the top bar shows the refetch.
- return {data:view?.data,error:query.error,isLoading:query.isLoading&&!view,online,readOnly:!online||Boolean(view?.fromCache),savedAt:view?.savedAt,mutate:query.mutate}
+ return {data:view?.data,error:query.error,isLoading:query.isLoading&&!view,refreshing:query.isValidating&&Boolean(view),online,readOnly:!online||Boolean(view?.fromCache),savedAt:view?.savedAt,mutate:query.mutate}
 }

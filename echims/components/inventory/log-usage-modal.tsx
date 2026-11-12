@@ -12,11 +12,12 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import useSWR from 'swr'
-import { X, Package, Hash, MapPin, AlertCircle, PackageMinus, Trash2, WifiOff, CheckCircle2 } from 'lucide-react'
+import { Package, Hash, MapPin, AlertCircle, PackageMinus, Trash2, WifiOff, CheckCircle2 } from 'lucide-react'
 import { toast } from '@/components/ui/toast'
 import { newClientRequestId, sendOrQueueUsage } from '@/lib/inventory-offline'
-import { Spinner } from '@/components/brand/logo-loader'
+
 import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
 import { Input, Select, Textarea } from '@/components/ui/form'
 
 type Batch = { batch_id: number; batch_number: string; expiry_date: string; quantity_on_hand: number }
@@ -114,29 +115,26 @@ export function LogUsageModal({ open, onClose, onSaved }: Props) {
     }
   }
 
-  if (!open) return null
 
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-border p-6">
-          <div className="flex items-start gap-3">
-            <div className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${subtype === 'WASTE' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
-              {subtype === 'WASTE' ? <Trash2 size={18} /> : <PackageMinus size={18} />}
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-foreground">Log stock usage or waste</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                RHM-only. Deducts the quantity from the picked batch and the barangay&rsquo;s aggregate on hand.
-              </p>
-            </div>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-1 text-muted-foreground hover:bg-muted">
-            <X size={20} />
-          </button>
-        </div>
+    <Modal
+      open={open}
+      onClose={onClose}
+      busy={saving}
+      size="lg"
+      icon={subtype === 'WASTE' ? <Trash2 /> : <PackageMinus />}
+      title="Log stock usage or waste"
+      subtitle={<>RHM-only. Deducts the quantity from the picked batch and the barangay&rsquo;s aggregate on hand.</>}
+      onSubmit={submit}
+      footer={<>
 
-        <form onSubmit={submit} className="space-y-5 p-6">
+            <Button type="submit" variant={subtype === 'WASTE' ? 'danger' : 'primary'} loading={saving}>
+              {!saving && <CheckCircle2 size={14} aria-hidden="true" />}
+              {saving ? 'Saving…' : subtype === 'WASTE' ? 'Log waste' : 'Log usage'}
+            </Button>
+      </>}
+    >
+        <div className="space-y-5">
           {/* Type radios */}
           <div>
             <span className="mb-1 block text-sm font-semibold text-foreground">Type *</span>
@@ -209,21 +207,7 @@ export function LogUsageModal({ open, onClose, onSaved }: Props) {
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-            <Button variant="secondary" onClick={onClose} disabled={saving}
-             >
-              Cancel
-            </Button>
-            <button type="submit" disabled={saving}
-              className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 ${
-                subtype === 'WASTE' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-amber-600 hover:bg-amber-700'
-              }`}>
-              {saving ? <Spinner /> : <CheckCircle2 size={14} />}
-              {saving ? 'Saving…' : subtype === 'WASTE' ? 'Log waste' : 'Log usage'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </div>
+    </Modal>
   )
 }

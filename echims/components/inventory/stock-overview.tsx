@@ -1,15 +1,18 @@
 'use client'
 
+import { StatCard } from '@/components/ui/stat-card'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, ChevronDown, ChevronRight, PackagePlus, X, SearchX, Package } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { createClient } from '@/lib/supabase/client'
 import type { UserRole } from '@/lib/echims-data'
-import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
+import { LogoLoader } from '@/components/brand/logo-loader'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
-import { Select } from '@/components/ui/form'
+import { Modal } from '@/components/ui/modal'
+import { Button } from '@/components/ui/button'
+import { Select, DateInput } from '@/components/ui/form'
 
 // INV-USR001 / INV-USR002 — Stock Overview.
 // Reads go straight to Supabase (RLS applies): PHN sees the RHU, RHM only the
@@ -227,17 +230,14 @@ export function StockOverview() {
       )}
       {loadError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{loadError}</div>}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {[
           ['Stock lines', summary.lines],
           ['Low stock', summary.low],
           [`Expiring within ${t.nearExpiryDays} days`, summary.expiring],
           ['Expired batches', summary.expired],
-        ].map(([label, value]) => (
-          <div key={label as string} className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
-            <p className="text-xs font-medium text-[#6B7280]">{label}</p>
-            <p className="mt-1 text-2xl font-bold text-[#03045E]">{data ? value : '–'}</p>
-          </div>
+        ].map(([label, value], i) => (
+          <StatCard key={label as string} label={label} value={data ? value : '–'} tone={(['default', 'warn', 'warn', 'danger'] as const)[i]} />
         ))}
       </div>
 
@@ -408,36 +408,35 @@ function StockInForm({ items, barangays, onClose, onSaved }: {
   const supplements = items.filter((i) => i.kind === 'Supplement')
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="stock-in-title">
-      <form onSubmit={submit} noValidate className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-        <div className="mb-5 flex items-start justify-between">
-          <div>
-            <h2 id="stock-in-title" className="text-xl font-bold text-[#03045E]">Record stock-in</h2>
-            <p className="mt-1 text-sm text-[#6B7280]">Log stock received. Quantity on hand updates when saved.</p>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="text-[#6B7280] hover:text-[#03045E]"><X size={20} /></button>
-        </div>
-
+    <Modal
+      open
+      onClose={onClose}
+      busy={saving}
+      title="Record stock-in"
+      subtitle="Log stock received. Quantity on hand updates when saved."
+      onSubmit={submit}
+      footer={<Button type="submit" loading={saving}>{saving ? 'Saving...' : 'Save stock-in'}</Button>}
+    >
         {formError && <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{formError}</div>}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="sm:col-span-2">
             <span className="mb-1 block text-sm font-medium text-[#374151]">Item</span>
-            <select value={form.item_id} onChange={(e) => set('item_id', e.target.value)} className={`${field} ${border('item_id')}`}>
+            <Select value={form.item_id} onChange={(e) => set('item_id', e.target.value)} aria-invalid={Boolean(errors.item_id) || undefined}>
               <option value="">Select vaccine or supplement</option>
               {vaccines.length > 0 && <optgroup label="Vaccines">{vaccines.map((i) => <option key={i.item_id} value={i.item_id}>{i.item_name}</option>)}</optgroup>}
               {supplements.length > 0 && <optgroup label="Supplements">{supplements.map((i) => <option key={i.item_id} value={i.item_id}>{i.item_name}</option>)}</optgroup>}
-            </select>
+            </Select>
             <Err k="item_id" />
           </label>
 
           {barangays.length !== 1 && (
             <label className="sm:col-span-2">
               <span className="mb-1 block text-sm font-medium text-[#374151]">Barangay</span>
-              <select value={form.barangay_id} onChange={(e) => set('barangay_id', e.target.value)} className={`${field} ${border('barangay_id')}`}>
+              <Select value={form.barangay_id} onChange={(e) => set('barangay_id', e.target.value)} aria-invalid={Boolean(errors.barangay_id) || undefined}>
                 <option value="">Select barangay</option>
                 {barangays.map((b) => <option key={b.barangay_id} value={b.barangay_id}>{b.barangay_name}</option>)}
-              </select>
+              </Select>
               <Err k="barangay_id" />
             </label>
           )}
@@ -454,23 +453,16 @@ function StockInForm({ items, barangays, onClose, onSaved }: {
           </label>
           <label>
             <span className="mb-1 block text-sm font-medium text-[#374151]">Received date</span>
-            <input type="date" max={today} value={form.received_date} onChange={(e) => set('received_date', e.target.value)} className={`${field} ${border('received_date')}`} />
+            <DateInput max={today} value={form.received_date} onChange={(e) => set('received_date', e.target.value)} aria-invalid={Boolean(errors.received_date) || undefined} />
             <Err k="received_date" />
           </label>
           <label>
             <span className="mb-1 block text-sm font-medium text-[#374151]">Expiry date</span>
-            <input type="date" min={today} value={form.expiry_date} onChange={(e) => set('expiry_date', e.target.value)} className={`${field} ${border('expiry_date')}`} />
+            <DateInput min={today} value={form.expiry_date} onChange={(e) => set('expiry_date', e.target.value)} aria-invalid={Boolean(errors.expiry_date) || undefined} />
             <Err k="expiry_date" />
           </label>
         </div>
 
-        <div className="mt-6 flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="rounded-lg border border-[#E5E7EB] px-4 py-2.5 text-sm font-semibold text-[#374151] hover:bg-[#F9FAFB]">Cancel</button>
-          <button type="submit" disabled={saving} className="rounded-lg bg-[#0077B6] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#03045E] disabled:opacity-60">
-            {saving && <Spinner className="mr-2" />}{saving ? 'Saving...' : 'Save stock-in'}
-          </button>
-        </div>
-      </form>
-    </div>
+    </Modal>
   )
 }

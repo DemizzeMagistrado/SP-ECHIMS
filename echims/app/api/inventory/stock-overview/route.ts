@@ -8,11 +8,14 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { roleAllowed } from '@/lib/auth/route-role'
 
 export async function GET(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 })
+  // Role matrix: Inventory view (Admin, PHN, RHM for assigned barangays); BHW / BNS get 403.
+  if (!(await roleAllowed(supabase, 'Inventory', 'view'))) return NextResponse.json({ error: 'You cannot access inventory.' }, { status: 403 })
 
   const url = new URL(request.url)
   const itemId = url.searchParams.get('item_id')

@@ -2,9 +2,11 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 
-// NIP-USR001 — Approve / reject a vaccination schedule request.
+// NIP-USR001 — Review a vaccination schedule request.
 // POST /api/vaccination/review
-// Body: { schedule_id: number, action: 'APPROVE' | 'REJECT', review_remarks?: string }
+// Body: { schedule_id: number, action: 'APPROVE' | 'REVISE', review_remarks?: string }
+// Schedules are never rejected (NIP-REV01): REVISE sends it back for a new date
+// (NEEDS_REVISION). The database trigger nip_block_vaccination_schedule_reject enforces it too.
 //
 // Only PHN or Admin can review. The role matrix lists Vaccination Schedule for RHM as
 // ['view', 'request'] (no 'approve'), and the Supabase schema's reviewed_by/approved_by
@@ -47,11 +49,12 @@ export async function POST(request: Request) {
   const scheduleId = parseScheduleId(body?.schedule_id)
   if (!scheduleId) return invalid('A valid schedule_id is required.')
   const action = String(body?.action ?? '').trim().toUpperCase()
-  if (action !== 'APPROVE' && action !== 'REJECT') return invalid('action must be APPROVE or REJECT.')
+  if (action === 'REJECT') return invalid('Vaccination schedules cannot be rejected. Approve it or ask for a new date.')
+  if (action !== 'APPROVE' && action !== 'REVISE') return invalid('action must be APPROVE or REVISE.')
 
   const reviewRemarks = String(body?.review_remarks ?? '').trim() || null
-  if (action === 'REJECT' && !reviewRemarks) {
-    return invalid('A reason is required when rejecting a request.')
+  if (action === 'REVISE' && !reviewRemarks) {
+    return invalid('Tell the requester what date or change is needed.')
   }
 
   // Confirm the request is actually a PENDING vaccination schedule for a child (not a
@@ -64,11 +67,11 @@ export async function POST(request: Request) {
   if (existingRes.data.activity_type !== 'VACCINATION' || !existingRes.data.child_id) {
     return invalid('This endpoint only reviews per-child vaccination schedule requests.')
   }
-  if (existingRes.data.status !== 'PENDING' && existingRes.data.status !== 'NEEDS_REVISION') {
+  if (existingRes.data.status !== 'PENDING') {
     return invalid(`This request is already ${existingRes.data.status.toLowerCase()}.`)
   }
 
-  const newStatus = action === 'APPROVE' ? 'APPROVED' : 'REJECTED'
+  const newStatus = action === 'APPROVE' ? 'APPROVED' : 'NEEDS_REVISION'
   const updateRes = await supabase.from('health_activity_schedule')
     .update({
       status: newStatus,

@@ -6,8 +6,11 @@
 //     <DateInput value={dob} onChange={(e) => setDob(e.target.value)} />
 //   </Field>
 
-import { createContext, useContext, useId, type AriaAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { createContext, useContext, useId, type AriaAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react'
 import { cn } from '@/lib/utils'
+import { Select as BaseSelect, type SelectProps } from './select'
+import { DatePicker, type DatePickerProps } from './date-picker'
+import { Combobox as BaseCombobox, type ComboboxProps } from './combobox'
 
 type FieldContext = { id: string; describedBy?: string; invalid: boolean; required: boolean }
 const Ctx = createContext<FieldContext | null>(null)
@@ -54,12 +57,19 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
   return <input {...useFieldProps(props)} className={cn(controlClass, 'h-10', className)} />
 }
 
-export function DateInput(props: Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>) {
-  return <Input type="date" {...props} />
+/** Shared date picker (see date-picker.tsx): same API as <input type="date">. */
+export function DateInput(props: DatePickerProps) {
+  return <DatePicker {...useFieldProps(props)} />
 }
 
-export function Select({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...useFieldProps(props)} className={cn(controlClass, 'h-10 pr-8', className)}>{children}</select>
+/** Shared dropdown (see select.tsx): native <select> API, styled menu, search for long lists. */
+export function Select(props: SelectProps) {
+  return <BaseSelect {...useFieldProps(props)} />
+}
+
+/** Pick-or-type text field with styled suggestions (see combobox.tsx); use instead of <datalist>. */
+export function Combobox(props: ComboboxProps) {
+  return <BaseCombobox {...useFieldProps(props)} />
 }
 
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {

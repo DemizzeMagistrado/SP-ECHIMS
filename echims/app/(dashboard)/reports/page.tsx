@@ -1,4 +1,5 @@
 "use client";
+import { TabBar } from '@/components/ui/module-tabs'
 import { offlineFetch as fetch, offlineScope } from '@/lib/offline/fetch'
 import { useAuth } from '@/components/auth/auth-provider'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
@@ -25,6 +26,7 @@ import { FileText, SearchX } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
+import { Pagination } from '@/components/ui/pagination'
 type Options = {
   currentUserId: string;
   role: string;
@@ -152,7 +154,8 @@ export default function ReportsPage() {
     let current = true;
     const timeout = setTimeout(() => controller.abort(), 20000);
     if (!readPageCache(user?.id, cacheKey + ":" + page)) setLoading(true);
-    void fetch("/api/reports?page=" + page, {
+    // Pages of 6 from the server, with the exact total.
+    void fetch("/api/reports?pageSize=6&page=" + page, {
       cache: "no-store",
       signal: controller.signal,
     })
@@ -326,6 +329,7 @@ export default function ReportsPage() {
       if (active.current) setBusy(false);
     }
   }
+  const reportPagerProps = { page: page - 1, pageCount: Math.max(1, Math.ceil((options?.total ?? 0) / 6)), total: options?.total ?? 0, pageSize: 6, onChange: (p: number) => { clear(); setPage(p + 1); } };
   const shown = detail?.report.snapshot ?? preview;
   const fields = shown
     ? columns[
@@ -334,28 +338,28 @@ export default function ReportsPage() {
           : shown.module
       ]
     : [];
+  // BHW: read-only approved reports for their barangay (no preview / generate / validate).
+  const isBhw = options?.role === "BHW";
   return (
     <div className="space-y-6">
+      <TabBar
+        label="Report workflow"
+        group="reports"
+        value={section}
+        onChange={(s) => {
+          clear();
+          setSection(s);
+        }}
+        items={[
+          { value: "SAVED", label: isBhw ? "Approved Reports" : "Generated Reports", disabled: busy },
+          // BHW: read-only approved reports only (no live preview / generate; migration 13).
+          ...(isBhw ? [] : [{ value: "PREVIEW" as const, label: "Report Preview", disabled: busy }]),
+        ]}
+      />
       <PageHeader
         title={<>Reports & Analytics</>}
-        subtitle={<>{options?.role === "Administrator" ? "System-wide report viewing." : options?.role === "PHN" ? "Review and validate reports within your RHU." : options?.role === "BNS" ? "Generate nutrition reports within assigned barangays." : "Generate reports within assigned barangays."}</>}
+        subtitle={<>{options?.role === "Administrator" ? "System-wide report viewing." : options?.role === "PHN" ? "Review and validate reports within your RHU." : options?.role === "BNS" ? "Generate nutrition reports within assigned barangays." : isBhw ? "Approved child, vaccination and supplementation reports for your barangay. View, print or download." : "Generate reports within assigned barangays."}</>}
       />
-      <nav className="flex gap-2 border-b" aria-label="Report workflow">
-        {(["SAVED", "PREVIEW"] as const).map((s) => (
-          <button
-            type="button"
-            key={s}
-            disabled={busy}
-            className={`border-b-2 px-4 py-3 ${section === s ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}
-            onClick={() => {
-              clear();
-              setSection(s);
-            }}
-          >
-            {s === "SAVED" ? "Generated Reports" : "Report Preview"}
-          </button>
-        ))}
-      </nav>
       {error && (
         <p
           role="alert"
@@ -407,7 +411,7 @@ export default function ReportsPage() {
               Refresh
             </Button>
           </div>
-          <div className="overflow-x-auto">
+          <div className="scroll-mt-4 overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-muted/50">
                 <tr>
@@ -463,38 +467,18 @@ export default function ReportsPage() {
                 ))}
                 {!options.reports.length && (
                   <tr>
-                    <td colSpan={6}><EmptyState icon={FileText} title="No saved reports yet" description="Reports you generate and save will appear here." /></td>
+                    <td colSpan={6}>{isBhw
+                      ? <EmptyState icon={FileText} title="No approved reports for your barangay yet" description="Child, vaccination and supplementation reports for your barangay appear here once the PHN approves them." />
+                      : <EmptyState icon={FileText} title="No saved reports yet" description="Reports you generate and save will appear here." />}</td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
-          <div className="flex items-center gap-3">
-            <Button variant="secondary" size="sm"
-              disabled={page === 1 || busy || loading}
-              onClick={() => {
-                clear();
-                setPage((v) => v - 1);
-              }}
-             
-            >
-              Previous
-            </Button>
-            <span>Page {page}</span>
-            <Button variant="secondary" size="sm"
-              disabled={page * 50 >= options.total || busy || loading}
-              onClick={() => {
-                clear();
-                setPage((v) => v + 1);
-              }}
-             
-            >
-              Next
-            </Button>
-          </div>
+          <Pagination {...reportPagerProps} label="Saved report pages" />
         </section>
       )}
-      {section === "PREVIEW" && options && (
+      {section === "PREVIEW" && options && !isBhw && (
         <section className="space-y-4 rounded-2xl border bg-white p-5">
           <nav aria-label="Report modules" className="flex flex-wrap border-b">
             {options.modules.map((m) => (
@@ -515,9 +499,9 @@ export default function ReportsPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <label className="text-sm">
               Period
-              <select
+              <Select
                 disabled={busy}
-                className="mt-1 w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 transition-colors hover:border-sky-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-1 w-full"
                 value={period}
                 onChange={(e) => {
                   clear();
@@ -536,7 +520,7 @@ export default function ReportsPage() {
                     {l}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <label className="text-sm">
               Start

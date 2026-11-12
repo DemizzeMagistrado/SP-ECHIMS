@@ -4,10 +4,11 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 // NIP-USR006 — Add / edit vaccine form modal (admin-only).
 
 import { useEffect, useMemo, useState } from 'react'
-import { X, AlertCircle, Syringe, Hash, Droplet, MapPin, Calendar, BookOpen, Shield, Info, Link as LinkIcon } from 'lucide-react'
+import { AlertCircle, Syringe, Hash, Droplet, MapPin, Calendar, BookOpen, Shield, Info, Link as LinkIcon } from 'lucide-react'
 import { toast } from '@/components/ui/toast'
-import { Spinner } from '@/components/brand/logo-loader'
+
 import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
 
 export type VaccineCatalogRow = {
   vaccine_id: number
@@ -18,6 +19,8 @@ export type VaccineCatalogRow = {
   min_age_days: number
   interval_days: number | null
   total_doses: number
+  max_age_days?: number | null
+  min_interval_days?: number | null
   updated_at: string
   // NIP-USR011 — DOH guideline fields (nullable; "" means user cleared it).
   eligibility: string | null
@@ -53,6 +56,8 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
   const [minAgeDays, setMinAgeDays] = useState<string>('0')
   const [intervalDays, setIntervalDays] = useState<string>('')
   const [totalDoses, setTotalDoses] = useState<string>('1')
+  const [maxAgeDays, setMaxAgeDays] = useState<string>('')
+  const [minIntervalDays, setMinIntervalDays] = useState<string>('')
   // NIP-USR011 — guideline fields (free text, admin edits here).
   const [eligibility, setEligibility] = useState('')
   const [contraindications, setContraindications] = useState('')
@@ -75,6 +80,8 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
     setMinAgeDays(String(editing?.min_age_days ?? 0))
     setIntervalDays(editing?.interval_days != null ? String(editing.interval_days) : '')
     setTotalDoses(String(editing?.total_doses ?? 1))
+    setMaxAgeDays(editing?.max_age_days != null ? String(editing.max_age_days) : '')
+    setMinIntervalDays(editing?.min_interval_days != null ? String(editing.min_interval_days) : '')
     setEligibility(editing?.eligibility ?? '')
     setContraindications(editing?.contraindications ?? '')
     setDohGuidelines(editing?.doh_guidelines ?? '')
@@ -86,7 +93,6 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
   const totalDosesNum = Number(totalDoses)
   const intervalRequired = useMemo(() => totalDosesNum > 1, [totalDosesNum])
 
-  if (!open) return null
 
   function validate(): string | null {
     if (!itemName.trim()) return 'Vaccine name is required.'
@@ -99,6 +105,15 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
     if (dose > 1) {
       const iv = Number(intervalDays)
       if (!Number.isSafeInteger(iv) || iv <= 0) return 'Interval (days) must be a positive integer when total doses > 1.'
+    }
+    if (maxAgeDays.trim()) {
+      const mx = Number(maxAgeDays)
+      if (!Number.isSafeInteger(mx) || mx < 1 || mx > 3650) return 'Age limit must be 1–3650 days, or empty for no limit.'
+      if (mx <= min) return 'Age limit must be later than the minimum age of dose 1.'
+    }
+    if (minIntervalDays.trim()) {
+      const mi = Number(minIntervalDays)
+      if (!Number.isSafeInteger(mi) || mi < 1 || mi > 730) return 'Minimum interval must be 1–730 days, or empty.'
     }
     return null
   }
@@ -126,6 +141,8 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
         min_age_days: Number(minAgeDays),
         interval_days: totalDosesNum > 1 ? Number(intervalDays) : null,
         total_doses: Number(totalDoses),
+        max_age_days: maxAgeDays.trim() ? Number(maxAgeDays) : null,
+        min_interval_days: minIntervalDays.trim() ? Number(minIntervalDays) : null,
         // NIP-USR011 — guideline fields (empty string → NULL at the API).
         eligibility: eligibility.trim() || null,
         contraindications: contraindications.trim() || null,
@@ -151,27 +168,26 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
   }
 
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 backdrop-blur-sm">
-      <div className="my-10 w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200">
-        {/* Header */}
-        <div className="relative border-b border-slate-100 bg-gradient-to-br from-sky-50 via-white to-white px-6 pt-6 pb-5">
-          <button onClick={onClose} className="absolute right-4 top-4 rounded-full p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
-            <X size={18} />
-          </button>
-          <div className="flex items-start gap-3">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-sm">
-              <Syringe size={20} />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-foreground">{isEdit ? 'Edit vaccine' : 'Add new vaccine'}</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                Catalog + schedule rules follow DOH guidelines. Changes affect schedule computation.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <form onSubmit={requestSave} className="space-y-5 px-6 pt-5 pb-4">
+    <Modal
+      open={open}
+      onClose={onClose}
+      busy={submitting}
+      size="lg"
+      icon={<Syringe />}
+      title={isEdit ? 'Edit vaccine' : 'Add new vaccine'}
+      subtitle="Catalog + schedule rules follow DOH guidelines. Changes affect schedule computation."
+      onSubmit={requestSave}
+      bodyClassName="space-y-5"
+      footerStart={confirming ? <span className="text-xs text-warn"><strong>Confirm {isEdit ? 'update' : 'creation'}.</strong> Logged in the audit trail; may change schedules and Missed alerts.</span> : null}
+      footer={!confirming ? (
+        <Button type="submit">{isEdit ? 'Review changes' : 'Review new vaccine'}</Button>
+      ) : (
+        <>
+          <Button variant="secondary" onClick={() => setConfirming(false)} disabled={submitting}>Back</Button>
+          <Button onClick={doSave} loading={submitting}>{submitting ? 'Saving…' : `Yes, ${isEdit ? 'update' : 'create'}`}</Button>
+        </>
+      )}
+    >
           {/* Identity */}
           <section className="space-y-3">
             <SectionTitle>Vaccine identity</SectionTitle>
@@ -230,6 +246,14 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
                 />
               </Field>
             </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Age limit (days)" hint="From this age a dose not yet given is Not eligible, not Missed. Empty = no limit. E.g. BCG 365, Hep-B birth dose 14.">
+                <input type="number" min={1} max={3650} value={maxAgeDays} onChange={(e) => setMaxAgeDays(e.target.value)} placeholder="No limit" className={INPUT} />
+              </Field>
+              <Field label="Minimum interval (days)" hint="Shortest gap after the previous dose when a missed dose is rescheduled. Empty = interval or 28.">
+                <input type="number" min={1} max={730} value={minIntervalDays} onChange={(e) => setMinIntervalDays(e.target.value)} placeholder="28" className={INPUT} />
+              </Field>
+            </div>
           </section>
 
           {/* NIP-USR011 — DOH Guidelines & Eligibility (optional but recommended)
@@ -261,34 +285,7 @@ export function VaccineFormModal({ open, onClose, onSaved, editing }: Props) {
               <span>{formError}</span>
             </div>
           )}
-        </form>
-
-        {/* Footer — confirmation step */}
-        <div className="border-t border-slate-100 bg-slate-50/60 px-6 py-4">
-          {!confirming ? (
-            <div className="flex items-center justify-end gap-2">
-              <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel</button>
-              <Button onClick={requestSave}>
-                {isEdit ? 'Review changes' : 'Review new vaccine'}
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                <strong>Confirm {isEdit ? 'update' : 'creation'}.</strong> This change is logged in the audit trail and may affect generated schedules + overdue alerts.
-              </div>
-              <div className="flex items-center justify-end gap-2">
-                <button type="button" onClick={() => setConfirming(false)} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100">Back</button>
-                <button type="button" onClick={doSave} disabled={submitting} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
-                  {submitting && <Spinner />}
-                  {submitting ? 'Saving…' : `Yes, ${isEdit ? 'update' : 'create'}`}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 

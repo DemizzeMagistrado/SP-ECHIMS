@@ -1,13 +1,6 @@
 "use client";
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import useSWR from "swr";
 import { useAuth } from "@/components/auth/auth-provider";
 import Link from "next/link";
@@ -25,20 +18,15 @@ import {
   type NutritionPayload,
   type QueuedAssessment,
 } from "@/lib/nutrition-offline";
-import {
-  AlertCircle,
-  Plus,
-  RefreshCw,
-  Printer,
-  X,
-  SearchX,
-} from "lucide-react";
+import { AlertCircle, Plus, RefreshCw, Printer, SearchX } from "lucide-react";
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
+import { FilterChips, TabBar } from '@/components/ui/module-tabs'
 import { Button } from '@/components/ui/button'
-import { Select } from '@/components/ui/form'
+import { Modal } from '@/components/ui/modal'
+import { Select, DateInput } from '@/components/ui/form'
 import { reportSync } from '@/lib/offline/refresh'
 type Relation<T> = T | T[] | null;
 type Barangay = {
@@ -372,53 +360,6 @@ function followUp(item: Assessment) {
     return "Complete or verify assessment";
   return "Routine growth monitoring";
 }
-function Modal({
-  title,
-  children,
-  onClose,
-  busy = false,
-}: {
-  title: string;
-  children: ReactNode;
-  onClose: () => void;
-  busy?: boolean;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const dialog = ref.current;
-    if (dialog && !dialog.open) dialog.showModal();
-    return () => {
-      if (dialog?.open) dialog.close();
-    };
-  }, []);
-  return (
-    <dialog
-      ref={ref}
-      aria-label={title}
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!busy) onClose();
-      }}
-      className="fixed inset-0 m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-4xl overflow-y-auto rounded-2xl bg-white p-0 text-foreground shadow-xl backdrop:bg-slate-950/50"
-    >
-      <div className="p-6">
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <h2 className="text-2xl font-bold text-[#03045E]">{title}</h2>
-          <button
-            type="button"
-            aria-label="Close dialog"
-            disabled={busy}
-            onClick={onClose}
-            className="rounded-lg p-2 hover:bg-muted disabled:opacity-50"
-          >
-            <X size={22} />
-          </button>
-        </div>
-        {children}
-      </div>
-    </dialog>
-  );
-}
 function AssessmentDetails({
   assessment,
   onClose,
@@ -487,7 +428,7 @@ function AssessmentDetails({
     ["Engine", item.engine_version ?? "Not engine evaluated"],
   ];
   return (
-    <Modal title="Assessment details" onClose={onClose}>
+    <Modal open size="lg" title="Assessment details" onClose={onClose} cancelLabel="Close">
       <p className="mb-4 rounded-lg bg-sky-50 p-3 text-sm">
         {followUp(item)}. Each growth indicator is interpreted separately.
       </p>
@@ -1986,38 +1927,19 @@ export default function NutritionPage() {
       .nutrition-report-root tr { break-inside: avoid; }
       @page { size: A4 landscape; margin: 8mm; }
     }`}</style>
-      <nav
-        aria-label="Nutrition views"
-        className="nutrition-no-print flex flex-wrap gap-1 border-b border-border"
-      >
-        {(["Assessments", "Summary", "Risk", "Admissions"] as const).map(
-          (view) => {
-            const active =
-              view === "Summary"
-                ? reportView !== "Assessments" &&
-                  reportView !== "Risk" &&
-                  reportView !== "Admissions"
-                : reportView === view;
-            return (
-              <button
-                key={view}
-                type="button"
-                aria-pressed={active}
-                onClick={() => setReportView(view)}
-                className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors ${active ? "border-[#0077B6] text-[#0077B6]" : "border-transparent text-muted-foreground hover:border-sky-200 hover:text-[#0077B6]"}`}
-              >
-                {view === "Assessments"
-                  ? "All assessments"
-                  : view === "Risk"
-                    ? "Risk monitoring"
-                    : view === "Admissions"
-                      ? "Admission tracking"
-                      : "Summary"}
-              </button>
-            );
-          },
-        )}
-      </nav>
+      <TabBar
+        className="nutrition-no-print"
+        label="Nutrition views"
+        group="nutrition"
+        value={reportView === "Assessments" || reportView === "Risk" || reportView === "Admissions" ? reportView : "Summary"}
+        onChange={setReportView}
+        items={[
+          { value: "Assessments", label: "All assessments" },
+          { value: "Summary", label: "Summary" },
+          { value: "Risk", label: "Risk monitoring" },
+          { value: "Admissions", label: "Admission tracking" },
+        ]}
+      />
       <PageHeader
         title="Nutritional Assessment"
         subtitle="OPT Plus measurements, WHO classifications, and follow-up monitoring"
@@ -2244,26 +2166,17 @@ export default function NutritionPage() {
       {reportView !== "Assessments" &&
         reportView !== "Risk" &&
         reportView !== "Admissions" && (
-          <nav
-            aria-label="Summary classifications"
-            className="nutrition-no-print flex flex-wrap gap-2 rounded-xl border border-border bg-white p-3"
-          >
-            {(
-              ["Summary", ...listCodes] as Array<"Summary" | ListCode>
-            ).map((view) => (
-              <button
-                key={view}
-                type="button"
-                aria-pressed={reportView === view}
-                onClick={() => setReportView(view)}
-                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${reportView === view ? "bg-sky-100 text-[#0077B6]" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
-              >
-                {view === "Summary"
-                  ? "Overview"
-                  : `List ${view} (${listRecords(latest, view).length})`}
-              </button>
-            ))}
-          </nav>
+          <FilterChips
+            className="nutrition-no-print"
+            label="Summary classifications"
+            value={reportView}
+            onChange={setReportView}
+            options={(["Summary", ...listCodes] as Array<"Summary" | ListCode>).map((view) => ({
+              value: view,
+              label: view === "Summary" ? "Overview" : `List ${view}`,
+              count: view === "Summary" ? undefined : listRecords(latest, view).length,
+            }))}
+          />
         )}
       {reportView === "Summary" && (
         <SummaryReport
@@ -2533,9 +2446,13 @@ export default function NutritionPage() {
       </div>
       {syncReview && (
         <Modal
+          open
+          size="xl"
           title="Review drafts before upload"
           busy={syncing}
           onClose={() => setSyncReview(null)}
+          cancelLabel="Back to drafts"
+          footer={<Button loading={syncing} disabled={!online || !canRecord || syncReview.selectedIds.length === 0} onClick={() => void confirmReview()}>Confirm upload ({syncReview.selectedIds.length})</Button>}
         >
           <p className="mb-4 text-sm text-muted-foreground">
             Check the measurements and any existing records. Select drafts to
@@ -2633,33 +2550,21 @@ export default function NutritionPage() {
               );
             })}
           </div>
-          <div className="mt-6 flex justify-end gap-3">
-            <Button variant="secondary"
-              onClick={() => setSyncReview(null)}
-            >
-              Back to drafts
-            </Button>
-            <Button
-              disabled={
-                !online ||
-                !canRecord ||
-                syncReview.selectedIds.length === 0 ||
-                syncing
-              }
-              onClick={() => void confirmReview()}
-            >
-              Confirm upload ({syncReview.selectedIds.length})
-            </Button>
-          </div>
         </Modal>
       )}
       {draft && (
         <Modal
+          open
+          size="xl"
           title="Record nutritional assessment"
           busy={saving}
           onClose={() => setDraft(null)}
+          onSubmit={save}
+          footer={<Button type="submit" loading={saving} disabled={!child || !canRecord || accessDenied || !ownerId}>
+            {saving ? "Saving…" : editingRequest.current ? "Save draft changes" : online ? "Save Assessment" : "Save Offline Draft"}
+          </Button>}
         >
-          <form onSubmit={save} className="space-y-6">
+          <div className="space-y-6">
             {formError && (
               <p role="alert" className={alertClass}>
                 {formError}
@@ -2676,14 +2581,14 @@ export default function NutritionPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="text-sm font-medium md:col-span-2">
                     Select child
-                    <select
+                    <Select
                       autoFocus
                       required
                       value={draft.child_id}
                       onChange={(event) =>
                         change("child_id", event.target.value)
                       }
-                      className={inputClass}
+                     
                     >
                       <option value="">Select a child</option>
                       {eligibleChildren.map((item) => (
@@ -2693,7 +2598,7 @@ export default function NutritionPage() {
                           {item.child_id}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </label>
                   <label className="text-sm font-medium">
                     Address or location of child's residence
@@ -2755,11 +2660,9 @@ export default function NutritionPage() {
                   </label>
                   <label className="text-sm font-medium">
                     Date of birth
-                    <input
-                      readOnly
-                      type="date"
+                    <DateInput disabled
                       value={child?.date_of_birth ?? ""}
-                      className={inputClass}
+                     
                     />
                   </label>
                 </div>
@@ -2788,16 +2691,15 @@ export default function NutritionPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="text-sm font-medium">
                     Date measured
-                    <input
+                    <DateInput
                       required
-                      type="date"
                       value={draft.assessment_date}
                       min={child?.date_of_birth}
                       max={todayKey()}
                       onChange={(event) =>
                         change("assessment_date", event.target.value)
                       }
-                      className={inputClass}
+                     
                     />
                   </label>
                   <label className="text-sm font-medium">
@@ -2826,20 +2728,20 @@ export default function NutritionPage() {
                   </label>
                   <label className="text-sm font-medium">
                     Actual measurement position
-                    <select
+                    <Select
                       required
                       value={draft.measurement_type}
                       onChange={(event) =>
                         change("measurement_type", event.target.value)
                       }
-                      className={inputClass}
+                     
                     >
                       <option value="">Select position</option>
                       <option value="LENGTH">
                         Recumbent length — lying down
                       </option>
                       <option value="HEIGHT">Standing height</option>
-                    </select>
+                    </Select>
                   </label>
                 </div>
                 <p className="mt-3 text-xs text-muted-foreground">
@@ -2900,20 +2802,20 @@ export default function NutritionPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="text-sm font-medium">
                     Bilateral pitting edema
-                    <select
+                    <Select
                       required
                       value={draft.edema_grade}
                       onChange={(event) =>
                         change("edema_grade", event.target.value)
                       }
-                      className={inputClass}
+                     
                     >
                       <option value="">Select examination result</option>
                       <option value="0">Absent (0)</option>
                       <option value="1">Mild (+1)</option>
                       <option value="2">Moderate (+2)</option>
                       <option value="3">Severe (+3)</option>
-                    </select>
+                    </Select>
                   </label>
                   <label className="text-sm font-medium">
                     MUAC (cm, optional)
@@ -2957,30 +2859,7 @@ export default function NutritionPage() {
                 and confirm upload.
               </p>
             </fieldset>
-            <div className="flex justify-end gap-3">
-              <Button variant="secondary"
-                disabled={saving}
-                onClick={() => setDraft(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={
-                  saving || !child || !canRecord || accessDenied || !ownerId
-                }
-              >
-                {saving && <Spinner />}
-                {saving
-                  ? "Saving…"
-                  : editingRequest.current
-                    ? "Save draft changes"
-                    : online
-                      ? "Save Assessment"
-                      : "Save Offline Draft"}
-              </Button>
-            </div>
-          </form>
+          </div>
         </Modal>
       )}
       {selected && (

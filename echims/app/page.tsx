@@ -44,7 +44,7 @@ const steps = [
   ['Register the child', 'Barangay health worker', 'Profile, guardian, and household are entered once and reused by every service.'],
   ['Record each service', 'Midwife or nurse', 'Vaccines, measurements, and supplements are logged at the visit, online or offline.'],
   ['Rules check the record', 'eCHIMS', 'Every record is compared against schedules and thresholds as soon as it changes.'],
-  ['The right people are told', 'Guardians and RHU staff', 'Guardians get an SMS reminder; staff see alerts for overdue doses and low stock.'],
+  ['The right people are told', 'Guardians and RHU staff', 'Guardians get an SMS reminder; staff see alerts for missed doses and low stock.'],
 ] as const
 
 const roles = [

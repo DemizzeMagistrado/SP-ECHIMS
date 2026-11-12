@@ -1,6 +1,7 @@
 "use client";
+import { Select } from '@/components/ui/form'
 import Link from "next/link";
-import { Check, ChevronDown, Eye, EyeOff } from "lucide-react";
+import { Check, Eye, EyeOff } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "@/lib/offline/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -440,7 +441,6 @@ export default function RegisterPage() {
   ======================================================= */
   const inputClass =
     "h-12 w-full rounded-xl border border-[#C9DCE6] bg-white px-4 text-base text-[#03045E] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#8A93A6] focus:border-[#087DB9] focus:ring-4 focus:ring-[#087DB9]/15 disabled:bg-[#F4F6F8] disabled:text-[#8A93A6]";
-  const selectClass = `${inputClass} appearance-none pr-12`;
   /* =======================================================
      UI
   ======================================================= */
@@ -517,20 +517,19 @@ export default function RegisterPage() {
                     User Role
                   </label>
                   <div className="relative">
-                    <select
+                    <Select
                       value={form.role}
                       onChange={(event) =>
                         handleRoleChange(event.target.value as UserRole)
                       }
-                      className={selectClass}
+                     
                     >
                       {roleOptions.map((role) => (
                         <option key={role.value} value={role.value}>
                           {role.value}
                         </option>
                       ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                    </Select>
                   </div>
                   <p className="mt-2 text-xs text-gray-500">
                     {
@@ -586,13 +585,13 @@ export default function RegisterPage() {
                         Region
                       </label>
                       <div className="relative">
-                        <select
+                        <Select
                           value={form.region_code}
                           disabled={locationLoading}
                           onChange={(event) =>
                             handleRegionChange(event.target.value)
                           }
-                          className={selectClass}
+                         
                         >
                           <option value="">Select region</option>
                           {locationData.regions.map((region) => (
@@ -603,8 +602,7 @@ export default function RegisterPage() {
                               {region.region_name}
                             </option>
                           ))}
-                        </select>
-                        <ChevronDown className="pointer-events-none absolute right-5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                        </Select>
                       </div>
                     </div>
                     <div>
@@ -612,13 +610,13 @@ export default function RegisterPage() {
                         Province
                       </label>
                       <div className="relative">
-                        <select
+                        <Select
                           value={form.province_id}
                           disabled={!form.region_code || locationLoading}
                           onChange={(event) =>
                             handleProvinceChange(event.target.value)
                           }
-                          className={selectClass}
+                         
                         >
                           <option value="">Select province</option>
                           {sameRegion && locationData.hasIndependentCities && (
@@ -634,8 +632,7 @@ export default function RegisterPage() {
                               {province.province_name}
                             </option>
                           ))}
-                        </select>
-                        <ChevronDown className="pointer-events-none absolute right-5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                        </Select>
                       </div>
                     </div>
                     <div>
@@ -643,13 +640,13 @@ export default function RegisterPage() {
                         Municipality / City
                       </label>
                       <div className="relative">
-                        <select
+                        <Select
                           value={form.municipality_id}
                           disabled={!form.province_id || locationLoading}
                           onChange={(event) =>
                             handleMunicipalityChange(event.target.value)
                           }
-                          className={`${selectClass} disabled:cursor-not-allowed disabled:opacity-50`}
+                         
                         >
                           <option value="">Select municipality or city</option>
                           {municipalities.map((municipality) => (
@@ -661,8 +658,7 @@ export default function RegisterPage() {
                               {municipality.type})
                             </option>
                           ))}
-                        </select>
-                        <ChevronDown className="pointer-events-none absolute right-5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                        </Select>
                       </div>
                     </div>
                     <div>
@@ -670,7 +666,7 @@ export default function RegisterPage() {
                         Rural Health Unit
                       </label>
                       <div className="relative">
-                        <select
+                        <Select
                           value={form.rhu_id}
                           disabled={
                             !selectedMunicipality ||
@@ -680,7 +676,7 @@ export default function RegisterPage() {
                           onChange={(event) =>
                             handleRhuChange(event.target.value)
                           }
-                          className={`${selectClass} disabled:cursor-not-allowed disabled:opacity-50`}
+                         
                         >
                           <option value="">Select RHU</option>
                           {rhus.map((rhu) => (
@@ -688,8 +684,7 @@ export default function RegisterPage() {
                               {rhu.rhu_name}
                             </option>
                           ))}
-                        </select>
-                        <ChevronDown className="pointer-events-none absolute right-5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                        </Select>
                       </div>
                     </div>
                     {locationLoading && (
@@ -761,13 +756,13 @@ export default function RegisterPage() {
                           Barangay
                         </label>
                         <div className="relative">
-                          <select
+                          <Select
                             value={form.barangay_id}
                             disabled={!selectedRhu || locationLoading}
                             onChange={(event) =>
                               updateField("barangay_id", event.target.value)
                             }
-                            className={`${selectClass} disabled:cursor-not-allowed disabled:opacity-50`}
+                           
                           >
                             <option value="">Select barangay</option>
                             {selectedRhu?.barangays.map((barangay) => (
@@ -778,8 +773,7 @@ export default function RegisterPage() {
                                 {barangay.barangay_name}
                               </option>
                             ))}
-                          </select>
-                          <ChevronDown className="pointer-events-none absolute right-5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                          </Select>
                         </div>
                       </div>
                     )}

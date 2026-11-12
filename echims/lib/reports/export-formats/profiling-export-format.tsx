@@ -5,11 +5,10 @@ import {
   uniqueGuardians,
   householdCounts,
   householdAttributes,
-  displayName,
   value,
   fourPs,
   bands,
-  type Member,
+  registerSections,
 } from "@/lib/reports/profiling-report-utils";
 type Snapshot = {
   module: string;
@@ -88,10 +87,6 @@ function Breakdown({
       </tbody>
     </table>
   );
-}
-function guardian(m: Member) {
-  const name = displayName(m.guardian);
-  return name === "Not recorded" ? "Not recorded" : name;
 }
 export function ProfilingReportFormat({
   exportSection,
@@ -332,65 +327,16 @@ export function ProfilingReportFormat({
               <table className="profile-register min-w-max w-full border-collapse">
                 <thead className="bg-sky-100">
                   <tr>
-                    <th
-                      rowSpan={2}
-                      className={`${th} align-top whitespace-nowrap`}
-                    >
-                      Date of visit / profiling
-                    </th>
-                    <th
-                      rowSpan={2}
-                      className={`${th} align-top whitespace-nowrap`}
-                    >
-                      Household No.
-                    </th>
-                    <th
-                      rowSpan={2}
-                      className={`${th} align-top whitespace-nowrap`}
-                    >
-                      Barangay
-                    </th>
-                    <th
-                      colSpan={3}
-                      className={`${th} align-top whitespace-nowrap`}
-                    >
-                      Name of registered child
-                    </th>
-                    {[
-                      "Child ID",
-                      "DOB",
-                      "Age (months)",
-                      "Sex",
-                      "Relationship to household head",
-                      "Guardian",
-                      "Guardian relationship",
-                      "Guardian contact",
-                      "4Ps",
-                      "Ethnicity",
-                      "Religion",
-                      "PhilHealth ID",
-                      "Membership type",
-                      "PhilHealth category",
-                      "Medical history / remarks",
-                      "Water source",
-                      "Toilet facility",
-                    ].map((c) => (
-                      <th
-                        key={c}
-                        rowSpan={2}
-                        className={`${th} align-top whitespace-nowrap`}
-                      >
-                        {c}
+                    {registerSections.map((section) => (
+                      <th key={section.title} colSpan={section.columns.length} className={`${th} text-center font-bold uppercase`}>
+                        {section.title}
                       </th>
                     ))}
                   </tr>
                   <tr>
-                    {["Last name", "First name", "Middle name"].map((c) => (
-                      <th
-                        key={c}
-                        className={`${th} align-top whitespace-nowrap`}
-                      >
-                        {c}
+                    {registerSections.flatMap((section) => section.columns).map((c) => (
+                      <th key={c.label} className={`${th} align-top whitespace-nowrap`}>
+                        {c.label}
                       </th>
                     ))}
                   </tr>
@@ -398,91 +344,18 @@ export function ProfilingReportFormat({
                 <tbody>
                   {list.map((m) => (
                     <tr key={String(m.child.child_id)}>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {value(m.profile.profiling_date)}
-                      </td>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {value(
-                          m.household.household_no ??
-                            m.household.household_id ??
-                            m.child.household_id,
-                        )}
-                      </td>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {value(
-                          m.household.barangay_name ?? m.child.barangay_name,
-                        )}
-                      </td>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {value(m.child.last_name)}
-                      </td>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {value(m.child.first_name ?? m.child.child_name)}
-                      </td>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {value(m.child.middle_name)}
-                      </td>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {value(m.child.child_id)}
-                      </td>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {value(m.child.date_of_birth)}
-                      </td>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {value(m.child.age_months)}
-                      </td>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {value(m.child.sex)}
-                      </td>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {value(m.profile.relationship_to_household_head)}
-                      </td>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {guardian(m)}
-                      </td>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {value(m.guardian.relationship_to_child)}
-                      </td>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {value(m.guardian.contact_number)}
-                      </td>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {fourPs(m.household)}
-                      </td>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {value(m.profile.ethnicity)}
-                      </td>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {value(m.profile.religion)}
-                      </td>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {value(m.profile.philhealth_id_number)}
-                      </td>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {value(m.profile.philhealth_membership_type)}
-                      </td>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {value(m.profile.philhealth_category)}
-                      </td>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {value(m.profile.medical_history)}
-                        {m.profile.remarks
-                          ? "; " + String(m.profile.remarks)
-                          : ""}
-                      </td>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {value(m.profile.water_source_type)}
-                      </td>
-                      <td className={`${td} align-top whitespace-nowrap`}>
-                        {value(m.profile.toilet_facility_type)}
-                      </td>
+                      {registerSections.flatMap((section) => section.columns).map((c) => (
+                        <td key={c.label} className={`${td} align-top whitespace-nowrap`}>
+                          {c.cell(m)}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                   {!list.length && (
                     <tr>
                       <td
                         className={`${td} align-top whitespace-nowrap`}
-                        colSpan={23}
+                        colSpan={registerSections.reduce((n, s) => n + s.columns.length, 0)}
                       >
                         No registered children in this report scope.
                       </td>

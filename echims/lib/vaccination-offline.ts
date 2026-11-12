@@ -3,7 +3,9 @@ import {reportSync} from '@/lib/offline/refresh'
 import { createClient } from '@/lib/supabase/client'
 import { loadActiveIdentity, isOfflineLocked } from '@/lib/offline/store'
 export type VaccinationPayload={child_id:number;vaccine_id:number;dose_number:number;vaccination_date:string;batch_number:string|null;vaccination_site:string|null;remarks:string|null;schedule_id:number|null;client_request_id:string}
-export type QueuedVaccination={key:string;ownerId:string;requestId:string;childName:string;vaccineLabel:string;queuedAt:string;status:'PENDING'|'BLOCKED';lastError:string|null;payload:VaccinationPayload}
+/** The saved version of the same child/vaccine/dose, returned by the server on a 409 conflict. */
+export type VaccinationConflict={vaccination_record_id:number;status:'PENDING'|'APPROVED';vaccination_date:string;batch_number:string|null;vaccination_site:string|null;remarks:string|null;recorded_by_me:boolean}
+export type QueuedVaccination={key:string;ownerId:string;requestId:string;childName:string;vaccineLabel:string;queuedAt:string;status:'PENDING'|'BLOCKED';lastError:string|null;payload:VaccinationPayload;conflict?:VaccinationConflict|null}
 const DB_NAME='echims-vaccination-offline-v1', STORE='queue'
 let database:Promise<IDBDatabase>|null=null
 function openDb():Promise<IDBDatabase>{
@@ -25,14 +27,14 @@ export function newClientRequestId():string{
  const bytes=crypto.getRandomValues(new Uint8Array(16));bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128
  const h=Array.from(bytes,x=>x.toString(16).padStart(2,'0')).join('');return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`
 }
-export async function queueVaccinationDraft(ownerId:string,payload:VaccinationPayload,display:{childName:string;vaccineLabel:string},lastError:string|null=null,status:'PENDING'|'BLOCKED'='PENDING'):Promise<QueuedVaccination>{
+export async function queueVaccinationDraft(ownerId:string,payload:VaccinationPayload,display:{childName:string;vaccineLabel:string},lastError:string|null=null,status:'PENDING'|'BLOCKED'='PENDING',conflict:VaccinationConflict|null=null):Promise<QueuedVaccination>{
  if(!UUID.test(ownerId)||!UUID.test(payload.client_request_id))throw new Error('A valid account and request UUID are required. Keep invalid legacy drafts for review.')
  const key=keyOf(ownerId,payload.client_request_id)
  // Read and write in a single transaction; never overwrite a changed in-flight payload.
  const db=await openDb()
  return new Promise((resolve,reject)=>{
   const t=db.transaction(STORE,'readwrite'),s=t.objectStore(STORE),r=s.get(key);let row:QueuedVaccination
-  r.onsuccess=()=>{const old=r.result as QueuedVaccination|undefined;if(old&&JSON.stringify(old.payload)!==JSON.stringify(payload)){t.abort();return}row={key,ownerId,requestId:payload.client_request_id,...display,queuedAt:old?.queuedAt??new Date().toISOString(),status,lastError,payload};s.put(row)}
+  r.onsuccess=()=>{const old=r.result as QueuedVaccination|undefined;if(old&&JSON.stringify(old.payload)!==JSON.stringify(payload)){t.abort();return}row={key,ownerId,requestId:payload.client_request_id,...display,queuedAt:old?.queuedAt??new Date().toISOString(),status,lastError,payload,conflict};s.put(row)}
   t.oncomplete=()=>{window.dispatchEvent(new CustomEvent('echims-vaccination-queue'));resolve(row)}
   t.onerror=t.onabort=()=>reject(t.error??new Error('This draft changed. Retain it and use a new request ID after review.'))
  })
@@ -59,7 +61,8 @@ export async function discardBlockedVaccinationDraft(ownerId:string,requestId:st
  })
  window.dispatchEvent(new CustomEvent('echims-vaccination-queue'))
 }
-export type SendResult={ok:true;vaccination_record_id:number;status:string;idempotent?:boolean}|{ok:false;queued:boolean;error:string}
+/** blocked: the server refused it (fix the draft); otherwise it is kept and retried automatically. */
+export type SendResult={ok:true;vaccination_record_id:number;status:string;idempotent?:boolean}|{ok:false;queued:boolean;error:string;conflict?:VaccinationConflict|null;blocked?:boolean}
 async function sessionOwner(){const {data}=await createClient().auth.getSession();return data.session?.user.id??null}
 export async function sendOrQueueVaccination(ownerId:string,payload:VaccinationPayload,display:{childName:string;vaccineLabel:string}):Promise<SendResult>{
  // Persist before the network request so closing the page cannot lose an uncertain save.
@@ -70,7 +73,7 @@ export async function sendOrQueueVaccination(ownerId:string,payload:VaccinationP
  try{
   const r=await fetch('/api/vaccination/records',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({...payload,request_owner_id:ownerId})})
   const d=await r.json().catch(()=>({}))
-  if(!r.ok){const retry=[401,408,429].includes(r.status)||r.status>=500;const error=String(d.error??`Save failed (${r.status}).`);await queueVaccinationDraft(ownerId,payload,display,error,retry?'PENDING':'BLOCKED');return {ok:false,queued:true,error}}
+  if(!r.ok){const retry=[401,408,429].includes(r.status)||r.status>=500;const error=String(d.error??`Save failed (${r.status}).`);const conflict=r.status===409&&d.conflict?d.conflict as VaccinationConflict:null;await queueVaccinationDraft(ownerId,payload,display,error,retry?'PENDING':'BLOCKED',conflict);return {ok:false,queued:true,error,conflict,blocked:!retry}}
   if(!Number.isSafeInteger(Number(d.vaccination_record_id))||Number(d.vaccination_record_id)<=0||!['PENDING','APPROVED','REJECTED'].includes(d.status)||d.currentUserId!==ownerId||d.client_request_id!==payload.client_request_id)throw new Error('The server did not confirm this account and request. Draft retained.')
   await removeQueuedVaccination(ownerId,payload.client_request_id)
   return {ok:true,vaccination_record_id:Number(d.vaccination_record_id),status:d.status,idempotent:Boolean(d.idempotent)}

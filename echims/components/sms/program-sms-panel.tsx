@@ -11,6 +11,9 @@ import { DateInput, Input, Select } from '@/components/ui/form'
 
 type Program = "VACCINATION" | "SUPPLEMENTATION";
 type MessageType = "UPCOMING" | "OVERDUE";
+// UI wording: due today or later is "Pending"; past the due date is "Missed".
+const PHASE_LABEL: Record<string, string> = { ALL: "All", UPCOMING: "Pending", DUE_TODAY: "Due today", OVERDUE: "Missed" };
+const phaseLabel = (value: string) => PHASE_LABEL[value] ?? value.replace(/_/g, " ");
 type Outcome = "SIMULATED_SENT" | "SIMULATED_FAILED";
 type ErrorCode = "NETWORK_ERROR" | "INSUFFICIENT_CREDITS" | "PROVIDER_ERROR";
 type Row = {
@@ -256,8 +259,8 @@ export function ProgramSmsPanel({
         <div>
           <h2 className="font-semibold">Guardian messages</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Upcoming message: one day before due. Overdue follow-up: starts one
-            day after due.
+            Reminder: one day before the due date. Missed-dose follow-up: starts
+            one day after the due date.
           </p>
         </div>
         <Button variant="secondary"
@@ -315,7 +318,7 @@ export function ProgramSmsPanel({
                 >
                   {["ALL", "UPCOMING", "DUE_TODAY", "OVERDUE"].map((value) => (
                     <option key={value} value={value}>
-                      {value.replace(/_/g, " ")}
+                      {phaseLabel(value)}
                     </option>
                   ))}
                 </Select>
@@ -372,7 +375,7 @@ export function ProgramSmsPanel({
                         <td className="px-3 py-3">{row.service_name}</td>
                         <td className="px-3 py-3">{row.due_date}</td>
                         <td className="px-3 py-3">
-                          {row.phase.replace(/_/g, " ")}
+                          {phaseLabel(row.phase)}
                         </td>
                         <td className="px-3 py-3">
                           {row.contact_status !== "CONFIRMED"
@@ -398,7 +401,7 @@ export function ProgramSmsPanel({
                 <div className="flex flex-wrap justify-between gap-2 text-sm">
                   <label className="min-w-0 flex-1 text-xs">
                     Child / reminder
-                    <select
+                    <Select
                       aria-label="Child reminder preview"
                       disabled={busy}
                       value={selected.service_key}
@@ -408,14 +411,14 @@ export function ProgramSmsPanel({
                         );
                         if (row) select(row);
                       }}
-                      className="mt-1 block w-full rounded-lg border bg-white p-2 text-sm"
+                      className="mt-1 block w-full"
                     >
                       {data.rows.map((row) => (
                         <option key={row.service_key} value={row.service_key}>
                           {row.child_name} · {row.service_name} · {row.due_date}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </label>
                   <span>{selected.masked_number ?? "No confirmed number"}</span>
                 </div>
@@ -424,8 +427,8 @@ export function ProgramSmsPanel({
                     <p>Automatic message</p>
                     <p className="mt-2 rounded-lg border bg-white p-2 text-sm">
                       {messageType === "OVERDUE"
-                        ? "Overdue follow-up"
-                        : "Upcoming reminder"}
+                        ? "Missed-dose follow-up"
+                        : "Reminder before the due date"}
                     </p>
                   </div>
                   <div className="text-xs">
@@ -445,8 +448,8 @@ export function ProgramSmsPanel({
                 )}
                 {!selected.eligible && (
                   <p className="text-xs text-muted-foreground">
-                    Upcoming reminders are eligible on {selected.upcoming_date};
-                    overdue follow-ups start {selected.overdue_date}. Current
+                    The reminder can be sent on {selected.upcoming_date};
+                    the missed-dose follow-up starts {selected.overdue_date}. Current
                     guardian consent and a valid number are required.
                   </p>
                 )}

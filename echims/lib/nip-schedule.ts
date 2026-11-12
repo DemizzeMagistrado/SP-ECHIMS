@@ -5,7 +5,14 @@ export type NipVaccine = {
   min_age_days: number
   interval_days: number | null
   dose_age_months?: number[]
+  /** Not given from this age on (days from birth): the dose becomes "Not eligible", not "Missed".
+   *  Default below; the live value comes from vaccine.max_age_days (lib/nip-catalog-server). */
+  max_age_days?: number
+  /** Same, in calendar months (only used when max_age_days is not set). */
+  max_age_months?: number
   routine_enabled?: boolean
+  /** Shortest gap after the previous dose when a missed dose is rescheduled (default interval_days, else 28). */
+  min_interval_days?: number
   route: string
   dose_volume: string
 }
@@ -20,15 +27,20 @@ export const NIP_CATALOG: NipVaccine[] = [
     total_doses: 1,
     min_age_days: 0,
     interval_days: null,
+    // DOH NIP: BCG is given up to the first birthday (365 days).
+    max_age_days: 365,
     route: 'Intradermal',
     dose_volume: '0.05 mL',
   },
   {
     code: 'HEPB',
-    vaccine_type: 'Hepatitis B',
+    vaccine_type: 'Hep-B',
     total_doses: 1,
     min_age_days: 0,
     interval_days: null,
+    // Birth dose only: DOH gives it within 24 hours of birth; recorded as given up to day 14,
+    // after that "Not eligible" (later Hep-B protection comes from Pentavalent).
+    max_age_days: 14,
     route: 'Intramuscular',
     dose_volume: '0.5 mL',
   },
@@ -38,6 +50,8 @@ export const NIP_CATALOG: NipVaccine[] = [
     total_doses: 3,
     min_age_days: 42,
     interval_days: 28,
+    min_interval_days: 28,
+    max_age_days: 1826, // under 5 years
     route: 'Intramuscular',
     dose_volume: '0.5 mL',
   },
@@ -47,6 +61,8 @@ export const NIP_CATALOG: NipVaccine[] = [
     total_doses: 3,
     min_age_days: 42,
     interval_days: 28,
+    min_interval_days: 28,
+    max_age_days: 1826,
     route: 'Oral',
     dose_volume: '2 drops',
   },
@@ -58,6 +74,8 @@ export const NIP_CATALOG: NipVaccine[] = [
     interval_days: null,
     // Dose 1 uses 98 days; dose 2 uses nine calendar months.
     dose_age_months: [-1, 9],
+    min_interval_days: 28,
+    max_age_days: 1826,
     route: 'Intramuscular',
     dose_volume: '0.5 mL',
   },
@@ -67,6 +85,8 @@ export const NIP_CATALOG: NipVaccine[] = [
     total_doses: 3,
     min_age_days: 42,
     interval_days: 28,
+    min_interval_days: 28,
+    max_age_days: 1826,
     route: 'Intramuscular',
     dose_volume: '0.5 mL',
   },
@@ -79,6 +99,8 @@ export const NIP_CATALOG: NipVaccine[] = [
     // Keep recognition of existing records.
     // Exclude from routine scheduling pending local programme verification.
     routine_enabled: false,
+    min_interval_days: 28,
+    max_age_days: 240, // last dose by 8 months
     route: 'Oral',
     dose_volume: '1.5 mL',
   },
@@ -89,6 +111,19 @@ export const NIP_CATALOG: NipVaccine[] = [
     min_age_days: 0,
     interval_days: null,
     dose_age_months: [9, 12],
+    min_interval_days: 28,
+    max_age_days: 1826,
+    route: 'Subcutaneous',
+    dose_volume: '0.5 mL',
+  },
+  {
+    code: 'MR',
+    vaccine_type: 'MR',
+    total_doses: 1,
+    min_age_days: 270,
+    interval_days: null,
+    // Campaign / supplemental dose: recordable, not part of the routine card schedule.
+    routine_enabled: false,
     route: 'Subcutaneous',
     dose_volume: '0.5 mL',
   },
@@ -124,6 +159,8 @@ export function normalizeVaccineCode(value: string): string {
     ROTA: 'ROTA',
     ROTAVIRUS: 'ROTA',
     MMR: 'MMR',
+    MR: 'MR',
+    MEASLESRUBELLA: 'MR',
   }
 
   return aliases[normalized] ?? normalized
@@ -194,7 +231,35 @@ export function getNipDoseDate(
     recommended.setUTCDate(recommended.getUTCDate() + offset)
   }
 
+  // Every due date is counted forward from the date of birth; never earlier.
+  if (recommended.getTime() < birth.getTime()) return null
   return recommended.toISOString().slice(0, 10)
+}
+
+export type NipDoseStatus = 'COMPLETE' | 'UPCOMING' | 'OVERDUE' | 'NOT_ELIGIBLE'
+
+/** First day the vaccine is no longer given (YYYY-MM-DD), or null when it has no age limit. */
+export function nipEligibilityCutoff(dateOfBirth: string, vaccine: NipVaccine): string | null {
+  const birth = parseDate(dateOfBirth)
+  if (!birth) return null
+  if (vaccine.max_age_days != null) {
+    const d = new Date(birth)
+    d.setUTCDate(d.getUTCDate() + vaccine.max_age_days)
+    return d.toISOString().slice(0, 10)
+  }
+  return vaccine.max_age_months != null ? addCalendarMonths(birth, vaccine.max_age_months).toISOString().slice(0, 10) : null
+}
+
+/**
+ * One dose's status, the same everywhere (profile, schedule tab, defaulters):
+ * given → COMPLETE; due today or later → UPCOMING (Pending); past due and not given →
+ * OVERDUE (Missed); past the vaccine's age limit and not given → NOT_ELIGIBLE.
+ */
+export function nipDoseStatus(dateOfBirth: string, vaccine: NipVaccine, dueDate: string, given: boolean, today: string): NipDoseStatus {
+  if (given) return 'COMPLETE'
+  const cutoff = nipEligibilityCutoff(dateOfBirth, vaccine)
+  if (cutoff && today >= cutoff) return 'NOT_ELIGIBLE'
+  return dueDate >= today ? 'UPCOMING' : 'OVERDUE'
 }
 
 export function computeSchedule(dateOfBirth: string): ScheduleEntry[] {
@@ -264,3 +329,51 @@ export function nipDaysBetween(from: string, to: string): number {
 
   return Math.round((end.getTime() - start.getTime()) / 86400000)
 } 
+function addDays(ymd: string, days: number): string {
+  const d = parseDate(ymd)!
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+export type NipTimelineDose = {
+  dose_number: number
+  due_date: string
+  status: NipDoseStatus
+  /** Set when the dose moves: a missed dose's next valid date (today or later), or a pending dose
+   *  pushed back because the dose before it was given or rescheduled late. */
+  rescheduled_date: string | null
+}
+
+/**
+ * Every dose of one vaccine for one child. A missed dose is rescheduled to the earliest valid
+ * date: not before today, its own due date, or the previous dose (given or rescheduled) plus the
+ * minimum interval. Past the vaccine's age limit the dose is NOT_ELIGIBLE instead.
+ * givenDates[i] is the date dose i+1 was given, or null.
+ */
+export function nipVaccineTimeline(dateOfBirth: string, vaccine: NipVaccine, givenDates: (string | null | undefined)[], today: string): NipTimelineDose[] {
+  const cutoff = nipEligibilityCutoff(dateOfBirth, vaccine)
+  const gap = vaccine.min_interval_days ?? vaccine.interval_days ?? 28
+  const out: NipTimelineDose[] = []
+  let previous: string | null = null
+  for (let n = 1; n <= vaccine.total_doses; n++) {
+    const due = getNipDoseDate(dateOfBirth, vaccine, n)
+    if (!due) continue
+    const given = givenDates[n - 1] ?? null
+    let status = nipDoseStatus(dateOfBirth, vaccine, due, Boolean(given), today)
+    let rescheduled: string | null = null
+    const earliest: string | null = previous ? addDays(previous, gap) : null
+    // Missed: move to today or later. Pending but too close to a moved earlier dose: move too.
+    if (status === 'OVERDUE') rescheduled = earliest && earliest > today ? earliest : today
+    else if (status === 'UPCOMING' && earliest && earliest > due) rescheduled = earliest
+    if (rescheduled && cutoff && rescheduled >= cutoff) { status = 'NOT_ELIGIBLE'; rescheduled = null }
+    out.push({ dose_number: n, due_date: due, status, rescheduled_date: rescheduled })
+    previous = given ?? rescheduled ?? (status === 'UPCOMING' ? due : previous)
+  }
+  return out
+}
+
+/** Next date a dose of this vaccine can be given (the dose the child should get next), or null. */
+export function nipNextDose(timeline: NipTimelineDose[]): (NipTimelineDose & { date: string }) | null {
+  const d = timeline.find((x) => x.status === 'OVERDUE' || x.status === 'UPCOMING')
+  return d ? { ...d, date: d.rescheduled_date ?? d.due_date } : null
+}

@@ -10,7 +10,7 @@ export function preparedChildIds(data: unknown): number[] {
   return [...new Set(rows.flatMap(row => {
     if (!row || typeof row !== 'object') return []
     const value = String(row.child_id ?? row.id ?? '')
-    const match = /^(?:CH-)?(?:\d{4}-)?(\d+)$/i.exec(value)
+    const match = /^(?:E?CH-)?(?:\d{4}-)?(\d+)$/i.exec(value)
     const id = match ? Number(match[1]) : NaN
     return Number.isSafeInteger(id) && id > 0 ? [id] : []
   }))]
@@ -20,14 +20,14 @@ export async function prepareSystemViews(user: AuthUser, progress: (text: string
   let completed = 0, profiles = 0
   const view = (name: string) => canPerform(user.role, name, 'view')
   const urls = new Set(['/api/notifications'])
-  if (view('Child Profiling')) ['/api/children','/api/barangays','/api/psgc?level=offline-reference'].forEach(url => urls.add(url))
+  if (view('Child Profiling')) ['/api/children','/api/barangays','/api/psgc?level=offline-reference','/api/children/medical-history-options'].forEach(url => urls.add(url))
   if (view('Health Activities')) ['/api/health-activities','/api/health-activities/options'].forEach(url => urls.add(url))
   if (view('Nutritional Assessment')) urls.add('/api/nutrition')
   if (view('Supplementation')) ['/api/supplementation','/api/supplementation/stock-requests','/api/sms/reminders?program=SUPPLEMENTATION'].forEach(url => urls.add(url))
   if (view('Alerts')) urls.add('/api/alerts?page=1')
   if (view('Reports')) urls.add('/api/reports?page=1')
-  if (view('Vaccination')) ['/api/children?view=vaccination-options','/api/vaccines','/api/vaccination/records','/api/vaccination/defaulters?status=OVERDUE','/api/vaccination/defaulters?status=OVERDUE&limit=1','/api/sms/reminders?program=VACCINATION'].forEach(url => urls.add(url))
-  if (view('Vaccination Schedule')) urls.add('/api/vaccination/schedule?status=PENDING')
+  if (view('Vaccination')) ['/api/children?view=vaccination-options','/api/vaccines','/api/vaccination/records','/api/vaccination/defaulters?include=pending','/api/vaccination/defaulters?status=OVERDUE&limit=1','/api/sms/reminders?program=VACCINATION'].forEach(url => urls.add(url))
+  if (view('Vaccination Schedule')) urls.add('/api/vaccination/schedule')
   if (view('NIP Catalog')) urls.add('/api/vaccines/catalog')
   if (view('Vaccine Batch Requests')) urls.add('/api/vaccination/batch-requests')
   async function download(url: string) {
