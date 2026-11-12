@@ -96,7 +96,7 @@ and move its row to §3. Backups are in schema `backup_nip_rev01_be`.
 
 | File | What it does | Dry run (rolled back) |
 |---|---|---|
-| (none pending) | | |
+| nip_rev01_07_record_needs_correction.sql | NEEDS_CORRECTION replaces REJECTED (1 record migrated, old status kept in `vaccination_record_review_event`); return/resubmit/approve history; `msp_review_vaccination_record` RETURN (note required, alerts recorder); `echims_resubmit_vaccination_record` (alerts the RHU's PHNs); guard trigger so status changes only through those functions; alert rule `NIP_RECORD_REVIEW` (added with `alr_validate_rule` off for that insert only) | First dry run stopped at `alr_validate_rule` (fixed in the file). The corrected dry run needs your approval (destructive statements inside a rolled-back transaction); the confirmation expired. Backup: `backup_nip_rev01_be.vaccination_record` (5 rows), constraints, previous review function |
 
 ## 4. Live changes with no migration anywhere (dated 2026-11-11 in code comments)
 

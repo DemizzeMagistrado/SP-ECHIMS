@@ -1,10 +1,10 @@
-import { loadBatchRule } from '@/lib/batch-rule-server'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
-import { batchNumberError, isVaccinationSite, normalizeBatchNumber } from '@/lib/vaccination-config'
+import { EDITABLE_STATUSES, buildRecordPatch } from '@/lib/vaccination-record-edit'
 
-// NIP-USR003 — Edit an administered-vaccination record (while still PENDING).
+// NIP-USR003 — Edit an administered-vaccination record (while PENDING, or NEEDS_CORRECTION after
+// the PHN returned it; resubmitting is /api/vaccination/record-resubmit).
 // PATCH /api/vaccination/record-edit
 // Body: { record_id: number, vaccination_date?, batch_number?, vaccination_site?, remarks? }
 //
@@ -63,7 +63,7 @@ export async function PATCH(request: Request) {
     .eq('vaccination_record_id', recordId)
     .maybeSingle()
   if (existing.error || !existing.data) return invalid('Record not found or outside your scope.', 404)
-  if (existing.data.status !== 'PENDING') {
+  if (!EDITABLE_STATUSES.includes(existing.data.status)) {
     return invalid(`This record is already ${existing.data.status.toLowerCase()} and can no longer be edited.`)
   }
   const isReviewer = role === 'Public Health Nurse' || role === 'Administrator'
@@ -72,24 +72,9 @@ export async function PATCH(request: Request) {
   }
 
   // Build patch payload — only accept whitelisted editable fields
-  const patch: Record<string, unknown> = {}
-  if (body.vaccination_date !== undefined) {
-    const d = String(body.vaccination_date).trim()
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return invalid('vaccination_date must be yyyy-mm-dd.')
-    if (new Date(d + 'T23:59:59') > new Date()) return invalid('vaccination_date cannot be in the future.')
-    patch.vaccination_date = d
-  }
-  if (body.batch_number !== undefined) {
-    const batchError = batchNumberError(body.batch_number, await loadBatchRule(supabase))
-    if (batchError) return invalid(`Batch number: ${batchError}`)
-    patch.batch_number = normalizeBatchNumber(body.batch_number)
-  }
-  if (body.vaccination_site !== undefined) {
-    const site = (body.vaccination_site ?? '').toString().trim() || null
-    if (!isVaccinationSite(site)) return invalid('Choose a vaccination site from the list.')
-    patch.vaccination_site = site
-  }
-  if (body.remarks !== undefined) patch.remarks = (body.remarks ?? '').toString().trim() || null
+  const built = await buildRecordPatch(supabase, body)
+  if ('error' in built) return invalid(built.error)
+  const patch = built.patch
   if (Object.keys(patch).length === 0) return invalid('Nothing to update.')
 
   const updateRes = await supabase.from('vaccination_record')

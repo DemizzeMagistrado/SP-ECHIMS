@@ -4,6 +4,7 @@ import { FilterBar } from '@/components/ui/filter-bar'
 import { CatalogSection } from '@/components/vaccination/vaccine-catalog'
 import { NextDose, vaccinationProfileHref } from '@/components/vaccination/next-dose'
 import { useSessionState } from '@/lib/use-session-state'
+import { CorrectRecordButton, RecordHistoryButton } from '@/components/vaccination/record-correction'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 // Vaccination module — all sections merged into one page (one route).
@@ -108,7 +109,8 @@ type RecordRow = {
   remarks: string | null
   created_at: string
   schedule_id: number | null
-  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  /** REJECTED only on rows saved before migration 07 (shown as Needs correction). */
+  status: 'PENDING' | 'APPROVED' | 'NEEDS_CORRECTION' | 'REJECTED'
   approved_by: string | null
   approved_at: string | null
   review_remarks: string | null
@@ -130,12 +132,14 @@ type RecordsPayload = {
 const RECORD_STATUS_META = {
   PENDING: { label: 'Awaiting approval' },
   APPROVED: { label: 'Approved' },
-  // RHU QA: nothing is "rejected"; the PHN returns the record to the recorder to fix (UI wording;
-  // the stored status is still REJECTED until the backend flow changes, see docs/known-issues.md).
+  // RHU QA: nothing is rejected; the PHN returns the record with a note, the recorder corrects
+  // and resubmits it (migration 07). REJECTED = a row saved before that change.
+  NEEDS_CORRECTION: { label: 'Needs correction' },
   REJECTED: { label: 'Needs correction' },
 } as const
-// Needs correction = amber (the badge's default for REJECTED is red); other statuses keep their usual tone.
-const recordTone = (s: RecordRow['status']) => (s === 'REJECTED' ? 'warn' as const : undefined)
+const needsCorrection = (s: RecordRow['status']) => s === 'NEEDS_CORRECTION' || s === 'REJECTED'
+// Needs correction = amber; other statuses keep their usual tone.
+const recordTone = (s: RecordRow['status']) => (needsCorrection(s) ? 'warn' as const : undefined)
 
 function userName(u: UserRef | null) { return u?.full_name || (u ? u.user_id.slice(0, 6) : '—') }
 function recorderName(r: RecorderRef | null) {
@@ -163,7 +167,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
   const setQ = (v: string) => { setQRaw(v); setPage(0) }
   const setStatusFilter = (v: string) => { setStatusRaw(v); setPage(0) }
   const [modalOpen, setModalOpen] = useState(false)
-  const [reviewing, setReviewing] = useState<{ row: RecordRow; action: 'APPROVE' | 'REJECT' } | null>(null)
+  const [reviewing, setReviewing] = useState<{ row: RecordRow; action: 'APPROVE' | 'RETURN' } | null>(null)
   const [reviewRemarks, setReviewRemarks] = useState('')
   const [remarksError, setRemarksError] = useState<string | null>(null)
   const [submittingReview, setSubmittingReview] = useState(false)
@@ -195,14 +199,14 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
   const canReview = !readOnly && (data?.can_review ?? false)
   const canExport = !readOnly && (data?.can_export ?? false)
 
-  function openReview(row: RecordRow, action: 'APPROVE' | 'REJECT') {
+  function openReview(row: RecordRow, action: 'APPROVE' | 'RETURN') {
     setReviewing({ row, action }); setReviewRemarks(''); setRemarksError(null)
   }
 
   async function submitReview() {
     if (readOnly || !reviewing) return
     if (!navigator.onLine) { toast.warning('You are offline. Reconnect to review this record; nothing was changed.'); return }
-    if (reviewing.action === 'REJECT' && !reviewRemarks.trim()) { setRemarksError('Say what needs fixing so the recorder can correct it.'); return }
+    if (reviewing.action === 'RETURN' && !reviewRemarks.trim()) { setRemarksError('Say what needs fixing so the recorder can correct it.'); return }
     setSubmittingReview(true)
     try {
       const r = await fetch(`/api/vaccination/record-review`, {
@@ -216,7 +220,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
       const notDeducted = comp.filter((c) => !c.deducted).map((c) => c.item_name)
       toast.success(reviewing.action === 'APPROVE'
         ? `Record approved. Vaccine stock deducted${comp.length ? `; ${comp.filter((c) => c.deducted).map((c) => c.item_name).join(', ') || 'no companion'} deducted too` : ''}.`
-        : 'Record marked Needs correction. The recorder can see your note.')
+        : 'Record returned for correction. The recorder was notified and can see your note.')
       if (notDeducted.length) toast.warning(`${notDeducted.join(', ')} had no stock in this barangay, so it was recorded but not deducted. Restock it in Inventory.`)
       setReviewing(null)
       revalidateAfterDose()
@@ -279,7 +283,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
                 { value: '', label: 'All' },
                 { value: 'PENDING', label: 'Awaiting approval' },
                 { value: 'APPROVED', label: 'Approved' },
-                { value: 'REJECTED', label: 'Needs correction' },
+                { value: 'NEEDS_CORRECTION', label: 'Needs correction' },
               ]} />
             </fieldset>
           }
@@ -322,7 +326,12 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
               },
             },
             { key: 'date', header: 'Date given', sortValue: (row) => row.vaccination_date, cell: (row) => formatYmd(row.vaccination_date) },
-            { key: 'status', header: 'Status', sortValue: (row) => row.status, cell: (row) => <StatusBadge status={row.status} tone={recordTone(row.status)} label={RECORD_STATUS_META[row.status].label} /> },
+            { key: 'status', header: 'Status', sortValue: (row) => row.status, cell: (row) => (
+              <span className="flex flex-col items-end gap-1 sm:items-start">
+                <StatusBadge status={row.status} tone={recordTone(row.status)} label={RECORD_STATUS_META[row.status].label} />
+                {needsCorrection(row.status) && row.review_remarks && <span title={row.review_remarks} className="max-w-[14rem] truncate text-xs text-muted-foreground">PHN: {row.review_remarks}</span>}
+              </span>
+            ) },
             {
               key: 'next', header: 'Next schedule', className: 'w-48', sortValue: (row) => { const c = one(row.child); const n = c ? nextByChild.get(c.child_id) : undefined; return n ? doseDate(n) : null },
               cell: (row) => {
@@ -340,8 +349,15 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
                   <div className="flex flex-wrap justify-end gap-2 sm:justify-start">
                     {canReview && row.status === 'PENDING' && <>
                       <Button size="sm" onClick={() => openReview(row, 'APPROVE')}><CheckCircle2 size={14} aria-hidden="true" /> Approve</Button>
-                      <Button size="sm" variant="tonal" onClick={() => openReview(row, 'REJECT')}><Undo2 size={14} aria-hidden="true" /> Return for correction</Button>
+                      <Button size="sm" variant="tonal" onClick={() => openReview(row, 'RETURN')}><Undo2 size={14} aria-hidden="true" /> Return for correction</Button>
                     </>}
+                    {/* The recorder (or the reviewer) fixes a returned record and sends it back. */}
+                    {!readOnly && row.status === 'NEEDS_CORRECTION' && (one(row.recorder)?.user_id === user?.id || canReview) && (
+                      <CorrectRecordButton record={row} title={`${vaccineLabel(one(row.vaccine))} dose ${row.dose_number}${one(row.child) ? ` for ${fullName(one(row.child)!)}` : ''}`} onDone={revalidateAfterDose} />
+                    )}
+                    {(row.status !== 'PENDING' || row.review_remarks) && (
+                      <RecordHistoryButton recordId={row.vaccination_record_id} title={`${vaccineLabel(one(row.vaccine))} dose ${row.dose_number}`} />
+                    )}
                   </div>
                 )
               },
@@ -362,19 +378,19 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
         size="sm"
         onClose={() => setReviewing(null)}
         busy={submittingReview}
-        title={reviewing?.action === 'REJECT' ? 'Return for correction' : 'Approve record'}
+        title={reviewing?.action === 'RETURN' ? 'Return for correction' : 'Approve record'}
         subtitle={reviewing ? `${vaccineLabel(one(reviewing.row.vaccine))} dose ${reviewing.row.dose_number}${reviewChild ? ` for ${fullName(reviewChild)}` : ''}` : undefined}
         onSubmit={(e) => { e.preventDefault(); void submitReview() }}
         bodyClassName="space-y-4"
-        footer={<Button type="submit" loading={submittingReview}>{reviewing?.action === 'REJECT' ? 'Return to recorder' : 'Approve'}</Button>}
+        footer={<Button type="submit" loading={submittingReview}>{reviewing?.action === 'RETURN' ? 'Return to recorder' : 'Approve'}</Button>}
       >
         {reviewing?.action === 'APPROVE' && (
           <p className="rounded-lg bg-warn-soft px-3 py-2 text-xs text-warn">
             One dose is deducted from the child&rsquo;s barangay stock{(one(reviewing.row.vaccine)?.companions ?? []).length ? `, plus ${(one(reviewing.row.vaccine)?.companions ?? []).map((x) => one(x.item)?.item_name).filter(Boolean).join(', ')}` : ''}.
           </p>
         )}
-        {reviewing?.action === 'REJECT' && <p className="text-sm text-brand-muted">Use this when something in the record needs fixing (child, dose, date or batch). The recorder sees your note. The child&rsquo;s schedule is not affected.</p>}
-        <Field label={reviewing?.action === 'REJECT' ? 'What needs fixing?' : 'Remarks (optional)'} required={reviewing?.action === 'REJECT'} error={remarksError}>
+        {reviewing?.action === 'RETURN' && <p className="text-sm text-brand-muted">Use this when something in the record needs fixing (child, dose, date or batch). The recorder sees your note. The child&rsquo;s schedule is not affected.</p>}
+        <Field label={reviewing?.action === 'RETURN' ? 'What needs fixing?' : 'Remarks (optional)'} required={reviewing?.action === 'RETURN'} error={remarksError}>
           <Textarea value={reviewRemarks} onChange={(e) => { setReviewRemarks(e.target.value); setRemarksError(null) }} rows={3} />
         </Field>
       </Modal>

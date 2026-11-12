@@ -18,6 +18,27 @@ Values set by migration 06 (DOH NIP): BCG 365 · Hep-B (birth dose) 14 · Pentav
 PCV13, MMR 1826 (under 5 years) · Rotavirus 240 · MR (campaign) none. `min_interval_days` 28 for
 the multi-dose vaccines.
 
+### vaccination_record (migration 07, pending)
+
+| Column | Change |
+|---|---|
+| `status` | Allowed values `PENDING`, `APPROVED`, `NEEDS_CORRECTION` (was `REJECTED`; no permanent rejection). Changes only through `msp_review_vaccination_record` / `echims_resubmit_vaccination_record` (guard trigger). New rows start `PENDING`; past records (`is_prior`) may be inserted `APPROVED`. |
+| `review_remarks` | The PHN's note while the record needs correction; cleared on resubmission (kept in the history table). |
+
+### vaccination_record_review_event *(new table, migration 07, pending)*
+
+| Column | Type | Meaning |
+|---|---|---|
+| `event_id` | bigint identity PK | |
+| `vaccination_record_id` | bigint FK → vaccination_record (cascade) | |
+| `action` | text | `RETURNED`, `RESUBMITTED`, `APPROVED`, `MIGRATED` (an old REJECTED record moved to NEEDS_CORRECTION) |
+| `from_status` / `to_status` | text | Status before / after |
+| `note` | text ≤ 2000 | PHN note on return; recorder's note on resubmission |
+| `actor_id` | uuid FK → users | Who did it |
+| `created_at` | timestamptz | |
+
+RLS: readable by whoever can read the record; written only by the two functions.
+
 ## 2. New and changed functions and policies
 
 | Object | Type | Migration | Purpose |
@@ -25,4 +46,7 @@ the multi-dose vaccines.
 | `mlu_allowed_barangay_ids()` | function (SECURITY DEFINER, `authenticated` only) | 05 | Barangays the user may import a masterlist into: NULL (any) for Admin/PHN, the active assignments for RHM, none for others. |
 | `mlu_batch_insert` | RLS policy on `masterlist_upload_batch` (changed) | 05 | Admin, PHN and now RHM (active accounts) can create their own upload batch. |
 | `mlu_import_batch(bigint)` | function (changed) | 05 | RHM may import; rows outside the uploader's allowed barangays become ERROR ("Barangay is not assigned to you"). |
+| `msp_review_vaccination_record(bigint, text, text)` | function (changed) | 07 | `RETURN` (alias `REJECT`) with a required note → NEEDS_CORRECTION, history row, alert `NIP_RECORD_NEEDS_CORRECTION` to the recorder; `APPROVE` also writes a history row. |
+| `echims_resubmit_vaccination_record(bigint, text)` | function (new) | 07 | Recorder (still assigned) or the RHU's PHN / Admin: NEEDS_CORRECTION → PENDING, history row, alert `NIP_RECORD_RESUBMITTED` to the RHU's PHNs. |
+| `echims_guard_vaccination_record_status()` | trigger fn (new) | 07 | Blocks direct status / approval changes outside the two functions. |
 | `alr_vaccination_schedule_candidates(date)` | function (changed) | 06 | Missed-dose candidates for alerts and SMS reminders now skip doses past `vaccine.max_age_days` (was a hard-coded BCG rule). |

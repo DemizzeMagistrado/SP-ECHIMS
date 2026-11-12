@@ -24,11 +24,13 @@ const role =
 export async function GET(request:Request){try{
  const auth=await authorize('view');if(auth instanceof NextResponse)return auth
  const {db,user,role}=auth,url=new URL(request.url),q=(url.searchParams.get('q')??'').trim().toLowerCase(),status=(url.searchParams.get('status')??'').toUpperCase()
- if(status&&!['PENDING','APPROVED','REJECTED'].includes(status))return invalid('Choose PENDING, APPROVED or REJECTED.')
+ if(status&&!['PENDING','APPROVED','NEEDS_CORRECTION','REJECTED'].includes(status))return invalid('Choose PENDING, APPROVED or NEEDS_CORRECTION.')
+ // Needs correction: also old REJECTED rows (before migration 07 there was no NEEDS_CORRECTION).
+ const statuses=status==='NEEDS_CORRECTION'||status==='REJECTED'?['NEEDS_CORRECTION','REJECTED']:status?[status]:null
  // Companion medicines are optional extras: if their tables/embeds are unavailable, load without them.
  const FULL=`vaccination_record_id,vaccination_date,dose_number,batch_number,vaccination_site,remarks,created_at,schedule_id,status,approved_by,approved_at,review_remarks,client_request_id,child:child(child_id,child_code,first_name,middle_name,last_name,date_of_birth,barangay_id,barangay:barangay(barangay_id,barangay_name),household:household(family_serial_no)),companions:vaccination_record_companion(item_id,quantity,deducted,note,item:item(item_name)),vaccine:vaccine(vaccine_id,vaccine_type,dose_volume,route,target_age,item:item!fk_vaccine_item(item_id,item_name),companions:vaccine_companion_item(item:item(item_id,item_name))),recorder:health_worker!fk_vaccination_recorded_by(user_id,user:users!fk_health_worker_user(user_id,full_name)),approver:users!fk_vaccination_approved_by(user_id,full_name)`
  const BASE=`vaccination_record_id,vaccination_date,dose_number,batch_number,vaccination_site,remarks,created_at,schedule_id,status,approved_by,approved_at,review_remarks,client_request_id,child:child(child_id,child_code,first_name,middle_name,last_name,date_of_birth,barangay_id,barangay:barangay(barangay_id,barangay_name),household:household(family_serial_no)),vaccine:vaccine(vaccine_id,vaccine_type,dose_volume,route,target_age,item:item!fk_vaccine_item(item_id,item_name)),recorder:health_worker!fk_vaccination_recorded_by(user_id,user:users!fk_health_worker_user(user_id,full_name)),approver:users!fk_vaccination_approved_by(user_id,full_name)`
- const run=(sel:string)=>{let query=db.from('vaccination_record').select(sel).order('created_at',{ascending:false}).limit(200);if(status)query=query.eq('status',status);return query}
+ const run=(sel:string)=>{let query=db.from('vaccination_record').select(sel).order('created_at',{ascending:false}).limit(200);if(statuses)query=query.in('status',statuses);return query}
  let result=await run(FULL)
  if(result.error&&['PGRST200','PGRST201','42P01','42703'].includes(result.error.code)){console.warn('Vaccination records: optional companion data unavailable, loading without it.',result.error);result=await run(BASE)}
  if(result.error){console.error('Vaccination records GET:',result.error);return invalid('Unable to load vaccination records.',500)}
