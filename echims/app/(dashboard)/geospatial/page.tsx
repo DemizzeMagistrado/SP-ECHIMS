@@ -60,6 +60,8 @@ export default function GeospatialMapPage() {
   const role = user?.role as UserRole | undefined
   const canEditLocation = Boolean(role && canPerform(role, 'Child Profiling', 'edit'))
   const canSeeVaccination = Boolean(role && canPerform(role, 'Vaccination', 'view'))
+  // BHW cannot read nutrition assessments (RLS), so "at risk" would always be 0 for them: hide it.
+  const canSeeNutrition = Boolean(role && canPerform(role, 'Nutritional Assessment', 'view'))
 
   const { data, error, isLoading, mutate } = useSWR<ApiResponse>('/api/geospatial/children-map', fetcher, { keepPreviousData: true })
   // Missed doses come from the existing defaulter computation (roles with Vaccination access).
@@ -188,9 +190,10 @@ export default function GeospatialMapPage() {
               label="Need follow-up"
               value={needFollowUp.length}
               tone={needFollowUp.length ? 'danger' : 'good'}
-              hint={canSeeVaccination
-                ? `${needFollowUp.filter((c) => c.follow_up === 'missed').length} missed doses · ${needFollowUp.filter((c) => c.follow_up === 'at_risk').length} nutrition at risk`
-                : 'Nutrition at risk'}
+              hint={[
+                canSeeVaccination && `${needFollowUp.filter((c) => c.follow_up === 'missed').length} missed doses`,
+                canSeeNutrition && `${needFollowUp.filter((c) => c.follow_up === 'at_risk').length} nutrition at risk`,
+              ].filter(Boolean).join(' · ')}
             />
           </div>
 
@@ -212,7 +215,7 @@ export default function GeospatialMapPage() {
               <option value="all">All children</option>
               <option value="any">Needs follow-up</option>
               {canSeeVaccination && <option value="missed">Missed vaccine dose</option>}
-              <option value="at_risk">Nutrition at risk</option>
+              {canSeeNutrition && <option value="at_risk">Nutrition at risk</option>}
             </Select>
             {anyFilter && (
               <p className="flex items-center gap-3 text-xs text-muted-foreground sm:col-span-2 lg:col-span-4">
