@@ -24,6 +24,7 @@ the multi-dose vaccines.
 |---|---|
 | `status` | Allowed values `PENDING`, `APPROVED`, `NEEDS_CORRECTION` (was `REJECTED`; no permanent rejection). Changes only through `msp_review_vaccination_record` / `echims_resubmit_vaccination_record` (guard trigger). New rows start `PENDING`; past records (`is_prior`) may be inserted `APPROVED`. |
 | `review_remarks` | The PHN's note while the record needs correction; cleared on resubmission (kept in the history table). |
+| `revision` *(new, migration 08, pending)* | integer ≥ 1, default 1; +1 on every update. Saves send the revision they loaded; an older one gets a 409 and the Keep mine / Keep saved screen. |
 
 ### vaccination_record_review_event *(new table, migration 07, pending)*
 
@@ -49,4 +50,5 @@ RLS: readable by whoever can read the record; written only by the two functions.
 | `msp_review_vaccination_record(bigint, text, text)` | function (changed) | 07 | `RETURN` (alias `REJECT`) with a required note → NEEDS_CORRECTION, history row, alert `NIP_RECORD_NEEDS_CORRECTION` to the recorder; `APPROVE` also writes a history row. |
 | `echims_resubmit_vaccination_record(bigint, text)` | function (new) | 07 | Recorder (still assigned) or the RHU's PHN / Admin: NEEDS_CORRECTION → PENDING, history row, alert `NIP_RECORD_RESUBMITTED` to the RHU's PHNs. |
 | `echims_guard_vaccination_record_status()` | trigger fn (new) | 07 | Blocks direct status / approval changes outside the two functions. |
+| `echims_bump_vaccination_record_revision()` | trigger fn (new) | 08 | Raises `vaccination_record.revision` on every update. |
 | `alr_vaccination_schedule_candidates(date)` | function (changed) | 06 | Missed-dose candidates for alerts and SMS reminders now skip doses past `vaccine.max_age_days` (was a hard-coded BCG rule). |

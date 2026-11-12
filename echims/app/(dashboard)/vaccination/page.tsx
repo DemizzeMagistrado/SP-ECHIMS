@@ -109,6 +109,8 @@ type RecordRow = {
   remarks: string | null
   created_at: string
   schedule_id: number | null
+  /** Edit counter (migration 08), for Keep mine / Keep saved on concurrent edits. */
+  revision?: number | null
   /** REJECTED only on rows saved before migration 07 (shown as Needs correction). */
   status: 'PENDING' | 'APPROVED' | 'NEEDS_CORRECTION' | 'REJECTED'
   approved_by: string | null

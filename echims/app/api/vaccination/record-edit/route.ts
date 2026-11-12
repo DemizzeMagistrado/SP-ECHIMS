@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
-import { EDITABLE_STATUSES, buildRecordPatch } from '@/lib/vaccination-record-edit'
+import { EDITABLE_STATUSES, buildRecordPatch, saveRecordPatch } from '@/lib/vaccination-record-edit'
 
 // NIP-USR003 — Edit an administered-vaccination record (while PENDING, or NEEDS_CORRECTION after
 // the PHN returned it; resubmitting is /api/vaccination/record-resubmit).
@@ -41,6 +41,8 @@ type EditBody = {
   batch_number?: string | null
   vaccination_site?: string | null
   remarks?: string | null
+  /** The revision the editor loaded; a newer saved revision gets a 409 conflict. */
+  expected_revision?: number
 }
 
 export async function PATCH(request: Request) {
@@ -77,16 +79,14 @@ export async function PATCH(request: Request) {
   const patch = built.patch
   if (Object.keys(patch).length === 0) return invalid('Nothing to update.')
 
-  const updateRes = await supabase.from('vaccination_record')
-    .update(patch)
-    .eq('vaccination_record_id', recordId)
-    .select('vaccination_record_id, status')
-    .maybeSingle()
-
-  if (updateRes.error) {
-    const code = updateRes.error.code
-    if (code === '42501') return invalid('Not authorized to update this record.', 403)
-    return invalid(`Unable to update record. [${code ?? 'unknown'}] ${updateRes.error.message ?? ''}`.trim(), 500)
+  const saved = await saveRecordPatch(supabase, recordId, patch, body.expected_revision)
+  if ('conflict' in saved) {
+    return NextResponse.json({ error: 'Someone else saved this record after you opened it. Choose which version to keep.', conflict: saved.conflict }, { status: 409 })
   }
-  return NextResponse.json({ vaccination_record_id: updateRes.data?.vaccination_record_id, status: updateRes.data?.status })
+  if ('error' in saved) {
+    const code = saved.error.code
+    if (code === '42501') return invalid('Not authorized to update this record.', 403)
+    return invalid(`Unable to update record. [${code ?? 'unknown'}] ${saved.error.message ?? ''}`.trim(), 500)
+  }
+  return NextResponse.json({ vaccination_record_id: recordId, status: existing.data.status, revision: saved.revision })
 }

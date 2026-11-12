@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { buildRecordPatch, type RecordEdits } from '@/lib/vaccination-record-edit'
+import { buildRecordPatch, saveRecordPatch, type RecordEdits } from '@/lib/vaccination-record-edit'
 
 // NIP-REV01 — send a record that "Needs correction" back for approval.
 // POST /api/vaccination/record-resubmit   { record_id, note?, edits?: { vaccination_date, batch_number, vaccination_site, remarks } }
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   const { data: { user } } = await db.auth.getUser()
   if (!user) return json({ error: 'Please sign in.' }, 401)
 
-  const body = await request.json().catch(() => null) as { record_id?: number; note?: string | null; edits?: RecordEdits } | null
+  const body = await request.json().catch(() => null) as { record_id?: number; note?: string | null; edits?: RecordEdits; expected_revision?: number } | null
   const recordId = Number(body?.record_id)
   if (!Number.isSafeInteger(recordId) || recordId <= 0) return json({ error: 'A valid record_id is required.' }, 400)
   const note = (body?.note ?? '').toString().trim() || null
@@ -30,10 +30,11 @@ export async function POST(request: Request) {
     const built = await buildRecordPatch(db, body.edits)
     if ('error' in built) return json({ error: built.error }, 400)
     if (Object.keys(built.patch).length) {
-      const up = await db.from('vaccination_record').update(built.patch).eq('vaccination_record_id', recordId).select('vaccination_record_id').maybeSingle()
-      if (up.error || !up.data) {
-        console.error('Record resubmit (edit):', up.error)
-        return json({ error: up.error?.code === '42501' ? 'You can only correct records you recorded.' : 'The corrections were not saved. Try again.' }, up.error?.code === '42501' ? 403 : 500)
+      const saved = await saveRecordPatch(db, recordId, built.patch, body.expected_revision)
+      if ('conflict' in saved) return json({ error: 'Someone else saved this record after you opened it. Choose which version to keep.', conflict: saved.conflict }, 409)
+      if ('error' in saved) {
+        console.error('Record resubmit (edit):', saved.error)
+        return json({ error: saved.error.code === '42501' ? 'You can only correct records you recorded.' : 'The corrections were not saved. Try again.' }, saved.error.code === '42501' ? 403 : 500)
       }
     }
   }
