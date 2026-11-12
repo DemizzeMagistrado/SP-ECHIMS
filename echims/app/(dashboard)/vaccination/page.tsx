@@ -1,5 +1,6 @@
 'use client'
 import { StatCard } from '@/components/ui/stat-card'
+import { FilterBar } from '@/components/ui/filter-bar'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 // Vaccination module — all sections merged into one page (one route).
@@ -583,13 +584,19 @@ function ScheduleSection() {
           <StatCard icon={<CheckCircle2 size={16} aria-hidden="true" />} label="Requests awaiting approval" value={awaiting} tone="warn" onClick={() => setRequestFilter(requestFilter === 'PENDING' ? '' : 'PENDING')} pressed={requestFilter === 'PENDING'} />
         </div>
 
-        <fieldset disabled={readOnly} className="space-y-3 rounded-2xl border border-border bg-white p-4">
-          <FilterChips label="Show" value={chip} onChange={setChip} options={CHIPS.map((c) => ({ value: c, label: chipLabel[c], count: chipCount[c] }))} />
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_190px_190px_auto]">
-            <div className="relative sm:col-span-2 lg:col-span-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} aria-hidden="true" />
-              <Input aria-label="Search the schedule" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Child name, Child ID, FSN, barangay or vaccine…" className="pl-9" />
-            </div>
+        <fieldset disabled={readOnly} className="rounded-2xl border border-border bg-white p-4">
+          <FilterBar
+            chips={<FilterChips label="Show" value={chip} onChange={setChip} options={CHIPS.map((c) => ({ value: c, label: chipLabel[c], count: chipCount[c] }))} />}
+            search={
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} aria-hidden="true" />
+                <Input aria-label="Search the schedule" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Child name, Child ID, FSN, barangay or vaccine…" className="pl-9" />
+              </div>
+            }
+            // Only when the server capped the list; the chip counts already say how many children.
+            info={truncated && counts ? `Showing the ${counts.total_shown} longest-missed of ${counts.total_matched} missed doses. Pick a vaccine to see the rest.` : null}
+            actions={shown.length > 1 ? <ExpandCollapseAll allOpen={allOpen} noneOpen={noneOpen} onSet={setAll} /> : null}
+          >
             <Select aria-label="Vaccine" value={vaccineFilter} onChange={(e) => setVaccineFilter(e.target.value)}>
               <option value="">All vaccines</option>
               {NIP_CATALOG.filter((v) => v.routine_enabled !== false).map((v) => <option key={v.code} value={v.code}>{v.vaccine_type}</option>)}
@@ -598,19 +605,9 @@ function ScheduleSection() {
               <option value="">Any request</option>
               {(['PENDING', 'APPROVED', 'NEEDS_REVISION', 'COMPLETED', 'CANCELLED'] as const).map((k) => <option key={k} value={k}>{SCHEDULE_STATUS_META[k].label}</option>)}
             </Select>
-            <div className="flex items-center gap-2">
-              <DateInput value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} aria-label="Next date from" className="min-w-0" />
-              <span className="text-sm text-muted-foreground">to</span>
-              <DateInput value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} aria-label="Next date to" className="min-w-0" />
-            </div>
-          </div>
-          {(truncated || shown.length > 1) && (
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              {/* Only when the server capped the list; the chip counts already say how many children. */}
-              {truncated && counts ? <span className="text-xs text-muted-foreground">Showing the {counts.total_shown} longest-missed of {counts.total_matched} missed doses. Pick a vaccine to see the rest.</span> : <span />}
-              {shown.length > 1 && <ExpandCollapseAll allOpen={allOpen} noneOpen={noneOpen} onSet={setAll} />}
-            </div>
-          )}
+            <DateInput value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} aria-label="Next date from" placeholder="Next date from (MM/DD/YYYY)" />
+            <DateInput value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} aria-label="Next date to" placeholder="Next date to (MM/DD/YYYY)" />
+          </FilterBar>
         </fieldset>
 
         <div key={`${chip}|${vaccineFilter}|${requestFilter}`} className={`animate-in fade-in duration-150 motion-reduce:animate-none ${doses.refreshing ? 'opacity-60 transition-opacity' : ''}`}>

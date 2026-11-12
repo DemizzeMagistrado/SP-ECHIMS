@@ -110,6 +110,11 @@ danger, upcoming/ongoing → info, cancelled/inactive → neutral). Props: `stat
 `icon?`, `title`, `description?`, `action?`, `size?: 'page' | 'section'`. Write specific copy
 ("No defaulters right now", not "No data").
 
+## FilterBar — `filter-bar.tsx`
+Layout for pages with many filters: `chips` on top, `search` on its own full-width row, the filters
+(children) in a 2-column grid (1 column on phones), then `info` (left) and `actions` (right, e.g.
+`ExpandCollapseAll`). Used on Vaccination › Schedule.
+
 ## LoadError — `load-error.tsx`
 When a list or page fails to load: plain-language message plus a "Try again" button; the technical
 error goes to the console only. `<LoadError what="vaccination records" error={error} onRetry={() => mutate()} />`
