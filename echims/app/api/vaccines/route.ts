@@ -12,8 +12,9 @@ export async function GET() {
 
   const { data, error } = await supabase.from('vaccine')
     .select(`
-      vaccine_id, vaccine_type, dose_volume, route, target_age,
-      item:item(item_id, item_name, description, status)
+      vaccine_id, vaccine_type, dose_volume, route, target_age, total_doses,
+      item:item(item_id, item_name, description, status),
+      companions:vaccine_companion_item(quantity, note, active, item:item(item_id, item_name, unit, status))
     `)
     .order('vaccine_id', { ascending: true })
 

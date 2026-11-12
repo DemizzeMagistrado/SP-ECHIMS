@@ -23,6 +23,8 @@ import { AlertCircle, Syringe, Calendar, Hash, MapPin, FileText, CheckCircle2, H
 import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
 import { Button } from '@/components/ui/button'
+import { VACCINATION_SITES } from '@/lib/vaccination-config'
+import { BatchNumberField, checkBatchNumber } from '@/components/inventory/batch-number-field'
 import { Modal } from '@/components/ui/modal'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 
@@ -127,7 +129,7 @@ export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, c
           vaccine_id: Number(vaccineId),
           dose_number: dose,
           vaccination_date: vaccinationDate,
-          batch_number: batchNumber.trim() || undefined,
+          batch_number: checkBatchNumber(batchNumber, false).value ?? undefined,
           vaccination_site: site.trim() || undefined,
           prior_source: source,
           remarks: remarks.trim() || undefined,
@@ -270,29 +272,15 @@ export function RecordPriorVaccinationModal({ open, onClose, onSaved, childId, c
 
           {/* Batch + Site row (both optional) */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label htmlFor="batch" className="mb-1 block text-sm font-semibold text-foreground">
-                Batch number <span className="text-muted-foreground font-normal">(optional)</span>
-              </label>
-              <Input
-                id="batch"
-                type="text"
-                value={batchNumber}
-                onChange={(e) => setBatchNumber(e.target.value)}
-                placeholder="If known"
-              />
-            </div>
+            <BatchNumberField id="batch" label="Batch number (optional)" value={batchNumber} onChange={setBatchNumber} hint="If written on the card, e.g. BT-2026-0012." />
             <div>
               <label htmlFor="site" className="mb-1 block text-sm font-semibold text-foreground">
                 <MapPin size={13} className="mr-1 inline" /> Site <span className="text-muted-foreground font-normal">(optional)</span>
               </label>
-              <Input
-                id="site"
-                type="text"
-                value={site}
-                onChange={(e) => setSite(e.target.value)}
-                placeholder="e.g. Left thigh"
-              />
+              <Select id="site" value={site} onChange={(e) => setSite(e.target.value)}>
+                <option value="">Not recorded</option>
+                {VACCINATION_SITES.map((v) => <option key={v} value={v}>{v}</option>)}
+              </Select>
             </div>
           </div>
 

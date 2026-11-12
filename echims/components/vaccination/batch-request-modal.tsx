@@ -12,10 +12,11 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import { useEffect, useState } from 'react'
 import useSWR from 'swr'
-import { AlertCircle, Syringe, Hash, MapPin, Package, FileText } from 'lucide-react'
+import { AlertCircle, Syringe, MapPin, Package, FileText } from 'lucide-react'
 import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/brand/logo-loader'
 import { Button } from '@/components/ui/button'
+import { BatchNumberField, checkBatchNumber } from '@/components/inventory/batch-number-field'
 import { Modal } from '@/components/ui/modal'
 import { Input, Select, Textarea } from '@/components/ui/form'
 
@@ -73,7 +74,8 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
     setFormError('')
     if (!vaccineId) return setFormError('Please pick a vaccine.')
     if (!barangayId) return setFormError('Please pick a target barangay.')
-    if (!batchNumber.trim()) return setFormError('Batch number is required.')
+    const batch = checkBatchNumber(batchNumber, true)
+    if (batch.error) return setFormError(`Batch number: ${batch.error}`)
     const qty = Number(quantity)
     if (!Number.isFinite(qty) || qty <= 0) return setFormError('Quantity must be a positive number.')
 
@@ -85,7 +87,7 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
         body: JSON.stringify({
           vaccine_id: Number(vaccineId),
           target_barangay_id: Number(barangayId),
-          batch_number: batchNumber.trim(),
+          batch_number: batch.value,
           requested_quantity: qty,
           remarks: remarks.trim() || undefined,
         }),
@@ -175,19 +177,7 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
 
           {/* Batch + Quantity row */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label htmlFor="br-batch" className="mb-1 block text-sm font-semibold text-foreground">
-                <Hash size={13} className="mr-1 inline" /> Batch number *
-              </label>
-              <Input
-                id="br-batch"
-                type="text"
-                value={batchNumber}
-                onChange={(e) => setBatchNumber(e.target.value)}
-                required
-                placeholder="e.g. BCG-2026-A001"
-              />
-            </div>
+            <BatchNumberField id="br-batch" required value={batchNumber} onChange={setBatchNumber} />
             <div>
               <label htmlFor="br-qty" className="mb-1 block text-sm font-semibold text-foreground">
                 <Package size={13} className="mr-1 inline" /> Quantity (doses) *

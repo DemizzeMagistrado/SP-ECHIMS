@@ -77,6 +77,7 @@ function fullName(c: { first_name: string; middle_name: string | null; last_name
 
 type RecordChildRef = {
   child_id: number
+  child_code?: string | null
   first_name: string
   middle_name: string | null
   last_name: string
@@ -92,6 +93,7 @@ type VaccineRef = {
   route: string | null
   target_age: string | null
   item: ItemRef | ItemRef[] | null
+  companions?: { item: ItemRef | ItemRef[] | null }[] | null
 }
 type UserRef = { user_id: string; full_name: string | null }
 type RecorderRef = {
@@ -115,6 +117,8 @@ type RecordRow = {
   vaccine: VaccineRef | VaccineRef[] | null
   recorder: RecorderRef | RecorderRef[] | null
   approver: UserRef | UserRef[] | null
+  /** Companion medications given with this dose (written on approval). */
+  companions?: { item_id: number; quantity: number; deducted: boolean; note: string | null; item: ItemRef | ItemRef[] | null }[] | null
 }
 type RecordsPayload = {
   rows: RecordRow[]
@@ -125,7 +129,7 @@ type RecordsPayload = {
 }
 
 const RECORD_STATUS_META = {
-  PENDING: { label: 'Pending' },
+  PENDING: { label: 'Pending approval' },
   APPROVED: { label: 'Approved' },
   REJECTED: { label: 'Rejected' },
 } as const
@@ -146,12 +150,14 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
   const { user, isReady } = useAuth()
   const role = user?.role as UserRole | undefined
   const canView = role ? canPerform(role, 'Vaccination', 'view') : false
+  const canTrace = role === 'Public Health Nurse' || role === 'Administrator'
 
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [modalOpen, setModalOpen] = useState(false)
   const [reviewing, setReviewing] = useState<{ row: RecordRow; action: 'APPROVE' | 'REJECT' } | null>(null)
   const [reviewRemarks, setReviewRemarks] = useState('')
+  const [remarksError, setRemarksError] = useState<string | null>(null)
   const [submittingReview, setSubmittingReview] = useState(false)
 
   const qs = useMemo(() => {
@@ -173,40 +179,39 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
   const canReview = !readOnly && (data?.can_review ?? false)
   const canExport = !readOnly && (data?.can_export ?? false)
 
-  async function openReview(row: RecordRow, action: 'APPROVE' | 'REJECT') {
-    setReviewing({ row, action })
-    setReviewRemarks('')
+  function openReview(row: RecordRow, action: 'APPROVE' | 'REJECT') {
+    setReviewing({ row, action }); setReviewRemarks(''); setRemarksError(null)
   }
 
   async function submitReview() {
-    if (readOnly || !navigator.onLine || !reviewing) return
-    if (reviewing.action === 'REJECT' && !reviewRemarks.trim()) {
-      toast.error('A reason is required when rejecting a record.')
-      return
-    }
+    if (readOnly || !reviewing) return
+    if (!navigator.onLine) { toast.warning('You are offline. Reconnect to review this record; nothing was changed.'); return }
+    if (reviewing.action === 'REJECT' && !reviewRemarks.trim()) { setRemarksError('Say why the record is rejected so the recorder can correct it.'); return }
     setSubmittingReview(true)
     try {
       const r = await fetch(`/api/vaccination/record-review`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          record_id: reviewing.row.vaccination_record_id,
-          action: reviewing.action,
-          review_remarks: reviewRemarks.trim() || null,
-        }),
+        body: JSON.stringify({ record_id: reviewing.row.vaccination_record_id, action: reviewing.action, review_remarks: reviewRemarks.trim() || null }),
       })
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Unable to submit the review.')
-      toast.success(`Record ${reviewing.action === 'APPROVE' ? 'approved' : 'rejected'}.`)
+      const comp = (d.companions ?? []) as { item_name: string; deducted: boolean }[]
+      const notDeducted = comp.filter((c) => !c.deducted).map((c) => c.item_name)
+      toast.success(reviewing.action === 'APPROVE'
+        ? `Record approved. Vaccine stock deducted${comp.length ? `; ${comp.filter((c) => c.deducted).map((c) => c.item_name).join(', ') || 'no companion'} deducted too` : ''}.`
+        : 'Record rejected. The recorder can see your reason.')
+      if (notDeducted.length) toast.warning(`${notDeducted.join(', ')} had no stock in this barangay, so it was recorded but not deducted. Restock it in Inventory.`)
       setReviewing(null)
-      setReviewRemarks('')
       revalidateVaccination('/api/vaccination/records')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Review failed.')
+      toast.error(`${err instanceof Error ? err.message : 'Review failed.'} Nothing was changed; try again.`)
     } finally {
       setSubmittingReview(false)
     }
   }
+
+  const reviewChild = reviewing ? one(reviewing.row.child) : null
 
   return (
     <div className="space-y-6">
@@ -244,14 +249,14 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
           onRowClick={(row) => { const c = one(row.child); if (c) router.push(`/child-profiling/children/${c.child_id}`) }}
           rowLabel={(row) => { const c = one(row.child); return c ? `Open ${fullName(c)}'s profile` : 'Record' }}
           toolbar={
-            <fieldset disabled={readOnly} className="grid gap-3 sm:grid-cols-[1fr_220px]">
+            <fieldset disabled={readOnly} className="grid w-full gap-3 sm:grid-cols-[1fr_220px]">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} aria-hidden="true" />
-                <Input aria-label="Search records" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by child name…" className="pl-9" />
+                <Input aria-label="Search records" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Child name, Child ID, FSN, vaccine or batch…" className="pl-9" />
               </div>
               <Select aria-label="Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                 <option value="">All statuses</option>
-                <option value="PENDING">Pending</option>
+                <option value="PENDING">Pending approval</option>
                 <option value="APPROVED">Approved</option>
                 <option value="REJECTED">Rejected</option>
               </Select>
@@ -268,28 +273,54 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
           columns={[
             {
               key: 'child', header: 'Child', sortValue: (row) => { const c = one(row.child); return c ? fullName(c) : '' },
-              cell: (row) => { const c = one(row.child); return c ? <span className="font-semibold text-brand-navy">{fullName(c)}</span> : <span className="text-muted-foreground">—</span> },
+              cell: (row) => {
+                const c = one(row.child)
+                return c ? (
+                  <span className="flex flex-col items-end sm:items-start">
+                    <span className="font-semibold text-brand-navy">{fullName(c)}</span>
+                    <span className="text-xs text-muted-foreground">{c.child_code ?? `#${c.child_id}`}</span>
+                  </span>
+                ) : <span className="text-muted-foreground">—</span>
+              },
             },
-            { key: 'vaccine', header: 'Vaccine', sortValue: (row) => vaccineLabel(one(row.vaccine)), cell: (row) => <span className="font-medium">{vaccineLabel(one(row.vaccine))}</span> },
-            { key: 'dose', header: 'Dose', sortValue: (row) => row.dose_number, cell: (row) => `Dose ${row.dose_number}` },
-            { key: 'date', header: 'Date', sortValue: (row) => row.vaccination_date, cell: (row) => formatYmd(row.vaccination_date) },
-            { key: 'batch', header: 'Batch', cell: (row) => row.batch_number ?? '—' },
-            { key: 'recorder', header: 'Recorded by', sortValue: (row) => recorderName(one(row.recorder)), cell: (row) => recorderName(one(row.recorder)) },
+            {
+              key: 'vaccine', header: 'Vaccine', sortValue: (row) => vaccineLabel(one(row.vaccine)),
+              cell: (row) => {
+                const comps = row.companions ?? []
+                return (
+                  <span className="flex flex-col items-end sm:items-start">
+                    <span className="font-medium">{vaccineLabel(one(row.vaccine))} · Dose {row.dose_number}</span>
+                    <span className="text-xs text-muted-foreground">
+                      Batch {row.batch_number ? (canTrace ? <Link href={`/inventory/batch-trace?batch_number=${encodeURIComponent(row.batch_number)}`} className="font-medium text-brand-blue hover:underline">{row.batch_number}</Link> : row.batch_number) : '—'}
+                      {comps.length > 0 && <> · with {comps.map((x) => one(x.item)?.item_name).filter(Boolean).join(', ')}</>}
+                      {comps.length === 0 && row.status === 'PENDING' && (one(row.vaccine)?.companions ?? []).length > 0 && <> · {(one(row.vaccine)?.companions ?? []).map((x) => one(x.item)?.item_name).filter(Boolean).join(', ')} on approval</>}
+                      {' · by '}{recorderName(one(row.recorder))}
+                    </span>
+                  </span>
+                )
+              },
+            },
+            { key: 'date', header: 'Date given', sortValue: (row) => row.vaccination_date, cell: (row) => formatYmd(row.vaccination_date) },
             { key: 'status', header: 'Status', sortValue: (row) => row.status, cell: (row) => <StatusBadge status={row.status} label={RECORD_STATUS_META[row.status].label} /> },
-            ...(canReview ? [{
-              key: 'review', header: 'Review',
-              cell: (row: RecordRow) => row.status === 'PENDING' ? (
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" onClick={() => openReview(row, 'APPROVE')}><CheckCircle2 size={14} aria-hidden="true" /> Approve</Button>
-                  <Button size="sm" variant="secondary" className="text-danger" onClick={() => openReview(row, 'REJECT')}><XCircle size={14} aria-hidden="true" /> Reject</Button>
-                </div>
-              ) : <span className="text-xs text-muted-foreground">—</span>,
-            }] : []),
+            {
+              key: 'actions', header: <span className="sr-only">Actions</span>,
+              cell: (row: RecordRow) => {
+                const c = one(row.child)
+                return (
+                  <div className="flex flex-wrap justify-end gap-2 sm:justify-start">
+                    {canReview && row.status === 'PENDING' && <>
+                      <Button size="sm" onClick={() => openReview(row, 'APPROVE')}><CheckCircle2 size={14} aria-hidden="true" /> Approve</Button>
+                      <Button size="sm" variant="secondary" className="text-danger" onClick={() => openReview(row, 'REJECT')}><XCircle size={14} aria-hidden="true" /> Reject record</Button>
+                    </>}
+                    {c && <Link href={`/child-profiling/children/${c.child_id}#vaccination-schedule`} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>Child schedule</Link>}
+                  </div>
+                )
+              },
+            },
           ]}
         />
       )}
 
-      {/* Record modal */}
       <RecordVaccinationModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -297,57 +328,27 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
         ownerId={user?.id ?? null}
       />
 
-      {/* Review modal */}
-      {reviewing && !readOnly && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 overflow-y-auto bg-black/30 p-4">
-          <div className="mx-auto mt-20 max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold text-foreground">
-                  {reviewing.action === 'APPROVE' ? 'Approve record' : 'Reject record'}
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {(() => {
-                    const c = one(reviewing.row.child)
-                    const v = one(reviewing.row.vaccine)
-                    return `${vaccineLabel(v)} dose ${reviewing.row.dose_number}${c ? ` for ${fullName(c)}` : ''}.`
-                  })()}
-                </p>
-                {reviewing.action === 'APPROVE' && (
-                  <p className="mt-2 text-xs text-amber-700">
-                    Stock will be deducted from the child&apos;s barangay inventory on approval.
-                  </p>
-                )}
-              </div>
-              <button
-                onClick={() => { setReviewing(null); setReviewRemarks('') }}
-                className="text-muted-foreground"
-                aria-label="Close"
-              >×</button>
-            </div>
-
-            <label className="mt-4 block text-sm font-medium text-foreground">
-              {reviewing.action === 'REJECT' ? 'Reason for rejection (required)' : 'Review remarks (optional)'}
-              <Textarea
-                value={reviewRemarks}
-                onChange={(e) => setReviewRemarks(e.target.value)}
-                rows={3}
-                className="mt-1"
-              />
-            </label>
-
-            <div className="mt-6 flex justify-end gap-3">
-              <Button variant="secondary"
-                onClick={() => { setReviewing(null); setReviewRemarks('') }}
-               
-              >Cancel</Button>
-              <Button variant={reviewing.action === 'APPROVE' ? 'primary' : 'danger'} onClick={submitReview} loading={submittingReview}>
-                {reviewing.action === 'APPROVE' ? 'Confirm approve' : 'Confirm reject'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={Boolean(reviewing) && !readOnly}
+        size="sm"
+        onClose={() => setReviewing(null)}
+        busy={submittingReview}
+        title={reviewing?.action === 'REJECT' ? 'Reject this record' : 'Approve record'}
+        subtitle={reviewing ? `${vaccineLabel(one(reviewing.row.vaccine))} dose ${reviewing.row.dose_number}${reviewChild ? ` for ${fullName(reviewChild)}` : ''}` : undefined}
+        onSubmit={(e) => { e.preventDefault(); void submitReview() }}
+        bodyClassName="space-y-4"
+        footer={<Button type="submit" variant={reviewing?.action === 'REJECT' ? 'danger' : 'primary'} loading={submittingReview}>{reviewing?.action === 'REJECT' ? 'Reject record' : 'Approve'}</Button>}
+      >
+        {reviewing?.action === 'APPROVE' && (
+          <p className="rounded-lg bg-warn-soft px-3 py-2 text-xs text-warn">
+            One dose is deducted from the child&rsquo;s barangay stock{(one(reviewing.row.vaccine)?.companions ?? []).length ? `, plus ${(one(reviewing.row.vaccine)?.companions ?? []).map((x) => one(x.item)?.item_name).filter(Boolean).join(', ')}` : ''}.
+          </p>
+        )}
+        {reviewing?.action === 'REJECT' && <p className="text-sm text-brand-muted">Use this when the record itself is wrong (wrong child, dose or date). The child&rsquo;s schedule is not affected.</p>}
+        <Field label={reviewing?.action === 'REJECT' ? 'Reason' : 'Remarks (optional)'} required={reviewing?.action === 'REJECT'} error={remarksError}>
+          <Textarea value={reviewRemarks} onChange={(e) => { setReviewRemarks(e.target.value); setRemarksError(null) }} rows={3} />
+        </Field>
+      </Modal>
     </div>
   )
 }

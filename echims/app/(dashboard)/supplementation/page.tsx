@@ -33,6 +33,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
+import { BatchNumberField } from '@/components/inventory/batch-number-field'
 import { Input, Select, DateInput } from '@/components/ui/form'
 
 type Child = {
@@ -2111,7 +2112,7 @@ export default function SupplementsPage() {
                       label: b.barangay_name,
                     })) ?? [],
                   )}
-                  {field("Batch Number", "batchNumber")}
+                  <BatchNumberField required value={String(form.batchNumber)} onChange={(v) => change("batchNumber", v as never)} />
                   {field(
                     `Quantity Received (${catalog?.unit ?? "stock units"})`,
                     "quantity",

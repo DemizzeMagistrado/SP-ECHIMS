@@ -456,6 +456,9 @@ html[data-navigating] .page-gate { opacity: 0; transition: opacity 120ms var(--e
   outline-offset: 2px;
 }
 
+/* "Print next schedule" slip: hidden on screen; when printing it, only the slip prints. */
+.print-slip-root { display: none; }
+
 /* Print: content only, full width, black on white. Report outputs bring their own print rules on top. */
 @media print {
   @page { margin: 12mm; }
@@ -474,4 +477,6 @@ html[data-navigating] .page-gate { opacity: 0; transition: opacity 120ms var(--e
   /* Accordions print expanded with their headers, whatever is open on screen. */
   button[data-accordion-header] { display: flex !important; }
   [data-accordion-panel] { grid-template-rows: 1fr !important; opacity: 1 !important; }
+  body.printing-slip > *:not(.print-slip-root) { display: none !important; }
+  body.printing-slip > .print-slip-root { display: block !important; }
 }

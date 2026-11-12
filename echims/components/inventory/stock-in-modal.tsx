@@ -13,10 +13,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import useSWR from 'swr'
-import { Package, Hash, Calendar, MapPin, Syringe, Pill, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Package, Calendar, MapPin, Syringe, Pill, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { toast } from '@/components/ui/toast'
 
 import { Button } from '@/components/ui/button'
+import { BatchNumberField, checkBatchNumber } from '@/components/inventory/batch-number-field'
 import { Modal } from '@/components/ui/modal'
 import { DateInput, Input, Select } from '@/components/ui/form'
 
@@ -79,7 +80,8 @@ export function StockInModal({ open, onClose, onSaved }: Props) {
     setFormError('')
     if (!itemId) return setFormError('Please pick an item.')
     if (!barangayId) return setFormError('Please pick a barangay.')
-    if (!batchNumber.trim()) return setFormError('Batch number is required.')
+    const batch = checkBatchNumber(batchNumber, true)
+    if (batch.error) return setFormError(`Batch number: ${batch.error}`)
     const qty = Number(quantity)
     if (!Number.isFinite(qty) || qty <= 0) return setFormError('Quantity must be positive.')
     if (!expiryDate) return setFormError('Expiry date is required.')
@@ -94,7 +96,7 @@ export function StockInModal({ open, onClose, onSaved }: Props) {
         body: JSON.stringify({
           item_id: Number(itemId),
           barangay_id: Number(barangayId),
-          batch_number: batchNumber.trim(),
+          batch_number: batch.value,
           quantity: qty,
           expiry_date: expiryDate,
           received_date: receivedDate,
@@ -160,14 +162,7 @@ export function StockInModal({ open, onClose, onSaved }: Props) {
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label htmlFor="si-batch" className="mb-1 block text-sm font-semibold text-foreground">
-                <Hash size={13} className="mr-1 inline" /> Batch number *
-              </label>
-              <Input id="si-batch" type="text" value={batchNumber} onChange={(e) => setBatchNumber(e.target.value)} required
-                placeholder="e.g. BCG-2026-001"
-                />
-            </div>
+            <BatchNumberField id="si-batch" required value={batchNumber} onChange={setBatchNumber} />
             <div>
               <label htmlFor="si-qty" className="mb-1 block text-sm font-semibold text-foreground">
                 <Package size={13} className="mr-1 inline" /> Quantity *

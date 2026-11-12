@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
+import { batchNumberError, isVaccinationSite, normalizeBatchNumber } from '@/lib/vaccination-config'
 
 // NIP-USR003 — Edit an administered-vaccination record (while still PENDING).
 // PATCH /api/vaccination/record-edit
@@ -77,8 +78,16 @@ export async function PATCH(request: Request) {
     if (new Date(d + 'T23:59:59') > new Date()) return invalid('vaccination_date cannot be in the future.')
     patch.vaccination_date = d
   }
-  if (body.batch_number !== undefined) patch.batch_number = (body.batch_number ?? '').toString().trim() || null
-  if (body.vaccination_site !== undefined) patch.vaccination_site = (body.vaccination_site ?? '').toString().trim() || null
+  if (body.batch_number !== undefined) {
+    const batchError = batchNumberError(body.batch_number)
+    if (batchError) return invalid(`Batch number: ${batchError}`)
+    patch.batch_number = normalizeBatchNumber(body.batch_number)
+  }
+  if (body.vaccination_site !== undefined) {
+    const site = (body.vaccination_site ?? '').toString().trim() || null
+    if (!isVaccinationSite(site)) return invalid('Choose a vaccination site from the list.')
+    patch.vaccination_site = site
+  }
   if (body.remarks !== undefined) patch.remarks = (body.remarks ?? '').toString().trim() || null
   if (Object.keys(patch).length === 0) return invalid('Nothing to update.')
 

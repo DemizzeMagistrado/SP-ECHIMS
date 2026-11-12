@@ -6,6 +6,7 @@ import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
+import { BatchNumberField, checkBatchNumber } from '@/components/inventory/batch-number-field'
 import { Modal } from '@/components/ui/modal'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 type Product = { supplement_id: number; name: string; unit: string };
@@ -178,7 +179,7 @@ export function SupplementStockRequestsPanel({
     if (
       action === "APPROVE" &&
       (!approve ||
-        !batch.batchNumber.trim() ||
+        checkBatchNumber(batch.batchNumber, true).error !== null ||
         !batch.expiryDate ||
         !batch.receivedDate)
     ) {
@@ -199,7 +200,7 @@ export function SupplementStockRequestsPanel({
           ? {
               action,
               stockRequestId: approve!.stock_request_id,
-              batchNumber: batch.batchNumber.trim(),
+              batchNumber: checkBatchNumber(batch.batchNumber, true).value,
               expiryDate: batch.expiryDate,
               receivedDate: batch.receivedDate,
             }
@@ -549,19 +550,11 @@ export function SupplementStockRequestsPanel({
               quantity immediately. RHU source stock is not deducted.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="text-sm">
-                Batch number
-                <Input
-                  required
-                  maxLength={100}
-                  disabled={busy}
-                  className="mt-1"
-                  value={batch.batchNumber}
-                  onChange={(e) =>
-                    setBatch((f) => ({ ...f, batchNumber: e.target.value }))
-                  }
-                />
-              </label>
+              <BatchNumberField
+                required
+                value={batch.batchNumber}
+                onChange={(v) => setBatch((f) => ({ ...f, batchNumber: v }))}
+              />
               <label className="text-sm">
                 Expiry date
                 <DateInput

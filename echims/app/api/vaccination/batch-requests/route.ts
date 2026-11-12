@@ -8,6 +8,7 @@
 // a base SELECT with just the item embed, then batch-fetch everything else
 // in parallel and splice client-side. One extra round-trip, but bulletproof.
 
+import { batchNumberError, normalizeBatchNumber } from '@/lib/vaccination-config'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
@@ -142,8 +143,10 @@ export async function POST(request: Request) {
   const qty = Number(body.requested_quantity)
   if (!Number.isFinite(qty) || qty <= 0) return invalid('requested_quantity must be a positive number.')
 
-  const batchNumber = String(body.batch_number ?? '').trim()
+  const batchNumber = normalizeBatchNumber(String(body.batch_number ?? '')) ?? ''
   if (!batchNumber) return invalid('batch_number is required for vaccine batch requests.')
+  const batchError = batchNumberError(batchNumber)
+  if (batchError) return invalid(`Batch number: ${batchError}`)
 
   const targetBarangayId = Number(body.target_barangay_id)
   if (!Number.isSafeInteger(targetBarangayId) || targetBarangayId <= 0) {

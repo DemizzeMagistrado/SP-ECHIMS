@@ -126,6 +126,7 @@ export async function POST(request: Request) {
     stock_deducted?: boolean
     inventory_batch_id?: number
     inventory_transaction_id?: number
+    companions?: { item_id: number; item_name: string; quantity: number; deducted: boolean }[]
   } | null
 
   return NextResponse.json({
@@ -135,5 +136,7 @@ export async function POST(request: Request) {
     stock_deducted: data?.stock_deducted ?? false,
     inventory_batch_id: data?.inventory_batch_id ?? null,
     inventory_transaction_id: data?.inventory_transaction_id ?? null,
+    // Companion medications (e.g. Paracetamol Drops with Pentavalent); deducted=false means no stock.
+    companions: data?.companions ?? [],
   })
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
+import { batchNumberError, isVaccinationSite, normalizeBatchNumber } from '@/lib/vaccination-config'
 const headers={'Cache-Control':'private, no-store'}
 const json=(body:unknown,status=200)=>NextResponse.json(body,{status,headers})
 const invalid=(error:string,status=400)=>json({error},status)
@@ -23,10 +24,13 @@ export async function GET(request:Request){try{
  const auth=await authorize('view');if(auth instanceof NextResponse)return auth
  const {db,user,role}=auth,url=new URL(request.url),q=(url.searchParams.get('q')??'').trim().toLowerCase(),status=(url.searchParams.get('status')??'').toUpperCase()
  if(status&&!['PENDING','APPROVED','REJECTED'].includes(status))return invalid('Choose PENDING, APPROVED or REJECTED.')
- let query=db.from('vaccination_record').select(`vaccination_record_id,vaccination_date,dose_number,batch_number,vaccination_site,remarks,created_at,schedule_id,status,approved_by,approved_at,review_remarks,client_request_id,child:child(child_id,first_name,middle_name,last_name,date_of_birth,barangay_id,barangay:barangay(barangay_id,barangay_name)),vaccine:vaccine(vaccine_id,vaccine_type,dose_volume,route,target_age,item:item(item_id,item_name)),recorder:health_worker!fk_vaccination_recorded_by(user_id,user:users!fk_health_worker_user(user_id,full_name)),approver:users!fk_vaccination_approved_by(user_id,full_name)`).order('created_at',{ascending:false}).limit(200)
+ let query=db.from('vaccination_record').select(`vaccination_record_id,vaccination_date,dose_number,batch_number,vaccination_site,remarks,created_at,schedule_id,status,approved_by,approved_at,review_remarks,client_request_id,child:child(child_id,child_code,first_name,middle_name,last_name,date_of_birth,barangay_id,barangay:barangay(barangay_id,barangay_name),household:household(family_serial_no)),companions:vaccination_record_companion(item_id,quantity,deducted,note,item:item(item_name)),vaccine:vaccine(vaccine_id,vaccine_type,dose_volume,route,target_age,item:item(item_id,item_name),companions:vaccine_companion_item(item:item(item_id,item_name))),recorder:health_worker!fk_vaccination_recorded_by(user_id,user:users!fk_health_worker_user(user_id,full_name)),approver:users!fk_vaccination_approved_by(user_id,full_name)`).order('created_at',{ascending:false}).limit(200)
  if(status)query=query.eq('status',status)
  const result=await query;if(result.error)return invalid('Unable to load vaccination records.',500)
- const rows=(result.data??[]).filter(row=>{if(!q)return true;const c=Array.isArray(row.child)?row.child[0]:row.child;return !!c&&[c.first_name,c.middle_name,c.last_name].filter(Boolean).join(' ').toLowerCase().includes(q)})
+ const one=<T,>(v:T|T[]|null|undefined)=>(Array.isArray(v)?v[0]:v)??null
+ // Search: child name, Child ID, FSN, vaccine, batch.
+ const rows=(result.data??[]).filter(row=>{if(!q)return true;const c=one(row.child),v=one(row.vaccine),i=one(v?.item),h=one(c?.household)
+  return [c?.first_name,c?.middle_name,c?.last_name,c?.child_code,h?.family_serial_no,v?.vaccine_type,i?.item_name,row.batch_number].filter(Boolean).join(' ').toLowerCase().includes(q)})
  return json({rows,currentUserId:user.id,can_create:canPerform(role,'Vaccination','create'),can_review:canPerform(role,'Vaccination','approve'),can_export:canPerform(role,'Vaccination','export'),role})
  }catch(e){console.error('Vaccination GET:',e);return invalid('Unable to load records.',500)}}
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -45,8 +49,11 @@ export async function POST(request:Request){try{
  const childId=id(b.child_id),vaccineId=id(b.vaccine_id),dose=id(b.dose_number),scheduleId=b.schedule_id==null?null:id(b.schedule_id)
  if(!childId||!vaccineId||!dose||!date(b.vaccination_date)||(b.schedule_id!=null&&!scheduleId))return invalid('Choose valid IDs, dose and vaccination date.')
  if(b.vaccination_date>today())return invalid('Vaccination date cannot be in the future.')
- const batch=text(b.batch_number,200),site=text(b.vaccination_site,500),remarks=text(b.remarks,2000)
- if(batch===undefined||site===undefined||remarks===undefined)return invalid('Batch, site and remarks must be valid text within their limits.')
+ const rawBatch=text(b.batch_number,200),site=text(b.vaccination_site,500),remarks=text(b.remarks,2000)
+ if(rawBatch===undefined||site===undefined||remarks===undefined)return invalid('Batch, site and remarks must be valid text within their limits.')
+ const batchError=batchNumberError(rawBatch);if(batchError)return invalid(`Batch number: ${batchError}`)
+ if(!isVaccinationSite(site))return invalid('Choose a vaccination site from the list.')
+ const batch=normalizeBatchNumber(rawBatch)
  const values={child_id:childId,vaccine_id:vaccineId,dose_number:dose,vaccination_date:b.vaccination_date,batch_number:batch,vaccination_site:site,remarks,schedule_id:scheduleId}
  type Saved=typeof values&{vaccination_record_id:number;status:string;recorded_by:string;client_request_id:string}
  const respond=(saved:Saved,replayed:boolean)=>{
@@ -67,9 +74,10 @@ export async function POST(request:Request){try{
  const vaccine=await db.from('vaccine').select('vaccine_id').eq('vaccine_id',vaccineId).maybeSingle()
  if(vaccine.error)return invalid('Unable to verify vaccine.',500);if(!vaccine.data)return invalid('Vaccine not found.')
  if(scheduleId){const s=await db.from('health_activity_schedule').select('barangay_id,activity_type,status').eq('schedule_id',scheduleId).maybeSingle();if(s.error)return invalid('Unable to verify activity.',500);if(!s.data||s.data.barangay_id!==child.data.barangay_id||s.data.activity_type!=='VACCINATION'||!['APPROVED','ONGOING','COMPLETED'].includes(s.data.status))return invalid('Linked activity is unavailable or incompatible. Review the draft.',409)}
- const duplicate=await db.from('vaccination_record').select('vaccination_record_id,status').eq('child_id',childId).eq('vaccine_id',vaccineId).eq('dose_number',dose).in('status',['PENDING','APPROVED']).maybeSingle()
+ const duplicate=await db.from('vaccination_record').select('vaccination_record_id,status,vaccination_date,batch_number,vaccination_site,remarks,recorded_by').eq('child_id',childId).eq('vaccine_id',vaccineId).eq('dose_number',dose).in('status',['PENDING','APPROVED']).maybeSingle()
  if(duplicate.error)return invalid('Unable to check existing doses.',500)
- if(duplicate.data)return invalid(`Dose already ${duplicate.data.status.toLowerCase()} as record #${duplicate.data.vaccination_record_id}. Review the existing record.`,409)
+ // Conflict: send the saved version so the client can show both side by side.
+ if(duplicate.data){const d=duplicate.data;return json({error:`This dose is already ${d.status==='APPROVED'?'recorded and approved':'recorded and waiting for approval'}. Compare the two versions and choose which to keep.`,conflict:{vaccination_record_id:d.vaccination_record_id,status:d.status,vaccination_date:d.vaccination_date,batch_number:d.batch_number,vaccination_site:d.vaccination_site,remarks:d.remarks,recorded_by_me:d.recorded_by===user.id}},409)}
  const inserted=await db.from('vaccination_record').insert({...values,recorded_by:user.id,status:'PENDING',client_request_id:b.client_request_id}).select(fields).single()
  if(inserted.error){
   if(inserted.error.code==='23505'){const saved=await db.from('vaccination_record').select(fields).eq('recorded_by',user.id).eq('client_request_id',b.client_request_id).maybeSingle();if(saved.error)return invalid('Unable to confirm concurrent save. Retry unchanged.',500);if(saved.data)return respond(saved.data as Saved,true);return invalid('A conflicting dose already exists. Review the draft.',409)}
