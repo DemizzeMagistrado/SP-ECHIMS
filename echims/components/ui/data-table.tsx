@@ -7,7 +7,7 @@
 //     { key: 'qty', header: 'Qty', cell: (r) => r.qty, sortValue: (r) => r.qty, align: 'right' },
 //   ]} empty={{ title: 'No stock yet', description: '…' }} toolbar={<SearchInput … />} />
 
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight } from 'lucide-react'
 import { EmptyState } from './empty-state'
 import { PAGE_SIZE, Pagination, usePagination } from './pagination'
@@ -41,11 +41,14 @@ type Props<T> = {
   pageSize?: number
   /** scroll = horizontal scroll on narrow screens; cards = one card per row below sm. */
   mobile?: 'scroll' | 'cards'
+  /** Keep the rows area as tall as a full page on every page (short last page = blank space), so
+   *  the pagination bar stays put at the bottom of the card. */
+  stableHeight?: boolean
   className?: string
 }
 
 export function DataTable<T>({
-  rows, columns, rowKey, caption, toolbar, empty, refreshing = false, onRowClick, rowLabel, pageSize = PAGE_SIZE, mobile = 'scroll', className,
+  rows, columns, rowKey, caption, toolbar, empty, refreshing = false, onRowClick, rowLabel, pageSize = PAGE_SIZE, mobile = 'scroll', stableHeight = false, className,
 }: Props<T>) {
   const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null)
 
@@ -82,6 +85,19 @@ export function DataTable<T>({
 
   const { visible, setPage, bindList, listStyle, props: pagerProps } = usePagination(sorted, Math.min(pageSize, PAGE_SIZE))
 
+  // stableHeight: remember the tallest full page and give every page that height.
+  // shortcut: only grows (e.g. after a narrow-to-wide resize it stays tall), reset on remount.
+  const [area, setArea] = useState<HTMLDivElement | null>(null)
+  const [areaMin, setAreaMin] = useState(0)
+  const fullPage = visible.length >= pagerProps.pageSize
+  useEffect(() => {
+    if (!stableHeight || !area || !fullPage) return
+    const observer = new ResizeObserver(() => setAreaMin((h) => Math.max(h, area.offsetHeight)))
+    observer.observe(area)
+    return () => observer.disconnect()
+  }, [stableHeight, area, fullPage])
+  const areaStyle = stableHeight ? (pagerProps.pageCount > 1 && areaMin ? { minHeight: areaMin } : undefined) : listStyle
+
   const toggle = (key: string) => {
     setSort((s) => (s?.key !== key ? { key, dir: 'asc' } : s.dir === 'asc' ? { key, dir: 'desc' } : null))
     setPage(0)
@@ -96,7 +112,7 @@ export function DataTable<T>({
         <EmptyState {...(empty ?? { title: 'Nothing to show yet' })} />
       ) : (
         <div ref={bindList} className={cn('scroll-mt-4 transition-opacity duration-200', refreshing && 'opacity-60')} aria-busy={refreshing || undefined}>
-          <div style={listStyle}>
+          <div ref={setArea} style={areaStyle}>
           {/* Sticky header: the scroll box is capped in height so the header has something to stick to. */}
           <div className={cn('scroll-subtle max-h-[70vh] overflow-auto', mobile === 'cards' && 'hidden sm:block')}>
             <table className="w-full border-separate border-spacing-0 text-sm">

@@ -76,7 +76,8 @@ Client-side table with sticky header, sortable columns (give a column `sortValue
 (6 per page, the shared `PAGE_SIZE`; `pageSize={0}` turns it off), right-aligned numbers (`align: 'right'`), `toolbar` slot for
 search/filters, EmptyState when empty (`empty` = EmptyState props), `refreshing` dims rows in place
 while a refetch runs (`isLoading && !!data` with SWR `keepPreviousData`). `mobile="cards"` stacks rows
-as cards below `sm`; default is horizontal scroll.
+as cards below `sm`; default is horizontal scroll. `stableHeight` keeps every page as tall as a full
+page so the pagination bar never jumps (on the Child Profiling list).
 ```tsx
 <DataTable rows={rows} rowKey={(r) => r.id} refreshing={isLoading && !!data}
   empty={{ icon: Package, title: 'No stock recorded yet' }}

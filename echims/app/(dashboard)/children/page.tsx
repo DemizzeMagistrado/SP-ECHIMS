@@ -148,6 +148,7 @@ export default function ChildHealthPage() {
         <LogoLoader size="section" label="Loading child records…" />
       ) : (
         <DataTable
+          stableHeight
           rows={filtered}
           columns={columns}
           rowKey={(c) => c.child_id}
