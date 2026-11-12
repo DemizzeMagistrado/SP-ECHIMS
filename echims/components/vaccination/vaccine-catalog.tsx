@@ -21,7 +21,8 @@ import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { LoadError } from '@/components/ui/load-error'
-import { Button } from '@/components/ui/button'
+import Link from 'next/link'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/form'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { AccordionCard, ExpandCollapseAll } from '@/components/ui/accordion-card'
@@ -62,7 +63,8 @@ type CatalogPayload = {
   role: UserRole
 }
 
-export function CatalogSection() {
+/** viewOnly: the Vaccination › NIP Catalog tab. Nobody edits there; Admin/PHN get "Edit in Settings". */
+export function CatalogSection({ viewOnly = false }: { viewOnly?: boolean } = {}) {
   const confirm = useConfirm()
   const { user, isReady } = useAuth()
   const role = user?.role as UserRole | undefined
@@ -71,7 +73,11 @@ export function CatalogSection() {
   const canView = role ? canPerform(role, 'NIP Catalog', 'view') : false
 
   const { data, error, isLoading, readOnly, savedAt, mutate } = useVaccinationView<CatalogPayload>(isReady && canView ? '/api/vaccines/catalog' : null)
-  const isAdmin = administrator && !readOnly
+  const isAdmin = administrator && !readOnly && !viewOnly
+  const canManage = role === 'Administrator' || role === 'Public Health Nurse'
+  const settingsLink = viewOnly && canManage && (
+    <Link href="/settings/vaccine-catalog" className={buttonVariants({ variant: 'tonal' })}><Pencil size={15} aria-hidden="true" /> Edit in Settings</Link>
+  )
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<VaccineCatalogRow | null>(null)
   const [togglingId, setTogglingId] = useState<number | null>(null)
@@ -152,15 +158,17 @@ export function CatalogSection() {
       <PageHeader
         title="NIP Vaccine Catalog"
         subtitle="The DOH immunization catalog and schedule rules. Open a vaccine for eligibility and guidelines; every change is logged."
-        actions={isAdmin && (
+        actions={isAdmin ? (
           <Button onClick={openCreate}><Plus size={17} aria-hidden="true" /> Add new vaccine</Button>
-        )}
+        ) : settingsLink}
       />
 
       {!isAdmin && (
         <div className="flex items-start gap-2 rounded-xl border border-brand-blue/20 bg-brand-ice px-4 py-3 text-sm text-brand-navy">
           <Eye size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
-          <span><strong>Read-only view.</strong> Only administrators can add, edit or deactivate vaccines.</span>
+          <span><strong>Read-only view.</strong> {viewOnly && canManage
+            ? 'Edit vaccines, companion medicines and the batch number format in Settings › Vaccine Catalog.'
+            : 'Only administrators can add, edit or deactivate vaccines.'}</span>
         </div>
       )}
 

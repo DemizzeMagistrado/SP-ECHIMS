@@ -1,6 +1,7 @@
 'use client'
 import { StatCard } from '@/components/ui/stat-card'
 import { FilterBar } from '@/components/ui/filter-bar'
+import { CatalogSection } from '@/components/vaccination/vaccine-catalog'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 // Vaccination module — all sections merged into one page (one route).
@@ -556,7 +557,7 @@ function ScheduleSection() {
   }
   const reviewChild = reviewing ? one(reviewing.child) : null
   const truncated = Boolean(counts && counts.total_matched > counts.total_shown)
-  const chipLabel: Record<StatusChip, string> = { all: 'All', pending: 'Pending', missed: 'Missed', assist: 'BHW to assist' }
+  const chipLabel: Record<StatusChip, string> = { all: 'All', pending: 'Pending', missed: 'Defaulters (Missed)', assist: 'BHW to assist' }
 
   return (
     <div className="space-y-6">
@@ -731,12 +732,27 @@ function ScheduleSection() {
 
 /* ═════════════════════════ Page ═════════════════════════ */
 
-// Two tabs (NIP-REV01): Defaulters is the Missed chip of Schedule, SMS reminders are on Schedule
-// rows, the NIP Catalog moved to Settings › Vaccine Catalog and Batch Requests to Inventory.
+// Three tabs (NIP-REV01): Defaulters is Schedule's "Defaulters (Missed)" chip (with a count on the
+// tab), SMS reminders are on Schedule rows, NIP Catalog is view-only (editing in Settings › Vaccine
+// Catalog) and Batch Requests live in Inventory.
 const TABS = [
   { id: 'records', label: 'Records', resource: 'Vaccination' },
   { id: 'schedule', label: 'Schedule', resource: 'Vaccination' },
+  { id: 'catalog', label: 'NIP Catalog', resource: 'NIP Catalog' },
 ] as const
+
+/** Schedule tab label with the number of defaulters (children with a missed dose). Same URL as
+ *  the Schedule list's default view, so SWR shares one request. */
+function ScheduleTabLabel({ enabled }: { enabled: boolean }) {
+  const { data } = useVaccinationView<DosesPayload>(enabled ? '/api/vaccination/defaulters?include=pending' : null)
+  const n = data?.counts.unique_children_affected ?? 0
+  return (
+    <span className="inline-flex items-center gap-2">
+      Schedule
+      {n > 0 && <span aria-label={`${n} defaulters`} className="inline-flex min-w-5 items-center justify-center rounded-full bg-danger px-1.5 text-[11px] font-bold leading-5 text-white tabular-nums">{n}</span>}
+    </span>
+  )
+}
 
 type TabId = (typeof TABS)[number]['id']
 
@@ -745,7 +761,7 @@ export default function VaccinationPage() {
   const { user, isReady } = useAuth()
   const role = user?.role as UserRole | undefined
   const [chosen, setTab] = useState<TabId | null>(null)
-  const tab: TabId = chosen ?? (pathname?.endsWith('/schedule') ? 'schedule' : 'records')
+  const tab: TabId = chosen ?? (pathname?.endsWith('/schedule') ? 'schedule' : pathname?.endsWith('/catalog') ? 'catalog' : 'records')
 
   if (!isReady) {
     return <LogoLoader />
@@ -772,13 +788,14 @@ export default function VaccinationPage() {
         group="vaccination"
         value={active}
         onChange={setTab}
-        items={visible.map((t) => ({ value: t.id, label: t.label }))}
+        items={visible.map((t) => ({ value: t.id, label: t.id === 'schedule' ? <ScheduleTabLabel enabled={Boolean(role && canPerform(role, 'Vaccination', 'view'))} /> : t.label }))}
       />
 
       {/* Holds the previous tab's height and fades the new one in once its data is in. */}
       <TabPanel tabKey={active}>
         {active === 'records' && <RecordsSection key={user?.id} onGoToSchedule={() => setTab('schedule')} />}
         {active === 'schedule' && <ScheduleSection key={user?.id} />}
+        {active === 'catalog' && <CatalogSection key={user?.id} viewOnly />}
       </TabPanel>
     </div>
   )

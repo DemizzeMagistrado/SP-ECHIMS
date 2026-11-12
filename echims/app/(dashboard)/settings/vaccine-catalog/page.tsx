@@ -1,7 +1,7 @@
 'use client'
 
 // Settings › Vaccine Catalog (Admin / PHN): the NIP catalog (moved from Vaccination), companion
-// medicines per vaccine and the batch number format. /vaccination/catalog redirects here.
+// medicines per vaccine and the batch number format. Vaccination › NIP Catalog is the view-only copy.
 
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
