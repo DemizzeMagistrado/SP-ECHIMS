@@ -5,7 +5,7 @@ import { Logo } from '@/components/brand/logo'
 
 const points = [
   'Immunization, nutrition, and supplementation in one child record',
-  'Rules flag overdue doses and send SMS reminders to guardians',
+  'Rules flag missed doses and send SMS reminders to guardians',
   'Keeps working offline in the field',
 ]
 

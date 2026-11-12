@@ -188,13 +188,13 @@ export function BarangayRankingWidget({ style, size = 'tall' }: WidgetProps) {
   const { data, error, isLoading } = useWidget<{ barangays: BarangayRow[] }>('barangays')
   const [by, setBy] = useState<'overdue' | 'at_risk'>('overdue')
   const top = (data?.barangays ?? []).filter((b) => b[by] > 0).sort((a, b) => b[by] - a[by]).slice(0, SHOWN)
-  const what = by === 'overdue' ? 'overdue vaccinations' : 'malnourished children'
+  const what = by === 'overdue' ? 'missed vaccinations' : 'malnourished children'
   return (
     <WidgetShell id="ranking" title="Barangays at risk" note="Top 5 by children needing follow-up"
       link={{ href: '/geospatial', label: 'Map' }} style={style} size={size}
       loading={isLoading} error={error}>
       <div role="tablist" aria-label="Rank barangays by" className="relative mb-3 flex shrink-0 gap-1 rounded-lg bg-brand-ice p-1">
-        {([['overdue', 'Overdue vaccines'], ['at_risk', 'Malnourished']] as const).map(([key, label]) => (
+        {([['overdue', 'Missed vaccines'], ['at_risk', 'Malnourished']] as const).map(([key, label]) => (
           <button key={key} type="button" role="tab" aria-selected={by === key} onClick={() => setBy(key)}
             className={`relative z-10 flex-1 rounded-md leading-tight px-3 py-1.5 text-sm font-semibold transition-colors duration-200 ${focusRing} ${by === key ? 'text-brand-navy' : 'text-brand-muted hover:text-brand-navy'}`}>
             {label}
@@ -225,7 +225,7 @@ export function MyBarangayWidget({ style, size = 'tall' }: WidgetProps) {
             <p className="truncate font-semibold">{b.name}</p>
             <dl className="mt-2 grid grid-cols-3 gap-2 text-sm">
               <div><dt className="text-brand-muted">Children</dt><dd className="text-xl font-semibold tabular-nums">{b.children.toLocaleString()}</dd></div>
-              <div><dt className="text-brand-muted">Overdue</dt><dd className={`text-xl font-semibold tabular-nums ${b.overdue ? 'text-danger' : ''}`}>{b.overdue.toLocaleString()}</dd></div>
+              <div><dt className="text-brand-muted">Missed</dt><dd className={`text-xl font-semibold tabular-nums ${b.overdue ? 'text-danger' : ''}`}>{b.overdue.toLocaleString()}</dd></div>
               <div><dt className="text-brand-muted">At risk</dt><dd className={`text-xl font-semibold tabular-nums ${b.at_risk ? 'text-nutrition' : ''}`}>{b.at_risk.toLocaleString()}</dd></div>
             </dl>
           </li>

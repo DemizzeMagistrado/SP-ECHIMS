@@ -73,6 +73,16 @@ child_medical_condition_catalog, guardian, barangay, household_information_histo
 child_profile_informant_history, and the previous `echims_submit_child` definition in
 `function_definitions`). Keep until it is agreed it can be dropped.
 
+## 3b. In both (NIP-REV01, applied 2026-11-12 via the Supabase connector)
+
+| Version | Name | What it did |
+|---|---|---|
+| 20261112102701 | nip_rev01_01_vaccination_revisions | `vaccine.vaccine_type` HEPB → `Hep-B` (1 row); Rotavirus item INACTIVE (1 row, records kept); new items MR Vaccine (vaccine 17) and Paracetamol Drops; `vaccine_companion_item` (Penta → Paracetamol Drops) and `vaccination_record_companion`; `child_vaccination_assist` (BHW-to-assist flag, RLS via child); trigger `nip_block_vaccination_schedule_reject`; `echims_normalize_batch` + canonical-batch CHECKs on 4 tables (0 rows needed normalizing); `msp_review_vaccination_record` also dispenses companion meds |
+| 20261112110619 | nip_rev01_02_missed_alert_wording | `run_alert_vaccination_monitoring` writes "Missed vaccination: …" instead of "Vaccination overdue: …" (new alerts only; past alert text is guarded and kept, 102 messages copied to `backup.nip_rev01_alert_messages`) |
+
+Backup taken before applying: schema `backup` tables `nip_rev01_vaccine`, `nip_rev01_item`,
+`nip_rev01_batch_numbers` (21 rows), `nip_rev01_functions` (previous review RPC and status guard).
+
 ## 4. Live changes with no migration anywhere (dated 2026-11-11 in code comments)
 
 Found on the live database but in neither the history nor any git branch:

@@ -1,13 +1,14 @@
 import type { ReportRow } from "@/lib/reports/report-utils";
 export const reportVaccines = [
   { code: "BCG", name: "BCG", doses: 1 },
-  { code: "HEPB", name: "Hepatitis B", doses: 1 },
-  { code: "PENTA", name: "DPT-Hib-HepB (Pentavalent)", doses: 3 },
+  { code: "HEPB", name: "Hep-B", doses: 1 },
+  { code: "PENTA", name: "Pentavalent (DPT-Hep B-HIB)", doses: 3 },
   { code: "OPV", name: "OPV", doses: 3 },
   { code: "IPV", name: "IPV", doses: 2 },
   { code: "PCV13", name: "PCV", doses: 3 },
   { code: "ROTA", name: "Rotavirus", doses: 2 },
   { code: "MMR", name: "MMR", doses: 2 },
+  { code: "MR", name: "MR (Measles-Rubella)", doses: 1 },
 ] as const;
 export const reportAgeGroups = [
   { label: "0–12 months", min: 0, max: 12 },
@@ -26,6 +27,7 @@ export function vaccineCode(row: ReportRow) {
     DPTHIBHEPB: "PENTA",
     PCV: "PCV13",
     ROTAVIRUS: "ROTA",
+    MEASLESRUBELLA: "MR",
   };
   return aliases[raw] ?? raw;
 }

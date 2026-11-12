@@ -230,7 +230,7 @@ export default function SettingsPage() {
               </h2>
               <div className="space-y-4">
                 {[
-                  { title: 'Vaccination Alerts', desc: 'Receive alerts for overdue vaccinations' },
+                  { title: 'Vaccination Alerts', desc: 'Receive alerts for missed vaccinations' },
                   { title: 'Nutrition Alerts', desc: 'Alerts for malnutrition cases' },
                   { title: 'Stock Alerts', desc: 'Low stock and critical alerts' },
                   { title: 'Report Ready', desc: 'Notification when reports are ready' },

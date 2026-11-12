@@ -53,7 +53,7 @@ function reminderLabel(type: string) {
       ? "Supplementation"
       : "Health";
   if (type.includes("UPCOMING")) return `${program} — Upcoming reminder`;
-  if (type.includes("OVERDUE")) return `${program} — Overdue reminder`;
+  if (type.includes("OVERDUE")) return `${program} — Missed-dose reminder`;
   return `${program} reminder`;
 }
 

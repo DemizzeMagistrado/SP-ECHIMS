@@ -79,7 +79,7 @@ const features: Feature[] = [
     details: [
       'Schedule for BCG, Hepatitis B, Pentavalent, OPV, IPV, PCV, and MMR',
       'Record each dose with its vaccine batch',
-      'Missed and overdue doses are flagged automatically',
+      'Missed doses are flagged and rescheduled automatically',
     ],
     roles: 'Midwives, nurses',
   },
@@ -137,7 +137,7 @@ const features: Feature[] = [
     category: 'Monitoring',
     summary: 'The rule engine tells you what needs attention, so you don’t have to search.',
     details: [
-      'Overdue doses, nutrition concerns, and low stock',
+      'Missed doses, nutrition concerns, and low stock',
       'In-app notifications for the people responsible',
       'Mark alerts as handled once acted on',
     ],
