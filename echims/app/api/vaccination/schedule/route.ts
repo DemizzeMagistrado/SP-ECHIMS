@@ -8,7 +8,7 @@ import { canPerform, type UserRole } from '@/lib/echims-data'
 // Returns the per-child vaccination schedule requests the signed-in user can see.
 // RLS on health_activity_schedule already scopes rows to the user's RHU/barangay —
 // Admin sees all, PHN sees their RHU, BHW/RHM/BNS see their assigned barangay.
-// 'can_review' is derived from role so the client can show/hide approve/reject.
+// 'can_review' is derived from role so the client can show/hide approve / ask for a new date.
 
 const roleAliases: Record<string, UserRole> = {
   administrator: 'Administrator', admin: 'Administrator',
@@ -56,7 +56,8 @@ export async function GET(request: Request) {
     .select(`
       schedule_id, status, schedule_date, created_at, remarks, review_remarks,
       child_id, barangay_id, created_by, reviewed_by, reviewed_at,
-      child:child(child_id, first_name, middle_name, last_name, date_of_birth),
+      child:child(child_id, child_code, first_name, middle_name, last_name, date_of_birth,
+        household:household(family_serial_no), assist:child_vaccination_assist(reason, flagged_at)),
       barangay:barangay(barangay_id, barangay_name)
     `)
     .eq('activity_type', 'VACCINATION')
@@ -71,15 +72,16 @@ export async function GET(request: Request) {
   const { data, error } = await query
   if (error) return invalid('Unable to load the schedule list.', 500)
 
-  // Client-side 'q' filter on child name — the embedded child columns can't be
+  // Client-side 'q' filter (child name, Child ID, FSN, barangay) — the embedded columns can't be
   // searched server-side without an RPC. Fine for ≤200 rows.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const one = (v: any) => (Array.isArray(v) ? v[0] : v) ?? null
   const rows = (data ?? []).filter((row) => {
     if (!q) return true
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const c: any = Array.isArray(row.child) ? row.child[0] : row.child
+    const c = one(row.child)
     if (!c) return false
-    const name = `${c.first_name ?? ''} ${c.middle_name ?? ''} ${c.last_name ?? ''}`.toLowerCase()
-    return name.includes(q.toLowerCase())
+    const hay = [c.first_name, c.middle_name, c.last_name, c.child_code, one(c.household)?.family_serial_no, one(row.barangay)?.barangay_name]
+    return hay.filter(Boolean).join(' ').toLowerCase().includes(q.toLowerCase())
   })
 
   const canReview = role === 'Public Health Nurse' || role === 'Administrator'

@@ -3,7 +3,8 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 // NIP-USR001 — Vaccination Schedule section for the child profile page.
 // Loads the computed schedule preview + the latest request status. BHW/RHM see a
 // "Request Schedule" button when no PENDING request exists; everyone sees the preview.
-// Status badges mirror the health_activity_schedule lifecycle (PENDING / APPROVED / REJECTED).
+// Status badges mirror the health_activity_schedule lifecycle (PENDING / APPROVED / NEEDS_REVISION).
+// Schedules are never rejected (NIP-REV01); a reviewer asks for a new date instead.
 import { useId, useState } from 'react'
 import { ImmunizationHistorySection } from '@/components/children/immunization-history-section'
 import useSWR from 'swr'
@@ -24,6 +25,8 @@ type ScheduleEntry = {
   recommended_date: string
   route: string
   dose_volume: string
+  /** Missed (or pushed back): the next valid date. */
+  rescheduled_date?: string
   /** Past the vaccine's age limit (e.g. BCG after the first birthday). */
   not_eligible?: boolean
 }
@@ -219,7 +222,7 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
           )}
         </div>
       )}
-      {/* Pending-request banner with review remarks when rejected */}
+      {/* Review remarks when the reviewer asked for a new date (old rows may be REJECTED) */}
       {data.latest_request && (data.latest_request.status === 'REJECTED' || data.latest_request.status === 'NEEDS_REVISION') && data.latest_request.review_remarks && (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
           <p className="font-semibold">Reviewer remarks:</p>
@@ -255,7 +258,9 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
                       {entry.not_eligible ? (
                         <StatusBadge status="not-eligible" tone="neutral" label="Not eligible (past age limit)" />
                       ) : overdue ? (
-                        <StatusBadge status="missed" tone="danger" icon={<AlertCircle size={12} aria-hidden="true" />} label={`Missed since ${formatDate(entry.recommended_date)}`} />
+                        <StatusBadge status="missed" tone="danger" icon={<AlertCircle size={12} aria-hidden="true" />} label={entry.rescheduled_date ? `Missed · rescheduled to ${formatDate(entry.rescheduled_date)}` : 'Missed'} />
+                      ) : entry.rescheduled_date ? (
+                        <StatusBadge status="pending" tone="info" icon={<Clock size={12} aria-hidden="true" />} label={`Pending · moved to ${formatDate(entry.rescheduled_date)}`} />
                       ) : soon ? (
                         <StatusBadge status="pending" tone="warn" icon={<Clock size={12} aria-hidden="true" />} label={diff === 0 ? 'Pending · due today' : `Pending · due in ${diff} day${diff === 1 ? '' : 's'}`} />
                       ) : (

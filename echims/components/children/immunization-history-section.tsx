@@ -3,7 +3,7 @@ import { StatCard } from '@/components/ui/stat-card'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 // NIP-USR004 — Immunization history section (replaces the inline Vaccination History
 // SectionCard on the child profile page). Shows:
-//   - "Next due" callout (overdue first, then due)
+//   - Missed summary card (count, longest missed) + next dose (rescheduled date when Missed)
 //   - Summary counts
 //   - Vaccine filter dropdown
 //   - Table with every dose + status badge (COMPLETE / DUE / OVERDUE / UPCOMING)
@@ -24,11 +24,16 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Select } from '@/components/ui/form'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Button } from '@/components/ui/button'
+import Link from 'next/link'
+import { manilaTodayYMD, nipDaysBetween } from '@/lib/nip-schedule'
+import { BhwAssistBadge, BhwAssistToggle } from '@/components/vaccination/bhw-assist'
 type DoseStatus = 'COMPLETE' | 'DUE' | 'OVERDUE' | 'UPCOMING' | 'NOT_ELIGIBLE'
 type DoseRow = {
   dose_number: number
   status: DoseStatus
   due_date: string
+  /** Missed (or pushed back) doses: the next valid date. */
+  rescheduled_date?: string | null
   given_date: string | null
   batch_number: string | null
   vaccination_site: string | null
@@ -49,7 +54,8 @@ type Payload = {
   child: { child_id: number; first_name: string; middle_name: string | null; last_name: string; date_of_birth: string }
   vaccine_status: VaccineStatus[]
   next_due: ({ vaccine_code: string; vaccine_type: string } & DoseRow) | null
-  counts: { complete: number; due: number; overdue: number; upcoming: number }
+  counts: { complete: number; due: number; overdue: number; upcoming: number; not_eligible?: number }
+  bhw_assist?: { reason: string | null } | null
 }
 const STATUS_META: Record<DoseStatus, { label: string; icon: React.ReactNode }> = {
   COMPLETE: { label: 'Completed', icon: <CheckCircle2 size={12} aria-hidden="true" /> },
@@ -64,7 +70,13 @@ const fetcher = async (url: string) => {
   if (!r.ok) throw new Error(d.error || 'Unable to load immunization history.')
   return d
 }
-function formatDate(ymd: string | null): string {
+/** "Missed · rescheduled to Nov 20, 2026", "Pending · moved to …", or the plain status. */
+function doseLabel(r: DoseRow): string {
+  const base = STATUS_META[r.status].label
+  if (!r.rescheduled_date) return base
+  return r.status === 'OVERDUE' ? `${base} · rescheduled to ${formatDate(r.rescheduled_date)}` : `${base} · moved to ${formatDate(r.rescheduled_date)}`
+}
+function formatDate(ymd: string | null | undefined): string {
   if (!ymd) return '—'
   return new Date(ymd + 'T00:00:00').toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
 }
@@ -74,6 +86,8 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
   // NIP-USR008 — only roles with Vaccination 'create' can back-fill prior records.
   // After NIP-USR007, that's Admin / RHM / BHW (not PHN, not BNS).
   const canAddPrior = role ? canPerform(role, 'Vaccination', 'create') : false
+  const canTrace = role === 'Public Health Nurse' || role === 'Administrator'
+  const canFlag = role !== undefined && role !== 'Barangay Nutrition Scholar'
 
   const { data, error, isLoading, mutate } = useSWR<Payload>(
     childId ? `/api/vaccination/history?child_id=${childId}` : null,
@@ -142,7 +156,7 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
           <div>
             <h2 className="text-lg font-bold text-foreground">Immunization history</h2>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              Approved doses + computed due/overdue status against the DOH schedule.
+              Approved doses and Pending / Missed status against the DOH schedule.
             </p>
           </div>
         </div>
@@ -152,6 +166,7 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
               <Plus size={14} aria-hidden="true" /> Add past vaccination
             </Button>
           )}
+          {canFlag && data && <BhwAssistToggle childId={childId} childName={childName ?? [data.child.first_name, data.child.last_name].join(' ')} assist={data.bhw_assist ?? null} onChanged={() => mutate()} />}
           <Button variant="secondary" size="sm" onClick={handlePrint}>
             <Printer size={14} aria-hidden="true" /> Print
           </Button>
@@ -172,49 +187,36 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
         )}
         {data && (
           <>
-            {/* Next due callout */}
-            {data.next_due ? (
-              <div className={`flex items-start gap-3 rounded-xl border p-4 ${
-                data.next_due.status === 'OVERDUE'
-                  ? 'border-rose-200 bg-rose-50'
-                  : 'border-amber-200 bg-amber-50'
-              }`}>
-                <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${
-                  data.next_due.status === 'OVERDUE' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'
-                }`}>
-                  {data.next_due.status === 'OVERDUE' ? <AlertCircle size={16} /> : <Clock size={16} />}
-                </div>
-                <div className="flex-1">
-                  <p className={`text-xs font-semibold uppercase tracking-wide ${
-                    data.next_due.status === 'OVERDUE' ? 'text-rose-700' : 'text-amber-800'
-                  }`}>
-                    {data.next_due.status === 'OVERDUE' ? 'Missed dose' : 'Next due'}
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-foreground">
-                    {data.next_due.vaccine_type} — Dose {data.next_due.dose_number}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Scheduled: {formatDate(data.next_due.due_date)}
+            {/* Missed summary + next dose (StatusBadges, not a raw error block) */}
+            {(() => {
+              const today = manilaTodayYMD()
+              const missed = data.vaccine_status.flatMap((v) => v.doses.filter((d) => d.status === 'OVERDUE').map((d) => ({ ...d, vaccine_type: v.vaccine_type, days: nipDaysBetween(d.due_date, today) })))
+              const worst = [...missed].sort((x, y) => y.days - x.days)[0]
+              const next = data.next_due
+              const nextDate = next ? next.rescheduled_date ?? next.due_date : null
+              return (
+                <div className={`rounded-xl border p-4 ${missed.length ? 'border-danger/20 bg-danger-soft/50' : next ? 'border-brand-line bg-brand-ice/60' : 'border-good/25 bg-good-soft/60'}`}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {missed.length > 0
+                      ? <StatusBadge status="missed" tone="danger" icon={<AlertCircle size={12} aria-hidden="true" />} label={`${missed.length} missed ${missed.length === 1 ? 'dose' : 'doses'}`} />
+                      : <StatusBadge status="completed" tone="good" icon={<CheckCircle2 size={12} aria-hidden="true" />} label="No missed doses" />}
+                    {worst && <span className="text-sm text-brand-navy">Longest missed: <span className="font-semibold">{worst.vaccine_type} {worst.dose_number}, {worst.days} {worst.days === 1 ? 'day' : 'days'}</span></span>}
+                    <BhwAssistBadge assist={data.bhw_assist ?? null} />
+                  </div>
+                  <p className="mt-2 text-sm text-brand-muted">
+                    {next && nextDate
+                      ? <>Next dose: <span className="font-semibold text-brand-navy">{next.vaccine_type} dose {next.dose_number}</span> on <span className="font-semibold text-brand-navy">{formatDate(nextDate)}</span>{next.status === 'OVERDUE' ? ' (rescheduled after a missed date)' : ''}.</>
+                      : 'All doses for this age are given or past their age limit.'}
                   </p>
                 </div>
-              </div>
-            ) : (
-              <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
-                  <CheckCircle2 size={16} />
-                </div>
-                <div className="flex-1">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">All caught up</p>
-                  <p className="mt-1 text-sm text-muted-foreground">No missed or due doses right now.</p>
-                </div>
-              </div>
-            )}
+              )
+            })()}
             {/* Summary counts */}
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <SummaryTile label="Complete" value={data.counts.complete} tone="emerald" />
-              <SummaryTile label="Due" value={data.counts.due} tone="amber" />
+              <SummaryTile label="Completed" value={data.counts.complete} tone="emerald" />
               <SummaryTile label="Missed" value={data.counts.overdue} tone="rose" />
-              <SummaryTile label="Pending" value={data.counts.upcoming} tone="slate" />
+              <SummaryTile label="Pending" value={data.counts.upcoming} tone="amber" />
+              <SummaryTile label="Not eligible" value={data.counts.not_eligible ?? 0} tone="slate" />
             </div>
             {/* Filters: two compact selects side by side (stacked on narrow phones), then the
                 expand/collapse controls on their own row, aligned right. */}
@@ -270,8 +272,8 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
                           <span className="text-xs text-muted-foreground sm:w-40 sm:text-right">
                             {g.next
                               ? g.next.status === 'OVERDUE'
-                                ? <>Missed since <span className="font-medium text-danger">{formatDate(g.next.due_date)}</span></>
-                                : <>Next due <span className="font-medium text-brand-navy">{formatDate(g.next.due_date)}</span></>
+                                ? <>Missed · rescheduled to <span className="font-medium text-danger">{formatDate(g.next.rescheduled_date ?? g.next.due_date)}</span></>
+                                : <>Next due <span className="font-medium text-brand-navy">{formatDate(g.next.rescheduled_date ?? g.next.due_date)}</span></>
                               : g.state === 'NOT_ELIGIBLE' ? 'Past the age limit' : 'All doses given'}
                           </span>
                         </span>
@@ -300,9 +302,9 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
                                         {formatDate(r.given_date)}
                                         {r.is_prior && <PriorChip source={r.prior_source} />}
                                       </td>
-                                      <td className="py-2.5 pr-3 text-muted-foreground">{r.batch_number ?? '—'}</td>
+                                      <td className="py-2.5 pr-3 text-muted-foreground"><BatchLink batch={r.batch_number} canTrace={canTrace} /></td>
                                       <td className="py-2.5 pr-3 text-muted-foreground">{doseRemarks(r)}</td>
-                                      <td className="py-2.5 text-right"><StatusBadge status={r.status} label={meta.label} icon={meta.icon} /></td>
+                                      <td className="py-2.5 text-right"><StatusBadge status={r.status} label={doseLabel(r)} icon={meta.icon} /></td>
                                     </tr>
                                   )
                                 })}
@@ -316,12 +318,12 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
                                   <li key={r.dose_number} className="rounded-lg bg-white p-3 text-sm ring-1 ring-border/70">
                                     <div className="flex items-center justify-between gap-2">
                                       <span className="font-medium text-brand-navy">Dose {r.dose_number}</span>
-                                      <StatusBadge status={r.status} label={meta.label} icon={meta.icon} />
+                                      <StatusBadge status={r.status} label={doseLabel(r)} icon={meta.icon} />
                                     </div>
                                     <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
                                       <dt className="text-brand-muted">Due</dt><dd>{formatDate(r.due_date)}</dd>
                                       <dt className="text-brand-muted">Given</dt><dd>{formatDate(r.given_date)}{r.is_prior && <PriorChip source={r.prior_source} />}</dd>
-                                      <dt className="text-brand-muted">Batch</dt><dd>{r.batch_number ?? '—'}</dd>
+                                      <dt className="text-brand-muted">Batch</dt><dd><BatchLink batch={r.batch_number} canTrace={canTrace} /></dd>
                                       <dt className="text-brand-muted">Site / remarks</dt><dd>{doseRemarks(r)}</dd>
                                     </dl>
                                   </li>
@@ -358,6 +360,12 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
 function SummaryTile({ label, value, tone }: { label: string; value: number; tone: 'emerald' | 'amber' | 'rose' | 'slate' }) {
   const map = { emerald: 'good', amber: 'warn', rose: 'danger', slate: 'default' } as const
   return <StatCard className="p-4" label={label} value={value} tone={map[tone]} />
+}
+
+function BatchLink({ batch, canTrace }: { batch: string | null; canTrace: boolean }) {
+  if (!batch) return <>—</>
+  if (!canTrace) return <>{batch}</>
+  return <Link href={`/inventory/batch-trace?batch_number=${encodeURIComponent(batch)}`} className="font-medium text-brand-blue underline-offset-2 hover:underline">{batch}</Link>
 }
 
 function PriorChip({ source }: { source: string | null | undefined }) {

@@ -3,8 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import {
   NIP_CATALOG,
-  getNipDoseDate,
-  nipDoseStatus,
+  nipVaccineTimeline,
   normalizeVaccineCode,
   manilaTodayYMD,
 } from '@/lib/nip-schedule'
@@ -50,6 +49,8 @@ type DoseRow = {
   dose_number: number
   status: DoseStatus
   due_date: string
+  /** Missed (or pushed-back) doses: the next valid date. */
+  rescheduled_date: string | null
   given_date: string | null
   batch_number: string | null
   vaccination_site: string | null
@@ -161,6 +162,8 @@ export async function GET(request: Request) {
       return invalid('Unable to load immunization history.', 500)
     }
 
+    const assistRes = await supabase.from('child_vaccination_assist').select('reason, flagged_at').eq('child_id', childId).maybeSingle()
+
     // Retain all approved records, including non-routine vaccines.
     const approvedRecords = recRes.data ?? []
     const today = manilaTodayYMD()
@@ -170,38 +173,27 @@ export async function GET(request: Request) {
       if (vaccine.routine_enabled === false) continue
 
       const doses: DoseRow[] = []
+      const matches = Array.from({ length: vaccine.total_doses }, (_, i) => approvedRecords.find(
+        (record) => joinedVaccineCode(record.vaccine) === vaccine.code && Number(record.dose_number) === i + 1,
+      ))
+      // Pending if due today or later, Missed once the date has passed (with the next valid date),
+      // Not eligible after the vaccine's age limit (same rules as the schedule tab and defaulters).
+      const timeline = nipVaccineTimeline(dob, vaccine, matches.map((m) => (m ? String(m.vaccination_date) : null)), today)
+      if (timeline.length !== vaccine.total_doses) {
+        return invalid('Unable to calculate the schedule. Check the child’s birth date and vaccine configuration.', 500)
+      }
 
-      for (let dose = 1; dose <= vaccine.total_doses; dose++) {
-        const dueDate = getNipDoseDate(dob, vaccine, dose)
-
-        if (!dueDate) {
-          return invalid(
-            'Unable to calculate the schedule. Check the child’s birth date and vaccine configuration.',
-            500,
-          )
-        }
-
-        const match = approvedRecords.find(
-          (record) =>
-            joinedVaccineCode(record.vaccine) === vaccine.code &&
-            Number(record.dose_number) === dose,
-        )
-
-        // Pending if due today or later, Missed once the date has passed, Not eligible after
-        // the vaccine's age limit (same rules as the schedule tab and defaulters).
-        const status: DoseStatus = nipDoseStatus(dob, vaccine, dueDate, Boolean(match), today)
-
+      for (const t of timeline) {
+        const match = matches[t.dose_number - 1]
         doses.push({
-          dose_number: dose,
-          status,
-          due_date: dueDate,
-          given_date: match
-            ? String(match.vaccination_date)
-            : null,
+          dose_number: t.dose_number,
+          status: t.status,
+          due_date: t.due_date,
+          rescheduled_date: t.rescheduled_date,
+          given_date: match ? String(match.vaccination_date) : null,
           batch_number: match?.batch_number ?? null,
           vaccination_site: match?.vaccination_site ?? null,
-          vaccination_record_id:
-            match?.vaccination_record_id ?? null,
+          vaccination_record_id: match?.vaccination_record_id ?? null,
           is_prior: Boolean(match?.is_prior),
           prior_source: match?.prior_source ?? null,
         })
@@ -230,8 +222,8 @@ export async function GET(request: Request) {
             ...dose,
           })),
       )
-      // Missed doses first (oldest first), then the next pending dose.
-      .sort((a, b) => (a.status === b.status ? a.due_date.localeCompare(b.due_date) : a.status === 'OVERDUE' ? -1 : 1))
+      // Earliest date the child can come in (rescheduled date for missed doses).
+      .sort((a, b) => (a.rescheduled_date ?? a.due_date).localeCompare(b.rescheduled_date ?? b.due_date) || (a.status === 'OVERDUE' ? -1 : 1))
 
     function countStatus(status: DoseStatus): number {
       return vaccineStatus.reduce(
@@ -249,6 +241,7 @@ export async function GET(request: Request) {
         approved_records: approvedRecords,
         vaccine_status: vaccineStatus,
         next_due: pendingDoses[0] ?? null,
+        bhw_assist: assistRes.data ?? null,
         counts: {
           complete: countStatus('COMPLETE'),
           due: countStatus('DUE'),

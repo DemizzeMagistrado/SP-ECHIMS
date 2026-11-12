@@ -17,8 +17,8 @@ import { usePathname, useRouter } from '@/lib/offline/navigation'
 import {
   Plus, Package, AlertCircle, Hash, MapPin, CalendarClock, CheckCircle2, Clock, XCircle,
   Pencil, Power, Syringe, Eye, History, BookOpen, Shield, Info,
-  ExternalLink, ArrowRight, Users, Search, Download, Calendar as CalendarIcon,
-  CalendarX,
+  ExternalLink, ArrowRight, Users, Search, Download,
+  CalendarX, HandHelping,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
@@ -40,6 +40,10 @@ import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { AccordionCard, ExpandCollapseAll } from '@/components/ui/accordion-card'
 import { DataTable } from '@/components/ui/data-table'
+import { Modal } from '@/components/ui/modal'
+import { Pagination, usePagination } from '@/components/ui/pagination'
+import { Field } from '@/components/ui/form'
+import { BhwAssistBadge, BhwAssistToggle } from '@/components/vaccination/bhw-assist'
 
 /* ═════════════════════════ Shared helpers ═════════════════════════ */
 
@@ -349,10 +353,15 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
 }
 /* ═════════════════════════ Schedule (NIP-USR002) ═════════════════════════ */
 
-type ScheduleChildRef = { child_id: number; first_name: string; middle_name: string | null; last_name: string; date_of_birth: string }
+type ScheduleChildRef = {
+  child_id: number; child_code: string | null; first_name: string; middle_name: string | null; last_name: string; date_of_birth: string
+  household?: { family_serial_no: string | null } | { family_serial_no: string | null }[] | null
+  assist?: { reason: string | null } | { reason: string | null }[] | null
+}
 type BarangayRef = { barangay_id: number; barangay_name: string }
 type ScheduleRow = {
   schedule_id: number
+  // REJECTED stays in the type for old rows only; schedules can no longer be rejected.
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'NEEDS_REVISION' | 'ONGOING' | 'COMPLETED' | 'CANCELLED'
   schedule_date: string
   created_at: string
@@ -375,25 +384,28 @@ type SchedulePayload = {
 const SCHEDULE_STATUS_META: Record<ScheduleRow['status'], { label: string }> = {
   PENDING: { label: 'Pending' },
   APPROVED: { label: 'Approved' },
-  REJECTED: { label: 'Rejected' },
-  NEEDS_REVISION: { label: 'Needs revision' },
+  NEEDS_REVISION: { label: 'Needs new date' },
   ONGOING: { label: 'Ongoing' },
   COMPLETED: { label: 'Completed' },
   CANCELLED: { label: 'Cancelled' },
+  REJECTED: { label: 'Rejected (old)' },
 }
+const SCHEDULE_FILTERS = ['PENDING', 'APPROVED', 'NEEDS_REVISION', 'COMPLETED', 'CANCELLED'] as const
 
 function ScheduleSection() {
   const { user, isReady } = useAuth()
   const role = user?.role as UserRole | undefined
   const canView = role ? canPerform(role, 'Vaccination Schedule', 'view') : false
+  const canFlag = role !== undefined && role !== 'Barangay Nutrition Scholar'
 
   const [status, setStatus] = useState<string>('PENDING')
   const [q, setQ] = useState('')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [reviewing, setReviewing] = useState<ScheduleRow | null>(null)
-  const [reviewAction, setReviewAction] = useState<'APPROVE' | 'REJECT' | null>(null)
+  const [reviewAction, setReviewAction] = useState<'APPROVE' | 'REVISE'>('APPROVE')
   const [reviewRemarks, setReviewRemarks] = useState('')
+  const [remarksError, setRemarksError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   const qs = useMemo(() => {
@@ -414,53 +426,43 @@ function ScheduleSection() {
 
   const rows = data?.rows ?? []
   const canReview = !readOnly && (data?.can_review ?? false)
-  const pendingCount = rows.filter((r) => r.status === 'PENDING').length
-  const approvedCount = rows.filter((r) => r.status === 'APPROVED').length
-  const rejectedCount = rows.filter((r) => r.status === 'REJECTED').length
+  const count = (st: ScheduleRow['status']) => rows.filter((r) => r.status === st).length
 
-  async function openReview(row: ScheduleRow, action: 'APPROVE' | 'REJECT') {
-    setReviewing(row)
-    setReviewAction(action)
-    setReviewRemarks('')
+  function openReview(row: ScheduleRow, action: 'APPROVE' | 'REVISE') {
+    setReviewing(row); setReviewAction(action); setReviewRemarks(''); setRemarksError(null)
   }
 
   async function submitReview() {
-    if (readOnly || !navigator.onLine || !reviewing || !reviewAction) return
-    if (reviewAction === 'REJECT' && !reviewRemarks.trim()) {
-      toast.error('A reason is required when rejecting a request.')
-      return
-    }
+    if (readOnly || !reviewing) return
+    if (!navigator.onLine) { toast.warning('You are offline. Reconnect to review this request; nothing was changed.'); return }
+    if (reviewAction === 'REVISE' && !reviewRemarks.trim()) { setRemarksError('Say which date or change is needed.'); return }
     setSubmitting(true)
     try {
       const r = await fetch('/api/vaccination/review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          schedule_id: reviewing.schedule_id,
-          action: reviewAction,
-          review_remarks: reviewRemarks.trim() || null,
-        }),
+        body: JSON.stringify({ schedule_id: reviewing.schedule_id, action: reviewAction, review_remarks: reviewRemarks.trim() || null }),
       })
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Unable to submit the review.')
-      toast.success(`Request ${reviewAction === 'APPROVE' ? 'approved' : 'rejected'}.`)
+      toast.success(reviewAction === 'APPROVE' ? 'Schedule approved.' : 'Sent back to the requester for a new date.')
       setReviewing(null)
-      setReviewAction(null)
-      setReviewRemarks('')
       revalidateVaccination(url)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Unable to submit the review.')
+      toast.error(`${err instanceof Error ? err.message : 'Unable to submit the review.'} Nothing was changed; try again.`)
     } finally {
       setSubmitting(false)
     }
   }
+
+  const reviewChild = reviewing ? one(reviewing.child) : null
 
   return (
     <div className="space-y-6">
       <VaccinationSnapshotNotice savedAt={savedAt} readOnly={readOnly} />
       <PageHeader
         title="Vaccination Schedule"
-        subtitle={<>{canReview ? 'Review and approve per-child vaccination schedule requests from BHWs and RHMs.' : 'Track the status of vaccination schedule requests you have submitted.'}</>}
+        subtitle={canReview ? 'Approve per-child vaccination schedules, or ask the requester for a new date.' : 'Track the vaccination schedule requests you have submitted.'}
       />
 
       {isLoading ? (
@@ -470,9 +472,9 @@ function ScheduleSection() {
       ) : (<>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <StatCard label="Total shown" value={rows.length} />
-          <StatCard label="Pending" value={pendingCount} tone="warn" />
-          <StatCard label="Approved" value={approvedCount} tone="good" />
-          <StatCard label="Rejected" value={rejectedCount} tone="danger" />
+          <StatCard label="Pending" value={count('PENDING')} tone="warn" />
+          <StatCard label="Approved" value={count('APPROVED')} tone="good" />
+          <StatCard label="Needs new date" value={count('NEEDS_REVISION')} tone="info" />
         </div>
 
         <DataTable
@@ -484,101 +486,91 @@ function ScheduleSection() {
           onRowClick={(row) => { const c = one(row.child); if (c) router.push(`/child-profiling/children/${c.child_id}`) }}
           rowLabel={(row) => { const c = one(row.child); return c ? `Open ${fullName(c)}'s profile` : 'Request' }}
           toolbar={
-            <fieldset disabled={readOnly} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_200px_auto]">
+            <fieldset disabled={readOnly} className="grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_200px_auto]">
               <div className="relative sm:col-span-2 lg:col-span-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} aria-hidden="true" />
-                <Input aria-label="Search requests" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by child name…" className="pl-9" />
+                <Input aria-label="Search requests" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Child name, Child ID, FSN or barangay…" className="pl-9" />
               </div>
               <Select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
                 <option value="">All statuses</option>
-                {Object.entries(SCHEDULE_STATUS_META).map(([key, meta]) => (
-                  <option key={key} value={key}>{meta.label}</option>
-                ))}
+                {SCHEDULE_FILTERS.map((key) => <option key={key} value={key}>{SCHEDULE_STATUS_META[key].label}</option>)}
               </Select>
               <div className="flex items-center gap-2">
-                <CalendarIcon size={16} aria-hidden="true" className="shrink-0 text-muted-foreground" />
-                <DateInput value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From date" className="min-w-0" />
+                <DateInput value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} aria-label="From date" className="min-w-0" />
                 <span className="text-sm text-muted-foreground">to</span>
-                <DateInput value={to} onChange={(e) => setTo(e.target.value)} aria-label="To date" className="min-w-0" />
+                <DateInput value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} aria-label="To date" className="min-w-0" />
               </div>
             </fieldset>
           }
-          empty={{ icon: CalendarX, title: 'No schedule requests match these filters', description: 'Try a different status, date range or name.' }}
+          empty={{ icon: CalendarX, title: 'No schedule requests match these filters', description: 'Try a different status, date range, name or Child ID.' }}
           columns={[
             {
               key: 'child', header: 'Child', sortValue: (row) => { const c = one(row.child); return c ? fullName(c) : '' },
-              cell: (row) => { const c = one(row.child); return c ? <span className="font-semibold text-brand-navy">{fullName(c)}</span> : <span className="text-muted-foreground">—</span> },
+              cell: (row) => {
+                const c = one(row.child)
+                if (!c) return <span className="text-muted-foreground">—</span>
+                return (
+                  <span className="flex flex-col items-end gap-1 sm:items-start">
+                    <span className="font-semibold text-brand-navy">{fullName(c)}</span>
+                    <span className="text-xs text-muted-foreground">{c.child_code ?? `#${c.child_id}`} · {one(row.barangay)?.barangay_name ?? '—'}</span>
+                    <BhwAssistBadge assist={one(c.assist)} />
+                  </span>
+                )
+              },
             },
-            { key: 'barangay', header: 'Barangay', sortValue: (row) => one(row.barangay)?.barangay_name ?? '', cell: (row) => one(row.barangay)?.barangay_name ?? '—' },
-            { key: 'requested', header: 'Requested', sortValue: (row) => row.created_at, cell: (row) => formatTimestamp(row.created_at) },
             { key: 'date', header: 'Scheduled for', sortValue: (row) => row.schedule_date, cell: (row) => <span className="font-medium">{formatYmd(row.schedule_date)}</span> },
-            { key: 'status', header: 'Status', sortValue: (row) => row.status, cell: (row) => <StatusBadge status={row.status} label={SCHEDULE_STATUS_META[row.status].label} /> },
-            ...(canReview ? [{
-              key: 'review', header: 'Review',
-              cell: (row: ScheduleRow) => (row.status === 'PENDING' || row.status === 'NEEDS_REVISION') ? (
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" onClick={() => openReview(row, 'APPROVE')}><CheckCircle2 size={14} aria-hidden="true" /> Approve</Button>
-                  <Button size="sm" variant="secondary" className="text-danger" onClick={() => openReview(row, 'REJECT')}><XCircle size={14} aria-hidden="true" /> Reject</Button>
-                </div>
-              ) : <span className="text-xs text-muted-foreground">—</span>,
-            }] : []),
+            { key: 'status', header: 'Status', sortValue: (row) => row.status, cell: (row) => <StatusBadge status={row.status === 'NEEDS_REVISION' ? 'upcoming' : row.status} label={SCHEDULE_STATUS_META[row.status].label} /> },
+            {
+              key: 'actions', header: <span className="sr-only">Actions</span>,
+              cell: (row: ScheduleRow) => {
+                const c = one(row.child)
+                return (
+                  <div className="flex flex-wrap justify-end gap-2 sm:justify-start">
+                    {canReview && row.status === 'PENDING' && <>
+                      <Button size="sm" onClick={() => openReview(row, 'APPROVE')}><CheckCircle2 size={14} aria-hidden="true" /> Approve</Button>
+                      <Button size="sm" variant="secondary" onClick={() => openReview(row, 'REVISE')}><CalendarClock size={14} aria-hidden="true" /> Ask for new date</Button>
+                    </>}
+                    {c && canFlag && !readOnly && <BhwAssistToggle childId={c.child_id} childName={fullName(c)} assist={one(c.assist)} onChanged={() => revalidateVaccination(url)} />}
+                    {c && <Link href={`/child-profiling/children/${c.child_id}#vaccination-schedule`} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>Child schedule</Link>}
+                  </div>
+                )
+              },
+            },
           ]}
         />
       </>)}
 
-      {/* Review modal */}
-      {reviewing && reviewAction && !readOnly && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 overflow-y-auto bg-black/30 p-4">
-          <div className="mx-auto mt-20 max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold text-foreground">
-                  {reviewAction === 'APPROVE' ? 'Approve request' : 'Reject request'}
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {(() => {
-                    const c = one(reviewing.child)
-                    return c ? `For ${fullName(c)} on ${new Date(reviewing.schedule_date + 'T00:00:00').toLocaleDateString()}.` : ''
-                  })()}
-                </p>
-              </div>
-              <button
-                onClick={() => { setReviewing(null); setReviewAction(null); setReviewRemarks('') }}
-                className="text-2xl text-muted-foreground"
-                aria-label="Close"
-              >×</button>
-            </div>
-
-            {reviewing.remarks && (
-              <div className="mt-4 rounded-lg bg-muted/60 p-3 text-sm">
-                <p className="font-semibold text-foreground">Requester remarks</p>
-                <p className="mt-1 text-muted-foreground">{reviewing.remarks}</p>
-              </div>
-            )}
-
-            <label className="mt-4 block text-sm font-medium text-foreground">
-              {reviewAction === 'REJECT' ? 'Reason for rejection (required)' : 'Review remarks (optional)'}
-              <Textarea
-                value={reviewRemarks}
-                onChange={(e) => setReviewRemarks(e.target.value)}
-                rows={3}
-                placeholder={reviewAction === 'REJECT' ? 'Explain why this request is being rejected...' : 'Any notes for the requester...'}
-                className="mt-1"
-              />
-            </label>
-
-            <div className="mt-6 flex justify-end gap-3">
-              <Button variant="secondary"
-                onClick={() => { setReviewing(null); setReviewAction(null); setReviewRemarks('') }}
-               
-              >Cancel</Button>
-              <Button variant={reviewAction === 'APPROVE' ? 'primary' : 'danger'} onClick={submitReview} loading={submitting}>
-                {reviewAction === 'APPROVE' ? 'Confirm approve' : 'Confirm reject'}
-              </Button>
-            </div>
+      <Modal
+        open={Boolean(reviewing) && !readOnly}
+        size="sm"
+        onClose={() => setReviewing(null)}
+        busy={submitting}
+        title={reviewAction === 'APPROVE' ? 'Approve schedule' : 'Ask for a new date'}
+        subtitle={reviewing && reviewChild ? `${fullName(reviewChild)} · ${formatYmd(reviewing.schedule_date)}` : undefined}
+        onSubmit={(e) => { e.preventDefault(); void submitReview() }}
+        bodyClassName="space-y-4"
+        footer={<Button type="submit" loading={submitting}>{reviewAction === 'APPROVE' ? 'Approve' : 'Send back for a new date'}</Button>}
+      >
+        {reviewing?.remarks && (
+          <div className="rounded-lg bg-brand-ice p-3 text-sm">
+            <p className="font-semibold text-brand-navy">Requester remarks</p>
+            <p className="mt-1 text-brand-muted">{reviewing.remarks}</p>
           </div>
-        </div>
-      )}
+        )}
+        <Field
+          label={reviewAction === 'REVISE' ? 'What needs to change?' : 'Remarks (optional)'}
+          required={reviewAction === 'REVISE'}
+          hint={reviewAction === 'REVISE' ? 'The requester sees this and picks a new date. Schedules are never rejected.' : undefined}
+          error={remarksError}
+        >
+          <Textarea
+            value={reviewRemarks}
+            onChange={(e) => { setReviewRemarks(e.target.value); setRemarksError(null) }}
+            rows={3}
+            placeholder={reviewAction === 'REVISE' ? 'e.g. No vaccinator on that day. Please choose a Wednesday.' : 'Any notes for the requester…'}
+          />
+        </Field>
+      </Modal>
     </div>
   )
 }
@@ -587,6 +579,9 @@ function ScheduleSection() {
 type Defaulter = {
   child_id: number
   child_name: string
+  child_code: string | null
+  family_serial_no: string | null
+  bhw_assist: { reason: string | null } | null
   date_of_birth: string
   barangay_id: number | null
   barangay_name: string | null
@@ -595,90 +590,84 @@ type Defaulter = {
   dose_number: number
   due_date: string
   days_overdue: number
-  status: 'DUE' | 'OVERDUE'
+  rescheduled_date: string | null
+  status: 'OVERDUE'
 }
 
 type DefaultersPayload = {
   defaulters: Defaulter[]
   counts: {
     overdue: number
-    due: number
     unique_children_affected: number
     total_children_in_scope: number
     total_shown: number
     total_matched: number
   }
   role: UserRole
-  grace_period_days: number
 }
 
 type ChildGroup = {
   child_id: number
   child_name: string
+  child_code: string | null
+  family_serial_no: string | null
+  bhw_assist: { reason: string | null } | null
   date_of_birth: string
   barangay_name: string | null
-  overdue_count: number
-  due_count: number
-  worst_days_overdue: number     // max days overdue across the child's doses — drives sort order
   doses: Defaulter[]
+  /** The dose missed the longest (drives sort order and the summary). */
+  worst: Defaulter
+}
+
+const days = (n: number) => `${n} ${n === 1 ? 'day' : 'days'}`
+/** "Missed · rescheduled to Nov 20, 2026" (or "Missed" when no new date). */
+function missedLabel(d: { rescheduled_date: string | null }) {
+  return d.rescheduled_date ? `Missed · rescheduled to ${formatYmd(d.rescheduled_date)}` : 'Missed'
 }
 
 function DefaultersSection() {
   const { user, isReady } = useAuth()
   const role = user?.role as UserRole | undefined
   const canView = role ? canPerform(role, 'Vaccination', 'view') : false
+  const canFlag = role !== undefined && role !== 'Barangay Nutrition Scholar'
 
-  const [statusFilter, setStatusFilter] = useState<'' | 'OVERDUE' | 'DUE'>('OVERDUE')
   const [vaccineFilter, setVaccineFilter] = useState<string>('')
+  const [assistOnly, setAssistOnly] = useState<'all' | 'assist'>('all')
   const [search, setSearch] = useState('')
-  // Open state per child; untouched cards start closed (long lists stay scannable).
+  // Open state per child; every card starts collapsed on each visit.
   const [openOverride, setOpenOverride] = useState<Record<number, boolean>>({})
 
-  const qs = useMemo(() => {
-    const p = new URLSearchParams()
-    if (statusFilter) p.set('status', statusFilter)
-    if (vaccineFilter) p.set('vaccine', vaccineFilter)
-    return p.toString()
-  }, [statusFilter, vaccineFilter])
-
-  const url = `/api/vaccination/defaulters${qs ? `?${qs}` : ''}`
+  const url = `/api/vaccination/defaulters${vaccineFilter ? `?vaccine=${vaccineFilter}` : ''}`
   const { data, error, isLoading, refreshing, readOnly, savedAt } = useVaccinationView<DefaultersPayload>(isReady && canView ? url : null)
 
-  // Group the flat defaulter list by child
   const groups = useMemo<ChildGroup[]>(() => {
-    const rows = data?.defaulters ?? []
     const byChild = new Map<number, ChildGroup>()
-    for (const r of rows) {
-      let g = byChild.get(r.child_id)
+    for (const r of data?.defaulters ?? []) {
+      const g = byChild.get(r.child_id)
       if (!g) {
-        g = {
-          child_id: r.child_id,
-          child_name: r.child_name,
-          date_of_birth: r.date_of_birth,
-          barangay_name: r.barangay_name,
-          overdue_count: 0,
-          due_count: 0,
-          worst_days_overdue: 0,
-          doses: [],
-        }
-        byChild.set(r.child_id, g)
+        byChild.set(r.child_id, {
+          child_id: r.child_id, child_name: r.child_name, child_code: r.child_code, family_serial_no: r.family_serial_no,
+          bhw_assist: r.bhw_assist, date_of_birth: r.date_of_birth, barangay_name: r.barangay_name, doses: [r], worst: r,
+        })
+      } else {
+        g.doses.push(r)
+        if (r.days_overdue > g.worst.days_overdue) g.worst = r
       }
-      g.doses.push(r)
-      if (r.status === 'OVERDUE') g.overdue_count++
-      else g.due_count++
-      if (r.days_overdue > g.worst_days_overdue) g.worst_days_overdue = r.days_overdue
     }
-    // Sort groups: worst-overdue first, then by name
-    return [...byChild.values()].sort((a, b) => {
-      if (a.worst_days_overdue !== b.worst_days_overdue) return b.worst_days_overdue - a.worst_days_overdue
-      return a.child_name.localeCompare(b.child_name)
-    })
+    return [...byChild.values()].sort((a, b) => b.worst.days_overdue - a.worst.days_overdue || a.child_name.localeCompare(b.child_name))
   }, [data])
 
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return q ? groups.filter((g) => g.child_name.toLowerCase().includes(q) || (g.barangay_name ?? '').toLowerCase().includes(q)) : groups
-  }, [groups, search])
+    return groups.filter((g) => {
+      if (assistOnly === 'assist' && !g.bhw_assist) return false
+      if (!q) return true
+      const hay = [g.child_name, g.child_code, g.family_serial_no, g.barangay_name, ...g.doses.map((d) => d.vaccine_type)].filter(Boolean).join(' ').toLowerCase()
+      return hay.includes(q)
+    })
+  }, [groups, search, assistOnly])
+  const { visible, bindList, listStyle, props: pagerProps } = usePagination(shown)
+
   const isOpen = (id: number) => openOverride[id] ?? false
   const allOpen = shown.length > 0 && shown.every((g) => isOpen(g.child_id))
   const noneOpen = shown.every((g) => !isOpen(g.child_id))
@@ -688,16 +677,14 @@ function DefaultersSection() {
   if (!canView) return <div className="rounded-2xl border border-border bg-white p-10 text-center text-red-600">You are not authorized to view the defaulters list.</div>
 
   const counts = data?.counts
-  // Both API statuses are past the due date: OVERDUE is past the grace period ("Missed"),
-  // DUE is within it ("Recently missed"). Wording only; the rules are unchanged.
-  const missedLabel = (st: 'DUE' | 'OVERDUE') => (st === 'OVERDUE' ? 'Missed' : 'Recently missed')
+  const assistCount = groups.filter((g) => g.bhw_assist).length
 
   return (
     <div className="space-y-6">
       <VaccinationSnapshotNotice savedAt={savedAt} readOnly={readOnly} />
       <PageHeader
         title="Vaccination: Defaulters"
-        subtitle={<>Children with vaccine doses past their due date{data ? <> · missed more than {data.grace_period_days} days ago is &ldquo;Missed&rdquo;, sooner is &ldquo;Recently missed&rdquo;</> : null}.</>}
+        subtitle="Children with Missed doses (due date passed, not given). Each Missed dose shows its next valid date."
       />
 
       {isLoading ? (
@@ -707,126 +694,91 @@ function DefaultersSection() {
       ) : (<>
         {counts && (
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <SummaryTile icon={<AlertCircle size={16} aria-hidden="true" />} label="Missed doses" value={counts.overdue} tone="rose" />
-            <SummaryTile icon={<Clock size={16} aria-hidden="true" />} label="Recently missed" value={counts.due} tone="amber" />
-            <SummaryTile icon={<Users size={16} aria-hidden="true" />} label="Children affected" value={counts.unique_children_affected} tone="sky" />
-            <SummaryTile icon={<Syringe size={16} aria-hidden="true" />} label="Children in scope" value={counts.total_children_in_scope} tone="slate" />
+            <StatCard icon={<AlertCircle size={16} aria-hidden="true" />} label="Missed doses" value={counts.overdue} tone="danger" />
+            <StatCard icon={<Users size={16} aria-hidden="true" />} label="Children affected" value={counts.unique_children_affected} tone="warn" />
+            <StatCard icon={<HandHelping size={16} aria-hidden="true" />} label="BHW to assist" value={assistCount} tone="info" onClick={() => setAssistOnly(assistOnly === 'assist' ? 'all' : 'assist')} pressed={assistOnly === 'assist'} />
+            <StatCard icon={<Syringe size={16} aria-hidden="true" />} label="Children in scope" value={counts.total_children_in_scope} />
           </div>
         )}
 
         <fieldset disabled={readOnly} className="space-y-3 rounded-2xl border border-border bg-white p-4">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_220px_220px]">
-            <div className="relative sm:col-span-2 lg:col-span-1">
+          <div className="grid gap-3 sm:grid-cols-[1fr_220px]">
+            <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} aria-hidden="true" />
-              <Input aria-label="Search children" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by child or barangay…" className="pl-9" />
+              <Input aria-label="Search defaulters" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Child name, Child ID, FSN, barangay or vaccine…" className="pl-9" />
             </div>
-            <Select aria-label="Missed status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as '' | 'OVERDUE' | 'DUE')}>
-              <option value="">All missed doses</option>
-              <option value="OVERDUE">Missed (past grace period)</option>
-              <option value="DUE">Recently missed</option>
-            </Select>
             <Select aria-label="Vaccine" value={vaccineFilter} onChange={(e) => setVaccineFilter(e.target.value)}>
               <option value="">All vaccines</option>
-              {NIP_CATALOG.map((v) => <option key={v.code} value={v.code}>{v.vaccine_type}</option>)}
+              {NIP_CATALOG.filter((v) => v.routine_enabled !== false).map((v) => <option key={v.code} value={v.code}>{v.vaccine_type}</option>)}
             </Select>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs text-muted-foreground">
-              {counts && counts.total_matched > counts.total_shown ? `Showing ${counts.total_shown} of ${counts.total_matched} doses — narrow the filters to see more.` : `${shown.length} ${shown.length === 1 ? 'child' : 'children'}`}
-            </span>
+            <FilterChips label="Show" value={assistOnly} onChange={setAssistOnly} options={[{ value: 'all', label: 'All children' }, { value: 'assist', label: 'BHW to assist', count: assistCount }]} />
             {shown.length > 1 && <ExpandCollapseAll allOpen={allOpen} noneOpen={noneOpen} onSet={setAll} />}
           </div>
+          {counts && counts.total_matched > counts.total_shown && (
+            <p className="text-xs text-muted-foreground">Showing the {counts.total_shown} longest-missed of {counts.total_matched} doses. Pick a vaccine to see the rest.</p>
+          )}
         </fieldset>
 
-        <div key={`${statusFilter}|${vaccineFilter}`} className={`animate-in fade-in duration-150 motion-reduce:animate-none ${refreshing ? 'opacity-60 transition-opacity' : ''}`}>
+        <div key={`${vaccineFilter}|${assistOnly}`} className={`animate-in fade-in duration-150 motion-reduce:animate-none ${refreshing ? 'opacity-60 transition-opacity' : ''}`}>
           {shown.length === 0 ? (
             <EmptyState
               icon={CheckCircle2}
-              title={search.trim() ? 'No children match this search' : 'No missed doses right now'}
-              description={search.trim() ? 'Try another name or barangay.' : 'Every child in these filters is up to date on their vaccinations.'}
+              title={search.trim() || assistOnly === 'assist' ? 'No children match these filters' : 'No missed doses right now'}
+              description={search.trim() || assistOnly === 'assist' ? 'Try another name, Child ID or vaccine, or show all children.' : 'Every child in scope is up to date on their vaccinations.'}
               className="rounded-2xl border border-dashed border-good/30 bg-good-soft/40"
             />
           ) : (
-            <ul className="space-y-2.5">
-              {shown.map((g) => {
-                const open = isOpen(g.child_id)
-                return (
-                  <AccordionCard
-                    key={g.child_id}
-                    id={`defaulter-${g.child_id}`}
-                    open={open}
-                    onToggle={() => setOpenOverride((o) => ({ ...o, [g.child_id]: !open }))}
-                    header={<>
-                      <span className="min-w-0 flex-1">
-                        <span className="block font-semibold text-brand-navy">{g.child_name}</span>
-                        <span className="block text-xs text-muted-foreground">{g.barangay_name ?? '—'} · Born {formatYmd(g.date_of_birth)}</span>
-                      </span>
-                      <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                        {g.overdue_count > 0 && <StatusBadge status="missed" tone="danger" label={`${g.overdue_count} missed`} />}
-                        {g.due_count > 0 && <StatusBadge status="recently-missed" tone="warn" label={`${g.due_count} recently missed`} />}
-                        <span className="text-xs text-muted-foreground sm:w-36 sm:text-right">
-                          Longest <span className={`font-semibold ${g.worst_days_overdue > 60 ? 'text-danger' : g.worst_days_overdue > 30 ? 'text-warn' : 'text-brand-navy'}`}>{g.worst_days_overdue} {g.worst_days_overdue === 1 ? 'day' : 'days'}</span>
+            <div className="overflow-hidden rounded-2xl border border-brand-line bg-white">
+              <ul ref={bindList} style={listStyle} className="scroll-mt-4 space-y-2.5 p-3">
+                {visible.map((g) => {
+                  const open = isOpen(g.child_id)
+                  return (
+                    <AccordionCard
+                      key={g.child_id}
+                      id={`defaulter-${g.child_id}`}
+                      open={open}
+                      onToggle={() => setOpenOverride((o) => ({ ...o, [g.child_id]: !open }))}
+                      header={<>
+                        <span className="min-w-0 flex-1">
+                          <span className="block font-semibold text-brand-navy">{g.child_name}</span>
+                          <span className="block text-xs text-muted-foreground">{g.child_code ?? `#${g.child_id}`} · {g.barangay_name ?? '—'} · Born {formatYmd(g.date_of_birth)}</span>
                         </span>
-                      </span>
-                    </>}
-                  >
-                    <div className="mb-2 flex justify-end">
-                      <Link href={`/child-profiling/children/${g.child_id}`} className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
-                        View child <ArrowRight size={12} aria-hidden="true" />
-                      </Link>
-                    </div>
-                    <table className="hidden w-full text-left text-sm sm:table">
-                      <thead>
-                        <tr className="text-[11px] uppercase tracking-wide text-brand-muted">
-                          <th className="pb-2 pr-3 font-medium">Vaccine</th>
-                          <th className="pb-2 pr-3 font-medium">Dose</th>
-                          <th className="pb-2 pr-3 font-medium">Due date</th>
-                          <th className="pb-2 pr-3 font-medium">Missed for</th>
-                          <th className="pb-2 text-right font-medium">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border/60">
-                        {g.doses.map((d, idx) => (
-                          <tr key={`${d.vaccine_code}-${d.dose_number}-${idx}`}>
-                            <td className="py-2.5 pr-3 font-medium text-brand-navy">{d.vaccine_type}</td>
-                            <td className="py-2.5 pr-3 text-muted-foreground">Dose {d.dose_number}</td>
-                            <td className="py-2.5 pr-3 text-muted-foreground">{formatYmd(d.due_date)}</td>
-                            <td className="py-2.5 pr-3 text-muted-foreground">{d.days_overdue} {d.days_overdue === 1 ? 'day' : 'days'}</td>
-                            <td className="py-2.5 text-right"><StatusBadge status={d.status} tone={d.status === 'OVERDUE' ? 'danger' : 'warn'} label={missedLabel(d.status)} /></td>
-                          </tr>
+                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                          <StatusBadge status="missed" tone="danger" label={`${g.doses.length} missed ${g.doses.length === 1 ? 'dose' : 'doses'}`} />
+                          <span className="text-xs text-muted-foreground">Longest missed: <span className="font-semibold text-danger">{g.worst.vaccine_type} {g.worst.dose_number}, {days(g.worst.days_overdue)}</span></span>
+                          <BhwAssistBadge assist={g.bhw_assist} />
+                        </span>
+                      </>}
+                    >
+                      <div className="mb-2 flex flex-wrap justify-end gap-2">
+                        {canFlag && !readOnly && <BhwAssistToggle childId={g.child_id} childName={g.child_name} assist={g.bhw_assist} onChanged={() => revalidateVaccination(url)} />}
+                        <Link href={`/child-profiling/children/${g.child_id}#vaccination-schedule`} className={buttonVariants({ variant: 'secondary', size: 'sm' })}>Child schedule</Link>
+                        <Link href={`/child-profiling/children/${g.child_id}`} className={buttonVariants({ variant: 'secondary', size: 'sm' })}>View child <ArrowRight size={12} aria-hidden="true" /></Link>
+                      </div>
+                      <ul className="space-y-2">
+                        {g.doses.map((d) => (
+                          <li key={`${d.vaccine_code}-${d.dose_number}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white p-3 text-sm ring-1 ring-border/70">
+                            <span>
+                              <span className="font-medium text-brand-navy">{d.vaccine_type} · Dose {d.dose_number}</span>
+                              <span className="block text-xs text-muted-foreground">Due {formatYmd(d.due_date)} · missed for {days(d.days_overdue)}</span>
+                            </span>
+                            <StatusBadge status="missed" tone="danger" label={missedLabel(d)} />
+                          </li>
                         ))}
-                      </tbody>
-                    </table>
-                    <ul className="space-y-2 sm:hidden">
-                      {g.doses.map((d, idx) => (
-                        <li key={`${d.vaccine_code}-${d.dose_number}-${idx}`} className="rounded-lg bg-white p-3 text-sm ring-1 ring-border/70">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-medium text-brand-navy">{d.vaccine_type} · Dose {d.dose_number}</span>
-                            <StatusBadge status={d.status} tone={d.status === 'OVERDUE' ? 'danger' : 'warn'} label={missedLabel(d.status)} />
-                          </div>
-                          <p className="mt-1 text-xs text-muted-foreground">Due {formatYmd(d.due_date)} · missed for {d.days_overdue} {d.days_overdue === 1 ? 'day' : 'days'}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  </AccordionCard>
-                )
-              })}
-            </ul>
+                      </ul>
+                    </AccordionCard>
+                  )
+                })}
+              </ul>
+              <Pagination {...pagerProps} label="Defaulter pages" />
+            </div>
           )}
         </div>
       </>)}
     </div>
   )
-}
-
-function SummaryTile({ icon, label, value, tone }: {
-  icon: React.ReactNode
-  label: string
-  value: number
-  tone: 'rose' | 'amber' | 'sky' | 'slate'
-}) {
-  const map = { rose: 'danger', amber: 'warn', sky: 'info', slate: 'default' } as const
-  return <StatCard icon={icon} label={label} value={value} tone={map[tone]} />
 }
 /* ═════════════════════════ SMS Reminders ═════════════════════════ */
 

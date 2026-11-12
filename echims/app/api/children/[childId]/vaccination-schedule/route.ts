@@ -4,7 +4,7 @@
 // GET  → computed preview of due/overdue doses for this child
 // POST → BHW/RHM creates a PENDING schedule request with date + optional time
 
-import { NIP_CATALOG, computeSchedule, manilaTodayYMD, nipDoseStatus, normalizeVaccineCode } from '@/lib/nip-schedule'
+import { NIP_CATALOG, manilaTodayYMD, nipVaccineTimeline, normalizeVaccineCode } from '@/lib/nip-schedule'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
@@ -38,34 +38,45 @@ export async function GET(
     .from('vaccine')
     .select('vaccine_id, vaccine_type')
 
-  let given: Array<{ vaccine_id: number; dose_number: number }> = []
+  let given: Array<{ vaccine_id: number; dose_number: number; vaccination_date: string; status: string }> = []
   try {
     const { data } = await supabase
       .from('vaccination_record')
-      .select('vaccine_id, dose_number')
+      .select('vaccine_id, dose_number, vaccination_date, status')
       .eq('child_id', id)
-    if (data) given = data as Array<{ vaccine_id: number; dose_number: number }>
+      .in('status', ['PENDING', 'APPROVED'])
+    if (data) given = data as typeof given
   } catch { /* ok */ }
 
   // Same schedule as the immunization history and defaulters (lib/nip-schedule): every date is
   // counted from this child's date of birth. Given doses are matched by vaccine code + dose.
   const codeById = new Map((vaccines ?? []).map((v) => [v.vaccine_id as number, normalizeVaccineCode(String(v.vaccine_type))]))
-  const givenSet = new Set(given.map((g) => `${codeById.get(g.vaccine_id) ?? ''}:${g.dose_number}`))
+  const givenOn = new Map(given.map((g) => [`${codeById.get(g.vaccine_id) ?? ''}:${g.dose_number}`, String(g.vaccination_date)]))
   const today = manilaTodayYMD()
 
   type Entry = {
     vaccine_code: string; vaccine_type: string; dose_number: number
     recommended_date: string; route: string; dose_volume: string
+    /** Missed (or pushed back): the next valid date. */
+    rescheduled_date?: string
     /** Past the vaccine's age limit (e.g. BCG after 12 months): shown, not counted as missed. */
     not_eligible?: boolean
   }
   const preview: Entry[] = []
   let excluded_count = 0
-  for (const e of computeSchedule(String(child.date_of_birth))) {
-    if (givenSet.has(`${e.vaccine_code}:${e.dose_number}`)) { excluded_count++; continue }
-    const vaccine = NIP_CATALOG.find((v) => v.code === e.vaccine_code)!
-    const status = nipDoseStatus(String(child.date_of_birth), vaccine, e.recommended_date, false, today)
-    preview.push({ ...e, ...(status === 'NOT_ELIGIBLE' ? { not_eligible: true } : {}) })
+  const dob = String(child.date_of_birth)
+  for (const vaccine of NIP_CATALOG) {
+    if (vaccine.routine_enabled === false) continue
+    const dates = Array.from({ length: vaccine.total_doses }, (_, i) => givenOn.get(`${vaccine.code}:${i + 1}`) ?? null)
+    for (const t of nipVaccineTimeline(dob, vaccine, dates, today)) {
+      if (t.status === 'COMPLETE') { excluded_count++; continue }
+      preview.push({
+        vaccine_code: vaccine.code, vaccine_type: vaccine.vaccine_type, dose_number: t.dose_number,
+        recommended_date: t.due_date, route: vaccine.route, dose_volume: vaccine.dose_volume,
+        ...(t.rescheduled_date ? { rescheduled_date: t.rescheduled_date } : {}),
+        ...(t.status === 'NOT_ELIGIBLE' ? { not_eligible: true } : {}),
+      })
+    }
   }
   preview.sort((a, b) => a.recommended_date.localeCompare(b.recommended_date))
 

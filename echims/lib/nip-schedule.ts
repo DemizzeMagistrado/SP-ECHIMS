@@ -8,6 +8,8 @@ export type NipVaccine = {
   /** Not given after this age (in months): the dose becomes "Not eligible", not "Missed". */
   max_age_months?: number
   routine_enabled?: boolean
+  /** Shortest gap after the previous dose when a missed dose is rescheduled (default interval_days, else 28). */
+  min_interval_days?: number
   route: string
   dose_volume: string
 }
@@ -29,7 +31,7 @@ export const NIP_CATALOG: NipVaccine[] = [
   },
   {
     code: 'HEPB',
-    vaccine_type: 'Hepatitis B',
+    vaccine_type: 'Hep-B',
     total_doses: 1,
     min_age_days: 0,
     interval_days: null,
@@ -93,6 +95,18 @@ export const NIP_CATALOG: NipVaccine[] = [
     min_age_days: 0,
     interval_days: null,
     dose_age_months: [9, 12],
+    min_interval_days: 28,
+    route: 'Subcutaneous',
+    dose_volume: '0.5 mL',
+  },
+  {
+    code: 'MR',
+    vaccine_type: 'MR',
+    total_doses: 1,
+    min_age_days: 270,
+    interval_days: null,
+    // Campaign / supplemental dose: recordable, not part of the routine card schedule.
+    routine_enabled: false,
     route: 'Subcutaneous',
     dose_volume: '0.5 mL',
   },
@@ -128,6 +142,8 @@ export function normalizeVaccineCode(value: string): string {
     ROTA: 'ROTA',
     ROTAVIRUS: 'ROTA',
     MMR: 'MMR',
+    MR: 'MR',
+    MEASLESRUBELLA: 'MR',
   }
 
   return aliases[normalized] ?? normalized
@@ -286,3 +302,52 @@ export function nipDaysBetween(from: string, to: string): number {
 
   return Math.round((end.getTime() - start.getTime()) / 86400000)
 } 
+function addDays(ymd: string, days: number): string {
+  const d = parseDate(ymd)!
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+export type NipTimelineDose = {
+  dose_number: number
+  due_date: string
+  status: NipDoseStatus
+  /** Set when the dose moves: a missed dose's next valid date (today or later), or a pending dose
+   *  pushed back because the dose before it was given or rescheduled late. */
+  rescheduled_date: string | null
+}
+
+/**
+ * Every dose of one vaccine for one child. A missed dose is rescheduled to the earliest valid
+ * date: not before today, its own due date, or the previous dose (given or rescheduled) plus the
+ * minimum interval. Past the vaccine's age limit the dose is NOT_ELIGIBLE instead.
+ * givenDates[i] is the date dose i+1 was given, or null.
+ */
+export function nipVaccineTimeline(dateOfBirth: string, vaccine: NipVaccine, givenDates: (string | null | undefined)[], today: string): NipTimelineDose[] {
+  const birth = parseDate(dateOfBirth)
+  const cutoff = birth && vaccine.max_age_months !== undefined ? addCalendarMonths(birth, vaccine.max_age_months).toISOString().slice(0, 10) : null
+  const gap = vaccine.min_interval_days ?? vaccine.interval_days ?? 28
+  const out: NipTimelineDose[] = []
+  let previous: string | null = null
+  for (let n = 1; n <= vaccine.total_doses; n++) {
+    const due = getNipDoseDate(dateOfBirth, vaccine, n)
+    if (!due) continue
+    const given = givenDates[n - 1] ?? null
+    let status = nipDoseStatus(dateOfBirth, vaccine, due, Boolean(given), today)
+    let rescheduled: string | null = null
+    const earliest: string | null = previous ? addDays(previous, gap) : null
+    // Missed: move to today or later. Pending but too close to a moved earlier dose: move too.
+    if (status === 'OVERDUE') rescheduled = earliest && earliest > today ? earliest : today
+    else if (status === 'UPCOMING' && earliest && earliest > due) rescheduled = earliest
+    if (rescheduled && cutoff && rescheduled >= cutoff) { status = 'NOT_ELIGIBLE'; rescheduled = null }
+    out.push({ dose_number: n, due_date: due, status, rescheduled_date: rescheduled })
+    previous = given ?? rescheduled ?? (status === 'UPCOMING' ? due : previous)
+  }
+  return out
+}
+
+/** Next date a dose of this vaccine can be given (the dose the child should get next), or null. */
+export function nipNextDose(timeline: NipTimelineDose[]): (NipTimelineDose & { date: string }) | null {
+  const d = timeline.find((x) => x.status === 'OVERDUE' || x.status === 'UPCOMING')
+  return d ? { ...d, date: d.rescheduled_date ?? d.due_date } : null
+}
