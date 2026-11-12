@@ -10,6 +10,7 @@
 //     computation (/api/vaccination/history), so the kid doesn't show up as
 //     a defaulter for a shot they actually received before enrollment.
 
+import { loadBatchRule } from '@/lib/batch-rule-server'
 import { NextResponse } from 'next/server'
 import { batchNumberError, isVaccinationSite, normalizeBatchNumber } from '@/lib/vaccination-config'
 import { createClient } from '@/lib/supabase/server'
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
     return invalid(`Dose ${doseNumber} of this vaccine is ${label} for this child.`, 409)
   }
 
-  const batchError = batchNumberError(body.batch_number)
+  const batchError = batchNumberError(body.batch_number, await loadBatchRule(supabase))
   if (batchError) return invalid(`Batch number: ${batchError}`)
   const site = body.vaccination_site?.trim() || null
   if (!isVaccinationSite(site)) return invalid('Choose a vaccination site from the list.')

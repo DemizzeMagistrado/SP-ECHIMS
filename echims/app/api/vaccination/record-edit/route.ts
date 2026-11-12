@@ -1,3 +1,4 @@
+import { loadBatchRule } from '@/lib/batch-rule-server'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
@@ -79,7 +80,7 @@ export async function PATCH(request: Request) {
     patch.vaccination_date = d
   }
   if (body.batch_number !== undefined) {
-    const batchError = batchNumberError(body.batch_number)
+    const batchError = batchNumberError(body.batch_number, await loadBatchRule(supabase))
     if (batchError) return invalid(`Batch number: ${batchError}`)
     patch.batch_number = normalizeBatchNumber(body.batch_number)
   }

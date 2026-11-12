@@ -1,3 +1,4 @@
+import { loadBatchRule } from '@/lib/batch-rule-server'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
@@ -51,7 +52,7 @@ export async function POST(request:Request){try{
  if(b.vaccination_date>today())return invalid('Vaccination date cannot be in the future.')
  const rawBatch=text(b.batch_number,200),site=text(b.vaccination_site,500),remarks=text(b.remarks,2000)
  if(rawBatch===undefined||site===undefined||remarks===undefined)return invalid('Batch, site and remarks must be valid text within their limits.')
- const batchError=batchNumberError(rawBatch);if(batchError)return invalid(`Batch number: ${batchError}`)
+ const batchError=batchNumberError(rawBatch,await loadBatchRule(db));if(batchError)return invalid(`Batch number: ${batchError}`)
  if(!isVaccinationSite(site))return invalid('Choose a vaccination site from the list.')
  const batch=normalizeBatchNumber(rawBatch)
  const values={child_id:childId,vaccine_id:vaccineId,dose_number:dose,vaccination_date:b.vaccination_date,batch_number:batch,vaccination_site:site,remarks,schedule_id:scheduleId}

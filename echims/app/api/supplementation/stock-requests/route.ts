@@ -1,3 +1,4 @@
+import { loadBatchRule } from '@/lib/batch-rule-server'
 import { batchNumberError, normalizeBatchNumber } from '@/lib/vaccination-config'
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
         !id(body.stockRequestId) ||
         typeof body.batchNumber !== "string" ||
         !normalizeBatchNumber(body.batchNumber) ||
-        batchNumberError(body.batchNumber) !== null ||
+        batchNumberError(body.batchNumber, await loadBatchRule(auth.db)) !== null ||
         !validDate(body.expiryDate) ||
         !validDate(body.receivedDate)
       )

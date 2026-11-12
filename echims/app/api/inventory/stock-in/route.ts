@@ -6,6 +6,7 @@
 // transaction + alert evaluation) lives in SQL. We just translate the HTTP
 // body + response.
 
+import { loadBatchRule } from '@/lib/batch-rule-server'
 import { batchNumberError, normalizeBatchNumber } from '@/lib/vaccination-config'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
   if (!Number.isSafeInteger(itemId) || itemId <= 0) return NextResponse.json({ error: 'item_id is required.' }, { status: 400 })
   if (!Number.isSafeInteger(barangayId) || barangayId <= 0) return NextResponse.json({ error: 'barangay_id is required.' }, { status: 400 })
   if (!batchNumber) return NextResponse.json({ error: 'batch_number is required.' }, { status: 400 })
-  const batchError = batchNumberError(batchNumber)
+  const batchError = batchNumberError(batchNumber, await loadBatchRule(supabase))
   if (batchError) return NextResponse.json({ error: `Batch number: ${batchError}` }, { status: 400 })
   if (!Number.isFinite(quantity) || quantity <= 0) return NextResponse.json({ error: 'quantity must be positive.' }, { status: 400 })
   if (!/^\d{4}-\d{2}-\d{2}$/.test(expiryDate)) return NextResponse.json({ error: 'expiry_date must be yyyy-mm-dd.' }, { status: 400 })

@@ -8,6 +8,7 @@
 // a base SELECT with just the item embed, then batch-fetch everything else
 // in parallel and splice client-side. One extra round-trip, but bulletproof.
 
+import { loadBatchRule } from '@/lib/batch-rule-server'
 import { batchNumberError, normalizeBatchNumber } from '@/lib/vaccination-config'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
@@ -145,7 +146,7 @@ export async function POST(request: Request) {
 
   const batchNumber = normalizeBatchNumber(String(body.batch_number ?? '')) ?? ''
   if (!batchNumber) return invalid('batch_number is required for vaccine batch requests.')
-  const batchError = batchNumberError(batchNumber)
+  const batchError = batchNumberError(batchNumber, await loadBatchRule(supabase))
   if (batchError) return invalid(`Batch number: ${batchError}`)
 
   const targetBarangayId = Number(body.target_barangay_id)

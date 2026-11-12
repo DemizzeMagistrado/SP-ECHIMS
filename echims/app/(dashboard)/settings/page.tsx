@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Save, Lock, Bell, Shield, User, Building, LogOut } from 'lucide-react'
+import { Save, Lock, Bell, Shield, User, Building, LogOut, Syringe } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { PageHeader } from '@/components/ui/page-header'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import Link from 'next/link'
 import { Input, Select } from '@/components/ui/form'
 import { TabBar } from '@/components/ui/module-tabs'
 import { TabPanel } from '@/components/brand/page-gate'
@@ -39,6 +40,9 @@ export default function SettingsPage() {
       <PageHeader
         title="Settings"
         subtitle="Manage system settings and user preferences"
+        actions={isAdmin || user?.role === 'Public Health Nurse' ? (
+          <Link href="/settings/vaccine-catalog" className={buttonVariants({ variant: 'secondary' })}><Syringe size={16} aria-hidden="true" /> Vaccine Catalog</Link>
+        ) : undefined}
       />
 
       <TabPanel tabKey={activeTab} className="space-y-6">

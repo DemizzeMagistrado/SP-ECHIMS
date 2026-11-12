@@ -1,7 +1,7 @@
 // Self-check: node --experimental-strip-types scripts/check-nip-schedule.mts
 import assert from 'node:assert/strict'
 import { NIP_CATALOG, nipVaccineTimeline, nipNextDose } from '../lib/nip-schedule.ts'
-import { normalizeBatchNumber, batchNumberError } from '../lib/vaccination-config.ts'
+import { normalizeBatchNumber, batchNumberError, parseBatchRule, DEFAULT_BATCH_RULE } from '../lib/vaccination-config.ts'
 
 const v = (code: string) => NIP_CATALOG.find((x) => x.code === code)!
 
@@ -32,4 +32,11 @@ assert.equal(normalizeBatchNumber('  bt  2026--0012 '), 'BT-2026-0012')
 assert.equal(batchNumberError('bt 2026 0012'), null)
 assert.ok(batchNumberError('BT/2026'))
 assert.equal(batchNumberError(''), null)
+// Configurable rule (Settings › Vaccine Catalog): slash allowed, 4–10 characters.
+const slash = parseBatchRule({ min: 4, max: 10, separators: '/-', example: 'AB/12' })
+assert.equal(batchNumberError('ab/12', slash), null)
+assert.ok(batchNumberError('ab/12', DEFAULT_BATCH_RULE))
+assert.ok(batchNumberError('A1', slash))                       // too short
+assert.deepEqual(parseBatchRule({ min: 9, max: 3, separators: '-' }), DEFAULT_BATCH_RULE) // insane → default
+assert.deepEqual(parseBatchRule({ min: 2, max: 30, separators: '-x' }).separators, '-')
 console.log('nip-schedule ok')
