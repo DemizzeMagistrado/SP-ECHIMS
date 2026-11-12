@@ -14,7 +14,7 @@ import { vaccinationKeyMatches } from '@/lib/vaccination-cache'
 import { VaccinationOfflineTools, VaccinationSnapshotNotice } from '@/components/vaccination/vaccination-offline-tools'
 import Link from 'next/link'
 import { usePathname, useRouter } from '@/lib/offline/navigation'
-import { Plus, Package, AlertCircle, CalendarClock, CheckCircle2, XCircle, Syringe, ArrowRight, Search, Download, CalendarX, HandHelping } from 'lucide-react'
+import { Plus, Package, AlertCircle, CalendarClock, CheckCircle2, XCircle, Syringe, ArrowRight, Search, Download, CalendarX, HandHelping, MessageSquare } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { toast } from '@/components/ui/toast'
@@ -208,10 +208,10 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
         subtitle="Administered vaccines awaiting PHN approval or already logged."
         actions={<>
           {role && canPerform(role, 'Vaccine Batch Requests', 'view') && (
-            <Link href="/inventory/batch-requests" className={buttonVariants({ variant: 'ghost' })}><Package size={16} aria-hidden="true" /> Batch requests</Link>
+            <Link href="/inventory/batch-requests" className={buttonVariants({ variant: 'tonal' })}><Package size={16} aria-hidden="true" /> Batch requests</Link>
           )}
           {canExport && (
-            <Button variant="secondary" onClick={() => toast.info('CSV export is coming in a later update.')}>
+            <Button variant="tonal" onClick={() => toast.info('CSV export is coming in a later update.')}>
               <Download size={16} aria-hidden="true" /> Export CSV
             </Button>
           )}
@@ -562,7 +562,7 @@ function ScheduleSection() {
         title="Vaccination Schedule"
         subtitle="Each child's next dose, Missed doses with their new dates, schedule requests and guardian reminders."
         actions={<>
-          {role === 'Administrator' && <Link href="/alerts?tab=SMS" className={buttonVariants({ variant: 'ghost' })}>SMS history</Link>}
+          {role === 'Administrator' && <Link href="/alerts?tab=SMS" className={buttonVariants({ variant: 'tonal' })}><MessageSquare size={16} aria-hidden="true" /> SMS history</Link>}
           {!readOnly && <BulkReminderButton rows={shown.map((c) => reminders.get(c.child_id)).filter((r): r is ReminderRow => Boolean(r))} data={sms.data} onSent={refreshAll} />}
         </>}
       />

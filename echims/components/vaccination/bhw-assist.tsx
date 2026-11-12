@@ -51,11 +51,11 @@ export function BhwAssistToggle({ childId, childName, assist, onChanged, disable
   return (
     <>
       {assist ? (
-        <Button size="sm" variant="secondary" disabled={disabled} loading={saving} onClick={() => void save(false)}>
+        <Button size="sm" variant="tonal" disabled={disabled} loading={saving} onClick={() => void save(false)}>
           <HandHelping size={14} aria-hidden="true" /> Remove BHW assist
         </Button>
       ) : (
-        <Button size="sm" variant="secondary" disabled={disabled} onClick={() => { setReason(''); setOpen(true) }}>
+        <Button size="sm" variant="tonal" disabled={disabled} onClick={() => { setReason(''); setOpen(true) }}>
           <HandHelping size={14} aria-hidden="true" /> BHW to assist
         </Button>
       )}

@@ -12,6 +12,9 @@ const buttonVariants = cva(
       variant: {
         primary: 'border-transparent bg-primary text-white shadow-sm hover:bg-primary/90',
         secondary: 'border-brand-line bg-white text-brand-navy hover:bg-brand-ice',
+        // Added/secondary actions that should stand out a little (Send reminders, Print, Expand all…):
+        // light brand-blue fill, navy text, brand-blue icon, slightly darker tinted border.
+        tonal: 'border-brand-blue/25 bg-brand-blue/10 text-brand-navy hover:border-brand-blue/40 hover:bg-brand-blue/[0.16] active:bg-brand-blue/20 [&_svg]:text-brand-blue',
         ghost: 'border-transparent bg-transparent text-brand-navy hover:bg-brand-ice',
         danger: 'border-transparent bg-danger text-white shadow-sm hover:bg-danger/90',
       },

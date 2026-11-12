@@ -40,7 +40,9 @@ Display-font title, one-line muted subtitle, `actions` on the right (wrap below 
 ```
 
 ## Button — `button.tsx`
-`variant`: `primary` (default) · `secondary` · `ghost` · `danger`; `size`: `sm` · `md` (default) · `icon`;
+`variant`: `primary` (default, solid navy: the main action) · `secondary` (white outline: neutral) · `tonal`
+(light brand-blue fill, navy text, blue icon: added/secondary actions that should stand out, e.g. Send
+reminders, Print, Export, Refresh, Expand all, Batch requests, View history) · `ghost` · `danger`; `size`: `sm` · `md` (default) · `icon`;
 `loading` shows a spinner and disables. Defaults to `type="button"`. For links use `buttonVariants()`:
 ```tsx
 <Button variant="danger" loading={deleting} onClick={remove}>Delete</Button>

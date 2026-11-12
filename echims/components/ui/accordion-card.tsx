@@ -51,10 +51,10 @@ export function AccordionCard({ id, open, onToggle, header, children, className 
 export function ExpandCollapseAll({ allOpen, noneOpen, onSet }: { allOpen: boolean; noneOpen: boolean; onSet: (open: boolean) => void }) {
   return (
     <div className="flex justify-end gap-2">
-      <Button variant="secondary" size="sm" onClick={() => onSet(true)} disabled={allOpen}>
+      <Button variant="tonal" size="sm" onClick={() => onSet(true)} disabled={allOpen}>
         <ChevronsDown size={14} aria-hidden="true" />Expand all
       </Button>
-      <Button variant="secondary" size="sm" onClick={() => onSet(false)} disabled={noneOpen}>
+      <Button variant="tonal" size="sm" onClick={() => onSet(false)} disabled={noneOpen}>
         <ChevronsUp size={14} aria-hidden="true" />Collapse all
       </Button>
     </div>

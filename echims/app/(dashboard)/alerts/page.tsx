@@ -555,7 +555,7 @@ function AlertsWorkspace() {
         title="Alert Management"
         subtitle="Monitor system alerts and configure supported evaluation rules"
         actions={<>
-          <Button variant="secondary"
+          <Button variant="tonal"
             disabled={loading || !owner}
             onClick={() => void load()}
           >

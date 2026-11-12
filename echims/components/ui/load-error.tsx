@@ -24,7 +24,7 @@ export function LoadError({ what, error, onRetry, retrying = false }: { what: st
         <AlertTriangle size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-danger" />
         <span><span className="font-semibold">We couldn&rsquo;t load {what}.</span> {plain(error, what)}</span>
       </p>
-      <Button variant="secondary" size="sm" loading={retrying} onClick={onRetry}><RotateCw size={14} aria-hidden="true" /> Try again</Button>
+      <Button variant="tonal" size="sm" loading={retrying} onClick={onRetry}><RotateCw size={14} aria-hidden="true" /> Try again</Button>
     </div>
   )
 }

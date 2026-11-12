@@ -91,7 +91,7 @@ export function SendReminderButton({ row, data, onSent }: { row: ReminderRow | u
   return (
     <Button
       size="sm"
-      variant="secondary"
+      variant="tonal"
       disabled={Boolean(block)}
       title={block ?? undefined}
       onClick={async () => {
@@ -121,7 +121,7 @@ export function BulkReminderButton({ rows, data, onSent }: { rows: ReminderRow[]
   const ready = rows.filter((r) => !reminderBlock(r, data))
   return (
     <Button
-      variant="secondary"
+      variant="tonal"
       disabled={ready.length === 0}
       title={ready.length === 0 ? 'No guardian in this list can be reminded today' : undefined}
       onClick={async () => {

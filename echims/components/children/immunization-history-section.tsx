@@ -167,7 +167,7 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
             </Button>
           )}
           {canFlag && data && <BhwAssistToggle childId={childId} childName={childName ?? [data.child.first_name, data.child.last_name].join(' ')} assist={data.bhw_assist ?? null} onChanged={() => mutate()} />}
-          <Button variant="secondary" size="sm" onClick={handlePrint}>
+          <Button variant="tonal" size="sm" onClick={handlePrint}>
             <Printer size={14} aria-hidden="true" /> Print
           </Button>
         </div>

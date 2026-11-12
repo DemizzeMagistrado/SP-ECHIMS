@@ -144,7 +144,7 @@ export default function BatchTracePage() {
           <Search size={14} /> Trace
         </Button>
         {data && (
-          <Button variant="secondary" onClick={downloadCsv}
+          <Button variant="tonal" onClick={downloadCsv}
            >
             <Download size={14} /> Export CSV
           </Button>

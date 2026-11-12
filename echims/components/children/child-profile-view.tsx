@@ -606,7 +606,7 @@ export function ChildProfileView({childId}: {childId: string}) {
           Back to Children
         </Link>
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => window.print()}>
+            <Button variant="tonal" onClick={() => window.print()}>
               <Printer size={16} aria-hidden="true" />
               Print
             </Button>

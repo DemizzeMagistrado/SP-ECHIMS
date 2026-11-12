@@ -170,7 +170,7 @@ export function SupplementationMonitoringPanel({
             applies.
           </p>
         </div>
-        <Button variant="secondary"
+        <Button variant="tonal"
           disabled={loading || !online}
           onClick={refresh}
         >

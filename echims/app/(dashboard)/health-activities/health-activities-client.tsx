@@ -663,7 +663,7 @@ function ActivityWorkspace() {
                   />
                 </label>
 
-                <Button variant="secondary" size="sm" onClick={() => void loadActivities()}>
+                <Button variant="tonal" size="sm" onClick={() => void loadActivities()}>
                   <RefreshCw size={15} />
                   Refresh
                 </Button>

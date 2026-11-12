@@ -162,7 +162,7 @@ export default function GeospatialMapPage() {
       <PageHeader
         title="Map"
         subtitle={data?.scopeLabel ? `Where registered children live and who needs follow-up · ${data.scopeLabel}` : 'Where registered children live and who needs follow-up.'}
-        actions={<Button variant="secondary" onClick={() => mutate()} disabled={isLoading}><RefreshCw size={16} aria-hidden="true" />Refresh</Button>}
+        actions={<Button variant="tonal" onClick={() => mutate()} disabled={isLoading}><RefreshCw size={16} aria-hidden="true" />Refresh</Button>}
       />
 
       {error && !data ? (

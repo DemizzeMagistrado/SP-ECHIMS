@@ -257,7 +257,7 @@ export function RecordVaccinationModal({ open, onClose, onSaved, ownerId, prefil
         cancelLabel="Done"
         footer={<>
           <Button variant="secondary" onClick={() => { setOpenedFor(null) }}>Record another</Button>
-          {next && next !== 'unknown' && <Button onClick={printSlip}><Printer size={15} aria-hidden="true" /> Print next schedule</Button>}
+          {next && next !== 'unknown' && <Button variant="tonal" onClick={printSlip}><Printer size={15} aria-hidden="true" /> Print next schedule</Button>}
         </>}
       >
         <div className="space-y-4">
