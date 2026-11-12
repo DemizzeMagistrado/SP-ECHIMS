@@ -101,19 +101,19 @@ export default function ChildHealthPage() {
   }
 
   const columns: Column<Child>[] = [
-    { key: 'id', header: 'Child ID', headerExtra: <InfoTip label="About Child ID">{CHILD_ID_HELP}</InfoTip>, cell: (c) => <span className="font-mono text-xs font-semibold text-brand-navy">{c.id}</span>, sortValue: (c) => c.id },
+    { key: 'id', header: 'Child ID', headerExtra: <InfoTip label="About Child ID">{CHILD_ID_HELP}</InfoTip>, cell: (c) => <span className="font-mono text-xs font-semibold text-brand-navy">{c.id}</span>, sortValue: (c) => c.id, className: 'w-44 whitespace-nowrap' },
     {
-      key: 'name', header: 'Name', sortValue: (c) => c.name,
+      key: 'name', header: 'Name', sortValue: (c) => c.name, className: 'min-w-48',
       cell: (c) => (
         <Link href={`/child-profiling/children/${c.child_id}`} onClick={(e) => e.stopPropagation()} className="font-medium text-brand-navy underline-offset-4 hover:underline">
           {c.name}
         </Link>
       ),
     },
-    { key: 'age', header: 'Age', cell: (c) => `${Math.max(0, monthsOld(c.dob))} mos`, sortValue: (c) => monthsOld(c.dob), align: 'right' },
-    { key: 'barangay', header: 'Barangay', cell: (c) => barangayName(c.barangay), sortValue: (c) => barangayName(c.barangay) },
+    { key: 'age', header: 'Age', cell: (c) => `${Math.max(0, monthsOld(c.dob))} mos`, sortValue: (c) => monthsOld(c.dob), align: 'right', className: 'w-24 whitespace-nowrap' },
+    { key: 'barangay', header: 'Barangay', cell: (c) => barangayName(c.barangay), sortValue: (c) => barangayName(c.barangay), className: 'w-[18%]' },
     {
-      key: 'fsn', header: 'FSN / Household', headerExtra: <InfoTip label="About the Family Serial Number (FSN)" align="end">{FSN_HELP}</InfoTip>, sortValue: (c) => c.familySerialNo,
+      key: 'fsn', header: 'FSN / Household', headerExtra: <InfoTip label="About the Family Serial Number (FSN)" align="end">{FSN_HELP}</InfoTip>, sortValue: (c) => c.familySerialNo, className: 'w-[18%] whitespace-nowrap',
       cell: (c) => (
         <div>
           {c.familySerialNo ? (
@@ -124,7 +124,7 @@ export default function ChildHealthPage() {
         </div>
       ),
     },
-    { key: 'status', header: 'Status', cell: (c) => <StatusBadge status={c.status ?? 'ACTIVE'} tone={childStatusTone(c.status)} />, sortValue: (c) => c.status },
+    { key: 'status', header: 'Status', cell: (c) => <StatusBadge status={c.status ?? 'ACTIVE'} tone={childStatusTone(c.status)} />, sortValue: (c) => c.status, className: 'w-28 whitespace-nowrap' },
   ]
 
   if (!isReady) return <LogoLoader label="Loading child profiling…" />
@@ -161,7 +161,7 @@ export default function ChildHealthPage() {
             ? { icon: SearchX, title: 'No children match these filters', description: 'Try a broader search or clear the filters.', action: <Button variant="secondary" size="sm" onClick={clearFilters}>Clear filters</Button> }
             : { icon: Baby, title: 'No children registered yet', description: canRegister ? 'Use Register Child to add the first child in your area.' : 'Registered children in your area will be listed here.' }}
           toolbar={
-            <div className="space-y-3">
+            <div className="w-full min-w-0 space-y-3">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} aria-hidden="true" />
                 <Input
