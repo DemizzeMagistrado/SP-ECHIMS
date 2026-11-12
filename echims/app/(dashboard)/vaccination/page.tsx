@@ -42,6 +42,13 @@ import { BulkReminderButton, SendReminderButton, remindersByChild, type Reminder
 
 /* ═════════════════════════ Shared helpers ═════════════════════════ */
 
+/** After a dose is saved or reviewed: records plus every computed next date (Schedule, Records'
+ *  Next schedule column, child profile history). Next dates are never typed in; the server
+ *  computes them from date of birth, approved doses and the NIP rules (lib/nip-schedule). */
+function revalidateAfterDose() {
+  for (const url of ['/api/vaccination/records', '/api/vaccination/defaulters', '/api/vaccination/history']) revalidateVaccination(url)
+}
+
 function revalidateVaccination(url: string) {
  return globalMutate(key => vaccinationKeyMatches(key,url))
 }
@@ -162,8 +169,8 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
   }, [q, statusFilter])
 
   const url = `/api/vaccination/records${qs ? `?${qs}` : ''}`
-  // Next dose per child from the same data as the Schedule tab: a missed dose (its new date)
-  // first, else the earliest pending dose.
+  // Next dose per child, computed by the server (same data as the Schedule tab and child profile):
+  // a missed dose (its new date) first, else the earliest pending dose. Never entered by hand.
   const schedule = useVaccinationView<DosesPayload>(isReady && canView ? '/api/vaccination/defaulters?include=pending' : null)
   const nextByChild = useMemo(() => {
     const map = new Map<number, DoseRow>()
@@ -210,7 +217,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
         : 'Record marked Needs correction. The recorder can see your note.')
       if (notDeducted.length) toast.warning(`${notDeducted.join(', ')} had no stock in this barangay, so it was recorded but not deducted. Restock it in Inventory.`)
       setReviewing(null)
-      revalidateVaccination('/api/vaccination/records')
+      revalidateAfterDose()
     } catch (err) {
       toast.error(`${err instanceof Error ? err.message : 'Review failed.'} Nothing was changed; try again.`)
     } finally {
@@ -348,7 +355,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
       <RecordVaccinationModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        onSaved={() => revalidateVaccination('/api/vaccination/records')}
+        onSaved={revalidateAfterDose}
         ownerId={user?.id ?? null}
       />
 
