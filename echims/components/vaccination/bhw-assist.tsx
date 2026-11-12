@@ -21,8 +21,8 @@ export function BhwAssistBadge({ assist }: { assist: BhwAssist }) {
 
 const REASONS = ['No mobile phone', 'Far from the RHU', 'Guardian needs a reminder visit']
 
-export function BhwAssistToggle({ childId, childName, assist, onChanged, disabled }: {
-  childId: number; childName: string; assist: BhwAssist; onChanged: () => void; disabled?: boolean
+export function BhwAssistToggle({ childId, childName, assist, onChanged, disabled, variant = 'tonal' }: {
+  childId: number; childName: string; assist: BhwAssist; onChanged: () => void; disabled?: boolean; variant?: 'tonal' | 'ghost'
 }) {
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState('')
@@ -51,11 +51,11 @@ export function BhwAssistToggle({ childId, childName, assist, onChanged, disable
   return (
     <>
       {assist ? (
-        <Button size="sm" variant="tonal" disabled={disabled} loading={saving} onClick={() => void save(false)}>
+        <Button size="sm" variant={variant} disabled={disabled} loading={saving} onClick={() => void save(false)}>
           <HandHelping size={14} aria-hidden="true" /> Remove BHW assist
         </Button>
       ) : (
-        <Button size="sm" variant="tonal" disabled={disabled} onClick={() => { setReason(''); setOpen(true) }}>
+        <Button size="sm" variant={variant} disabled={disabled} onClick={() => { setReason(''); setOpen(true) }}>
           <HandHelping size={14} aria-hidden="true" /> BHW to assist
         </Button>
       )}

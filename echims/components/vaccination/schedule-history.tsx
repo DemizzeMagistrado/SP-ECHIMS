@@ -79,11 +79,11 @@ function HistoryList({ childId }: { childId: number }) {
   )
 }
 
-export function ScheduleHistoryButton({ childId, childName }: { childId: number; childName: string }) {
+export function ScheduleHistoryButton({ childId, childName, variant = 'tonal' }: { childId: number; childName: string; variant?: 'tonal' | 'ghost' }) {
   const [open, setOpen] = useState(false)
   return (
     <>
-      <Button size="sm" variant="tonal" onClick={() => setOpen(true)}><History size={14} aria-hidden="true" /> View history</Button>
+      <Button size="sm" variant={variant} onClick={() => setOpen(true)}><History size={14} aria-hidden="true" /> View history</Button>
       <Modal open={open} onClose={() => setOpen(false)} size="lg" icon={<History />} title="Schedule request history" subtitle={childName} cancelLabel="Close" confirmDiscard={false}>
         {open && <HistoryList childId={childId} />}
       </Modal>

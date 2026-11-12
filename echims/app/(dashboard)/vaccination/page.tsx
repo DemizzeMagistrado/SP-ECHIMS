@@ -554,6 +554,7 @@ function ScheduleSection() {
     }
   }
   const reviewChild = reviewing ? one(reviewing.child) : null
+  const truncated = Boolean(counts && counts.total_matched > counts.total_shown)
   const chipLabel: Record<StatusChip, string> = { all: 'All', pending: 'Pending', missed: 'Missed', assist: 'BHW to assist' }
 
   return (
@@ -574,18 +575,13 @@ function ScheduleSection() {
         <LoadError what="the vaccination schedule" error={doses.error} onRetry={() => void doses.mutate()} />
       ) : (<>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <StatCard icon={<AlertCircle size={16} aria-hidden="true" />} label="Missed doses" value={counts?.overdue ?? 0} tone="danger" onClick={() => setChip(chip === 'missed' ? 'all' : 'missed')} pressed={chip === 'missed'} />
+          <StatCard icon={<AlertCircle size={16} aria-hidden="true" />} label="Missed doses" value={counts?.overdue ?? 0} tone="danger"
+            hint={worstOverall ? <>Longest missed: <span className="font-semibold text-brand-navy">{worstOverall.vaccine_type} {worstOverall.dose_number}</span> · {days(worstOverall.days_overdue)} · {worstOverall.child_name}</> : undefined}
+            onClick={() => setChip(chip === 'missed' ? 'all' : 'missed')} pressed={chip === 'missed'} />
           <StatCard icon={<CalendarClock size={16} aria-hidden="true" />} label="Children with a pending dose" value={chipCount.pending} tone="info" onClick={() => setChip(chip === 'pending' ? 'all' : 'pending')} pressed={chip === 'pending'} />
           <StatCard icon={<HandHelping size={16} aria-hidden="true" />} label="BHW to assist" value={chipCount.assist} onClick={() => setChip(chip === 'assist' ? 'all' : 'assist')} pressed={chip === 'assist'} />
           <StatCard icon={<CheckCircle2 size={16} aria-hidden="true" />} label="Requests awaiting approval" value={awaiting} tone="warn" onClick={() => setRequestFilter(requestFilter === 'PENDING' ? '' : 'PENDING')} pressed={requestFilter === 'PENDING'} />
         </div>
-
-        {(chip === 'missed' || chip === 'all') && missedCards.length > 0 && worstOverall && (
-          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-danger/20 bg-danger-soft/50 px-4 py-3 text-sm">
-            <StatusBadge status="missed" tone="danger" icon={<AlertCircle size={12} aria-hidden="true" />} label={`${counts?.overdue ?? 0} missed doses`} />
-            <span className="text-brand-navy">{missedCards.length} {missedCards.length === 1 ? 'child' : 'children'} · longest missed: <span className="font-semibold">{worstOverall.vaccine_type} {worstOverall.dose_number}, {days(worstOverall.days_overdue)}</span> ({worstOverall.child_name})</span>
-          </div>
-        )}
 
         <fieldset disabled={readOnly} className="space-y-3 rounded-2xl border border-border bg-white p-4">
           <FilterChips label="Show" value={chip} onChange={setChip} options={CHIPS.map((c) => ({ value: c, label: chipLabel[c], count: chipCount[c] }))} />
@@ -608,13 +604,13 @@ function ScheduleSection() {
               <DateInput value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} aria-label="Next date to" className="min-w-0" />
             </div>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs text-muted-foreground">
-              {shown.length} {shown.length === 1 ? 'child' : 'children'}
-              {counts && counts.total_matched > counts.total_shown ? ` · showing the ${counts.total_shown} longest-missed of ${counts.total_matched} missed doses; pick a vaccine to see the rest` : ''}
-            </span>
-            {shown.length > 1 && <ExpandCollapseAll allOpen={allOpen} noneOpen={noneOpen} onSet={setAll} />}
-          </div>
+          {(truncated || shown.length > 1) && (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {/* Only when the server capped the list; the chip counts already say how many children. */}
+              {truncated && counts ? <span className="text-xs text-muted-foreground">Showing the {counts.total_shown} longest-missed of {counts.total_matched} missed doses. Pick a vaccine to see the rest.</span> : <span />}
+              {shown.length > 1 && <ExpandCollapseAll allOpen={allOpen} noneOpen={noneOpen} onSet={setAll} />}
+            </div>
+          )}
         </fieldset>
 
         <div key={`${chip}|${vaccineFilter}|${requestFilter}`} className={`animate-in fade-in duration-150 motion-reduce:animate-none ${doses.refreshing ? 'opacity-60 transition-opacity' : ''}`}>
@@ -641,53 +637,56 @@ function ScheduleSection() {
                       header={<>
                         <span className="min-w-0 flex-1">
                           <span className="block font-semibold text-brand-navy">{c.child_name}</span>
-                          <span className="block text-xs text-muted-foreground">{c.child_code ?? `#${c.child_id}`} · {c.barangay_name ?? '—'}{c.date_of_birth ? ` · Born ${formatYmd(c.date_of_birth)}` : ''}</span>
+                          <span className="mt-0.5 block text-xs text-muted-foreground">{c.child_code ?? `#${c.child_id}`} · {c.barangay_name ?? '—'}{c.date_of_birth ? ` · Born ${formatYmd(c.date_of_birth)}` : ''}</span>
                         </span>
-                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-                          {c.missed.length > 0 && <StatusBadge status="missed" tone="danger" label={`${c.missed.length} missed`} />}
-                          {c.worst && <span className="text-xs text-muted-foreground">Longest: <span className="font-semibold text-danger">{c.worst.vaccine_type} {c.worst.dose_number}, {days(c.worst.days_overdue)}</span></span>}
-                          {pendingDate && <StatusBadge status="pending" tone="info" label={`Pending · ${formatYmd(pendingDate)}`} />}
-                          {req && <StatusBadge status={req.status === 'PENDING' ? 'pending' : req.status === 'NEEDS_REVISION' ? 'upcoming' : req.status} label={`Request: ${SCHEDULE_STATUS_META[req.status].label}`} />}
+                        {/* Status summary: one dose badge, plus the request only when it needs action. */}
+                        <span className="flex flex-wrap items-center justify-end gap-1.5">
+                          {c.missed.length > 0
+                            ? <StatusBadge status="missed" tone="danger" label={`${c.missed.length} missed`} />
+                            : pendingDate && <StatusBadge status="pending" tone="info" label={`Next · ${formatYmd(pendingDate)}`} />}
+                          {req && (req.status === 'PENDING' || req.status === 'NEEDS_REVISION') && <StatusBadge status={req.status === 'PENDING' ? 'pending' : 'upcoming'} label={SCHEDULE_STATUS_META[req.status].label} />}
                           <BhwAssistBadge assist={c.bhw_assist} />
                         </span>
                       </>}
                     >
-                      <div className="mb-3 flex flex-wrap justify-end gap-2">
+                      <div className="space-y-4">
+                      <div className="flex flex-wrap items-center gap-2">
                         {canReview && req?.status === 'PENDING' && <>
                           <Button size="sm" onClick={() => openReview(req, 'APPROVE')}><CheckCircle2 size={14} aria-hidden="true" /> Approve {formatYmd(req.schedule_date)}</Button>
-                          <Button size="sm" variant="secondary" onClick={() => openReview(req, 'REVISE')}><CalendarClock size={14} aria-hidden="true" /> Ask for new date</Button>
+                          <Button size="sm" variant="tonal" onClick={() => openReview(req, 'REVISE')}><CalendarClock size={14} aria-hidden="true" /> Ask for new date</Button>
                         </>}
                         {!readOnly && (c.missed.length > 0 || c.pending.length > 0) && <SendReminderButton row={reminders.get(c.child_id)} data={sms.data} onSent={refreshAll} />}
-                        {canFlag && !readOnly && <BhwAssistToggle childId={c.child_id} childName={c.child_name} assist={c.bhw_assist} onChanged={refreshAll} />}
-                        {canSeeRequests && <ScheduleHistoryButton childId={c.child_id} childName={c.child_name} />}
-                        <Link href={`/child-profiling/children/${c.child_id}#vaccination-schedule`} className={buttonVariants({ variant: 'secondary', size: 'sm' })}>Child schedule</Link>
-                        <Link href={`/child-profiling/children/${c.child_id}`} className={buttonVariants({ variant: 'secondary', size: 'sm' })}>View child <ArrowRight size={12} aria-hidden="true" /></Link>
+                        {canFlag && !readOnly && <BhwAssistToggle variant="ghost" childId={c.child_id} childName={c.child_name} assist={c.bhw_assist} onChanged={refreshAll} />}
+                        {canSeeRequests && <ScheduleHistoryButton variant="ghost" childId={c.child_id} childName={c.child_name} />}
+                        <Link href={`/child-profiling/children/${c.child_id}#vaccination-schedule`} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>Child schedule</Link>
+                        <Link href={`/child-profiling/children/${c.child_id}`} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>View child <ArrowRight size={12} aria-hidden="true" /></Link>
                       </div>
                       {req && (
-                        <p className="mb-2 rounded-lg bg-white px-3 py-2 text-sm ring-1 ring-border/70">
+                        <p className="rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-border/70">
                           <span className="font-medium text-brand-navy">Schedule request for {formatYmd(req.schedule_date)}</span> · {SCHEDULE_STATUS_META[req.status].label}
                           {req.remarks && <span className="block text-xs text-muted-foreground">Requester: {req.remarks}</span>}
                           {req.review_remarks && <span className="block text-xs text-muted-foreground">Reviewer: {req.review_remarks}</span>}
                         </p>
                       )}
-                      <ul className="space-y-2">
+                      <ul className="space-y-2.5">
                         {c.missed.map((d) => (
-                          <li key={`m-${d.vaccine_code}-${d.dose_number}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white p-3 text-sm ring-1 ring-border/70">
+                          <li key={`m-${d.vaccine_code}-${d.dose_number}`} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-border/70">
                             <span>
                               <span className="font-medium text-brand-navy">{d.vaccine_type} · Dose {d.dose_number}</span>
-                              <span className="block text-xs text-muted-foreground">Due {formatYmd(d.due_date)} · missed for {days(d.days_overdue)}</span>
+                              <span className="mt-0.5 block text-xs text-muted-foreground">Due {formatYmd(d.due_date)} · missed for {days(d.days_overdue)}</span>
                             </span>
                             <StatusBadge status="missed" tone="danger" label={d.rescheduled_date ? `Missed · rescheduled to ${formatYmd(d.rescheduled_date)}` : 'Missed'} />
                           </li>
                         ))}
                         {c.pending.map((d) => (
-                          <li key={`p-${d.vaccine_code}-${d.dose_number}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white p-3 text-sm ring-1 ring-border/70">
+                          <li key={`p-${d.vaccine_code}-${d.dose_number}`} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-border/70">
                             <span className="font-medium text-brand-navy">{d.vaccine_type} · Dose {d.dose_number}</span>
                             <StatusBadge status="pending" tone="info" label={d.rescheduled_date ? `Pending · moved to ${formatYmd(d.rescheduled_date)}` : `Pending · ${formatYmd(d.due_date)}`} />
                           </li>
                         ))}
                         {c.missed.length === 0 && c.pending.length === 0 && <li className="text-sm text-muted-foreground">No routine doses due right now.</li>}
                       </ul>
+                      </div>
                     </AccordionCard>
                   )
                 })}
