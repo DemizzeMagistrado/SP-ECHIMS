@@ -9,7 +9,9 @@ import {
   nipDaysBetween,
 } from '@/lib/nip-schedule'
 // NIP-USR005 — Defaulters list.
-// GET /api/vaccination/defaulters?vaccine=BCG&limit=100
+// GET /api/vaccination/defaulters?vaccine=BCG&limit=100[&include=pending]
+// include=pending also returns `pending`: each child's next Pending date (every dose due that
+// day), for the merged Vaccination › Schedule view.
 //
 // Returns children (RLS-scoped by barangay/RHU) with Missed doses (due date passed, not given,
 // still eligible) against the NIP schedule, each with its rescheduled date. Computed on-demand — no scheduled job or new table.
@@ -37,7 +39,7 @@ function invalid(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status })
 }
 
-type Status = 'OVERDUE'
+type Status = 'OVERDUE' | 'UPCOMING'
 
 export async function GET(request: Request) {
   const supabase = await createClient()
@@ -50,6 +52,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url)
   const vaccineFilter = (url.searchParams.get('vaccine') ?? '').toUpperCase()
+  const includePending = url.searchParams.get('include') === 'pending'
   const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? 200) || 200, 10), 500)
 
   if (vaccineFilter && !NIP_CATALOG.some((v) => v.code === vaccineFilter)) {
@@ -133,11 +136,13 @@ for (const rec of approvedRecords) {
     status: Status
   }
   const defaulters: DefaulterRow[] = []
+  const pending: DefaulterRow[] = []
 
   for (const c of children) {
     const dob = String(c.date_of_birth)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const b: any = Array.isArray(c.barangay) ? c.barangay[0] : c.barangay
+    const upcoming: DefaulterRow[] = []
 
     for (const v of NIP_CATALOG) {
       if (v.routine_enabled === false) continue
@@ -146,14 +151,14 @@ for (const rec of approvedRecords) {
       // Same schedule and rules as the child profile (lib/nip-schedule).
       const timeline = nipVaccineTimeline(dob, v, Array.from({ length: v.total_doses }, (_, i) => given?.get(i + 1) ?? null), today)
       for (const t of timeline) {
-        if (t.status !== 'OVERDUE') continue
-        const daysPast = nipDaysBetween(t.due_date, today)
+        if (t.status !== 'OVERDUE' && !(includePending && t.status === 'UPCOMING')) continue
+        const daysPast = t.status === 'OVERDUE' ? nipDaysBetween(t.due_date, today) : 0
         if (!Number.isFinite(daysPast)) continue
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const h: any = Array.isArray(c.household) ? c.household[0] : c.household
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const a: any = Array.isArray(c.assist) ? c.assist[0] : c.assist
-        defaulters.push({
+        ;(t.status === 'OVERDUE' ? defaulters : upcoming).push({
           child_id: c.child_id,
           child_name: [c.first_name, c.middle_name, c.last_name].filter(Boolean).join(' '),
           child_code: c.child_code ?? null,
@@ -168,10 +173,14 @@ for (const rec of approvedRecords) {
           due_date: t.due_date,
           days_overdue: daysPast,
           rescheduled_date: t.rescheduled_date,
-          status: 'OVERDUE',
+          status: t.status === 'OVERDUE' ? 'OVERDUE' : 'UPCOMING',
         })
       }
     }
+    // Only the child's next Pending date (every dose due that day).
+    const dateOf = (d: DefaulterRow) => d.rescheduled_date ?? d.due_date
+    const next = upcoming.reduce<string | null>((min, d) => (min === null || dateOf(d) < min ? dateOf(d) : min), null)
+    if (next) pending.push(...upcoming.filter((d) => dateOf(d) === next))
   }
 
   // Sort: longest missed first, then by child name
@@ -184,8 +193,11 @@ for (const rec of approvedRecords) {
   const overdueCount = defaulters.length
   const uniqueChildrenAffected = new Set(defaulters.map((d) => d.child_id)).size
 
+  pending.sort((a, b) => (a.rescheduled_date ?? a.due_date).localeCompare(b.rescheduled_date ?? b.due_date) || a.child_name.localeCompare(b.child_name))
+
   return NextResponse.json({
     defaulters: capped,
+    ...(includePending ? { pending } : {}),
     counts: {
       overdue: overdueCount,
       unique_children_affected: uniqueChildrenAffected,

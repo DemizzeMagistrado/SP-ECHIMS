@@ -26,8 +26,8 @@ export async function prepareSystemViews(user: AuthUser, progress: (text: string
   if (view('Supplementation')) ['/api/supplementation','/api/supplementation/stock-requests','/api/sms/reminders?program=SUPPLEMENTATION'].forEach(url => urls.add(url))
   if (view('Alerts')) urls.add('/api/alerts?page=1')
   if (view('Reports')) urls.add('/api/reports?page=1')
-  if (view('Vaccination')) ['/api/children?view=vaccination-options','/api/vaccines','/api/vaccination/records','/api/vaccination/defaulters?status=OVERDUE','/api/vaccination/defaulters?status=OVERDUE&limit=1','/api/sms/reminders?program=VACCINATION'].forEach(url => urls.add(url))
-  if (view('Vaccination Schedule')) urls.add('/api/vaccination/schedule?status=PENDING')
+  if (view('Vaccination')) ['/api/children?view=vaccination-options','/api/vaccines','/api/vaccination/records','/api/vaccination/defaulters?include=pending','/api/vaccination/defaulters?status=OVERDUE&limit=1','/api/sms/reminders?program=VACCINATION'].forEach(url => urls.add(url))
+  if (view('Vaccination Schedule')) urls.add('/api/vaccination/schedule')
   if (view('NIP Catalog')) urls.add('/api/vaccines/catalog')
   if (view('Vaccine Batch Requests')) urls.add('/api/vaccination/batch-requests')
   async function download(url: string) {

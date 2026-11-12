@@ -38,7 +38,8 @@ export function alertDestination(alert: AlertDestinationInput) {
       href: moduleRoutes["Nutritional Assessment"],
       label: "View nutritional assessments",
     },
-    VACCINATION: { href: moduleRoutes.Vaccination, label: "View vaccination" },
+    // Vaccination alerts are missed-dose follow-ups: open the Missed view of the schedule.
+    VACCINATION: { href: "/vaccination/schedule?status=missed", label: "View missed doses" },
     SUPPLEMENTATION: {
       href: moduleRoutes.Supplementation,
       label: "View supplementation",

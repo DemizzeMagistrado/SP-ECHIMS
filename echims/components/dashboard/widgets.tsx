@@ -158,7 +158,7 @@ export function FicWidget({ range, style, size = 'tall' }: WidgetProps & { range
   const needed = data ? Math.max(0, Math.ceil((data.target / 100) * data.eligible) - data.fully_immunized) : 0
   return (
     <WidgetShell id="fic" title="Fully immunized (FIC)" note="Turned 1 in this period"
-      link={{ href: '/vaccination/defaulters', label: 'Defaulters' }} style={style} size={size}
+      link={{ href: '/vaccination/schedule?status=missed', label: 'Missed doses' }} style={style} size={size}
       loading={isLoading} refreshing={refreshing} error={error} empty={data?.eligible === 0 && 'No children turned 12 months old in this period.'}>
       {data && (
         <div className="flex flex-1 flex-wrap items-center justify-center gap-6">
@@ -252,7 +252,7 @@ export function UpcomingWidget({ programs, style, size = 'tall' }: WidgetProps &
   const children = new Set(upcoming.map((r) => r.child_id)).size
   return (
     <WidgetShell id="upcoming" title="Due in the next 7 days" note={data ? `${children} child${children === 1 ? '' : 'ren'}, ${upcoming.length} dose${upcoming.length === 1 ? '' : 's'}` : 'Vaccination and supplementation'}
-      link={{ href: '/vaccination/sms', label: 'Send SMS reminder' }} style={style} size={size}
+      link={{ href: '/vaccination/schedule', label: 'Send SMS reminder' }} style={style} size={size}
       loading={isLoading} error={error} empty={data && upcoming.length === 0 && 'Nobody is due in the next 7 days.'}>
       <ul className="divide-y divide-brand-ice">
         {upcoming.slice(0, SHOWN).map((r) => (
@@ -279,7 +279,7 @@ export function ApprovalsWidget({ showInventory, style, size = 'compact' }: Widg
   const items = q ? [
     { key: 'vacc', label: 'Vaccination records', value: q.vaccinations, href: '/vaccination/records' },
     { key: 'act', label: 'Health activities', value: q.activities, href: '/health-activities' },
-    { key: 'batch', label: 'Vaccine & supplement batches', value: q.batches, href: '/vaccination/batch-requests' },
+    { key: 'batch', label: 'Vaccine & supplement batches', value: q.batches, href: '/inventory/batch-requests' },
     ...(showInventory ? [{ key: 'repl', label: 'Stock replenishment', value: q.replenishment, href: '/inventory/replenishment' }] : []),
   ] : []
   const total = items.reduce((n, i) => n + i.value, 0)

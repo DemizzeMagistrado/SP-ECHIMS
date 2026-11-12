@@ -19,26 +19,7 @@ export function ModuleTabs({
 
   if (!role) return null
 
-  const existingTabs = (moduleTabs[parent] ?? []).filter(
-    (tab) =>
-      !(
-        parent === 'Vaccination' &&
-        tab.href === '/vaccination/sms'
-      ),
-  )
-
-  const tabs = [
-    ...existingTabs,
-    ...(parent === 'Vaccination'
-      ? [
-          {
-            label: 'SMS Reminders',
-            href: '/vaccination/sms',
-            module: 'Vaccination' as const,
-          },
-        ]
-      : []),
-  ]
+  const tabs = moduleTabs[parent] ?? []
 
   const visibleTabs = tabs.filter((tab) =>
     canPerform(role, tab.module, 'view'),

@@ -23,13 +23,11 @@ export const moduleTabs: Record<string, { label: string; href: string; module: s
     { label: 'Map', href: '/geospatial', module: 'Geospatial' },
     { label: 'Masterlist Import', href: '/masterlist-upload', module: 'Masterlist Upload' },
   ],
+  // NIP-REV01: two tabs. Defaulters = Schedule's Missed chip, SMS reminders sit on Schedule rows,
+  // NIP Catalog → Settings › Vaccine Catalog, Batch Requests → Inventory › Batch Requests.
   Vaccination: [
+    { label: 'Schedule', href: '/vaccination/schedule', module: 'Vaccination' },
     { label: 'Records', href: '/vaccination/records', module: 'Vaccination' },
-    { label: 'Defaulters', href: '/vaccination/defaulters', module: 'Vaccination' },
-    { label: 'Schedule', href: '/vaccination/schedule', module: 'Vaccination Schedule' },
-    { label: 'NIP Catalog', href: '/vaccination/catalog', module: 'NIP Catalog' },
-    // NIP-USR010 — RHM batch requests + PHN approval queue.
-    { label: 'Batch Requests', href: '/vaccination/batch-requests', module: 'Vaccine Batch Requests' },
   ],
    Inventory: [
     { label: 'Stock Overview', href: '/inventory/stock-overview', module: 'Inventory' },
@@ -37,6 +35,7 @@ export const moduleTabs: Record<string, { label: string; href: string; module: s
     { label: 'Usage Log', href: '/inventory/usage', module: 'Inventory' },
     { label: 'Replenishment', href: '/inventory/replenishment', module: 'Inventory' },
     { label: 'Batch Trace', href: '/inventory/batch-trace', module: 'Inventory' },
+    { label: 'Batch Requests', href: '/inventory/batch-requests', module: 'Vaccine Batch Requests' },
   ],
   // Settings deliberately omitted — settings/page.tsx already provides its own in-page
   // tabs for Profile / Organization / Notifications / Security so a second tab strip
@@ -185,6 +184,9 @@ export function canAccess(role: UserRole, path: string) {
     '/vaccinations': 'Vaccination',
     '/nutrition': 'Nutritional Assessment', '/nutritional-assessment': 'Nutritional Assessment',
     '/supplementation': 'Supplementation', '/supplements': 'Supplementation',
+    // Batch requests moved here from Vaccination; RHM (no Inventory module) still uses them.
+    // Listed before '/inventory' because the first matching prefix wins.
+    '/inventory/batch-requests': 'Vaccination',
     '/inventory': 'Inventory',
     '/inventory/stock-overview': 'Inventory',
     '/inventory/stock-allocation': 'Inventory',

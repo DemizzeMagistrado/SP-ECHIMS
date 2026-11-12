@@ -323,7 +323,7 @@ function AlertsWorkspace() {
   ownerRef.current=owner;
   useEffect(()=>()=>{sequence.current++;ownerRef.current=null},[]);
   // Dashboard links open a program directly: /alerts?program=VACCINATION
-  useEffect(()=>{const p=new URLSearchParams(window.location.search).get("program");if(p&&/^[A-Z_]{1,40}$/.test(p))setProgram(p)},[]);
+  useEffect(()=>{const q=new URLSearchParams(window.location.search),p=q.get("program"),t=q.get("tab");if(p&&/^[A-Z_]{1,40}$/.test(p))setProgram(p);if(t==="SMS")setTab("SMS")},[]);
   const load = useCallback(async () => {
     if (!owner) return;
     const token = ++sequence.current;

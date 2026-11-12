@@ -34,11 +34,13 @@ export function VaccinationOfflineTools(){
  }
  async function prepare(){if(!user||busy)return;const u=user,id=u.id;setBusy(true);const failures:string[]=[];let count=0
  const urls=['/api/children?view=vaccination-options','/api/vaccines','/api/vaccination/records']
- if(canPerform(u.role,'Vaccination Schedule','view'))urls.push('/api/vaccination/schedule','/api/vaccination/schedule?status=PENDING')
- if(canPerform(u.role,'Vaccination','view'))urls.push('/api/vaccination/defaulters')
+ if(canPerform(u.role,'Vaccination Schedule','view'))urls.push('/api/vaccination/schedule')
+ if(canPerform(u.role,'Vaccination','view'))urls.push('/api/vaccination/defaulters?include=pending','/api/sms/reminders?program=VACCINATION')
  if(canPerform(u.role,'NIP Catalog','view'))urls.push('/api/vaccines/catalog')
  if(canPerform(u.role,'Vaccine Batch Requests','view'))urls.push('/api/vaccination/batch-requests')
  try{for(const url of urls){if(ref.current!==id)return;try{const result=await readVaccinationView(id,vaccinationScope(u),url);if(result.fromCache)failures.push(url+' (connection unavailable)');else count++}catch{failures.push(url)}}if(ref.current===id){setMessage(`${count} view(s) downloaded.${failures.length?` ${failures.length} views could not be saved. Reconnect and retry.`:' Ready for offline use.'}`);await mutate(key=>vaccinationKeyMatches(key,'/api/'))}}finally{if(ref.current===id)setBusy(false)}}
+ // Shown only when this device holds drafts (or just reported on one).
+ if(rows.length===0&&!message)return null
  return <section aria-label="Offline vaccination queue" className="space-y-3 rounded-xl border border-sky-200 bg-sky-50 p-4">
   <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">{online?'Pending offline drafts':'Offline'} · {rows.length} local draft{rows.length===1?'':'s'}</h2><p className="text-xs text-muted-foreground">Pending drafts retry when online. Conflicts remain for recorder review. Record approval is handled separately.</p></div><Button variant="secondary" disabled={rows.length===0} onClick={()=>setShowReview(v=>!v)}>{showReview?'Hide pending drafts':'Review pending drafts'}</Button></div>
   {message&&<p role="status" className="text-sm">{message}</p>}

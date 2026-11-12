@@ -92,19 +92,19 @@ const quickActions: Record<UserRole, (QuickAction & { module: string })[]> = {
   ],
   'Public Health Nurse': [
     { label: 'Health activities', href: '/health-activities', module: 'Health Activities', icon: <ClipboardCheck size={17} strokeWidth={1.75} /> },
-    { label: 'Defaulters', href: '/vaccination/defaulters', module: 'Vaccination', icon: <AlertTriangle size={17} strokeWidth={1.75} /> },
+    { label: 'Missed doses', href: '/vaccination/schedule?status=missed', module: 'Vaccination', icon: <AlertTriangle size={17} strokeWidth={1.75} /> },
     { label: 'Stock overview', href: '/inventory/stock-overview', module: 'Inventory', icon: <Boxes size={17} strokeWidth={1.75} /> },
     { label: 'Reports', href: '/reports', module: 'Reports', icon: <FileText size={17} strokeWidth={1.75} /> },
   ],
   'Rural Health Midwife': [
     { label: 'Vaccinations', href: '/vaccination/records', module: 'Vaccination', icon: <Syringe size={17} strokeWidth={1.75} /> },
-    { label: 'Defaulters', href: '/vaccination/defaulters', module: 'Vaccination', icon: <AlertTriangle size={17} strokeWidth={1.75} /> },
+    { label: 'Missed doses', href: '/vaccination/schedule?status=missed', module: 'Vaccination', icon: <AlertTriangle size={17} strokeWidth={1.75} /> },
     { label: 'Schedule', href: '/vaccination/schedule', module: 'Vaccination', icon: <CalendarClock size={17} strokeWidth={1.75} /> },
     { label: 'Supplementation', href: '/supplementation', module: 'Supplementation', icon: <Pill size={17} strokeWidth={1.75} /> },
   ],
   'Barangay Health Worker': [
     { label: 'Children', href: '/child-profiling/children', module: 'Child Profiling', icon: <Baby size={17} strokeWidth={1.75} /> },
-    { label: 'Defaulters', href: '/vaccination/defaulters', module: 'Vaccination', icon: <AlertTriangle size={17} strokeWidth={1.75} /> },
+    { label: 'Missed doses', href: '/vaccination/schedule?status=missed', module: 'Vaccination', icon: <AlertTriangle size={17} strokeWidth={1.75} /> },
     { label: 'Health activities', href: '/health-activities', module: 'Health Activities', icon: <ClipboardCheck size={17} strokeWidth={1.75} /> },
     { label: 'Alerts', href: '/alerts', module: 'Alerts', icon: <Bell size={17} strokeWidth={1.75} /> },
   ],
@@ -159,7 +159,7 @@ export function DashboardOverview() {
 
   // Card definitions depend only on the role, so the loading skeleton has the same count.
   const attention = ([
-    can('Vaccination') && { label: 'Missed vaccinations', value: (x) => x.vaccinations_overdue, note: () => 'Past their due date', href: '/vaccination/defaulters', tone: 'danger', icon: <AlertTriangle size={19} strokeWidth={1.75} /> },
+    can('Vaccination') && { label: 'Missed vaccinations', value: (x) => x.vaccinations_overdue, note: () => 'Past their due date', href: '/vaccination/schedule?status=missed', tone: 'danger', icon: <AlertTriangle size={19} strokeWidth={1.75} /> },
     can('Vaccination') && { label: 'Due in 14 days', value: (x) => x.vaccinations_due_soon, note: () => 'Remind guardians early', href: '/vaccination/schedule', tone: 'warn', icon: <CalendarClock size={19} strokeWidth={1.75} /> },
     can('Nutritional Assessment') && { label: 'At nutritional risk', value: (x) => x.at_risk_children, note: (x) => x.children > 0 ? `${Math.round((x.at_risk_children / x.children) * 100)}% of registered children` : 'From latest assessments', href: '/nutrition', tone: 'nutrition', icon: <Apple size={19} strokeWidth={1.75} /> },
     can('Inventory') && { label: 'Low-stock items', value: (x) => x.low_stock_items, note: () => '10 or fewer on hand', href: '/inventory/stock-overview', tone: 'neutral', icon: <Boxes size={19} strokeWidth={1.75} /> },
