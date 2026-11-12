@@ -51,7 +51,7 @@ export async function GET() {
       vaccine_id, vaccine_type, dose_volume, route, target_age,
       min_age_days, interval_days, total_doses, updated_at,
       eligibility, contraindications, doh_guidelines, source_reference,
-      item:item(item_id, item_name, description, unit, status)
+      item:item!fk_vaccine_item(item_id, item_name, description, unit, status)
     `)
     .order('vaccine_id', { ascending: true })
 
@@ -201,7 +201,7 @@ export async function PATCH(request: Request) {
 
   // Load current state (for audit before/after)
   const beforeRes = await supabase.from('vaccine')
-    .select('*, item:item(item_name, description, unit, status)')
+    .select('*, item:item!fk_vaccine_item(item_name, description, unit, status)')
     .eq('vaccine_id', vaccineId)
     .maybeSingle()
   if (beforeRes.error || !beforeRes.data) return invalid('Vaccine not found.', 404)
@@ -284,7 +284,7 @@ export async function PATCH(request: Request) {
   const vacUpd = await supabase.from('vaccine')
     .update(vaccinePatch)
     .eq('vaccine_id', vaccineId)
-    .select('*, item:item(item_name, description, unit, status)')
+    .select('*, item:item!fk_vaccine_item(item_name, description, unit, status)')
     .maybeSingle()
   if (vacUpd.error) return invalid(`Unable to update vaccine. ${vacUpd.error.message ?? ''}`.trim(), 500)
 

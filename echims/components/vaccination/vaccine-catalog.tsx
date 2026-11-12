@@ -20,6 +20,7 @@ import { LogoLoader } from '@/components/brand/logo-loader'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
+import { LoadError } from '@/components/ui/load-error'
 import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/form'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -69,7 +70,7 @@ export function CatalogSection() {
   const administrator = role === 'Administrator'
   const canView = role ? canPerform(role, 'NIP Catalog', 'view') : false
 
-  const { data, error, isLoading, readOnly, savedAt } = useVaccinationView<CatalogPayload>(isReady && canView ? '/api/vaccines/catalog' : null)
+  const { data, error, isLoading, readOnly, savedAt, mutate } = useVaccinationView<CatalogPayload>(isReady && canView ? '/api/vaccines/catalog' : null)
   const isAdmin = administrator && !readOnly
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<VaccineCatalogRow | null>(null)
@@ -166,7 +167,7 @@ export function CatalogSection() {
       {isLoading ? (
         <LogoLoader size="section" label="Loading catalog…" />
       ) : error && !data ? (
-        <div role="alert" className="rounded-2xl border border-danger/20 bg-danger-soft p-4 text-sm text-danger">{error.message}</div>
+        <LoadError what="the vaccine catalog" error={error} onRetry={() => void mutate()} />
       ) : allRows.length === 0 ? (
         <EmptyState size="page" icon={Syringe} title="No vaccines in the catalog yet" description={isAdmin ? 'Use “Add new vaccine” to add your first DOH entry.' : 'An administrator has not added vaccines yet.'} className="min-h-64 rounded-2xl border border-dashed border-border bg-white" />
       ) : (<>

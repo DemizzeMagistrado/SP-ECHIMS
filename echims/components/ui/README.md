@@ -106,6 +106,10 @@ danger, upcoming/ongoing → info, cancelled/inactive → neutral). Props: `stat
 `icon?`, `title`, `description?`, `action?`, `size?: 'page' | 'section'`. Write specific copy
 ("No defaulters right now", not "No data").
 
+## LoadError — `load-error.tsx`
+When a list or page fails to load: plain-language message plus a "Try again" button; the technical
+error goes to the console only. `<LoadError what="vaccination records" error={error} onRetry={() => mutate()} />`
+
 ## Toasts — `toast.tsx`
 `toast.success(msg)`, `toast.error(msg)` (stays until closed), `toast.info`, `toast.warning`,
 `toast.dismiss(id)`; optional `{ durationMs }`. Works outside React too. Use for save/update/delete/

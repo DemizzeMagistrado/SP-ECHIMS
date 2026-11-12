@@ -23,7 +23,7 @@ export async function GET() {
   const c = await context()
   if ('error' in c) return c.error
   const [vaccines, links, items] = await Promise.all([
-    c.db.from('vaccine').select('vaccine_id, vaccine_type, item:item(item_name, status)').order('vaccine_id'),
+    c.db.from('vaccine').select('vaccine_id, vaccine_type, item:item!fk_vaccine_item(item_name, status)').order('vaccine_id'),
     c.db.from('vaccine_companion_item').select('vaccine_id, item_id, quantity, note, active, item:item(item_name, unit, status)'),
     c.db.from('item').select('item_id, item_name, unit').eq('status', 'ACTIVE').order('item_name'),
   ])

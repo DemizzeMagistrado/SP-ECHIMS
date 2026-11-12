@@ -81,7 +81,7 @@ export async function GET(request: Request) {
       ? supabase.from('barangay').select('barangay_id, barangay_name').in('barangay_id', barangayIds)
       : Promise.resolve({ data: [] as unknown[], error: null }),
     userIds.length
-      ? supabase.from('users').select('id, email').in('id', userIds)
+      ? supabase.from('users').select('user_id, full_name, email').in('user_id', userIds)
       : Promise.resolve({ data: [] as unknown[], error: null }),
   ])
 
@@ -97,7 +97,7 @@ export async function GET(request: Request) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const userById = new Map<string, any>()
-  for (const u of (hwRes.data ?? []) as Array<{ id: string }>) userById.set(u.id, u)
+  for (const u of (hwRes.data ?? []) as Array<{ user_id: string }>) userById.set(u.user_id, u)
 
   // Step 3: Splice everything back into each row in the shape the UI expects.
   const requests = rows.map((r) => ({

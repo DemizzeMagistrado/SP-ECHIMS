@@ -25,6 +25,7 @@ import { TabPanel } from '@/components/brand/page-gate'
 import { FilterChips, TabBar } from '@/components/ui/module-tabs'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
+import { LoadError } from '@/components/ui/load-error'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -154,7 +155,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
   }, [q, statusFilter])
 
   const url = `/api/vaccination/records${qs ? `?${qs}` : ''}`
-  const { data, error, isLoading, refreshing, readOnly, savedAt } = useVaccinationView<RecordsPayload>(isReady && canView ? url : null)
+  const { data, error, isLoading, refreshing, readOnly, savedAt, mutate } = useVaccinationView<RecordsPayload>(isReady && canView ? url : null)
   const router = useRouter()
 
   if (!isReady) return <LogoLoader />
@@ -227,7 +228,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
       {isLoading ? (
         <LogoLoader size="section" label="Loading records…" />
       ) : error && !data ? (
-        <div role="alert" className="rounded-2xl border border-danger/20 bg-danger-soft p-4 text-sm text-danger">{error.message}</div>
+        <LoadError what="vaccination records" error={error} retrying={refreshing} onRetry={() => void mutate()} />
       ) : (
         <DataTable
           rows={rows}
@@ -569,7 +570,7 @@ function ScheduleSection() {
       {doses.isLoading ? (
         <LogoLoader size="section" label="Loading the schedule…" />
       ) : doses.error && !doses.data ? (
-        <div role="alert" className="rounded-2xl border border-danger/20 bg-danger-soft p-4 text-sm text-danger">{doses.error.message}</div>
+        <LoadError what="the vaccination schedule" error={doses.error} onRetry={() => void doses.mutate()} />
       ) : (<>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <StatCard icon={<AlertCircle size={16} aria-hidden="true" />} label="Missed doses" value={counts?.overdue ?? 0} tone="danger" onClick={() => setChip(chip === 'missed' ? 'all' : 'missed')} pressed={chip === 'missed'} />

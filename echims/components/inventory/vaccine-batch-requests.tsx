@@ -20,6 +20,7 @@ import { BatchRequestDecisionModal, type BatchRequestRow } from '@/components/va
 import { LogoLoader } from '@/components/brand/logo-loader'
 import { FilterChips } from '@/components/ui/module-tabs'
 import { PageHeader } from '@/components/ui/page-header'
+import { LoadError } from '@/components/ui/load-error'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/form'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -73,7 +74,7 @@ export function BatchRequestsSection() {
     ? `/api/vaccination/batch-requests?status=${statusFilter}`
     : '/api/vaccination/batch-requests'
 
-  const { data, error, isLoading, refreshing, readOnly, savedAt } = useVaccinationView<BatchPayload>(isReady && canView ? url : null)
+  const { data, error, isLoading, refreshing, readOnly, savedAt, mutate } = useVaccinationView<BatchPayload>(isReady && canView ? url : null)
   const [createOpen, setCreateOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [decisionTarget, setDecisionTarget] = useState<BatchRequestRow | null>(null)
@@ -120,7 +121,7 @@ export function BatchRequestsSection() {
       {isLoading ? (
         <LogoLoader size="section" label="Loading requests…" />
       ) : error && !data ? (
-        <div role="alert" className="rounded-2xl border border-danger/20 bg-danger-soft p-4 text-sm text-danger">{error.message}</div>
+        <LoadError what="batch requests" error={error} retrying={refreshing} onRetry={() => void mutate()} />
       ) : (<>
         {!statusFilter && (
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">

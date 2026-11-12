@@ -60,17 +60,24 @@ export async function GET(request: Request) {
   }
 
   // Fetch all children in scope (RLS filters). We cap at 1,000 to protect compute.
-  const childRes = await supabase.from('child')
-    .select(`
-      child_id, child_code, first_name, middle_name, last_name, date_of_birth, barangay_id, status,
-      barangay:barangay(barangay_id, barangay_name), household:household(family_serial_no),
-      assist:child_vaccination_assist(reason)
-    `)
+  // The BHW-assist flag is optional: without its table/embed, load children without it.
+  const childSelect = 'child_id, child_code, first_name, middle_name, last_name, date_of_birth, barangay_id, status, barangay:barangay(barangay_id, barangay_name), household:household(family_serial_no)'
+  const loadChildren = (withAssist: boolean) => supabase.from('child')
+    .select((withAssist ? `${childSelect}, assist:child_vaccination_assist(reason)` : childSelect) as string)
     .in('status', ['ACTIVE', 'MONITORING'])  // skip MOVED/LOST/DECEASED
     .limit(1000)
+  let childRes = await loadChildren(true)
+  if (childRes.error && ['PGRST200', 'PGRST201', '42P01'].includes(childRes.error.code)) {
+    console.warn('Defaulters: BHW-assist flag unavailable, loading without it.', childRes.error)
+    childRes = await loadChildren(false)
+  }
 
-  if (childRes.error) return invalid(`Unable to load children. ${childRes.error.message ?? ''}`.trim(), 500)
-  const children = childRes.data ?? []
+  if (childRes.error) {
+    console.error('Defaulters GET:', childRes.error)
+    return invalid('Unable to load children.', 500)
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const children = (childRes.data ?? []) as any[]
   if (children.length === 0) {
     return NextResponse.json({
       defaulters: [],

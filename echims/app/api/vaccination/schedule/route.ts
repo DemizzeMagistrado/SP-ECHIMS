@@ -52,25 +52,34 @@ export async function GET(request: Request) {
   if (from && !/^\d{4}-\d{2}-\d{2}$/.test(from)) return invalid('from must be yyyy-mm-dd.')
   if (to && !/^\d{4}-\d{2}-\d{2}$/.test(to)) return invalid('to must be yyyy-mm-dd.')
 
-  let query = supabase.from('health_activity_schedule')
-    .select(`
-      schedule_id, status, schedule_date, created_at, remarks, review_remarks,
-      child_id, barangay_id, created_by, reviewed_by, reviewed_at,
-      child:child(child_id, child_code, first_name, middle_name, last_name, date_of_birth,
-        household:household(family_serial_no), assist:child_vaccination_assist(reason, flagged_at)),
-      barangay:barangay(barangay_id, barangay_name)
-    `)
-    .eq('activity_type', 'VACCINATION')
-    .not('child_id', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(200)
-
-  if (status) query = query.eq('status', status)
-  if (from) query = query.gte('schedule_date', from)
-  if (to) query = query.lte('schedule_date', to)
-
-  const { data, error } = await query
-  if (error) return invalid('Unable to load the schedule list.', 500)
+  // The BHW-assist flag is optional: without its table/embed, load requests without it.
+  const run = (withAssist: boolean) => {
+    let query = supabase.from('health_activity_schedule')
+      .select(`
+        schedule_id, status, schedule_date, created_at, remarks, review_remarks,
+        child_id, barangay_id, created_by, reviewed_by, reviewed_at,
+        child:child(child_id, child_code, first_name, middle_name, last_name, date_of_birth,
+          household:household(family_serial_no)${withAssist ? ', assist:child_vaccination_assist(reason, flagged_at)' : ''}),
+        barangay:barangay(barangay_id, barangay_name)
+      `)
+      .eq('activity_type', 'VACCINATION')
+      .not('child_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(200)
+    if (status) query = query.eq('status', status)
+    if (from) query = query.gte('schedule_date', from)
+    if (to) query = query.lte('schedule_date', to)
+    return query
+  }
+  let { data, error } = await run(true)
+  if (error && ['PGRST200', 'PGRST201', '42P01'].includes(error.code)) {
+    console.warn('Vaccination schedule: BHW-assist flag unavailable, loading without it.', error)
+    ;({ data, error } = await run(false))
+  }
+  if (error) {
+    console.error('Vaccination schedule GET:', error)
+    return invalid('Unable to load the schedule list.', 500)
+  }
 
   // Client-side 'q' filter (child name, Child ID, FSN, barangay) — the embedded columns can't be
   // searched server-side without an RPC. Fine for ≤200 rows.

@@ -78,7 +78,7 @@ export async function GET(request: Request) {
       vaccination_record_id, vaccination_date, dose_number, status, batch_number,
       child:child(child_id, first_name, middle_name, last_name, barangay_id,
         barangay:barangay(barangay_name)),
-      vaccine:vaccine(vaccine_id, vaccine_type, item:item(item_name))
+      vaccine:vaccine(vaccine_id, vaccine_type, item:item!fk_vaccine_item(item_name))
     `)
     .eq('batch_number', batchNumber)
     .order('vaccination_date', { ascending: false })

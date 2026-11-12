@@ -30,7 +30,7 @@ export type BatchRequestRow = {
   item?: { item_id: number; item_name: string; unit: string | null } | { item_id: number; item_name: string; unit: string | null }[] | null
   vaccine?: { vaccine_id: number; vaccine_type: string; dose_volume: string | null; route: string | null } | { vaccine_id: number; vaccine_type: string; dose_volume: string | null; route: string | null }[] | null
   target_barangay?: { barangay_id: number; barangay_name: string } | { barangay_id: number; barangay_name: string }[] | null
-  requester?: { user_id: string; user?: { email: string } | { email: string }[] | null } | { user_id: string; user?: { email: string } | { email: string }[] | null }[] | null
+  requester?: { user_id: string; user?: { email: string; full_name?: string | null } | { email: string; full_name?: string | null }[] | null } | { user_id: string; user?: { email: string; full_name?: string | null } | { email: string; full_name?: string | null }[] | null }[] | null
 }
 
 type Props = {
@@ -63,7 +63,7 @@ export function BatchRequestDecisionModal({ open, onClose, onDecided, request }:
   const vaccine = one(request.vaccine)
   const barangay = one(request.target_barangay)
   const requester = one(request.requester)
-  const requesterEmail = requester ? one(requester.user)?.email ?? requester.user_id : '—'
+  const requesterEmail = requester ? one(requester.user)?.full_name ?? one(requester.user)?.email ?? requester.user_id : '—'
 
   async function send(decision: 'APPROVE' | 'REJECT') {
     setFormError('')
