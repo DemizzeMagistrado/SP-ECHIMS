@@ -18,15 +18,15 @@ Values set by migration 06 (DOH NIP): BCG 365 · Hep-B (birth dose) 14 · Pentav
 PCV13, MMR 1826 (under 5 years) · Rotavirus 240 · MR (campaign) none. `min_interval_days` 28 for
 the multi-dose vaccines.
 
-### vaccination_record (migration 07, pending)
+### vaccination_record (migrations 07, 08)
 
 | Column | Change |
 |---|---|
 | `status` | Allowed values `PENDING`, `APPROVED`, `NEEDS_CORRECTION` (was `REJECTED`; no permanent rejection). Changes only through `msp_review_vaccination_record` / `echims_resubmit_vaccination_record` (guard trigger). New rows start `PENDING`; past records (`is_prior`) may be inserted `APPROVED`. |
 | `review_remarks` | The PHN's note while the record needs correction; cleared on resubmission (kept in the history table). |
-| `revision` *(new, migration 08, pending)* | integer ≥ 1, default 1; +1 on every update. Saves send the revision they loaded; an older one gets a 409 and the Keep mine / Keep saved screen. |
+| `revision` *(new, migration 08)* | integer ≥ 1, default 1; +1 on every update. Saves send the revision they loaded; an older one gets a 409 and the Keep mine / Keep saved screen. |
 
-### vaccination_record_review_event *(new table, migration 07, pending)*
+### vaccination_record_review_event *(new table, migration 07)*
 
 | Column | Type | Meaning |
 |---|---|---|

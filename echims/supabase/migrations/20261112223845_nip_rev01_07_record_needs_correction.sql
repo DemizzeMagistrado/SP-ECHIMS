@@ -43,13 +43,17 @@ alter table public.vaccination_record add constraint vaccination_record_status_c
 
 -- Alert rule for the two review notifications. alr_validate_rule only lets an Admin create
 -- inventory / NIP_DOSE_OVERDUE rules from the UI; this EXTERNAL rule (like the CFU_* rules) is
--- added here with that one trigger off for this insert. The audit trigger stays on.
+-- added here with that one trigger off for this insert. The audit trigger stays on; it needs an
+-- actor, so the insert is attributed to the active Administrator account (first by user_id).
+select pg_catalog.set_config('request.jwt.claims', pg_catalog.json_build_object('role', 'authenticated', 'sub',
+  (select a.user_id from public.administrator a join public.users u on u.user_id = a.user_id where u.account_status = 'ACTIVE' order by a.user_id limit 1))::text, true);
 alter table public.alert_rule disable trigger alr_validate_rule;
 insert into public.alert_rule (rule_name, description, rule_category, condition_logic, severity, status, evaluator_type)
 select 'NIP_RECORD_REVIEW', 'A vaccination record was returned for correction, or resubmitted for approval.', 'VACCINATION',
        'Raised by msp_review_vaccination_record (RETURN) and echims_resubmit_vaccination_record.', 'MEDIUM', 'ACTIVE', 'EXTERNAL'
 where not exists (select 1 from public.alert_rule where rule_name = 'NIP_RECORD_REVIEW');
 alter table public.alert_rule enable trigger alr_validate_rule;
+select pg_catalog.set_config('request.jwt.claims', '', true);
 
 -- Guard: only the review / resubmit functions change status and approval columns.
 create or replace function public.echims_guard_vaccination_record_status()
