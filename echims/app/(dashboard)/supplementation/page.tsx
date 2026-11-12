@@ -33,7 +33,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
-import { Input, Select } from '@/components/ui/form'
+import { Input, Select, DateInput } from '@/components/ui/form'
 
 type Child = {
   child_id: number;
@@ -1273,15 +1273,24 @@ export default function SupplementsPage() {
   ) => (
     <label className="text-sm font-medium">
       {label}
-      <input
-        required={required}
-        type={type}
-        step={type === "number" ? "any" : undefined}
-        min={type === "number" ? "0.000001" : undefined}
-        className={input}
-        value={String(form[key])}
-        onChange={(e) => change(key, e.target.value as never)}
-      />
+      {type === "date" ? (
+        <DateInput
+          required={required}
+          className="mt-1"
+          value={String(form[key])}
+          onChange={(e) => change(key, e.target.value as never)}
+        />
+      ) : (
+        <input
+          required={required}
+          type={type}
+          step={type === "number" ? "any" : undefined}
+          min={type === "number" ? "0.000001" : undefined}
+          className={input}
+          value={String(form[key])}
+          onChange={(e) => change(key, e.target.value as never)}
+        />
+      )}
     </label>
   );
 
