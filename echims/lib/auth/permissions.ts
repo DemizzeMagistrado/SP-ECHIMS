@@ -15,6 +15,7 @@ export type Permission =
   | 'health_activities.announce'
 
   | 'gis.view'
+  | 'masterlist.import'
 
   | 'vaccination.view'
   | 'vaccination.create'
@@ -61,6 +62,7 @@ export const rolePermissions: Record<
     'health_activities.announce',
 
     'gis.view',
+    'masterlist.import',
 
     'vaccination.view',
     'vaccination.create',
@@ -103,6 +105,7 @@ export const rolePermissions: Record<
     'health_activities.announce',
 
     'gis.view',
+    'masterlist.import',
 
     'vaccination.view',
     'vaccination.create',
@@ -136,6 +139,7 @@ export const rolePermissions: Record<
     'health_activities.request',
 
     'gis.view',
+    'masterlist.import',
 
     'vaccination.view',
     'vaccination.create',

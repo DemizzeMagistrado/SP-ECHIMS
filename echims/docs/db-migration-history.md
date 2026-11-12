@@ -85,6 +85,17 @@ child_profile_informant_history, and the previous `echims_submit_child` definiti
 Backup taken before applying: schema `backup` tables `nip_rev01_vaccine`, `nip_rev01_item`,
 `nip_rev01_batch_numbers` (21 rows), `nip_rev01_functions` (previous review RPC and status guard).
 
+## 3b. Written and dry-run tested, NOT applied yet (NIP-REV01 backend)
+
+`apply_migration` needs an approval in the session and the confirmations expired, so these are
+saved in `supabase/pending/` (no version yet). Apply each with `apply_migration` using the file
+name as the migration name, then move the file to `supabase/migrations/<recorded version>_<name>.sql`
+and move its row to §3. Backups are in schema `backup_nip_rev01_be`.
+
+| File | What it does | Dry run (rolled back) |
+|---|---|---|
+| nip_rev01_05_masterlist_rhm.sql | `mlu_allowed_barangay_ids()`; `mlu_batch_insert` allows RHM; `mlu_import_batch` allows RHM and blocks rows outside the RHM's assigned barangays | RHM (Alawihao): batch created, 1 row imported, 1 other-barangay row blocked; BHW batch insert 42501; PHN/Admin any barangay. Backup: 8 batches, 15 staging rows, 4 policies, 1 function |
+
 ## 4. Live changes with no migration anywhere (dated 2026-11-11 in code comments)
 
 Found on the live database but in neither the history nor any git branch:

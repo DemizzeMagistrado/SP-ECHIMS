@@ -110,7 +110,6 @@ const rolePermissions: Record<UserRole, Partial<Record<string, Permission[]>>> =
   'Barangay Health Worker': {
     'Child Profiling': ['view', 'create', 'edit'],
     Geospatial: ['view'],
-    'Masterlist Upload': ['view', 'create'],
     Vaccination: ['view', 'create', 'edit'],
     'Vaccination Schedule': ['view', 'request'],
     // NIP-USR011 — BHW can read the catalog so they see DOH guidelines + eligibility
@@ -125,6 +124,8 @@ const rolePermissions: Record<UserRole, Partial<Record<string, Permission[]>>> =
     Organization: ['view'], // Read
   },
   'Rural Health Midwife': {
+    // NIP-REV01 option 3: RHM uploads and imports on their own, for their assigned barangays only.
+    'Masterlist Upload': ['view', 'create', 'edit'],
     // Manuscript section 4.4.1 lists RHM as "Verify child records before service delivery"
     // and "Record child health services and interventions" — so RHM needs create+edit on
     // Child Profiling in addition to the view+approve review workflow.
@@ -150,7 +151,6 @@ const rolePermissions: Record<UserRole, Partial<Record<string, Permission[]>>> =
   'Barangay Nutrition Scholar': {
     'Child Profiling': ['view'], // View-only — no create/edit
     Geospatial: ['view'],
-    'Masterlist Upload': ['view', 'create'],
     'Nutritional Assessment': ['view', 'create', 'edit', 'export'],
     Supplementation: ['view', 'create', 'edit'],
     Inventory: ['view'], // Limited
