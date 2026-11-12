@@ -1,4 +1,5 @@
 'use client'
+import { Select } from '@/components/ui/form'
 import { StatCard } from '@/components/ui/stat-card'
 import { useState } from 'react'
 import Link from 'next/link'
@@ -29,9 +30,9 @@ export function NutritionRiskMonitor({ monitoring, error, loading, offline, onRe
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">{[['At-risk children', counts!.at_risk], ['Critical', counts!.critical], ['High priority', counts!.high], ['Worsened', counts!.worsened], ['Needs review', counts!.needs_review]].map(([label, count], i) => <StatCard key={label} label={label} value={count} tone={(['nutrition', 'danger', 'warn', 'danger', 'warn'] as const)[i]} />)}</div>
       <p className="text-xs text-muted-foreground">Counts cover your full accessible scope. Needs review includes unavailable risk flags or incomplete latest evaluations; those children are not assumed to be normal.</p>
       <div className="flex flex-wrap gap-3 rounded-xl border border-border bg-white p-4">
-        <label className="text-sm"><select value={barangay} onChange={(event) => setBarangay(event.target.value)} className="ml-2 rounded-lg border border-border px-3 py-2"><option value="All">All accessible barangays</option>{barangays.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
-        <label className="text-sm"><select value={classification} onChange={(event) => setClassification(event.target.value)} className="ml-2 rounded-lg border border-border px-3 py-2"><option value="All">All classifications</option>{codes.map((code) => <option key={code} value={code}>{labelClassification(code)}</option>)}</select></label>
-        <label className="text-sm"><select value={severity} onChange={(event) => setSeverity(event.target.value)} className="ml-2 rounded-lg border border-border px-3 py-2">{['All', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map((value) => <option key={value} value={value}>{value === 'All' ? 'All priorities' : value}</option>)}</select></label>
+        <label className="text-sm"><Select value={barangay} onChange={(event) => setBarangay(event.target.value)} className="ml-2"><option value="All">All accessible barangays</option>{barangays.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</Select></label>
+        <label className="text-sm"><Select value={classification} onChange={(event) => setClassification(event.target.value)} className="ml-2"><option value="All">All classifications</option>{codes.map((code) => <option key={code} value={code}>{labelClassification(code)}</option>)}</Select></label>
+        <label className="text-sm"><Select value={severity} onChange={(event) => setSeverity(event.target.value)} className="ml-2">{['All', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map((value) => <option key={value} value={value}>{value === 'All' ? 'All priorities' : value}</option>)}</Select></label>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={worsenedOnly} onChange={(event) => setWorsenedOnly(event.target.checked)} />Worsened only</label>
       </div>
       <div className="overflow-x-auto rounded-xl border border-border bg-white"><table className="w-full text-sm"><thead className="bg-muted"><tr>{['Child', 'Barangay', 'Latest assessment', 'Recorded risks', 'Priority', 'Change', 'Action'].map((title) => <th key={title} className="px-4 py-3 text-left">{title}</th>)}</tr></thead><tbody className="divide-y divide-border">{visible.map((row) => <tr key={row.child_id} className={row.worsening.length ? 'bg-red-50/40' : ''}>

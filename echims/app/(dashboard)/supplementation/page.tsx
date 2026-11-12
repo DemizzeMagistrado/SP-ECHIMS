@@ -32,7 +32,7 @@ import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/form'
+import { Input, Select } from '@/components/ui/form'
 
 type Child = {
   child_id: number;
@@ -830,8 +830,8 @@ export default function SupplementsPage() {
   const assessmentSelector = (
     <label className="text-sm font-medium">
       Saved nutrition assessment
-      <select
-        className={input}
+      <Select
+       
         value={form.assessmentId}
         onChange={(e) => change("assessmentId", e.target.value)}
       >
@@ -846,7 +846,7 @@ export default function SupplementsPage() {
             {a.nutritional_status ?? "Not evaluated"}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   );
 
@@ -1241,9 +1241,9 @@ export default function SupplementsPage() {
   ) => (
     <label className="text-sm font-medium">
       {label}
-      <select
+      <Select
         required
-        className={input}
+       
         value={String(form[key])}
         onChange={(e) => change(key, e.target.value as never)}
       >
@@ -1260,7 +1260,7 @@ export default function SupplementsPage() {
             {o.label}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   );
 

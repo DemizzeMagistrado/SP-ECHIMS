@@ -1,4 +1,5 @@
 "use client";
+import { Select } from '@/components/ui/form'
 import { FilterChips } from '@/components/ui/module-tabs'
 import { reportScopeLabel } from "@/lib/reports/report-scope-label";
 import { useState } from "react";
@@ -169,15 +170,15 @@ export function SupplementationReportFormat({
         <FilterChips label="Supplementation report sections" value={tab} onChange={setTab}
           options={[{ value: "SUMMARY", label: "Overview" }, { value: "REGISTER", label: "Child Supplementation Register" }, { value: "PLANS", label: "Supply Plans" }] as const} />
         {tab !== "PLANS" && (
-          <select
+          <Select
             aria-label="Supplementation record type"
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+           
             value={mode}
             onChange={(e) => setMode(e.target.value as SupplyMode)}
           >
             <option value="ADMINISTERED">Actual administration</option>
             <option value="DISPENSED">Dispensed to guardians</option>
-          </select>
+          </Select>
         )}
       </div>
       <div className="supp-report-output space-y-4">

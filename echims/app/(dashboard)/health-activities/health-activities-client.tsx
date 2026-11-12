@@ -1,4 +1,5 @@
 'use client'
+import { Select } from '@/components/ui/form'
 import { StatCard } from '@/components/ui/stat-card'
 import { FilterChips, TabBar } from '@/components/ui/module-tabs'
 import { useAuth } from '@/components/auth/auth-provider'
@@ -1283,7 +1284,7 @@ function UpdateStatusModal({
         </div>
 
         <Field label="New status">
-          <select
+          <Select
             required
             value={status}
             onChange={(event) =>
@@ -1292,7 +1293,7 @@ function UpdateStatusModal({
               )
             }
             disabled={submitting}
-            className={inputClass}
+           
           >
             {options.length === 0 && (
               <option value="">
@@ -1305,7 +1306,7 @@ function UpdateStatusModal({
                 {STATUS_LABELS[item]}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
 
         {status === 'CANCELLED' && (
@@ -1524,7 +1525,7 @@ function RequestActivityModal({
         </div>
 
         <Field label="Activity Type">
-          <select name="activityType" defaultValue={String(draft?.form.activityType??'')} required className={inputClass}>
+          <Select name="activityType" defaultValue={String(draft?.form.activityType??'')} required>
             <option value="">Select activity</option>
 
             {availableActivityTypes.map((item) => (
@@ -1532,15 +1533,15 @@ function RequestActivityModal({
                 {item.label}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
 
         <Field label="Barangay">
-          <select
+          <Select
             name="barangayId" defaultValue={String(draft?.form.barangayId??'')}
             required
             disabled={loadingOptions || barangays.length === 0}
-            className={inputClass}
+           
           >
             <option value="">
               {loadingOptions
@@ -1556,7 +1557,7 @@ function RequestActivityModal({
                 {barangay.municipality ? ` — ${barangay.municipality}` : ''}
               </option>
             ))}
-          </select>
+          </Select>
 
           {loadingOptions && (
             <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">

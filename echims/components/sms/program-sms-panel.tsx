@@ -401,7 +401,7 @@ export function ProgramSmsPanel({
                 <div className="flex flex-wrap justify-between gap-2 text-sm">
                   <label className="min-w-0 flex-1 text-xs">
                     Child / reminder
-                    <select
+                    <Select
                       aria-label="Child reminder preview"
                       disabled={busy}
                       value={selected.service_key}
@@ -411,14 +411,14 @@ export function ProgramSmsPanel({
                         );
                         if (row) select(row);
                       }}
-                      className="mt-1 block w-full rounded-lg border bg-white p-2 text-sm"
+                      className="mt-1 block w-full"
                     >
                       {data.rows.map((row) => (
                         <option key={row.service_key} value={row.service_key}>
                           {row.child_name} · {row.service_name} · {row.due_date}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </label>
                   <span>{selected.masked_number ?? "No confirmed number"}</span>
                 </div>

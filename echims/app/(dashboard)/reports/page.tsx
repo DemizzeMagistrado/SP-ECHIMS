@@ -503,9 +503,9 @@ export default function ReportsPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <label className="text-sm">
               Period
-              <select
+              <Select
                 disabled={busy}
-                className="mt-1 w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 transition-colors hover:border-sky-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-1 w-full"
                 value={period}
                 onChange={(e) => {
                   clear();
@@ -524,7 +524,7 @@ export default function ReportsPage() {
                     {l}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <label className="text-sm">
               Start

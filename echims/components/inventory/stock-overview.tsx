@@ -421,21 +421,21 @@ function StockInForm({ items, barangays, onClose, onSaved }: {
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="sm:col-span-2">
             <span className="mb-1 block text-sm font-medium text-[#374151]">Item</span>
-            <select value={form.item_id} onChange={(e) => set('item_id', e.target.value)} className={`${field} ${border('item_id')}`}>
+            <Select value={form.item_id} onChange={(e) => set('item_id', e.target.value)} aria-invalid={Boolean(errors.item_id) || undefined}>
               <option value="">Select vaccine or supplement</option>
               {vaccines.length > 0 && <optgroup label="Vaccines">{vaccines.map((i) => <option key={i.item_id} value={i.item_id}>{i.item_name}</option>)}</optgroup>}
               {supplements.length > 0 && <optgroup label="Supplements">{supplements.map((i) => <option key={i.item_id} value={i.item_id}>{i.item_name}</option>)}</optgroup>}
-            </select>
+            </Select>
             <Err k="item_id" />
           </label>
 
           {barangays.length !== 1 && (
             <label className="sm:col-span-2">
               <span className="mb-1 block text-sm font-medium text-[#374151]">Barangay</span>
-              <select value={form.barangay_id} onChange={(e) => set('barangay_id', e.target.value)} className={`${field} ${border('barangay_id')}`}>
+              <Select value={form.barangay_id} onChange={(e) => set('barangay_id', e.target.value)} aria-invalid={Boolean(errors.barangay_id) || undefined}>
                 <option value="">Select barangay</option>
                 {barangays.map((b) => <option key={b.barangay_id} value={b.barangay_id}>{b.barangay_name}</option>)}
-              </select>
+              </Select>
               <Err k="barangay_id" />
             </label>
           )}

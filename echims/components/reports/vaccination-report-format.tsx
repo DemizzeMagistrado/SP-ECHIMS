@@ -1,4 +1,5 @@
 "use client";
+import { Select } from '@/components/ui/form'
 import { FilterChips } from '@/components/ui/module-tabs'
 import { reportScopeLabel } from "@/lib/reports/report-scope-label";
 import { useState } from "react";
@@ -107,17 +108,17 @@ export function VaccinationReportFormat({
       >
         <FilterChips label="Vaccination report sections" value={tab} onChange={setTab}
           options={[{ value: "SUMMARY", label: "Overview" }, { value: "REGISTER", label: "Child Vaccination Register" }] as const} />
-        <select
+        <Select
           aria-label="Vaccination record group"
           value={mode}
           onChange={(e) => setMode(e.target.value as RecordMode)}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+         
         >
           <option value="SERVICE">
             Doses administered in reporting period
           </option>
           <option value="PRIOR">Prior vaccination records</option>
-        </select>
+        </Select>
       </div>
       <div className="vax-report-output space-y-4">
         <header className="rounded-lg border bg-white p-4">

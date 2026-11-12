@@ -319,15 +319,15 @@ export function SupplementStockRequestsPanel({
           <>
             <label className="block text-sm">
               Request status
-              <select
-                className="ml-3 rounded-lg border p-2"
+              <Select
+                className="ml-3"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
               >
                 {["ALL", "PENDING", "REJECTED", "APPROVED"].map((s) => (
                   <option key={s}>{s}</option>
                 ))}
-              </select>
+              </Select>
             </label>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">

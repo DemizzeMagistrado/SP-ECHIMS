@@ -1083,7 +1083,7 @@ function AlertsWorkspace() {
                 {draft.ruleId === null && (
                   <label className="block text-sm font-medium">
                     Evaluator
-                    <select
+                    <Select
                       value={draft.evaluatorType}
                       onChange={(event) =>
                         setDraft({
@@ -1095,13 +1095,13 @@ function AlertsWorkspace() {
                               : "30",
                         })
                       }
-                      className={inputClass}
+                     
                     >
                       <option value="INVENTORY_LOW_STOCK">Low stock</option>
                       <option value="INVENTORY_NEAR_EXPIRY">
                         Near expiry / expired batch
                       </option>
-                    </select>
+                    </Select>
                   </label>
                 )}
                 <label className="block text-sm font-medium">
@@ -1122,30 +1122,30 @@ function AlertsWorkspace() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="text-sm font-medium">
                     Severity
-                    <select
+                    <Select
                       value={draft.severity}
                       onChange={(event) =>
                         setDraft({ ...draft, severity: event.target.value })
                       }
-                      className={inputClass}
+                     
                     >
                       {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map((value) => (
                         <option key={value}>{value}</option>
                       ))}
-                    </select>
+                    </Select>
                   </label>
                   <label className="text-sm font-medium">
                     Status
-                    <select
+                    <Select
                       value={draft.status}
                       onChange={(event) =>
                         setDraft({ ...draft, status: event.target.value })
                       }
-                      className={inputClass}
+                     
                     >
                       <option>ACTIVE</option>
                       <option>INACTIVE</option>
-                    </select>
+                    </Select>
                   </label>
                 </div>
                 {parameterKey(draft.evaluatorType) ? (

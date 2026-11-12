@@ -1,4 +1,5 @@
 'use client'
+import { Select } from '@/components/ui/form'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 // CP-USR002 — Philippine Address Picker (4-level cascading dropdowns).
@@ -24,7 +25,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import { useEffect, useState } from 'react'
 import useSWR from 'swr'
-import { MapPin, ChevronDown, AlertCircle } from 'lucide-react'
+import { MapPin, AlertCircle } from 'lucide-react'
 import { Spinner } from '@/components/brand/logo-loader'
 
 type Item = { code: string; name: string }
@@ -194,21 +195,19 @@ function CascadeSelect({
 }) {
   return (
     <div className="relative">
-      <select
+      <Select
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className="w-full appearance-none rounded-lg border border-border bg-white px-3 py-2 pr-9 text-sm outline-none focus:border-primary disabled:bg-muted disabled:text-muted-foreground"
+        className="w-full"
       >
         <option value="">{placeholder}</option>
         {options.map((o) => (
           <option key={o.code} value={o.code}>{o.name}</option>
         ))}
-      </select>
-      {disabled && !error ? (
-        <Spinner className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2" />
-      ) : (
-        <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+      </Select>
+      {disabled && !error && (
+        <Spinner className="pointer-events-none absolute right-9 top-1/2 -translate-y-1/2" />
       )}
       {error && (
         <p className="mt-1 flex items-center gap-1 text-xs text-rose-700">

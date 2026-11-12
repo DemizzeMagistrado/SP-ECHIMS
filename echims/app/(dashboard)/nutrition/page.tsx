@@ -2649,14 +2649,14 @@ export default function NutritionPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="text-sm font-medium md:col-span-2">
                     Select child
-                    <select
+                    <Select
                       autoFocus
                       required
                       value={draft.child_id}
                       onChange={(event) =>
                         change("child_id", event.target.value)
                       }
-                      className={inputClass}
+                     
                     >
                       <option value="">Select a child</option>
                       {eligibleChildren.map((item) => (
@@ -2666,7 +2666,7 @@ export default function NutritionPage() {
                           {item.child_id}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </label>
                   <label className="text-sm font-medium">
                     Address or location of child's residence
@@ -2799,20 +2799,20 @@ export default function NutritionPage() {
                   </label>
                   <label className="text-sm font-medium">
                     Actual measurement position
-                    <select
+                    <Select
                       required
                       value={draft.measurement_type}
                       onChange={(event) =>
                         change("measurement_type", event.target.value)
                       }
-                      className={inputClass}
+                     
                     >
                       <option value="">Select position</option>
                       <option value="LENGTH">
                         Recumbent length — lying down
                       </option>
                       <option value="HEIGHT">Standing height</option>
-                    </select>
+                    </Select>
                   </label>
                 </div>
                 <p className="mt-3 text-xs text-muted-foreground">
@@ -2873,20 +2873,20 @@ export default function NutritionPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="text-sm font-medium">
                     Bilateral pitting edema
-                    <select
+                    <Select
                       required
                       value={draft.edema_grade}
                       onChange={(event) =>
                         change("edema_grade", event.target.value)
                       }
-                      className={inputClass}
+                     
                     >
                       <option value="">Select examination result</option>
                       <option value="0">Absent (0)</option>
                       <option value="1">Mild (+1)</option>
                       <option value="2">Moderate (+2)</option>
                       <option value="3">Severe (+3)</option>
-                    </select>
+                    </Select>
                   </label>
                   <label className="text-sm font-medium">
                     MUAC (cm, optional)

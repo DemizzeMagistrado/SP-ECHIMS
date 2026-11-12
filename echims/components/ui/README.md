@@ -51,6 +51,10 @@ Display-font title, one-line muted subtitle, `actions` on the right (wrap below 
 `Field` wires label, required marker, hint and error (red, linked with `aria-describedby`, sets
 `aria-invalid`) to the control inside it. Controls: `Input`, `DateInput`, `Select`, `Textarea`,
 `Checkbox`, `Radio` (the last two take `label` and `hint`). `controlClass` is exported for odd cases.
+`Select` keeps the native `<select>` API (`<option>`/`<optgroup>` children, `value`/`onChange(e)`,
+or `name` + `defaultValue` in a FormData form) but renders the shared dropdown: styled menu in a
+portal (no clipping in cards/modals, flips near screen edges), keyboard navigation and type-ahead,
+and a search box when there are more than 10 options (`searchable` forces it). Never use a raw `<select>`.
 ```tsx
 <Field label="Birth date" required hint="As on the birth certificate" error={errors.dob}>
   <DateInput value={dob} onChange={(e) => setDob(e.target.value)} />
