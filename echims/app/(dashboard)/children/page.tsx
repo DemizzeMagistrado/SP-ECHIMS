@@ -101,19 +101,19 @@ export default function ChildHealthPage() {
   }
 
   const columns: Column<Child>[] = [
-    { key: 'id', header: 'Child ID', headerExtra: <InfoTip label="About Child ID">{CHILD_ID_HELP}</InfoTip>, cell: (c) => <span className="font-mono text-xs font-semibold text-brand-navy">{c.id}</span>, sortValue: (c) => c.id, className: 'w-44 whitespace-nowrap' },
+    { key: 'id', header: 'Child ID', headerExtra: <InfoTip label="About Child ID">{CHILD_ID_HELP}</InfoTip>, cell: (c) => <span className="font-mono text-xs font-semibold text-brand-navy">{c.id}</span>, sortValue: (c) => c.id, className: 'whitespace-nowrap' },
     {
-      key: 'name', header: 'Name', sortValue: (c) => c.name, className: 'min-w-48',
+      key: 'name', header: 'Name', sortValue: (c) => c.name, className: 'w-[26%]',
       cell: (c) => (
         <Link href={`/child-profiling/children/${c.child_id}`} onClick={(e) => e.stopPropagation()} className="font-medium text-brand-navy underline-offset-4 hover:underline">
           {c.name}
         </Link>
       ),
     },
-    { key: 'age', header: 'Age', cell: (c) => `${Math.max(0, monthsOld(c.dob))} mos`, sortValue: (c) => monthsOld(c.dob), align: 'right', className: 'w-24 whitespace-nowrap' },
-    { key: 'barangay', header: 'Barangay', cell: (c) => barangayName(c.barangay), sortValue: (c) => barangayName(c.barangay), className: 'w-[18%]' },
+    { key: 'age', header: 'Age', cell: (c) => `${Math.max(0, monthsOld(c.dob))} mos`, sortValue: (c) => monthsOld(c.dob), align: 'right', className: 'whitespace-nowrap' },
+    { key: 'barangay', header: 'Barangay', cell: (c) => barangayName(c.barangay), sortValue: (c) => barangayName(c.barangay) },
     {
-      key: 'fsn', header: 'FSN / Household', headerExtra: <InfoTip label="About the Family Serial Number (FSN)" align="end">{FSN_HELP}</InfoTip>, sortValue: (c) => c.familySerialNo, className: 'w-[18%] whitespace-nowrap',
+      key: 'fsn', header: 'FSN / Household', headerExtra: <InfoTip label="About the Family Serial Number (FSN)" align="end">{FSN_HELP}</InfoTip>, sortValue: (c) => c.familySerialNo,
       cell: (c) => (
         <div>
           {c.familySerialNo ? (
@@ -124,7 +124,7 @@ export default function ChildHealthPage() {
         </div>
       ),
     },
-    { key: 'status', header: 'Status', cell: (c) => <StatusBadge status={c.status ?? 'ACTIVE'} tone={childStatusTone(c.status)} />, sortValue: (c) => c.status, className: 'w-28 whitespace-nowrap' },
+    { key: 'status', header: 'Status', cell: (c) => <StatusBadge status={c.status ?? 'ACTIVE'} tone={childStatusTone(c.status)} />, sortValue: (c) => c.status, className: 'whitespace-nowrap' },
   ]
 
   if (!isReady) return <LogoLoader label="Loading child profiling…" />
