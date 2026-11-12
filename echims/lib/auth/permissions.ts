@@ -139,7 +139,6 @@ export const rolePermissions: Record<
     'health_activities.request',
 
     'gis.view',
-    'masterlist.import',
 
     'vaccination.view',
     'vaccination.create',

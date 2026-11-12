@@ -124,8 +124,6 @@ const rolePermissions: Record<UserRole, Partial<Record<string, Permission[]>>> =
     Organization: ['view'], // Read
   },
   'Rural Health Midwife': {
-    // NIP-REV01 option 3: RHM uploads and imports on their own, for their assigned barangays only.
-    'Masterlist Upload': ['view', 'create', 'edit'],
     // Manuscript section 4.4.1 lists RHM as "Verify child records before service delivery"
     // and "Record child health services and interventions" — so RHM needs create+edit on
     // Child Profiling in addition to the view+approve review workflow.

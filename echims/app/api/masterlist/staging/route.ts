@@ -5,7 +5,6 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { barangayScopeError, masterlistScope, type MasterlistScope } from '@/lib/masterlist-scope'
 
 type NormalizedRow = Record<string, string>
 
@@ -18,7 +17,6 @@ const REQUIRED = new Set([
 async function revalidateRow(
   supabase: Awaited<ReturnType<typeof createClient>>,
   raw: Record<string, string>,
-  scope: MasterlistScope,
 ): Promise<{ status: 'VALID'|'ERROR'|'DUPLICATE'; errors: string[]; normalized: NormalizedRow }> {
   const errors: string[] = []
   for (const k of REQUIRED) if (!raw[k]) errors.push(`${k} is required`)
@@ -44,11 +42,7 @@ async function revalidateRow(
     const { data: b } = await supabase.from('barangay').select('barangay_id, municipality')
       .ilike('barangay_name', raw.barangay_name.trim()).maybeSingle()
     if (!b) errors.push(`barangay_name "${raw.barangay_name}" not found`)
-    else {
-      barangay_id = String(b.barangay_id); municipality = b.municipality as string
-      const scopeErr = barangayScopeError(scope, Number(b.barangay_id), raw.barangay_name)
-      if (scopeErr) errors.push(scopeErr)
-    }
+    else { barangay_id = String(b.barangay_id); municipality = b.municipality as string }
   }
 
   const normalized: NormalizedRow = {
@@ -122,10 +116,8 @@ export async function PATCH(request: Request) {
   const { data: existing, error: readErr } = await supabase.from('masterlist_staging').select('*').eq('staging_id', stagingId).maybeSingle()
   if (readErr || !existing) return NextResponse.json({ error: readErr?.message ?? 'Row not found' }, { status: 404 })
 
-  const scope = await masterlistScope(supabase, user.id)
-  if (!scope) return NextResponse.json({ error: 'Only an Administrator, PHN or RHM can edit masterlist rows.' }, { status: 403 })
   const mergedRaw = { ...(existing.raw as Record<string, string>), ...patch }
-  const { status, errors, normalized } = await revalidateRow(supabase, mergedRaw, scope)
+  const { status, errors, normalized } = await revalidateRow(supabase, mergedRaw)
 
   const { error: upErr } = await supabase.from('masterlist_staging').update({
     raw: mergedRaw, normalized, status, errors, updated_at: new Date().toISOString(),

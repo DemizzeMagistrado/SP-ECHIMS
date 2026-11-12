@@ -1,12 +1,10 @@
 // echims/app/api/masterlist/upload/route.ts
 // POST a CSV masterlist file → create batch + staging rows (validated).
-// Role: Administrator, PHN (any barangay) or RHM (only their assigned barangays; rows for other
-// barangays are flagged as errors). Enforced again by RLS on insert and in mlu_import_batch.
+// Role: PHN or Administrator only (enforced by RLS on insert).
 
 import { normalizePhMobile } from '@/lib/phone'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { barangayScopeError, masterlistScope } from '@/lib/masterlist-scope'
 
 export const runtime = 'nodejs'
 
@@ -51,13 +49,13 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 })
 
-  // Role gate (and, for RHM, the barangays they may import into)
-  const scope = await masterlistScope(supabase, user.id)
-  if (!scope) {
-    return NextResponse.json({ error: 'Only an Administrator, PHN or RHM can upload masterlists.' }, { status: 403 })
-  }
-  if (scope.allowed && scope.allowed.size === 0) {
-    return NextResponse.json({ error: 'You have no assigned barangays yet. Ask your PHN or an administrator to assign one.' }, { status: 403 })
+  // Role gate
+  const [{ data: adminRow }, { data: phnRow }] = await Promise.all([
+    supabase.from('administrator').select('user_id').eq('user_id', user.id).maybeSingle(),
+    supabase.from('public_health_nurse').select('user_id').eq('user_id', user.id).maybeSingle(),
+  ])
+  if (!adminRow && !phnRow) {
+    return NextResponse.json({ error: 'Only PHN or Administrator can upload masterlists.' }, { status: 403 })
   }
 
   const form = await request.formData().catch(() => null)
@@ -135,8 +133,6 @@ export async function POST(request: Request) {
     // Barangay
     const brgy = brgyByName.get(raw.barangay_name?.toLowerCase().trim() ?? '')
     if (raw.barangay_name && !brgy) rowErrors.push(`barangay_name "${raw.barangay_name}" not found`)
-    const scopeErr = brgy ? barangayScopeError(scope, brgy.barangay_id, raw.barangay_name) : null
-    if (scopeErr) rowErrors.push(scopeErr)
 
     // 4Ps
     if (raw.is_4ps_member && !['true','false','yes','no','1','0',''].includes(raw.is_4ps_member.toLowerCase())) {

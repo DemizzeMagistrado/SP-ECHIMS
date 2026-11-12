@@ -44,9 +44,9 @@ RLS: readable by whoever can read the record; written only by the two functions.
 
 | Object | Type | Migration | Purpose |
 |---|---|---|---|
-| `mlu_allowed_barangay_ids()` | function (SECURITY DEFINER, `authenticated` only) | 05 | Barangays the user may import a masterlist into: NULL (any) for Admin/PHN, the active assignments for RHM, none for others. |
-| `mlu_batch_insert` | RLS policy on `masterlist_upload_batch` (changed) | 05 | Admin, PHN and now RHM (active accounts) can create their own upload batch. |
-| `mlu_import_batch(bigint)` | function (changed) | 05 | RHM may import; rows outside the uploader's allowed barangays become ERROR ("Barangay is not assigned to you"). |
+| `mlu_allowed_barangay_ids()` | function — **dropped in 09** | 05 | Barangays the user may import a masterlist into: NULL (any) for Admin/PHN, the active assignments for RHM, none for others. |
+| `mlu_batch_insert` | RLS policy on `masterlist_upload_batch` (changed in 05, 09) | 09 | Admin and PHN (active accounts) create their own upload batch; RHM access from 05 removed. |
+| `mlu_import_batch(bigint)` | function (changed in 05, 09) | 09 | Admin / PHN (active accounts) only; the RHM barangay check from 05 is gone. |
 | `msp_review_vaccination_record(bigint, text, text)` | function (changed) | 07 | `RETURN` (alias `REJECT`) with a required note → NEEDS_CORRECTION, history row, alert `NIP_RECORD_NEEDS_CORRECTION` to the recorder; `APPROVE` also writes a history row. |
 | `echims_resubmit_vaccination_record(bigint, text)` | function (new) | 07 | Recorder (still assigned) or the RHU's PHN / Admin: NEEDS_CORRECTION → PENDING, history row, alert `NIP_RECORD_RESUBMITTED` to the RHU's PHNs. |
 | `echims_guard_vaccination_record_status()` | trigger fn (new) | 07 | Blocks direct status / approval changes outside the two functions. |
