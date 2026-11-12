@@ -6,13 +6,15 @@
 // - Calendar: brand colors, today ringed, selected day filled navy, days outside min/max grayed,
 //   month and year quick pickers (for birth dates), Today and Clear, full keyboard support
 //   (arrows, PageUp/PageDown = month, Shift+PageUp/PageDown = year, Home/End, Enter, Esc).
-// - Phones: the calendar opens as a bottom sheet.
+// - The calendar is a 312px popover in a portal (never clipped by modals, no inner scrollbar):
+//   below the field, above if there is no room, shifted to stay on screen. Phones: bottom sheet.
 // A visually hidden native input carries name/value/required and fires the real input event, so
 // onChange handlers get a normal event whose target.value is YYYY-MM-DD ('' when cleared).
 
 import { useEffect, useId, useMemo, useRef, useState, type InputHTMLAttributes, type KeyboardEvent } from 'react'
 import { CalendarDays, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
 import { FloatingPanel } from './floating-panel'
+import { Button } from './button'
 import { cn } from '@/lib/utils'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
@@ -161,7 +163,16 @@ export function DatePicker({ value, defaultValue, onChange, min, max, disabled, 
         className="sr-only"
       />
       {error && <p id={errorId} className="mt-1 text-xs font-medium text-danger">{error}</p>}
-      <FloatingPanel anchor={wrap} open={open} onClose={() => setOpen(false)} minWidth={296} maxHeight={420} sheetOnMobile label="Choose a date" className="w-[296px] max-sm:w-full">
+      <FloatingPanel
+        anchor={wrap}
+        open={open}
+        // Outside press: give focus back to the field unless the press focused something else.
+        onClose={() => { setOpen(false); requestAnimationFrame(() => { if (!document.activeElement || document.activeElement === document.body) input.current?.focus() }) }}
+        width={312}
+        fit
+        sheetOnMobile
+        label="Choose a date"
+      >
         <Calendar value={current} min={min} max={max} today={today} onPick={pick} onClose={() => { setOpen(false); input.current?.focus() }} onClear={() => { setText(''); setError(null); commit(''); setOpen(false); input.current?.focus() }} />
       </FloatingPanel>
     </div>
@@ -215,7 +226,7 @@ function Calendar({ value, min, max, today, onPick, onClose, onClear }: {
   const nextDisabled = Boolean(max && toIso({ y: focus.y, m: focus.m, d: daysIn(focus.y, focus.m) }) >= max)
 
   return (
-    <div role="dialog" aria-label="Choose a date" className="p-3" onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose() } }}>
+    <div role="dialog" aria-label="Choose a date" className="p-3 max-sm:mx-auto max-sm:max-w-sm max-sm:p-4" onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose() } }}>
       <div className="mb-2 flex items-center justify-between gap-1">
         <button type="button" className={navBtn} aria-label="Previous month" disabled={view !== 'days' || prevDisabled} onClick={() => setFocus(addMonths(focus, -1))}><ChevronLeft size={16} aria-hidden="true" /></button>
         <div className="flex items-center">
@@ -297,9 +308,9 @@ function Calendar({ value, min, max, today, onPick, onClose, onClear }: {
         </div>
       )}
 
-      <div className="mt-2 flex items-center justify-between border-t border-brand-line pt-2">
-        <button type="button" onClick={onClear} className="rounded-lg px-3 py-1.5 text-sm font-semibold text-brand-muted outline-none hover:bg-brand-ice hover:text-brand-navy focus-visible:ring-2 focus-visible:ring-brand-blue/30">Clear</button>
-        <button type="button" disabled={disabledDay(today)} onClick={() => onPick(today)} className="rounded-lg px-3 py-1.5 text-sm font-semibold text-brand-blue outline-none hover:bg-brand-ice focus-visible:ring-2 focus-visible:ring-brand-blue/30 disabled:cursor-not-allowed disabled:opacity-40">Today</button>
+      <div className="mt-3 flex items-center justify-between gap-2 border-t border-brand-line pt-3">
+        <Button size="sm" variant="ghost" onClick={onClear}>Clear</Button>
+        <Button size="sm" variant="tonal" disabled={disabledDay(today)} title={disabledDay(today) ? 'Today is outside the allowed dates' : undefined} onClick={() => onPick(today)}>Today</Button>
       </div>
     </div>
   )
