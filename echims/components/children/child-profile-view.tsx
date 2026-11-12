@@ -42,7 +42,7 @@ import { LogoLoader } from '@/components/brand/logo-loader'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { SectionJumpNav } from "@/components/children/section-jump-nav";
+import { StickySubnav, subnavPill } from "@/components/ui/sticky-subnav";
 import { BackToTop } from "@/components/landing/section-nav";
 import { CHILD_ID_HELP, FSN_HELP, InfoTip } from '@/components/ui/info-tip'
 type ChildRow = {
@@ -661,7 +661,7 @@ export function ChildProfileView({childId}: {childId: string}) {
           </div>
         </div>
       </section>
-      <SectionJumpNav
+      <StickySubnav
         label="Jump to section"
         items={[
           { id: "vaccination-schedule", label: "Vaccination schedule" },
@@ -669,7 +669,7 @@ export function ChildProfileView({childId}: {childId: string}) {
           { id: "supplementation", label: "Supplementation" },
         ]}
         extra={canViewAlerts && (
-          <Link href="/alerts" className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-white px-3 py-1.5 text-sm font-medium text-brand-navy hover:bg-brand-ice focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+          <Link href="/alerts" className={subnavPill(false)}>
             Alerts
             {typeof openAlertCount === "number" && openAlertCount > 0 && (
               <StatusBadge status="open" tone="danger" label={`${openAlertCount} open`} className="py-0.5" />
@@ -786,7 +786,7 @@ export function ChildProfileView({childId}: {childId: string}) {
             <InfoRow label="Water source" value={household?.water_source_type || profile?.water_source_type || "—"} />
             <InfoRow label="Toilet facility" value={household?.toilet_facility_type || profile?.toilet_facility_type || "—"} />
           </dl>
-          <div id="household-members" className="mt-4 scroll-mt-32 border-t border-border pt-4">
+          <div id="household-members" className="mt-4 scroll-mt-[var(--subnav-offset,8rem)] border-t border-border pt-4">
             <h3 className="text-sm font-semibold text-brand-navy">
               Household members <span className="font-normal text-muted-foreground">· same Family Serial No.</span>
             </h3>
@@ -820,16 +820,16 @@ export function ChildProfileView({childId}: {childId: string}) {
       </div>
       {/* NIP-USR001 — Vaccination Schedule request + preview. Computed from DOB + NIP
           catalog, already-administered doses excluded. BHW/RHM can request, PHN reviews. */}
-      <div id="vaccination-schedule" className="scroll-mt-32">
+      <div id="vaccination-schedule" className="scroll-mt-[var(--subnav-offset,8rem)]">
         <VaccinationScheduleSection childId={child.child_id} />
       </div>
 
       {/* Nutritional assessment history */}
-      <div id="nutrition-history" className="scroll-mt-32">
+      <div id="nutrition-history" className="scroll-mt-[var(--subnav-offset,8rem)]">
         <NutritionHistorySection assessments={assessments ?? []} />
       </div>
       {/* Full saved administration, dispensing, plans and due dates. */}
-      <div id="supplementation" className="scroll-mt-32">
+      <div id="supplementation" className="scroll-mt-[var(--subnav-offset,8rem)]">
         <SupplementationHistorySection childId={child.child_id} />
       </div>
 

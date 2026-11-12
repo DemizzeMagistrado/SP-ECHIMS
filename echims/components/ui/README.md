@@ -119,6 +119,13 @@ Layout for pages with many filters: `chips` on top, `search` on its own full-wid
 (children) in a 2-column grid (1 column on phones), then `info` (left) and `actions` (right, e.g.
 `ExpandCollapseAll`). Used on Vaccination › Schedule.
 
+## StickySubnav — `sticky-subnav.tsx`
+Section jump bar that sticks under the top bar (child profile). It blends into the page until it
+sticks, then fades in a translucent page-gradient background with a soft bottom fade. Jumps land
+each section just below the bar (measured offset, also `--subnav-offset`: give sections
+`scroll-mt-[var(--subnav-offset,8rem)]`). `items` = `{ id, label }`; `extra` for links such as Alerts
+(style them with `subnavPill(false)`).
+
 ## LoadError — `load-error.tsx`
 When a list or page fails to load: plain-language message plus a "Try again" button; the technical
 error goes to the console only. `<LoadError what="vaccination records" error={error} onRetry={() => mutate()} />`
