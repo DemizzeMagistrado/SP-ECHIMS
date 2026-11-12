@@ -35,6 +35,7 @@ import { Modal } from '@/components/ui/modal'
 import { Pagination, usePagination } from '@/components/ui/pagination'
 import { Field } from '@/components/ui/form'
 import { BhwAssistBadge, BhwAssistToggle } from '@/components/vaccination/bhw-assist'
+import { ScheduleHistoryButton } from '@/components/vaccination/schedule-history'
 import { BulkReminderButton, SendReminderButton, remindersByChild, type ReminderData, type ReminderRow } from '@/components/vaccination/schedule-reminders'
 
 /* ═════════════════════════ Shared helpers ═════════════════════════ */
@@ -658,6 +659,7 @@ function ScheduleSection() {
                         </>}
                         {!readOnly && (c.missed.length > 0 || c.pending.length > 0) && <SendReminderButton row={reminders.get(c.child_id)} data={sms.data} onSent={refreshAll} />}
                         {canFlag && !readOnly && <BhwAssistToggle childId={c.child_id} childName={c.child_name} assist={c.bhw_assist} onChanged={refreshAll} />}
+                        {canSeeRequests && <ScheduleHistoryButton childId={c.child_id} childName={c.child_name} />}
                         <Link href={`/child-profiling/children/${c.child_id}#vaccination-schedule`} className={buttonVariants({ variant: 'secondary', size: 'sm' })}>Child schedule</Link>
                         <Link href={`/child-profiling/children/${c.child_id}`} className={buttonVariants({ variant: 'secondary', size: 'sm' })}>View child <ArrowRight size={12} aria-hidden="true" /></Link>
                       </div>
