@@ -121,10 +121,9 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
       return { ...g, done, total, state, next, isNextDue: data?.next_due?.vaccine_code === g.code }
     })
   }, [rows, data])
-  // Short lists start open; longer ones start closed except vaccines that need action.
-  const defaultOpen = useMemo(() => new Set(groups.filter((g) => groups.length <= 5 || g.state === 'MISSED' || g.isNextDue).map((g) => g.code)), [groups])
+  // Every card starts collapsed on each visit (not remembered); headers keep the status badges.
   const [openOverride, setOpenOverride] = useState<Record<string, boolean>>({})
-  const isOpen = (code: string) => openOverride[code] ?? defaultOpen.has(code)
+  const isOpen = (code: string) => openOverride[code] ?? false
   const setAll = (open: boolean) => setOpenOverride(Object.fromEntries(groups.map((g) => [g.code, open])))
   const allOpen = groups.length > 0 && groups.every((g) => isOpen(g.code))
   const noneOpen = groups.every((g) => !isOpen(g.code))

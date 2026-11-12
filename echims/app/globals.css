@@ -471,4 +471,7 @@ html[data-navigating] .page-gate { opacity: 0; transition: opacity 120ms var(--e
   thead { display: table-header-group; }
   h1, h2, h3 { break-after: avoid; }
   a { text-decoration: none !important; }
+  /* Accordions print expanded with their headers, whatever is open on screen. */
+  button[data-accordion-header] { display: flex !important; }
+  [data-accordion-panel] { grid-template-rows: 1fr !important; opacity: 1 !important; }
 }

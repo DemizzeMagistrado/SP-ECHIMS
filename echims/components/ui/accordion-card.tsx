@@ -27,6 +27,7 @@ export function AccordionCard({ id, open, onToggle, header, children, className 
         type="button"
         aria-expanded={open}
         aria-controls={panelId}
+        data-accordion-header=""
         onClick={onToggle}
         className={cn(
           'flex w-full cursor-pointer flex-wrap items-center gap-x-4 gap-y-1.5 border-l-4 px-4 py-3 text-left transition-colors duration-200 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
@@ -36,7 +37,7 @@ export function AccordionCard({ id, open, onToggle, header, children, className 
         <ChevronDown size={16} aria-hidden="true" className={cn('shrink-0 text-brand-muted transition-transform duration-200 ease-out motion-reduce:transition-none', open && 'rotate-180')} />
         {header}
       </button>
-      <div id={panelId} className={cn('grid transition-[grid-template-rows,opacity] duration-[220ms] ease-out motion-reduce:transition-none', open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')}>
+      <div id={panelId} data-accordion-panel="" className={cn('grid transition-[grid-template-rows,opacity] duration-[220ms] ease-out motion-reduce:transition-none', open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')}>
         <div className="overflow-hidden" inert={!open}>
           <div className="border-t border-primary/15 bg-slate-50 px-3 py-3 sm:px-4">{children}</div>
         </div>
@@ -45,7 +46,8 @@ export function AccordionCard({ id, open, onToggle, header, children, className 
   )
 }
 
-/** Expand all / Collapse all, each disabled when it would do nothing. */
+/** Expand all / Collapse all, each disabled when it would do nothing. Lists using it start fully
+ *  collapsed on every visit (keep open state in component state, never storage). */
 export function ExpandCollapseAll({ allOpen, noneOpen, onSet }: { allOpen: boolean; noneOpen: boolean; onSet: (open: boolean) => void }) {
   return (
     <div className="flex justify-end gap-2">
