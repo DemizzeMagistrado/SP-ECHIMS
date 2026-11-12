@@ -7,7 +7,7 @@ import { useState } from 'react'
 import { HandHelping } from 'lucide-react'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { Button } from '@/components/ui/button'
-import { Field, Input } from '@/components/ui/form'
+import { Combobox, Field } from '@/components/ui/form'
 import { Modal } from '@/components/ui/modal'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { toast } from '@/components/ui/toast'
@@ -71,9 +71,8 @@ export function BhwAssistToggle({ childId, childName, assist, onChanged, disable
         footer={<Button type="submit" loading={saving}>Flag child</Button>}
       >
         <Field label="Reason (optional)" hint="Shown next to the flag in the Schedule and Defaulters lists.">
-          <Input value={reason} maxLength={120} onChange={(e) => setReason(e.target.value)} placeholder="e.g. No mobile phone" list="bhw-assist-reasons" />
+          <Combobox value={reason} maxLength={120} onChange={setReason} options={REASONS} placeholder="Pick a reason or type your own" />
         </Field>
-        <datalist id="bhw-assist-reasons">{REASONS.map((r) => <option key={r} value={r} />)}</datalist>
       </Modal>
     </>
   )

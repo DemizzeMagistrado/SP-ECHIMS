@@ -10,6 +10,7 @@ import { createContext, useContext, useId, type AriaAttributes, type InputHTMLAt
 import { cn } from '@/lib/utils'
 import { Select as BaseSelect, type SelectProps } from './select'
 import { DatePicker, type DatePickerProps } from './date-picker'
+import { Combobox as BaseCombobox, type ComboboxProps } from './combobox'
 
 type FieldContext = { id: string; describedBy?: string; invalid: boolean; required: boolean }
 const Ctx = createContext<FieldContext | null>(null)
@@ -64,6 +65,11 @@ export function DateInput(props: DatePickerProps) {
 /** Shared dropdown (see select.tsx): native <select> API, styled menu, search for long lists. */
 export function Select(props: SelectProps) {
   return <BaseSelect {...useFieldProps(props)} />
+}
+
+/** Pick-or-type text field with styled suggestions (see combobox.tsx); use instead of <datalist>. */
+export function Combobox(props: ComboboxProps) {
+  return <BaseCombobox {...useFieldProps(props)} />
 }
 
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
