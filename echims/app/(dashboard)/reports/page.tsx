@@ -26,7 +26,7 @@ import { FileText, SearchX } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
-import { Pagination, usePagination } from '@/components/ui/pagination'
+import { Pagination } from '@/components/ui/pagination'
 type Options = {
   currentUserId: string;
   role: string;
@@ -154,7 +154,8 @@ export default function ReportsPage() {
     let current = true;
     const timeout = setTimeout(() => controller.abort(), 20000);
     if (!readPageCache(user?.id, cacheKey + ":" + page)) setLoading(true);
-    void fetch("/api/reports?page=" + page, {
+    // Pages of 6 from the server, with the exact total.
+    void fetch("/api/reports?pageSize=6&page=" + page, {
       cache: "no-store",
       signal: controller.signal,
     })
@@ -328,7 +329,7 @@ export default function ReportsPage() {
       if (active.current) setBusy(false);
     }
   }
-  const { visible: reportsPage, bindList: bindReportList, listStyle: reportListStyle, props: reportPagerProps } = usePagination(options?.reports ?? []);
+  const reportPagerProps = { page: page - 1, pageCount: Math.max(1, Math.ceil((options?.total ?? 0) / 6)), total: options?.total ?? 0, pageSize: 6, onChange: (p: number) => { clear(); setPage(p + 1); } };
   const shown = detail?.report.snapshot ?? preview;
   const fields = shown
     ? columns[
@@ -407,7 +408,7 @@ export default function ReportsPage() {
               Refresh
             </Button>
           </div>
-          <div ref={bindReportList} style={reportListStyle} className="scroll-mt-4 overflow-x-auto">
+          <div className="scroll-mt-4 overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-muted/50">
                 <tr>
@@ -426,7 +427,7 @@ export default function ReportsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {reportsPage.map((r) => (
+                {options.reports.map((r) => (
                   <tr key={r.report_id}>
                     <td className="p-3">
                       {r.title}
@@ -470,16 +471,6 @@ export default function ReportsPage() {
             </table>
           </div>
           <Pagination {...reportPagerProps} label="Saved report pages" />
-          {/* The server sends 50 saved reports at a time. */}
-          {options.total > 50 && (
-            <div className="flex items-center justify-between gap-3 text-xs text-brand-muted">
-              <span>Batch {page} of {Math.ceil(options.total / 50)} (50 reports each)</span>
-              <span className="flex gap-2">
-                <Button variant="ghost" size="sm" disabled={page === 1 || busy || loading} onClick={() => { clear(); setPage((v) => v - 1); }}>Newer</Button>
-                <Button variant="ghost" size="sm" disabled={page * 50 >= options.total || busy || loading} onClick={() => { clear(); setPage((v) => v + 1); }}>Older</Button>
-              </span>
-            </div>
-          )}
         </section>
       )}
       {section === "PREVIEW" && options && (

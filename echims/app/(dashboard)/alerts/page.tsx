@@ -17,7 +17,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { Select } from '@/components/ui/form'
-import { Pagination, usePagination } from '@/components/ui/pagination'
+import { Pagination } from '@/components/ui/pagination'
 type Rule = {
   rule_id: number;
   rule_name: string;
@@ -75,6 +75,9 @@ type Data = {
   monitoring: { runs: EvaluationRun[]; error: string | null } | null;
   page: number;
   pageSize: number;
+  /** Alerts matching the current filters (server-side). */
+  matched?: number;
+  programs?: string[];
   summary: {
     total: number;
     critical: number;
@@ -327,12 +330,13 @@ function AlertsWorkspace() {
   const load = useCallback(async () => {
     if (!owner) return;
     const token = ++sequence.current;
-    const cacheKey = `alerts:${page}`;
+    const cacheKey = `alerts:${page}:${filter}:${program}`;
     if (!readPageCache(owner, cacheKey)) setLoading(true);
     setError("");
     try {
       const body: Data = await jsonResponse(
-        await fetch(`/api/alerts?page=${page}`, { cache: "no-store" }),
+        // Filters and pages of 6 on the server, so the counts and pages cover every alert.
+        await fetch(`/api/alerts?page=${page}&pageSize=6&filter=${encodeURIComponent(filter)}&program=${encodeURIComponent(program)}`, { cache: "no-store" }),
       );
       if (sequence.current !== token || ownerRef.current !== owner) return;
       if (
@@ -354,7 +358,7 @@ function AlertsWorkspace() {
     } finally {
       if (sequence.current === token) setLoading(false);
     }
-  }, [owner, page]);
+  }, [owner, page, filter, program]);
   useEffect(() => {
     void load();
     return () => {
@@ -508,29 +512,11 @@ function AlertsWorkspace() {
       setResolving(false);
     }
   }
-  const alerts = (data?.alerts ?? []).filter(
-    (alert) =>
-      (program === "ALL" ||
-        (alert.source_module ?? alert.alert_type) === program) &&
-      (filter === "all" ||
-        (filter === "unresolved" && alert.status !== "RESOLVED") ||
-        (filter === "critical" &&
-          alert.severity === "CRITICAL" &&
-          alert.status !== "RESOLVED") ||
-        (filter === "warning" &&
-          ["HIGH", "MEDIUM"].includes(alert.severity) &&
-          alert.status !== "RESOLVED") ||
-        (filter === "info" && alert.severity === "LOW") ||
-        (filter === "resolved" && alert.status === "RESOLVED")),
-  );
-  const { visible: alertsPage, bindList: bindAlertList, listStyle: alertListStyle, props: alertPagerProps } = usePagination(alerts);
-  const programs = [
-    ...new Set(
-      (data?.alerts ?? []).map(
-        (alert) => alert.source_module ?? alert.alert_type,
-      ),
-    ),
-  ].sort();
+  // The server applies the filter / program and sends one page of 6 (plus the exact match count).
+  const alerts = data?.alerts ?? [];
+  const matched = data?.matched ?? alerts.length;
+  const alertPagerProps = { page: page - 1, pageCount: Math.max(1, Math.ceil(matched / 6)), total: matched, pageSize: 6, onChange: (p: number) => setPage(p + 1) };
+  const programs = data?.programs ?? [...new Set(alerts.map((alert) => alert.source_module ?? alert.alert_type))].sort();
   const summary = data?.summary;
   const inputClass =
     "mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm";
@@ -612,7 +598,7 @@ function AlertsWorkspace() {
             <FilterChips
               label="Filter alerts"
               value={filter}
-              onChange={setFilter}
+              onChange={(value) => { setFilter(value); setPage(1); }}
               options={["all", "unresolved", "critical", "warning", "info", "resolved"].map((value) => ({
                 value,
                 label: value[0].toUpperCase() + value.slice(1),
@@ -621,7 +607,7 @@ function AlertsWorkspace() {
             <Select
               aria-label="Filter by program"
               value={program}
-              onChange={(event) => setProgram(event.target.value)}
+              onChange={(event) => { setProgram(event.target.value); setPage(1); }}
             >
               <option value="ALL">All programs</option>
               {programs.map((value) => (
@@ -633,16 +619,16 @@ function AlertsWorkspace() {
             Cards count all alerts you can access. Filters apply to the current
             page of 50 alerts. High and medium severity appear under Warning.
           </p>
-          <div ref={bindAlertList} style={alertListStyle} className="scroll-mt-4 space-y-3">
+          <div className="scroll-mt-4 space-y-3">
             {alerts.length === 0 ? (
               <div className="rounded-2xl border border-border bg-white p-10 text-center">
                 <CheckCircle size={40} className="mx-auto mb-3 text-teal-700" />
                 <h3 className="font-semibold">
-                  No matching alerts on this page
+                  No matching alerts
                 </h3>
               </div>
             ) : (
-              alertsPage.map((alert) => {
+              alerts.map((alert) => {
                 const destination = alertDestination(alert);
                 const resolved = alert.status === "RESOLVED";
                 const critical = alert.severity === "CRITICAL";
@@ -749,16 +735,6 @@ function AlertsWorkspace() {
           </div>
           <div className="overflow-hidden rounded-2xl border border-brand-line bg-white">
             <Pagination {...alertPagerProps} label="Alert pages" className="border-t-0" />
-            {/* The server sends 50 alerts at a time; the filters above work on this batch. */}
-            {(summary?.total ?? 0) > 50 && (
-              <div className="flex items-center justify-between gap-3 border-t border-brand-line px-4 py-2.5 text-xs text-brand-muted">
-                <span>Batch {page} of {Math.ceil((summary?.total ?? 0) / 50)} (50 alerts each)</span>
-                <span className="flex gap-2">
-                  <Button variant="ghost" size="sm" disabled={page === 1 || loading} onClick={() => setPage((value) => value - 1)}>Newer alerts</Button>
-                  <Button variant="ghost" size="sm" disabled={page * 50 >= (summary?.total ?? 0) || loading} onClick={() => setPage((value) => value + 1)}>Older alerts</Button>
-                </span>
-              </div>
-            )}
           </div>
         </>
       )}

@@ -31,20 +31,42 @@ export async function GET(request: Request) {
     if (!auth)
       return errorResponse("An active authenticated account is required.", 401);
     const { supabase, userId, canConfigure } = auth;
-    const page = Number(new URL(request.url).searchParams.get("page") ?? "1");
+    const params = new URL(request.url).searchParams;
+    const page = Number(params.get("page") ?? "1");
     if (!Number.isSafeInteger(page) || page < 1 || page > 100000)
       return errorResponse("Invalid page.", 400);
+    // Server-side paging and filters (NIP-REV01): pages of 6 like the rest of the app; 50 is the
+    // old batch size, still the default for older clients.
+    const pageSize = Number(params.get("pageSize") ?? "50");
+    if (![6, 50].includes(pageSize)) return errorResponse("pageSize must be 6 or 50.", 400);
+    const filter = params.get("filter") ?? "all";
+    if (!["all", "unresolved", "critical", "warning", "info", "resolved"].includes(filter))
+      return errorResponse("Invalid filter.", 400);
+    const program = params.get("program") ?? "ALL";
+    if (program !== "ALL" && !/^[A-Z_]{1,40}$/.test(program))
+      return errorResponse("Invalid program.", 400);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const applyFilters = (query: any) => {
+      let q = query;
+      if (program !== "ALL") q = q.or(`source_module.eq.${program},and(source_module.is.null,alert_type.eq.${program})`);
+      if (filter === "unresolved") q = q.neq("status", "RESOLVED");
+      else if (filter === "critical") q = q.eq("severity", "CRITICAL").neq("status", "RESOLVED");
+      else if (filter === "warning") q = q.in("severity", ["HIGH", "MEDIUM"]).neq("status", "RESOLVED");
+      else if (filter === "info") q = q.eq("severity", "LOW");
+      else if (filter === "resolved") q = q.eq("status", "RESOLVED");
+      return q;
+    };
     // The session client applies all existing restrictive scope/recipient policies.
     const results = await Promise.all([
-      supabase
+      applyFilters(supabase
         .from("alert_notification_feed")
         .select(
           "alert_id,alert_type,alert_message,severity,status,created_at,read_at,source_module,child_id,inventory_id,schedule_id,recipient_id,rule_id,resolved_by,resolved_at",
           { count: "exact" },
-        )
+        ))
         .order("created_at", { ascending: false })
         .order("alert_id", { ascending: false })
-        .range((page - 1) * 50, page * 50 - 1),
+        .range((page - 1) * pageSize, page * pageSize - 1),
       supabase
         .from("alert_notification_feed")
         .select("alert_id", { count: "exact", head: true })
@@ -98,6 +120,7 @@ export async function GET(request: Request) {
       .find((result) => result.error)?.error;
     if (monitoringFailure)
       console.error("Alert monitoring GET:", monitoringFailure);
+    const programRows = await supabase.from("alert_notification_feed").select("source_module,alert_type").limit(2000);
     return NextResponse.json(
       {
         currentUserId: userId,
@@ -118,7 +141,13 @@ export async function GET(request: Request) {
             }
           : null,
         page,
-        pageSize: 50,
+        pageSize,
+        filter,
+        program,
+        // Programs present in the feed, for the program picker (not just the current page).
+        programs: [...new Set(((programRows.data ?? []) as { source_module: string | null; alert_type: string }[]).map((a) => a.source_module ?? a.alert_type))].sort(),
+        /** Alerts matching the current filters (the summary counts below are over everything). */
+        matched: results[0].count ?? 0,
         summary: {
           total: results[0].count ?? 0,
           resolved: results[1].count ?? 0,
