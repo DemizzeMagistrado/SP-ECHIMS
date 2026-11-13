@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button'
 import { BatchFormatPanel, CompanionMedicinesPanel } from '@/components/vaccination/vaccine-settings-panels'
 import { Input, Select } from '@/components/ui/form'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { AccordionCard, ExpandCollapseAll } from '@/components/ui/accordion-card'
+import { AccordionCard, useSingleOpen } from '@/components/ui/accordion-card'
 
 /* ═════════════════════════ Shared helpers ═════════════════════════ */
 
@@ -81,17 +81,8 @@ export function CatalogSection() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<VaccineCatalogRow | null>(null)
   const [togglingId, setTogglingId] = useState<number | null>(null)
-  // NIP-USR011 — tracks which rows have the inline Guidelines panel expanded.
-  // Using a Set so multiple rows can stay open simultaneously if the user wants
-  // to compare two vaccines side-by-side.
-  const [expanded, setExpanded] = useState<Set<number>>(new Set())
-  function toggleExpanded(id: number) {
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
-      return next
-    })
-  }
+  // NIP-USR011 — the inline Guidelines panel; one vaccine open at a time.
+  const { isOpen, toggle: toggleExpanded } = useSingleOpen<number>()
   const [search, setSearch] = useState('')
   // Active vaccines by default (Rotavirus is kept as inactive for old records).
   const [activeFilter, setActiveFilter] = useState<'all' | 'ACTIVE' | 'INACTIVE'>('ACTIVE')
@@ -148,9 +139,6 @@ export function CatalogSection() {
     return (!q || [item?.item_name, v.vaccine_type, item?.description].some((x) => x?.toLowerCase().includes(q)))
       && (activeFilter === 'all' || (activeFilter === 'ACTIVE') === isActive)
   })
-  const allOpen = rows.length > 0 && rows.every((v) => expanded.has(v.vaccine_id))
-  const noneOpen = rows.every((v) => !expanded.has(v.vaccine_id))
-  const setAll = (open: boolean) => setExpanded(open ? new Set(rows.map((v) => v.vaccine_id)) : new Set())
 
   return (
     <div className="space-y-6">
@@ -204,7 +192,6 @@ export function CatalogSection() {
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs text-muted-foreground">{rows.length} of {allRows.length} vaccines</span>
-            {rows.length > 1 && <ExpandCollapseAll allOpen={allOpen} noneOpen={noneOpen} onSet={setAll} />}
           </div>
         </div>
 
@@ -216,7 +203,7 @@ export function CatalogSection() {
               {rows.map((v) => {
                 const item = one(v.item)
                 const active = item?.status === 'ACTIVE'
-                const open = expanded.has(v.vaccine_id)
+                const open = isOpen(v.vaccine_id)
                 return (
                   <AccordionCard
                     key={v.vaccine_id}

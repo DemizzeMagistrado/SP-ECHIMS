@@ -35,7 +35,7 @@ import { LoadError } from '@/components/ui/load-error'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { AccordionCard, ExpandCollapseAll } from '@/components/ui/accordion-card'
+import { AccordionCard, useSingleOpen } from '@/components/ui/accordion-card'
 import { DataTable } from '@/components/ui/data-table'
 import { Modal } from '@/components/ui/modal'
 import { PAGE_SIZE, Pagination, collapsedRowsHeight, usePagination, useStableHeight } from '@/components/ui/pagination'
@@ -524,7 +524,7 @@ function ScheduleSection() {
       window.history.replaceState(null, '', u)
     }
   }
-  const [openOverride, setOpenOverride] = useState<Record<number, boolean>>({})
+  const { isOpen, toggle: toggleOpen } = useSingleOpen<number>()
   const [reviewing, setReviewing] = useState<ScheduleRow | null>(null)
   const [reviewAction, setReviewAction] = useState<'APPROVE' | 'REVISE'>('APPROVE')
   const [reviewRemarks, setReviewRemarks] = useState('')
@@ -604,10 +604,6 @@ function ScheduleSection() {
   // list, so the card and the pager never change height between pages.
   const { bindArea: bindStable, height: stableHeight } = useStableHeight(pagerProps.pageCount > 1, true, collapsedRowsHeight)
 
-  const isOpen = (id: number) => openOverride[id] ?? false
-  const allOpen = shown.length > 0 && shown.every((c) => isOpen(c.child_id))
-  const noneOpen = shown.every((c) => !isOpen(c.child_id))
-  const setAll = (open: boolean) => setOpenOverride(Object.fromEntries(shown.map((c) => [c.child_id, open])))
 
   if (!isReady) return <LogoLoader />
   if (!canView) return <div className="rounded-2xl border border-border bg-white p-10 text-center text-red-600">You are not authorized to view the vaccination schedule.</div>
@@ -686,7 +682,6 @@ function ScheduleSection() {
             }
             // Only when the server capped the list; the chip counts already say how many children.
             info={truncated && counts ? `Showing the ${counts.total_shown} longest-missed of ${counts.total_matched} missed doses. Pick a vaccine to see the rest.` : null}
-            actions={shown.length > 1 ? <ExpandCollapseAll allOpen={allOpen} noneOpen={noneOpen} onSet={setAll} /> : null}
           >
             <Select aria-label="Vaccine" value={vaccineFilter} onChange={(e) => setVaccineFilter(e.target.value)}>
               <option value="">All vaccines</option>
@@ -722,7 +717,7 @@ function ScheduleSection() {
                       key={c.child_id}
                       id={`schedule-${c.child_id}`}
                       open={open}
-                      onToggle={() => setOpenOverride((o) => ({ ...o, [c.child_id]: !open }))}
+                      onToggle={() => toggleOpen(c.child_id)}
                       header={<>
                         <span className="min-w-0 flex-1">
                           <span className="block font-semibold text-brand-navy">{c.child_name}</span>

@@ -2,9 +2,9 @@ import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 // Layout for pages with many filters: chips on top, search on its own full-width row, the other
-// filters in a 2-column grid (1 column on phones), then a right-aligned row for actions such as
-// Expand/Collapse all (with optional info on the left).
-//   <FilterBar chips={<FilterChips … />} search={<SearchInput … />} actions={<ExpandCollapseAll … />}>
+// filters in a 2-column grid (1 column on phones), then a right-aligned row for actions (with
+// optional info on the left).
+//   <FilterBar chips={<FilterChips … />} search={<SearchInput … />} actions={<Button … />}>
 //     <Select …/> <Select …/> <DateInput …/> <DateInput …/>
 //   </FilterBar>
 
