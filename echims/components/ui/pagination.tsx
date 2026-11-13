@@ -8,7 +8,7 @@
 // Changing page keeps the list height steady (no jump on a short last page) and scrolls back to
 // the top of the list (not the page) when the list top is off screen.
 
-import { useCallback, useMemo, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from './button'
 import { cn } from '@/lib/utils'
@@ -51,6 +51,40 @@ export function usePagination<T>(rows: T[], pageSize = PAGE_SIZE, control?: { pa
     bindList: setListEl as (el: HTMLElement | null) => void,
     props: { page: current, pageCount, total: rows.length, pageSize: size, onChange: setPage },
   }
+}
+
+/** Stable height for a paginated list: every page is as tall as a full page, so a short last page
+ *  leaves empty space instead of shrinking and the pager stays put. Bind `bindArea` to the list
+ *  area and apply `height` (min-height for plain rows, a fixed height for expandable rows).
+ *  `measure` gives the height a full page needs: by default the area's own height, read only while
+ *  `canMeasure` (pass "this page is full"); accordion lists pass collapsedRowsHeight, which works on
+ *  any page and ignores open rows. Re-measured after every render and on resize.
+ *  shortcut: only grows (a wide-to-narrow resize stays tall), reset on remount. */
+export function useStableHeight(enabled: boolean, canMeasure = true, measure: (el: HTMLElement) => number = (el) => el.offsetHeight) {
+  const [area, setArea] = useState<HTMLElement | null>(null)
+  const [height, setHeight] = useState(0)
+  useEffect(() => {
+    if (!enabled || !area || !canMeasure) return
+    // observe() reports the current size right away, so this also measures after each render.
+    const observer = new ResizeObserver(() => setHeight((h) => Math.max(h, Math.ceil(measure(area)))))
+    observer.observe(area)
+    return () => observer.disconnect()
+  })
+  return { bindArea: setArea as (el: HTMLElement | null) => void, height: enabled ? height : 0 }
+}
+
+/** Height of `rows` collapsed accordion rows (AccordionCard), with the list's gaps and padding:
+ *  the tallest collapsed header × rows, so expanding a row never changes it. */
+export function collapsedRowsHeight(list: HTMLElement, rows = PAGE_SIZE) {
+  const items = Array.from(list.children) as HTMLElement[]
+  if (!items.length) return 0
+  const row = Math.max(...items.map((li) => {
+    const header = li.querySelector<HTMLElement>('[data-accordion-header]')
+    return header ? header.offsetHeight + (li.offsetHeight - li.clientHeight) : li.offsetHeight
+  }))
+  const gap = items[1] ? parseFloat(getComputedStyle(items[1]).marginTop) || 0 : 0
+  const box = getComputedStyle(list)
+  return row * rows + gap * (rows - 1) + (parseFloat(box.paddingTop) || 0) + (parseFloat(box.paddingBottom) || 0)
 }
 
 function pageList(current: number, count: number): (number | 'gap')[] {

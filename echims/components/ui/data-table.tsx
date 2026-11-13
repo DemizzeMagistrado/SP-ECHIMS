@@ -7,10 +7,10 @@
 //     { key: 'qty', header: 'Qty', cell: (r) => r.qty, sortValue: (r) => r.qty, align: 'right' },
 //   ]} empty={{ title: 'No stock yet', description: '…' }} toolbar={<SearchInput … />} />
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight } from 'lucide-react'
 import { EmptyState } from './empty-state'
-import { PAGE_SIZE, Pagination, usePagination } from './pagination'
+import { PAGE_SIZE, Pagination, usePagination, useStableHeight } from './pagination'
 import { cn } from '@/lib/utils'
 
 export type Column<T> = {
@@ -89,17 +89,8 @@ export function DataTable<T>({
   const control = useMemo(() => (page !== undefined && onPageChange ? { page, onPageChange } : undefined), [page, onPageChange])
   const { visible, setPage, bindList, listStyle, props: pagerProps } = usePagination(sorted, Math.min(pageSize, PAGE_SIZE), control)
 
-  // stableHeight: remember the tallest full page and give every page that height.
-  // shortcut: only grows (e.g. after a narrow-to-wide resize it stays tall), reset on remount.
-  const [area, setArea] = useState<HTMLDivElement | null>(null)
-  const [areaMin, setAreaMin] = useState(0)
-  const fullPage = visible.length >= pagerProps.pageSize
-  useEffect(() => {
-    if (!stableHeight || !area || !fullPage) return
-    const observer = new ResizeObserver(() => setAreaMin((h) => Math.max(h, area.offsetHeight)))
-    observer.observe(area)
-    return () => observer.disconnect()
-  }, [stableHeight, area, fullPage])
+  // stableHeight: every page gets the height of a full page (shared with card lists).
+  const { bindArea: setArea, height: areaMin } = useStableHeight(stableHeight, visible.length >= pagerProps.pageSize)
   const areaStyle = stableHeight ? (pagerProps.pageCount > 1 && areaMin ? { minHeight: areaMin } : undefined) : listStyle
 
   const toggle = (key: string) => {

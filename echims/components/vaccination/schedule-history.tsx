@@ -12,7 +12,7 @@ import { Modal } from '@/components/ui/modal'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadError } from '@/components/ui/load-error'
-import { Pagination, usePagination } from '@/components/ui/pagination'
+import { Pagination, usePagination, useStableHeight } from '@/components/ui/pagination'
 import { Spinner } from '@/components/brand/logo-loader'
 
 type HistoryRow = {
@@ -49,12 +49,14 @@ const fetcher = async (url: string) => {
 function HistoryList({ childId }: { childId: number }) {
   const { data, error, isLoading, isValidating, mutate } = useSWR(`/api/vaccination/schedule-history?child_id=${childId}`, fetcher)
   const { visible, bindList, listStyle, props } = usePagination(data?.rows ?? [])
+  const { bindArea: bindStable, height: stableHeight } = useStableHeight(props.pageCount > 1, visible.length >= props.pageSize)
   if (isLoading) return <Spinner showLabel label="Loading the request history…" className="w-full justify-center py-6 text-sm text-brand-muted" />
   if (error && !data) return <LoadError what="the request history" error={error} retrying={isValidating} onRetry={() => void mutate()} />
   if (!data?.rows.length) return <EmptyState icon={History} title="No schedule requests yet" description="Requests made from the child profile appear here." />
   return (
     <div className="overflow-hidden rounded-xl border border-brand-line">
-      <ol ref={bindList} style={listStyle} className="divide-y divide-brand-line">
+      <div ref={bindList} style={stableHeight ? undefined : listStyle}>
+      <ol ref={bindStable} style={stableHeight ? { minHeight: stableHeight } : undefined} className="divide-y divide-brand-line">
         {visible.map((r) => {
           const times = [time(r.start_time), time(r.end_time)].filter(Boolean).join('–')
           return (
@@ -74,6 +76,7 @@ function HistoryList({ childId }: { childId: number }) {
           )
         })}
       </ol>
+      </div>
       <Pagination {...props} label="Request history pages" />
     </div>
   )

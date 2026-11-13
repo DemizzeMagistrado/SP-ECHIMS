@@ -13,6 +13,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 // Only the active section is mounted, so only its API calls fire.
 
 import React, { Fragment, useMemo, useState, useSyncExternalStore } from 'react'
+import { cn } from '@/lib/utils'
 import { refreshOfflineViews as globalMutate } from '@/lib/offline/refresh'
 import { useVaccinationView } from '@/hooks/use-vaccination-view'
 import { vaccinationKeyMatches } from '@/lib/vaccination-cache'
@@ -37,7 +38,7 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { AccordionCard, ExpandCollapseAll } from '@/components/ui/accordion-card'
 import { DataTable } from '@/components/ui/data-table'
 import { Modal } from '@/components/ui/modal'
-import { PAGE_SIZE, Pagination, usePagination } from '@/components/ui/pagination'
+import { PAGE_SIZE, Pagination, collapsedRowsHeight, usePagination, useStableHeight } from '@/components/ui/pagination'
 import { Field } from '@/components/ui/form'
 import { BhwAssistBadge, BhwAssistToggle } from '@/components/vaccination/bhw-assist'
 import { ScheduleHistoryButton } from '@/components/vaccination/schedule-history'
@@ -269,6 +270,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
           caption="Vaccination records"
           refreshing={refreshing}
           mobile="cards"
+          stableHeight
           page={page}
           onPageChange={setPage}
           onRowClick={(row) => { const c = one(row.child); if (c) router.push(vaccinationProfileHref(c.child_id)) }}
@@ -598,6 +600,9 @@ function ScheduleSection() {
   }, [cards, chip, requestFilter, from, to, search])
   const pageControl = useMemo(() => ({ page, onPageChange: setPage }), [page, setPage])
   const { visible, bindList, listStyle, props: pagerProps } = usePagination(shown, PAGE_SIZE, pageControl)
+  // Same stable height as the Children list, from 6 collapsed cards: open cards scroll inside the
+  // list, so the card and the pager never change height between pages.
+  const { bindArea: bindStable, height: stableHeight } = useStableHeight(pagerProps.pageCount > 1, true, collapsedRowsHeight)
 
   const isOpen = (id: number) => openOverride[id] ?? false
   const allOpen = shown.length > 0 && shown.every((c) => isOpen(c.child_id))
@@ -706,7 +711,8 @@ function ScheduleSection() {
             />
           ) : (
             <div className="overflow-hidden rounded-2xl border border-brand-line bg-white">
-              <ul ref={bindList} style={listStyle} className="scroll-mt-4 space-y-2.5 p-3">
+              <div ref={bindList} style={stableHeight ? undefined : listStyle} className="scroll-mt-4">
+              <ul ref={bindStable} style={stableHeight ? { height: stableHeight } : undefined} className={cn('space-y-2.5 p-3', stableHeight > 0 && 'scroll-subtle overflow-y-auto overscroll-contain')}>
                 {visible.map((c) => {
                   const open = isOpen(c.child_id)
                   const req = c.request
@@ -774,6 +780,7 @@ function ScheduleSection() {
                   )
                 })}
               </ul>
+              </div>
               <Pagination {...pagerProps} label="Schedule pages" />
             </div>
           )}
