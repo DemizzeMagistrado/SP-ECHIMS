@@ -525,6 +525,7 @@ function ScheduleSection() {
     }
   }
   const { isOpen, toggle: toggleOpen } = useSingleOpen<number>()
+  const router = useRouter()
   const [reviewing, setReviewing] = useState<ScheduleRow | null>(null)
   const [reviewAction, setReviewAction] = useState<'APPROVE' | 'REVISE'>('APPROVE')
   const [reviewRemarks, setReviewRemarks] = useState('')
@@ -719,13 +720,20 @@ function ScheduleSection() {
                       open={open}
                       onToggle={() => toggleOpen(c.child_id)}
                       header={<>
-                        <span className="min-w-0 flex-1">
-                          <span className="block font-semibold text-brand-navy">{c.child_name}</span>
+                        {/* 12rem basis: on a phone the status line wraps below the name instead of squeezing it. */}
+                        <span className="min-w-0 flex-[1_1_12rem]">
+                          {/* The name opens the profile's NIP section (the full dose breakdown); the rest of the
+                              header toggles the card. Keyboard users reach the same page with "View". */}
+                          <span
+                            onClick={(e) => { e.stopPropagation(); router.push(vaccinationProfileHref(c.child_id)) }}
+                            title="Open the child's vaccination profile"
+                            className="font-semibold text-brand-navy underline-offset-4 hover:text-brand-blue hover:underline"
+                          >{c.child_name}</span>
                           <span className="mt-0.5 block text-xs text-muted-foreground">{c.child_code ?? `#${c.child_id}`} · {c.barangay_name ?? '—'}{c.date_of_birth ? ` · Born ${formatYmd(c.date_of_birth)}` : ''}</span>
                         </span>
                         {/* Status summary: the next dose (compact), a missed count only when more than one,
                             and the request only when it needs action. */}
-                        <span className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
+                        <span className="flex flex-wrap items-center justify-start gap-x-3 gap-y-1.5 sm:justify-end">
                           {next && <NextDose date={doseDate(next)} vaccine={next.vaccine_type} dose={next.dose_number} missed={next.status === 'OVERDUE'} provisional={next.provisional} />}
                           {c.missed.length > 1 && <StatusBadge status="missed" tone="danger" label={`${c.missed.length} missed`} />}
                           {c.completed && <StatusBadge status="completed" tone="good" label="Completed" />}
@@ -734,7 +742,9 @@ function ScheduleSection() {
                         </span>
                       </>}
                     >
-                      <div className="space-y-4">
+                      {/* Bounded on purpose: actions and the latest request only, so an open card stays small.
+                          The full missed / pending dose list lives on the child profile (View). */}
+                      <div className="space-y-2.5">
                       <div className="flex flex-wrap items-center gap-2">
                         {canReview && req?.status === 'PENDING' && <>
                           <Button size="sm" onClick={() => openReview(req, 'APPROVE')}><CheckCircle2 size={14} aria-hidden="true" /> Approve {formatYmd(req.schedule_date)}</Button>
@@ -745,31 +755,19 @@ function ScheduleSection() {
                         {canSeeRequests && <ScheduleHistoryButton variant="ghost" childId={c.child_id} childName={c.child_name} />}
                         <Link href={vaccinationProfileHref(c.child_id)} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>View <ArrowRight size={12} aria-hidden="true" /></Link>
                       </div>
-                      {req && (
-                        <p className="rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-border/70">
-                          <span className="font-medium text-brand-navy">Schedule request for {formatYmd(req.schedule_date)}</span> · {SCHEDULE_STATUS_META[req.status].label}
-                          {req.remarks && <span className="block text-xs text-muted-foreground">Requester: {req.remarks}</span>}
-                          {req.review_remarks && <span className="block text-xs text-muted-foreground">Reviewer: {req.review_remarks}</span>}
-                        </p>
-                      )}
-                      <ul className="space-y-2.5">
-                        {c.missed.map((d) => (
-                          <li key={`m-${d.vaccine_code}-${d.dose_number}`} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-border/70">
-                            <span>
-                              <Link href={vaccinationProfileHref(c.child_id, d.vaccine_code)} className="font-medium text-brand-navy underline-offset-4 hover:text-brand-blue hover:underline">{d.vaccine_type} · Dose {d.dose_number}</Link>
-                              <span className="mt-0.5 block text-xs text-muted-foreground">Due {formatYmd(d.due_date)} · missed for {days(d.days_overdue)}</span>
+                      {req ? (
+                        // One line each, truncated (full text on hover and in View history).
+                        <p className="rounded-lg bg-white px-4 py-2.5 text-sm ring-1 ring-border/70">
+                          <span className="block truncate"><span className="font-medium text-brand-navy">Schedule request for {formatYmd(req.schedule_date)}</span> · {SCHEDULE_STATUS_META[req.status].label}</span>
+                          {(req.review_remarks || req.remarks) && (
+                            <span className="block truncate text-xs text-muted-foreground" title={req.review_remarks ?? req.remarks ?? undefined}>
+                              {req.review_remarks ? `Reviewer: ${req.review_remarks}` : `Requester: ${req.remarks}`}
                             </span>
-                            <NextDose date={doseDate(d)} missed provisional={d.provisional} />
-                          </li>
-                        ))}
-                        {c.pending.map((d) => (
-                          <li key={`p-${d.vaccine_code}-${d.dose_number}`} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-border/70">
-                            <span className="font-medium text-brand-navy">{d.vaccine_type} · Dose {d.dose_number}</span>
-                            <NextDose date={doseDate(d)} provisional={d.provisional} />
-                          </li>
-                        ))}
-                        {c.missed.length === 0 && c.pending.length === 0 && <li className="text-sm text-muted-foreground">{c.completed ? 'Completed: every routine dose is given or past its age limit.' : 'No routine doses due right now.'}</li>}
-                      </ul>
+                          )}
+                        </p>
+                      ) : c.missed.length === 0 && c.pending.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">{c.completed ? 'Completed: every routine dose is given or past its age limit.' : 'No routine doses due right now.'}</p>
+                      ) : null}
                       </div>
                     </AccordionCard>
                   )
