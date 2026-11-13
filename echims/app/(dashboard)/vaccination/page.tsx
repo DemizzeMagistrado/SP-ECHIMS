@@ -705,9 +705,9 @@ function ScheduleSection() {
               className="rounded-2xl border border-dashed border-border bg-white"
             />
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-brand-line bg-white">
-              <div ref={bindList} style={stableHeight ? undefined : listStyle} className="scroll-mt-4">
-              <ul ref={bindStable} style={stableHeight ? { height: stableHeight } : undefined} className={cn('space-y-2.5 p-3', stableHeight > 0 && 'scroll-subtle overflow-y-auto overscroll-contain')}>
+            <div className={cn('overflow-hidden rounded-2xl border border-brand-line', !stableHeight && 'bg-white')}>
+              <div ref={bindList} style={stableHeight ? { height: stableHeight } : listStyle} className={cn('scroll-mt-4', stableHeight > 0 && 'scroll-subtle overflow-y-auto overscroll-contain')}>
+              <ul ref={bindStable} className="space-y-2.5 bg-white p-3">
                 {visible.map((c) => {
                   const open = isOpen(c.child_id)
                   const req = c.request
