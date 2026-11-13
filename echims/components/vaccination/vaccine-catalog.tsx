@@ -156,7 +156,7 @@ export function CatalogSection() {
     <div className="space-y-6">
       <VaccinationSnapshotNotice savedAt={savedAt} readOnly={readOnly} />
       <PageHeader
-        title="Vaccines"
+        title="Vaccination: Vaccines"
         subtitle="The DOH immunization catalog and schedule rules. Open a vaccine for eligibility and guidelines; every change is logged."
         actions={(isAdmin || canManage) && <>
           {canManage && (

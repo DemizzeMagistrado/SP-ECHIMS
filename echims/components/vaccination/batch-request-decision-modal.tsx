@@ -10,6 +10,7 @@ import { AlertCircle, CheckCircle2, XCircle, Package, Hash, MapPin, FileText, Us
 import { toast } from '@/components/ui/toast'
 
 import { Button } from '@/components/ui/button'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { Modal } from '@/components/ui/modal'
 import { Textarea } from '@/components/ui/form'
 
@@ -203,16 +204,5 @@ function DetailRow({ icon, label, value, sub }: { icon: React.ReactNode; label: 
 }
 
 function StatusChip({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    PENDING: 'bg-amber-100 text-amber-800',
-    APPROVED: 'bg-emerald-100 text-emerald-800',
-    REJECTED: 'bg-rose-100 text-rose-800',
-    COMPLETED: 'bg-sky-100 text-sky-800',
-    CANCELLED: 'bg-slate-200 text-slate-700',
-  }
-  return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${map[status] ?? 'bg-slate-100 text-slate-700'}`}>
-      {status}
-    </span>
-  )
+  return <StatusBadge status={status} className="px-2 py-0.5" />
 }

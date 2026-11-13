@@ -4,6 +4,8 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Spinner } from '@/components/brand/logo-loader'
+import { Button } from '@/components/ui/button'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { MessageSquare } from 'lucide-react'
@@ -191,14 +193,9 @@ export function GuardianSmsHistory({
       <div className="space-y-3 border-t border-border p-4">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold">Message history</h3>
-          <button
-            type="button"
-            disabled={loading || !owner}
-            onClick={() => void refresh()}
-            className="text-xs font-medium text-primary underline disabled:opacity-50"
-          >
+          <Button variant="ghost" size="sm" disabled={!owner} loading={loading && Boolean(data)} onClick={() => void refresh()}>
             Refresh
-          </button>
+          </Button>
         </div>
         <p className="text-xs text-muted-foreground">
           Simulated results are for presentation. Simulation times do not mean
@@ -230,11 +227,11 @@ export function GuardianSmsHistory({
                   {reminderLabel(reminder.notification_type)}
                 </p>
                 {latest && (
-                  <span
-                    className={`rounded-full px-2 py-1 text-xs font-medium ${latest.outcome === "SIMULATED_SENT" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}
-                  >
-                    {latest.outcome.replace(/_/g, " ")}
-                  </span>
+                  <StatusBadge
+                    status={latest.outcome}
+                    tone={latest.outcome === "SIMULATED_SENT" ? "good" : "danger"}
+                    label={latest.outcome.replace(/_/g, " ")}
+                  />
                 )}
               </div>
               <p className="whitespace-pre-wrap text-sm">

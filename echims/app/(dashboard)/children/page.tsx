@@ -18,6 +18,7 @@ import { ChildFormModal } from '@/components/children/child-form-modal'
 import { toast } from '@/components/ui/toast'
 import { LogoLoader } from '@/components/brand/logo-loader'
 import { PageHeader } from '@/components/ui/page-header'
+import { LoadError } from '@/components/ui/load-error'
 import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/form'
 import { DataTable, type Column } from '@/components/ui/data-table'
@@ -137,17 +138,14 @@ export default function ChildHealthPage() {
     <div className="space-y-6">
       <ModuleTabs parent="Child Profiling" role={role} />
       <PageHeader
-        title="Child Profiling"
+        title="Child Profiling: Children"
         subtitle="Register and monitor children aged 0–59 months."
-        actions={canRegister && <Button onClick={() => setRegisterOpen(true)}><Plus size={18} />Register Child</Button>}
+        actions={canRegister && <Button onClick={() => setRegisterOpen(true)}><Plus size={17} aria-hidden="true" />Register child</Button>}
       />
       {canRegister && <ChildDraftPanel onUploaded={() => mutate()} />}
 
       {error && !children ? (
-        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-danger/20 bg-danger-soft p-4 text-sm text-danger">
-          {error.message}
-          <Button variant="secondary" size="sm" onClick={() => mutate()}>Try again</Button>
-        </div>
+        <LoadError what="child records" error={error} onRetry={() => void mutate()} />
       ) : isLoading && !children ? (
         <LogoLoader size="section" label="Loading child records…" />
       ) : (

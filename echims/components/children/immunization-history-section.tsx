@@ -161,11 +161,11 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
       {/* Header */}
       <div className="flex flex-col gap-3 border-b border-border p-6 md:flex-row md:items-start md:justify-between">
         <div className="flex items-start gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-primary">
-            <Syringe size={18} />
+          <div className="rounded-lg bg-primary/10 p-2 text-primary">
+            <Syringe size={18} aria-hidden="true" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-foreground">Immunization history</h2>
+            <h2 className="text-lg font-semibold text-primary">Immunization History</h2>
             <p className="mt-0.5 text-sm text-muted-foreground">
               Approved doses and Pending / Missed status against the DOH schedule.
             </p>

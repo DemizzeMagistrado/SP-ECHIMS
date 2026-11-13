@@ -35,7 +35,7 @@ export const moduleTabs: Record<string, { label: string; href: string; module: s
   'Child Profiling': [
     { label: 'Children', href: '/child-profiling/children', module: 'Child Profiling' },
     { label: 'Map', href: '/geospatial', module: 'Geospatial' },
-    { label: 'Masterlist Import', href: '/masterlist-upload', module: 'Masterlist Upload' },
+    { label: 'Masterlist Upload', href: '/masterlist-upload', module: 'Masterlist Upload' },
   ],
   // NIP-REV01: three tabs. Defaulters = Schedule's "Defaulters (Missed)" chip, SMS reminders sit on
   // Schedule rows, Vaccines = the NIP catalog (editing in the tab for Admin/PHN; was Settings ›

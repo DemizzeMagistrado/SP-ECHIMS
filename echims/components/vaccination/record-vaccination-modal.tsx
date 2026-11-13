@@ -19,6 +19,7 @@ import { useAuth } from '@/components/auth/auth-provider'
 import { toast } from '@/components/ui/toast'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { DateInput, Field, Input, Select, Textarea } from '@/components/ui/form'
 import { Spinner } from '@/components/brand/logo-loader'
 import { BatchNumberField, checkBatchNumber } from '@/components/inventory/batch-number-field'
@@ -300,7 +301,7 @@ export function RecordVaccinationModal({ open, onClose, onSaved, ownerId, prefil
       size="lg"
       icon={<Syringe />}
       title="Record administered vaccination"
-      subtitle={<>Saves as Pending for PHN approval. Stock is deducted on approval. <span className={`ml-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${isOnline ? 'bg-good-soft text-good' : 'bg-warn-soft text-warn'}`}>{isOnline ? <><Wifi size={11} aria-hidden="true" /> Online</> : <><WifiOff size={11} aria-hidden="true" /> Offline · saves on this device</>}</span></>}
+      subtitle={<>Saves as Pending for PHN approval. Stock is deducted on approval. <StatusBadge status={isOnline ? 'online' : 'offline'} tone={isOnline ? 'good' : 'warn'} className="ml-1 px-2 py-0.5" icon={isOnline ? <Wifi size={11} aria-hidden="true" /> : <WifiOff size={11} aria-hidden="true" />} label={isOnline ? 'Online' : 'Offline · saves on this device'} /></>}
       onSubmit={handleSubmit}
       noValidate
       bodyClassName="space-y-5"

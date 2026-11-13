@@ -21,6 +21,8 @@ const nextConfig = {
       // Vaccines tab (NIP-REV01). Not permanent: these moved twice, so browsers must not cache them.
       { source: '/vaccination/catalog', destination: '/vaccination/vaccines', permanent: false },
       { source: '/settings/vaccine-catalog', destination: '/vaccination/vaccines', permanent: false },
+      // Child Profiling has one map (the Map tab); the old duplicate page is gone.
+      { source: '/children/map', destination: '/geospatial', permanent: false },
     ]
   },
 }

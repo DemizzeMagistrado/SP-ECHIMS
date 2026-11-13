@@ -156,7 +156,7 @@ export default function MasterlistUploadPage() {
       <ModuleTabs parent="Child Profiling" role={user?.role as UserRole | undefined} />
 
       <PageHeader
-        title="Masterlist Upload"
+        title="Child Profiling: Masterlist Upload"
         subtitle="Bulk-register children, households and guardians from a CSV masterlist."
         actions={<>
           <Stepper step={step} />

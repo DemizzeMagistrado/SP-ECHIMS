@@ -653,7 +653,7 @@ function ScheduleSection() {
     <div className="space-y-6">
       <VaccinationSnapshotNotice savedAt={doses.savedAt} readOnly={readOnly} />
       <PageHeader
-        title="Vaccination Schedule"
+        title="Vaccination: Schedule"
         subtitle="Each child's next dose, Missed doses with their new dates, schedule requests and guardian reminders."
         actions={<>
           {role === 'Administrator' && <Link href="/alerts?tab=SMS" className={buttonVariants({ variant: 'tonal' })}><MessageSquare size={16} aria-hidden="true" /> SMS history</Link>}
