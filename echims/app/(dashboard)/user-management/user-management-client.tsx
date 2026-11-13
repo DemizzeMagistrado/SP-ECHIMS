@@ -15,6 +15,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { Input, Select } from '@/components/ui/form'
 import { Pagination, usePagination } from '@/components/ui/pagination'
+import { toast } from '@/components/ui/toast'
 
 /* =========================================================
    TYPES
@@ -109,8 +110,9 @@ export default function UserManagementClient({
     null
   )
 
+  // Success goes to a toast; this only clears a stale value when a new action starts.
   const [
-    message,
+    ,
     setMessage,
   ] = useState<string | null>(
     null
@@ -421,7 +423,7 @@ export default function UserManagementClient({
         )
       }
 
-      setMessage(
+      toast.success(
         accountStatus ===
           'ACTIVE'
           ? 'Account approved successfully.'
@@ -711,11 +713,6 @@ export default function UserManagementClient({
 
       {/* MESSAGES */}
 
-      {message && (
-        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
-          {message}
-        </div>
-      )}
 
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">

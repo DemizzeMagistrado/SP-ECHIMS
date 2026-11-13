@@ -8,7 +8,7 @@
 import { useState } from 'react'
 import useSWR, { mutate as globalMutate } from 'swr'
 import {
-  Plus, PackagePlus, AlertCircle, Package, MapPin, CalendarClock, Clock, CheckCircle2, XCircle,
+  Plus, PackagePlus, Package, MapPin, CalendarClock, Clock, CheckCircle2, XCircle,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
@@ -20,6 +20,8 @@ import { DataTable } from '@/components/ui/data-table'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { NoAccess } from '@/components/ui/no-access'
+import { LoadError } from '@/components/ui/load-error'
 
 const fetcher = async (url: string) => {
   const r = await fetch(url)
@@ -54,7 +56,7 @@ export default function ReplenishmentPage() {
     ? `/api/inventory/replenishment?status=${statusFilter}`
     : '/api/inventory/replenishment'
 
-  const { data, error, isLoading } = useSWR<{ requests: ReplenishmentRequest[] }>(canView ? url : null, fetcher, { keepPreviousData: true })
+  const { data, error, isLoading, isValidating, mutate } = useSWR<{ requests: ReplenishmentRequest[] }>(canView ? url : null, fetcher, { keepPreviousData: true })
   const rows = data?.requests ?? []
 
   if (!isReady) return <LogoLoader />
@@ -62,10 +64,7 @@ export default function ReplenishmentPage() {
     return (
       <div className="space-y-6">
         <ModuleTabs parent="Inventory" role={role} />
-        <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-6">
-          <AlertCircle size={20} className="mt-0.5 shrink-0 text-rose-700" />
-          <div><h2 className="text-lg font-bold text-rose-900">Not authorized</h2></div>
-        </div>
+        <NoAccess />
       </div>
     )
   }
@@ -105,7 +104,7 @@ export default function ReplenishmentPage() {
       {isLoading && !data ? (
         <LogoLoader size="section" />
       ) : error ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
+        <LoadError what="replenishment requests" error={error} retrying={isValidating} onRetry={() => void mutate()} />
       ) : (
         <DataTable
           rows={rows}

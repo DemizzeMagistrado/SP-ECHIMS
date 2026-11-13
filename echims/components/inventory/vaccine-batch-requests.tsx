@@ -12,7 +12,7 @@ import { useVaccinationView } from '@/hooks/use-vaccination-view'
 import { vaccinationKeyMatches } from '@/lib/vaccination-cache'
 import { VaccinationSnapshotNotice } from '@/components/vaccination/vaccination-offline-tools'
 import Link from 'next/link'
-import { Plus, Package, AlertCircle, Hash, MapPin, CalendarClock, CheckCircle2, Clock, XCircle, Search } from 'lucide-react'
+import { Plus, Package, Hash, MapPin, CalendarClock, CheckCircle2, Clock, XCircle, Search } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { BatchRequestModal } from '@/components/vaccination/batch-request-modal'
@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/form'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { DataTable } from '@/components/ui/data-table'
+import { NoAccess } from '@/components/ui/no-access'
 
 /* ═════════════════════════ Shared helpers ═════════════════════════ */
 
@@ -86,13 +87,7 @@ export function BatchRequestsSection() {
     return (
       <div className="space-y-6">
       <VaccinationSnapshotNotice savedAt={savedAt} readOnly={readOnly} />
-        <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-6">
-          <AlertCircle size={20} className="mt-0.5 shrink-0 text-rose-700" />
-          <div>
-            <h2 className="text-lg font-bold text-rose-900">Not authorized</h2>
-            <p className="mt-1 text-sm text-rose-700">You do not have access to vaccine batch requests.</p>
-          </div>
-        </div>
+        <NoAccess>You do not have access to vaccine batch requests.</NoAccess>
       </div>
     )
   }

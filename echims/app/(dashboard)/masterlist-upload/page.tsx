@@ -287,8 +287,8 @@ export default function MasterlistUploadPage() {
                       <td className="py-2 pr-3">{r.raw.guardian_first_name} {r.raw.guardian_last_name}</td>
                       <td className="py-2 pr-3 text-rose-700">{r.errors.join('; ')}</td>
                       <td className="py-2 pr-3 text-right">
-                        <button onClick={() => setEditing(r)} className="mr-2 rounded-md border border-border px-2 py-1 text-[10px] font-semibold hover:bg-muted">Edit</button>
-                        <button onClick={() => deleteRow(r.staging_id)} className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-semibold text-rose-700 hover:bg-rose-100">Remove</button>
+                        <span className="inline-flex gap-1.5"><Button variant="secondary" size="sm" onClick={() => setEditing(r)}>Edit</Button>
+                        <Button variant="danger" size="sm" onClick={() => deleteRow(r.staging_id)}>Remove</Button></span>
                       </td>
                     </tr>
                   ))}

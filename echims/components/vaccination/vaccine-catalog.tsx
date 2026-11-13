@@ -11,7 +11,7 @@ import { refreshOfflineViews as globalMutate } from '@/lib/offline/refresh'
 import { useVaccinationView } from '@/hooks/use-vaccination-view'
 import { vaccinationKeyMatches } from '@/lib/vaccination-cache'
 import { VaccinationSnapshotNotice } from '@/components/vaccination/vaccination-offline-tools'
-import { Plus, AlertCircle, CheckCircle2, Pencil, Power, Syringe, Settings2, History, BookOpen, Shield, Info, ExternalLink, Search } from 'lucide-react'
+import { Plus, CheckCircle2, Pencil, Power, Syringe, Settings2, History, BookOpen, Shield, Info, ExternalLink, Search } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { toast } from '@/components/ui/toast'
@@ -26,6 +26,7 @@ import { BatchFormatPanel, CompanionMedicinesPanel } from '@/components/vaccinat
 import { Input, Select } from '@/components/ui/form'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { AccordionCard, useSingleOpen } from '@/components/ui/accordion-card'
+import { NoAccess } from '@/components/ui/no-access'
 
 /* ═════════════════════════ Shared helpers ═════════════════════════ */
 
@@ -120,13 +121,7 @@ export function CatalogSection() {
     return (
       <div className="space-y-6">
       <VaccinationSnapshotNotice savedAt={savedAt} readOnly={readOnly} />
-        <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-6">
-          <AlertCircle size={20} className="mt-0.5 shrink-0 text-rose-700" />
-          <div>
-            <h2 className="text-lg font-bold text-rose-900">Not authorized</h2>
-            <p className="mt-1 text-sm text-rose-700">You do not have access to the NIP vaccine catalog.</p>
-          </div>
-        </div>
+        <NoAccess>You do not have access to the Vaccines tab.</NoAccess>
       </div>
     )
   }

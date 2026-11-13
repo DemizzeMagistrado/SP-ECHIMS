@@ -43,6 +43,7 @@ import { Field } from '@/components/ui/form'
 import { BhwAssistBadge, BhwAssistToggle } from '@/components/vaccination/bhw-assist'
 import { ScheduleHistoryButton } from '@/components/vaccination/schedule-history'
 import { BulkReminderButton, SendReminderButton, remindersByChild, type ReminderData, type ReminderRow } from '@/components/vaccination/schedule-reminders'
+import { NoAccess } from '@/components/ui/no-access'
 
 /* ═════════════════════════ Shared helpers ═════════════════════════ */
 
@@ -860,13 +861,7 @@ export default function VaccinationPage() {
   const visible = role ? TABS.filter((t) => canPerform(role, t.resource, 'view')) : []
   if (visible.length === 0) {
     return (
-      <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-6">
-        <AlertCircle size={20} className="mt-0.5 shrink-0 text-rose-700" />
-        <div>
-          <h2 className="text-lg font-bold text-rose-900">Not authorized</h2>
-          <p className="mt-1 text-sm text-rose-700">You do not have access to the Vaccination module.</p>
-        </div>
-      </div>
+      <NoAccess>You do not have access to the Vaccination module.</NoAccess>
     )
   }
   const active: TabId = visible.some((t) => t.id === tab) ? tab : visible[0].id

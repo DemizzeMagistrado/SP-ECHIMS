@@ -1,8 +1,9 @@
 'use client'
 
 // A panel anchored to a trigger, rendered in a portal on <body> so cards/modals never clip it.
-// Opens below the trigger, flips above when there is more room there, stays inside the viewport
-// (8px margin) and follows scroll/resize. Closes on an outside press. Used by Select, Combobox and
+// Opens below the trigger; flips above only when below cannot show a usable list (MIN_BELOW) and
+// above has more room. The side is chosen once per opening, so scrolling never flips it back and
+// forth; the panel stays inside the viewport (8px margin) and follows scroll/resize. Closes on an outside press. Used by Select, Combobox and
 // DatePicker. `fit` (DatePicker) never clips or scrolls the content: below if it fits, else above,
 // else shifted up just enough to stay fully on screen.
 
@@ -11,6 +12,8 @@ import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 
 const MARGIN = 8
+// Below is used whenever it can show at least this much (about 5 options); otherwise flip if above is roomier.
+const MIN_BELOW = 200
 
 export function FloatingPanel({ anchor, open, onClose, children, minWidth = 0, maxHeight = 320, width: fixedWidth, fit = false, className, id, sheetOnMobile = false, label }: {
   anchor: RefObject<HTMLElement | null>
@@ -33,9 +36,11 @@ export function FloatingPanel({ anchor, open, onClose, children, minWidth = 0, m
   // Hidden but already fixed and sized, so the first measurement matches the final layout.
   const [style, setStyle] = useState<CSSProperties>({ visibility: 'hidden', position: 'fixed', top: 0, left: 0, width: fixedWidth })
   const [sheet, setSheet] = useState(false)
+  const side = useRef<'down' | 'up' | null>(null)
 
   useLayoutEffect(() => {
     if (!open) return
+    side.current = null
     const place = () => {
       const a = anchor.current?.getBoundingClientRect()
       const p = panel.current
@@ -56,7 +61,8 @@ export function FloatingPanel({ anchor, open, onClose, children, minWidth = 0, m
       const below = vh - a.bottom - MARGIN * 2
       const above = a.top - MARGIN * 2
       const natural = Math.min(p.scrollHeight, maxHeight)
-      const up = below < natural && above > below
+      if (side.current === null) side.current = below < Math.min(natural, MIN_BELOW) && above > below ? 'up' : 'down'
+      const up = side.current === 'up'
       const height = Math.min(natural, up ? above : below)
       setStyle({ position: 'fixed', left, width, maxHeight: Math.max(height, 120), ...(up ? { bottom: vh - a.top + 4 } : { top: a.bottom + 4 }) })
     }

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { prepareSystemViews } from '@/lib/offline/prepare'
+import { Button } from '@/components/ui/button'
 
 export function SystemOfflineTools() {
   const { user, isReady } = useAuth()
@@ -28,7 +29,7 @@ export function SystemOfflineTools() {
   return <details className="relative"><summary className="cursor-pointer list-none rounded-lg bg-[#F3F4F6] px-3 py-2 text-xs font-medium text-[#6B7280] hover:bg-sky-50">{online===null?'Checking connection…':online?'Online':'Offline access'}</summary>
     <div className="absolute right-0 z-50 mt-2 w-80 max-w-[90vw] space-y-3 rounded-xl border border-slate-200 bg-white p-4 text-sm shadow-xl">
       <p>Views save automatically while online. Child profiles and program options prepare at sign-in and reconnection. Saved views belong to this signed-in account.</p>
-      <button type="button" disabled={busy || !user || !isReady || online!==true} onClick={() => void prepare()} className="rounded-lg bg-[#0077B6] px-3 py-2 font-semibold text-white disabled:opacity-50">{busy ? 'Preparing…' : 'Refresh saved views'}</button>
+      <Button size="sm" loading={busy} disabled={!user || !isReady || online!==true} onClick={() => void prepare()}>{busy ? 'Preparing…' : 'Refresh saved views'}</Button>
       {message && <p role="status" className="break-words text-xs">{message}</p>}
       <p className="text-xs text-slate-500">Use each program’s Sync / pending drafts panel to upload and resolve entries. Stock, SMS delivery, approvals, and account changes require the server.</p>
     </div>

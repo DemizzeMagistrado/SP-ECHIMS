@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Pagination, usePagination } from '@/components/ui/pagination'
+import { LoadError } from '@/components/ui/load-error'
 
 /* =========================================================
    TYPES
@@ -685,9 +686,7 @@ function ActivityWorkspace() {
           {loading ? (
             <LogoLoader size="section" label="Loading activities…" />
           ) : error ? (
-            <div className="m-5 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
-              {error}
-            </div>
+            <div className="m-5"><LoadError what="health activities" error={new Error(error)} onRetry={() => void loadActivities()} /></div>
           ) : activeTab === 'Calendar' ? (
             <>
               {/* NIP-USR012 — Type filter above the Calendar lets staff slice
@@ -1608,7 +1607,7 @@ function ReviewActivityModal({
             loading={loadingAction === 'REJECT'}
             disabled={loadingAction !== null}
             onClick={() => void review('REJECT')}
-            className="border border-rose-200 bg-white text-rose-700 hover:bg-rose-50"
+            variant="danger"
           />
 
           <ActionButton
@@ -1617,7 +1616,7 @@ function ReviewActivityModal({
             loading={loadingAction === 'RESCHEDULE'}
             disabled={loadingAction !== null}
             onClick={() => void review('RESCHEDULE')}
-            className="border border-[#087db9] bg-white text-[#087db9] hover:bg-[#f1fbfd]"
+            variant="tonal"
           />
 
           <ActionButton
@@ -1626,7 +1625,7 @@ function ReviewActivityModal({
             loading={loadingAction === 'APPROVE'}
             disabled={loadingAction !== null}
             onClick={() => void review('APPROVE')}
-            className="bg-primary text-white shadow-sm hover:bg-primary/90"
+            variant="primary"
           />
       </>}>
       <div className="space-y-5">
@@ -1806,36 +1805,20 @@ function ModalShell({ title, children, onClose, ...rest }: {
    ACTION BUTTON
 ========================================================= */
 
-function ActionButton({
-  label,
-  icon: Icon,
-  loading,
-  disabled,
-  onClick,
-  className,
-}: {
+/** Review footer action: the shared Button with a leading icon (spinner while it runs). */
+function ActionButton({ label, icon: Icon, loading, disabled, onClick, variant }: {
   label: string
   icon: typeof CheckCircle2
   loading: boolean
   disabled: boolean
   onClick: () => void
-  className: string
+  variant: 'primary' | 'tonal' | 'danger'
 }) {
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
-    >
-      {loading ? (
-        <Spinner />
-      ) : (
-        <Icon size={16} />
-      )}
-
+    <Button variant={variant} disabled={disabled} onClick={onClick}>
+      {loading ? <Spinner /> : <Icon size={16} aria-hidden="true" />}
       {label}
-    </button>
+    </Button>
   )
 }
 function ActivityDraftPanel({onUploaded}:{onUploaded:()=>void}){
