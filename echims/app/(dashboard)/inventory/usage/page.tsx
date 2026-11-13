@@ -17,6 +17,7 @@ import { LogUsageModal } from '@/components/inventory/log-usage-modal'
 import { getQueuedUsageCount, replayQueuedUsage } from '@/lib/inventory-offline'
 import { LogoLoader } from '@/components/brand/logo-loader'
 import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
 
 export default function UsageLogPage() {
   const { user, isReady } = useAuth()
@@ -68,10 +69,9 @@ export default function UsageLogPage() {
         subtitle="RHM-only. Record stock used or wasted at your barangay. Entries deduct the batch and the aggregate on-hand immediately."
         actions={<>
           {isRhm && (
-            <button type="button" onClick={() => setModalOpen(true)}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-amber-800">
-              <Plus size={17} /> Log usage/waste
-            </button>
+            <Button onClick={() => setModalOpen(true)}>
+              <Plus size={17} aria-hidden="true" /> Log usage/waste
+            </Button>
           )}
         </>}
       />

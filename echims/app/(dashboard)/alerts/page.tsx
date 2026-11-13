@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { Select } from '@/components/ui/form'
 import { Pagination } from '@/components/ui/pagination'
+import { StatusBadge } from '@/components/ui/status-badge'
 type Rule = {
   rule_id: number;
   rule_name: string;
@@ -219,14 +220,8 @@ function EvaluationMonitoring({
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           {modules.map(({ code, label }) => {
             const run = monitoring.runs.find((item) => item.module === code);
-            const color =
-              run?.status === "FAILED"
-                ? "bg-red-100 text-red-800"
-                : run?.status === "SUCCEEDED"
-                  ? "bg-teal-100 text-teal-800"
-                  : run?.status === "RUNNING"
-                    ? "bg-sky-100 text-sky-800"
-                    : "bg-muted text-muted-foreground";
+            const tone =
+              run?.status === "FAILED" ? "danger" : run?.status === "SUCCEEDED" ? "good" : run?.status === "RUNNING" ? "info" : "neutral";
             const status =
               run?.status === "SUCCEEDED"
                 ? "Succeeded"
@@ -239,11 +234,7 @@ function EvaluationMonitoring({
               <div key={code} className="rounded-xl border border-border p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-sm font-semibold">{label}</h3>
-                  <span
-                    className={`rounded-full px-2 py-1 text-xs font-medium ${color}`}
-                  >
-                    {status}
-                  </span>
+                  <StatusBadge status={run?.status ?? "not_run"} tone={tone} label={status} />
                 </div>
                 {run ? (
                   <>

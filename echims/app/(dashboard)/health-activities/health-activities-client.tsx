@@ -803,42 +803,26 @@ function ActivityWorkspace() {
                             <td className="px-7 py-4 text-right">
                               <div className="flex justify-end gap-2">
                                 {canReview && activity.status === 'PENDING' && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setReviewActivity(activity)}
-                                    className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
-                                  >
+                                  <Button size="sm" onClick={() => setReviewActivity(activity)}>
                                     Review
-                                  </button>
+                                  </Button>
                                 )}
 
                                 {canEdit && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditingActivity(activity)}
-                                    className="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-white hover:bg-primary/90"
-                                  >
+                                  <Button size="sm" onClick={() => setEditingActivity(activity)}>
                                     Edit &amp; Resubmit
-                                  </button>
+                                  </Button>
                                 )}
 
                                 {canUpdateStatus && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setStatusActivity(activity)}
-                                    className="rounded-lg bg-[#e0f6fa] px-3 py-2 text-xs font-bold text-[#087db9] hover:bg-[#cdeff6]"
-                                  >
+                                  <Button variant="tonal" size="sm" onClick={() => setStatusActivity(activity)}>
                                     Update status
-                                  </button>
+                                  </Button>
                                 )}
 
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedActivity(activity)}
-                                  className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
-                                >
+                                <Button variant="secondary" size="sm" onClick={() => setSelectedActivity(activity)}>
                                   View details
-                                </button>
+                                </Button>
                               </div>
                             </td>
                           </tr>

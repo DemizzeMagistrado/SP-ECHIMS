@@ -199,13 +199,9 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
           </Button>
 
           {canDelete && (
-            <button
-              onClick={() => void requestDelete()}
-              disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
-            >
+            <Button variant="danger" size="sm" onClick={() => void requestDelete()} disabled={busy}>
               <Trash2 size={14} /> Delete account
-            </button>
+            </Button>
           )}
 
           {user.account_status === 'INACTIVE' && isSelf && (

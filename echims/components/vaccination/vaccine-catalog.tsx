@@ -286,13 +286,9 @@ function GuidelinesPanel({
           <BookOpen size={13} /> DOH Guidelines & Eligibility
         </h4>
         {isAdmin && (
-          <button
-            type="button"
-            onClick={onEdit}
-            className="inline-flex items-center gap-1 rounded-lg border border-sky-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-sky-800 hover:bg-sky-100"
-          >
-            <Pencil size={10} /> Edit guidelines
-          </button>
+          <Button variant="secondary" size="sm" onClick={onEdit}>
+            <Pencil size={13} aria-hidden="true" /> Edit guidelines
+          </Button>
         )}
       </div>
 
