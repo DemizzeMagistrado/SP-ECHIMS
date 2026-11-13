@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DateInput, Input, Select } from '@/components/ui/form'
+import { Pagination, usePagination } from '@/components/ui/pagination'
 
 type Program = "VACCINATION" | "SUPPLEMENTATION";
 type MessageType = "UPCOMING" | "OVERDUE";
@@ -253,6 +254,7 @@ export function ProgramSmsPanel({
     setNotice("");
     setError("");
   }
+  const { visible: pagedRows, props: rowPager } = usePagination(rows);
   return (
     <section className="space-y-4 rounded-2xl border border-border bg-white p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -362,7 +364,7 @@ export function ProgramSmsPanel({
                       <td colSpan={6}><EmptyState icon={MessageSquare} title="No follow-ups match these filters" description="Saved follow-ups with a valid number will appear here." /></td>
                     </tr>
                   ) : (
-                    rows.map((row) => (
+                    pagedRows.map((row) => (
                       <tr key={row.service_key}>
                         <td className="px-3 py-3">
                           <Link
@@ -396,6 +398,7 @@ export function ProgramSmsPanel({
                 </tbody>
               </table>
             </div>
+            <Pagination {...rowPager} label="Follow-up pages" />
             {selected && (
               <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
                 <div className="flex flex-wrap justify-between gap-2 text-sm">

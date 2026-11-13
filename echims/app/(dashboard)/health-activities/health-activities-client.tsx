@@ -30,6 +30,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { Pagination, usePagination } from '@/components/ui/pagination'
 
 /* =========================================================
    TYPES
@@ -434,6 +435,7 @@ function ActivityWorkspace() {
       return matchesStatus && matchesType && matchesSearch
     })
   }, [activities, search, statusFilter, typeFilter])
+  const { visible: pagedActivities, props: activityPager } = usePagination(filteredActivities)
 
   /* COUNTS */
 
@@ -740,7 +742,7 @@ function ActivityWorkspace() {
                     </thead>
 
                     <tbody className="divide-y divide-slate-100">
-                      {filteredActivities.map((activity) => {
+                      {pagedActivities.map((activity) => {
                         const canEdit =
                           activity.status === 'NEEDS_REVISION' &&
                           activity.created_by === currentUserId
@@ -833,13 +835,7 @@ function ActivityWorkspace() {
                 </div>
               )}
 
-              <div className="flex items-center justify-between border-t border-slate-100 px-7 py-4 text-xs text-slate-500">
-                <span>
-                  Showing {filteredActivities.length} of {activities.length}{' '}
-                  requests
-                </span>
-                <span>Last synced just now</span>
-              </div>
+              <Pagination {...activityPager} label="Request pages" />
             </>
           )}
         </section>

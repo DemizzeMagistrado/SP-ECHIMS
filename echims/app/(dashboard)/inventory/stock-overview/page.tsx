@@ -26,6 +26,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/form'
+import { Pagination, usePagination } from '@/components/ui/pagination'
 
 type Batch = { batch_id: number; batch_number: string; expiry_date: string; received_date: string; quantity_on_hand: number }
 type Item = { item_id: number; item_name: string; unit: string; status: string }
@@ -95,6 +96,8 @@ export default function StockOverviewPage() {
   const brgysSWR = useSWR<Barangay[] | { barangays: Barangay[] }>(canView ? '/api/barangays' : null, fetcher)
   const items = itemsSWR.data?.items ?? []
   const barangays = Array.isArray(brgysSWR.data) ? brgysSWR.data : (brgysSWR.data?.barangays ?? [])
+
+  const { visible: pagedRows, props: stockPager } = usePagination(data?.inventories ?? [])
 
   if (!isReady) {
     return <LogoLoader />
@@ -171,7 +174,7 @@ export default function StockOverviewPage() {
         />
       ) : (
         <div className="space-y-3">
-          {rows.map((inv) => {
+          {pagedRows.map((inv) => {
             const item = one(inv.item)
             const brgy = one(inv.barangay)
             const lowStock = Number(inv.quantity_on_hand) <= LOW_STOCK_UI_THRESHOLD
@@ -255,6 +258,9 @@ export default function StockOverviewPage() {
               </article>
             )
           })}
+          <div className="overflow-hidden rounded-2xl border border-brand-line bg-white">
+            <Pagination {...stockPager} label="Stock pages" className="border-t-0" />
+          </div>
         </div>
       )}
 

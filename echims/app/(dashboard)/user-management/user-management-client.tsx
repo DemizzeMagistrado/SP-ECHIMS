@@ -14,6 +14,7 @@ import {
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { Input, Select } from '@/components/ui/form'
+import { Pagination, usePagination } from '@/components/ui/pagination'
 
 /* =========================================================
    TYPES
@@ -571,6 +572,7 @@ export default function UserManagementClient({
      RENDER
   ======================================================= */
 
+  const { visible: pagedUsers, props: userPager } = usePagination(filteredUsers)
   return (
     <div className="space-y-6">
 
@@ -763,7 +765,7 @@ export default function UserManagementClient({
                   <td colSpan={5}><EmptyState icon={UserX} title="No users match your search" description="Try a different name, role or status." /></td>
                 </tr>
               ) : (
-                filteredUsers.map(
+                pagedUsers.map(
                   (user) => (
                     <tr
                       key={
@@ -879,6 +881,7 @@ export default function UserManagementClient({
           </table>
 
         </div>
+        <Pagination {...userPager} label="User pages" />
       </div>
 
       {/* USER DETAILS MODAL */}

@@ -76,23 +76,8 @@ export default function ResetPasswordPage() {
           </div>
 
           <div>
-            <div className="flex justify-center gap-16 text-center">
-              <div>
-                <p className="text-4xl font-bold text-cyan-300">500+</p>
-                <p className="mt-2 text-sm text-blue-100">
-                  Children Tracked
-                </p>
-              </div>
 
-              <div className="border-l border-white/20 pl-16">
-                <p className="text-4xl font-bold text-cyan-300">50+</p>
-                <p className="mt-2 text-sm text-blue-100">
-                  Barangays
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-12 border-t border-white/20 pt-8 text-center text-sm text-blue-100">
+            <div className="border-t border-white/20 pt-8 text-center text-sm text-blue-100">
               <p>Bachelor of Science in Information Technology</p>
               <p className="mt-3">© 2025 Rural Health Units</p>
             </div>

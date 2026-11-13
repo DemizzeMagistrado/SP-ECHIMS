@@ -477,7 +477,7 @@ html[data-navigating] .page-gate { opacity: 0; transition: opacity 120ms var(--e
   @page { margin: 12mm; }
   html, body, .brand { background: #fff !important; color: #000 !important; }
   #main-sidebar, .app-topbar, .nav-progress, .print-hide,
-  button, [data-slot='button'], [data-arrow-nav], [role='tablist'], nav[aria-label='Breadcrumb'], nav[aria-label='Table pages'],
+  button, [data-slot='button'], [data-arrow-nav], [role='tablist'], nav[aria-label='Table pages'],
   input, select, textarea, fieldset, dialog, a[href='#main-content'] { display: none !important; }
   #main-content { padding: 0 !important; }
   #main-content > div { max-width: none !important; }

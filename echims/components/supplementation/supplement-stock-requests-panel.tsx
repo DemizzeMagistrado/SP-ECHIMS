@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { BatchNumberField, checkBatchNumber } from '@/components/inventory/batch-number-field'
 import { Modal } from '@/components/ui/modal'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
+import { Pagination, usePagination } from '@/components/ui/pagination'
 type Product = { supplement_id: number; name: string; unit: string };
 type Barangay = {
   barangay_id: number;
@@ -253,6 +254,8 @@ export function SupplementStockRequestsPanel({
       if (active.current && owner.current === submittingOwner) setBusy(false);
     }
   }
+  const shownRequests = (data?.requests ?? []).filter((r) => filter === "ALL" || r.status === filter);
+  const { visible: pagedRequests, props: requestPager } = usePagination(shownRequests);
   return (
     <section className="space-y-4 rounded-2xl border border-border bg-white p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -358,8 +361,7 @@ export function SupplementStockRequestsPanel({
                       <td colSpan={7}><EmptyState icon={Package} title="No requests in this view" description="Try a different status filter." /></td>
                     </tr>
                   ) : (
-                    data.requests
-                      .filter((r) => filter === "ALL" || r.status === filter)
+                    pagedRequests
                       .map((r) => (
                         <tr key={r.stock_request_id}>
                           <td className="p-3">
@@ -437,6 +439,7 @@ export function SupplementStockRequestsPanel({
                 </tbody>
               </table>
             </div>
+            <Pagination {...requestPager} label="Request pages" />
           </>
         )
       )}

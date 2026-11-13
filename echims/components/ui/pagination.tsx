@@ -113,7 +113,7 @@ export function Pagination({ page, pageCount, total, pageSize, onChange, label =
   const first = page === 0
   const last = page >= pageCount - 1
   return (
-    <nav aria-label={label} className={cn('flex items-center justify-between gap-3 border-t border-brand-line bg-white px-4 py-3 text-sm', className)}>
+    <nav aria-label={label} className={cn('print-hide flex items-center justify-between gap-3 border-t border-brand-line bg-white px-4 py-3 text-sm', className)}>
       <p className="hidden whitespace-nowrap text-brand-muted sm:block" aria-live="polite">
         Showing <span className="font-semibold text-brand-navy">{from}–{to}</span> of <span className="font-semibold text-brand-navy">{total}</span>
       </p>

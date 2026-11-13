@@ -35,6 +35,7 @@ import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { BatchNumberField } from '@/components/inventory/batch-number-field'
 import { Input, Select, DateInput } from '@/components/ui/form'
+import { Pagination, usePagination } from '@/components/ui/pagination'
 
 type Child = {
   child_id: number;
@@ -1471,6 +1472,7 @@ export default function SupplementsPage() {
             .includes(filter.toLowerCase())),
     ) ?? [];
 
+  const { visible: pagedRecords, props: recordPager } = usePagination(records)
   return (
     <div className="space-y-6">
       <TabBar
@@ -1716,7 +1718,7 @@ export default function SupplementsPage() {
                     <td colSpan={9}><EmptyState icon={SearchX} title="No saved entries match this view" description="Try a different filter or date range." /></td>
                   </tr>
                 ) : (
-                  records.map((r) => {
+                  pagedRecords.map((r) => {
                     const c = data.children.find(
                         (c) => c.child_id === r.child_id,
                       ),
@@ -1794,6 +1796,7 @@ export default function SupplementsPage() {
               </tbody>
             </table>
           </div>
+          <Pagination {...recordPager} label="Entry pages" />
         </div>
       ) : data && tab === "plans" ? (
         <div className="rounded-2xl border border-border bg-white p-5">

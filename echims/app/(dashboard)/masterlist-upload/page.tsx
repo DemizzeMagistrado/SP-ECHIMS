@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { Input } from '@/components/ui/form'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { Pagination, usePagination } from '@/components/ui/pagination'
 
 type Batch = {
   batch_id: number
@@ -151,6 +152,7 @@ export default function MasterlistUploadPage() {
     return lines.join('\n')
   }
 
+  const { visible: pagedRows, props: rowPager } = usePagination(filtered)
   return (
     <div className="space-y-6">
       <ModuleTabs parent="Child Profiling" role={user?.role as UserRole | undefined} />
@@ -274,7 +276,7 @@ export default function MasterlistUploadPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((r) => (
+                  {pagedRows.map((r) => (
                     <tr key={r.staging_id} className="border-b border-border/40 last:border-0">
                       <td className="py-2 pr-3 font-mono text-[10px] text-muted-foreground">{r.row_number}</td>
                       <td className="py-2 pr-3"><StatusBadge status={r.status} className="text-[10px]" /></td>
@@ -296,6 +298,7 @@ export default function MasterlistUploadPage() {
                 </tbody>
               </table>
             </div>
+            <Pagination {...rowPager} label="Staged row pages" />
           </div>
         </div>
       )}
