@@ -5,7 +5,7 @@
   "packageManager": "pnpm@10.34.9",
   "scripts": {
     "dev": "next dev",
-    "build": "next build && node scripts/build-offline.mjs",
+    "build": "node scripts/prepare-offline.mjs && next build && node scripts/build-offline.mjs",
     "start": "next start",
     "lint": "eslint .",
     "build:offline": "node scripts/build-offline.mjs"

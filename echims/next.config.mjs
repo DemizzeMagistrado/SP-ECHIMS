@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
+// The only Next.js config (next.config.ts was removed: Next.js loaded this file, so settings that
+// lived only in the .ts file were silently ignored).
 const nextConfig = {
+  // The /offline-worker route reads public/sw.js at runtime: bundle it with the route.
+  // scripts/prepare-offline.mjs creates a placeholder before `next build` (so a clean checkout has
+  // something to trace) and scripts/build-offline.mjs then writes the real worker and checks it.
+  outputFileTracingIncludes: { '/offline-worker': ['./public/sw.js'] },
   typescript: {
     ignoreBuildErrors: false,
   },
