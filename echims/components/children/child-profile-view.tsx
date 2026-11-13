@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { canPerform, type UserRole } from "@/lib/echims-data";
+import { nutritionTone } from "@/lib/nutrition-status";
 import { formatChildId } from "@/lib/formatters";
 import { NO_PHILHEALTH } from "@/lib/children/profile-fields";
 import { describeMedicalHistory, type MedicalHistory } from "@/lib/children/medical-history";
@@ -448,7 +449,7 @@ function LatestNutrition({ record, canAdd, canOpenModule }: { record: Assessment
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
             {indicators.filter(([, v]) => v).map(([label, v]) => (
-              <StatusBadge key={label} status={String(v)} tone={badgeTone[statusTone(String(v))]} label={<><span className="font-normal opacity-80">{label}:</span> {classificationLabel(v)}</>} />
+              <StatusBadge key={label} status={String(v)} tone={nutritionTone(String(v))} label={<><span className="font-normal opacity-80">{label}:</span> {classificationLabel(v)}</>} />
             ))}
             {indicators.every(([, v]) => !v) && <StatusBadge status="pending" tone="neutral" label="Indicators not yet evaluated" />}
           </div>
@@ -825,7 +826,10 @@ export function ChildProfileView({childId}: {childId: string}) {
 
       {/* Nutritional assessment history */}
       <div id="nutrition-history" className="scroll-mt-[var(--subnav-offset,8rem)]">
-        <NutritionHistorySection assessments={assessments ?? []} />
+        <NutritionHistorySection
+          assessments={assessments ?? []}
+          actions={canViewNutrition && <Link href="/nutritional-assessment/records" className={buttonVariants({ variant: "secondary", size: "sm" })}>{canAddNutrition ? "Review / Record" : "Review nutrition"}</Link>}
+        />
       </div>
       {/* Full saved administration, dispensing, plans and due dates. */}
       <div id="supplementation" className="scroll-mt-[var(--subnav-offset,8rem)]">
