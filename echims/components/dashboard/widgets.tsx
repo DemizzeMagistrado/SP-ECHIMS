@@ -5,6 +5,7 @@ import { listActivityDrafts } from '@/lib/activity-drafts'
 import { listChildDrafts } from '@/lib/child-registration-drafts'
 import { getQueuedUsageCount } from '@/lib/inventory-offline'
 import { listQueue } from '@/lib/nutrition-offline'
+import { nutritionTone, NUTRITION_TONE_COLOR } from '@/lib/nutrition-status'
 import { listSupplementDrafts } from '@/lib/supplementation-offline'
 import { listQueuedVaccinations } from '@/lib/vaccination-offline'
 
@@ -302,13 +303,14 @@ export function ApprovalsWidget({ showInventory, style, size = 'compact' }: Widg
 
 // ─── Nutrition status breakdown + due for weighing ───────────────────
 type NutritionData = { counts: Record<'normal' | 'underweight' | 'wasted' | 'stunted' | 'overweight', number>; assessed: number; due_weighing: number; under5: number }
-const NUTRITION_SEGMENTS = [
-  ['normal', 'Normal', 'var(--tone-good)'],
-  ['underweight', 'Underweight', 'var(--tone-warn)'],
-  ['wasted', 'Wasted', 'var(--tone-danger)'],
-  ['stunted', 'Stunted', 'var(--tone-nutrition)'],
-  ['overweight', 'Overweight', 'var(--brand-blue)'],
-] as const
+// Colors from the one nutritional-status map (lib/nutrition-status), as on the Nutrition page and profile.
+const NUTRITION_SEGMENTS = ([
+  ['normal', 'Normal'],
+  ['underweight', 'Underweight'],
+  ['wasted', 'Wasted'],
+  ['stunted', 'Stunted'],
+  ['overweight', 'Overweight'],
+] as const).map(([k, label]) => [k, label, NUTRITION_TONE_COLOR[nutritionTone(k)]] as const)
 
 export function NutritionBreakdownWidget({ style, size = 'compact' }: WidgetProps) {
   const { data, error, isLoading } = useWidget<NutritionData>('nutrition')
