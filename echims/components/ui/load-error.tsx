@@ -1,7 +1,7 @@
 'use client'
 
 // A list or page that could not load: plain-language message and a "Try again" button instead of
-// a dead end. The technical error goes to the browser console only.
+// a dead end. The technical error goes to the browser console (as a warning) only.
 //   {error && !data && <LoadError what="vaccination records" error={error} onRetry={() => mutate()} />}
 
 import { useEffect } from 'react'
@@ -17,7 +17,8 @@ function plain(error: unknown, what: string): string {
 }
 
 export function LoadError({ what, error, onRetry, retrying = false }: { what: string; error: unknown; onRetry: () => void; retrying?: boolean }) {
-  useEffect(() => { console.error(`Could not load ${what}:`, error) }, [what, error])
+  // warn, not error: the failure is already shown on screen, so it must not raise the dev error overlay.
+  useEffect(() => { console.warn(`Could not load ${what}:`, error) }, [what, error])
   return (
     <div role="alert" className="flex flex-col items-start gap-3 rounded-2xl border border-danger/20 bg-danger-soft p-4 sm:flex-row sm:items-center sm:justify-between">
       <p className="flex items-start gap-2 text-sm text-brand-navy">
