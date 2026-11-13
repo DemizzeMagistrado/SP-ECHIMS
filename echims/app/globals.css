@@ -366,6 +366,19 @@ html {
 /* Loader → content handoff (components/brand/loading-gate.tsx). One easing and one length everywhere;
    only opacity and transform animate. */
 :root { --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1); --fade: 300ms; }
+
+/* One card hover for the whole system (the dashboard card's shadow). card-hover: clickable cards
+   lift 2px, take the shadow, an aqua border and a faint ice tint. card-hover-soft: the shadow only,
+   for frames that are not clickable themselves (widgets, closed accordion cards). */
+@utility card-hover {
+  transition: translate 200ms var(--ease-smooth), box-shadow 200ms var(--ease-smooth), border-color 200ms var(--ease-smooth), background-color 200ms var(--ease-smooth);
+  &:hover { translate: 0 -2px; box-shadow: 0 14px 30px -22px rgba(3, 4, 94, 0.45); border-color: var(--brand-aqua); background-color: color-mix(in srgb, var(--brand-ice) 60%, white); }
+  @media (prefers-reduced-motion: reduce) { &:hover { translate: none; } }
+}
+@utility card-hover-soft {
+  transition: box-shadow 200ms var(--ease-smooth);
+  &:hover { box-shadow: 0 14px 30px -22px rgba(3, 4, 94, 0.45); }
+}
 html { scrollbar-gutter: stable; }
 
 /* A loader taking over from another one already on screen: no delay, no intro. */

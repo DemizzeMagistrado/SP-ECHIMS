@@ -355,7 +355,7 @@ function AttentionCard({ item, metrics, style }: { item: AttentionItem; metrics:
   const value = item.value(metrics)
   return (
     <Link href={item.href} style={style}
-      className={`group relative flex h-full min-h-[104px] items-center gap-4 overflow-hidden ${card} p-4 transition-[border-color,box-shadow] duration-200 hover:border-brand-aqua hover:shadow-[0_14px_30px_-22px_rgba(3,4,94,0.45)] ${focusRing} ${rise}`}>
+      className={`group relative flex h-full min-h-[104px] items-center gap-4 overflow-hidden ${card} card-hover p-4 ${focusRing} ${rise}`}>
       <span aria-hidden className={`absolute inset-y-3 left-0 w-[3px] rounded-r-full ${value > 0 && !item.info ? t.bar : 'bg-transparent'}`} />
       <span aria-hidden className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${t.icon}`}>{item.icon}</span>
       <div className="min-w-0 flex-1">

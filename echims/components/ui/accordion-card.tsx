@@ -21,7 +21,7 @@ export function AccordionCard({ id, open, onToggle, header, children, className 
 }) {
   const panelId = `${id}-panel`
   return (
-    <li className={cn('overflow-hidden rounded-xl border transition-colors duration-200', open ? 'border-primary/25 shadow-sm' : 'border-border', className)}>
+    <li className={cn('overflow-hidden rounded-xl border transition-colors duration-200', open ? 'border-primary/25 shadow-sm' : 'card-hover-soft border-border', className)}>
       <button
         type="button"
         aria-expanded={open}
