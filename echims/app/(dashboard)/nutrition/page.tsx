@@ -1208,7 +1208,8 @@ export default function NutritionPage() {
   };
   const categoryTone = (name: string) => {
     const tone = nutritionTone(categoryCode[name]);
-    return tone === "neutral" ? "default" : tone;
+    // StatCard has no nutrition-only tones: severe -> danger, healthy -> good, risk -> nutrition.
+    return tone === "neutral" ? "default" : tone === "severe" ? "danger" : tone === "healthy" ? "good" : tone === "risk" ? "nutrition" : tone;
   };
   const allCategories = [
     "All",

@@ -22,6 +22,14 @@
   --color-good-soft: var(--tone-good-soft);
   --color-nutrition: var(--tone-nutrition);
   --color-nutrition-soft: var(--tone-nutrition-soft);
+  /* Nutritional status only (badges, flagged values): never on buttons */
+  --color-severe: var(--tone-severe);
+  --color-severe-soft: var(--tone-severe-soft);
+  --color-severe-icon: var(--tone-severe-icon);
+  --color-risk: var(--tone-risk);
+  --color-risk-soft: var(--tone-risk-soft);
+  --color-healthy: var(--tone-healthy);
+  --color-healthy-soft: var(--tone-healthy-soft);
   --font-display: var(--font-jakarta), system-ui, Helvetica, Arial, sans-serif;
   --font-sans: var(--font-inter), system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
   --font-serif: var(--font-caslon), Georgia, 'Times New Roman', serif;
@@ -84,6 +92,14 @@
   --tone-good-soft: #ECFDF5;
   --tone-nutrition: #6D28D9;
   --tone-nutrition-soft: #F5F3FF;
+  /* Nutritional status: severe / SAM, risk of overweight, normal (text on soft pill, all >= 4.5:1) */
+  --tone-severe: #A61E1E;
+  --tone-severe-soft: #FBE3E3;
+  --tone-severe-icon: #C42B2B;
+  --tone-risk: #4B3BAE;
+  --tone-risk-soft: #E6E2FA;
+  --tone-healthy: #17694C;
+  --tone-healthy-soft: #DDF1E8;
   --background: #CAF0F8;
   --foreground: #03045E;
   --card: #FFFFFF;
@@ -191,6 +207,9 @@
 }
 
 @layer base {
+  /* Data tables line numbers up: tabular figures in every table. */
+  table { font-feature-settings: 'tnum' 1; font-variant-numeric: tabular-nums; }
+
   /* Subtle scrollbars everywhere: a faint thumb in the surface's own color that firms up on hover.
      The colors are inherited custom properties, so a .scroll-subtle-dark panel (the navy sidebar)
      re-tints every scroll area inside it. */
