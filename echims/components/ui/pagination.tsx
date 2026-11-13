@@ -56,17 +56,19 @@ export function usePagination<T>(rows: T[], pageSize = PAGE_SIZE, control?: { pa
 /** Stable height for a paginated list: every page is as tall as a full page, so a short last page
  *  leaves empty space instead of shrinking and the pager stays put. Bind `bindArea` to the list
  *  area and apply `height` (min-height for plain rows, a fixed height for expandable rows).
- *  `measure` gives the height a full page needs: by default the area's own height, read only while
- *  `canMeasure` (pass "this page is full"); accordion lists pass collapsedRowsHeight, which works on
- *  any page and ignores open rows. Re-measured after every render and on resize.
- *  shortcut: only grows (a wide-to-narrow resize stays tall), reset on remount. */
-export function useStableHeight(enabled: boolean, canMeasure = true, measure: (el: HTMLElement) => number = (el) => el.offsetHeight) {
+ *  The pager is never part of the area: render <Pagination> after it, so it always stays visible.
+ *  Without `measure`: the area's own height, read only while `canMeasure` (pass "this page is
+ *  full") and kept as the tallest seen, since a short page cannot be measured.
+ *  shortcut: that default only grows (a wide-to-narrow resize stays tall), reset on remount.
+ *  With `measure` (e.g. collapsedRowsHeight, which works on any page and ignores open rows): the
+ *  exact current value, re-measured after every render and on resize, so it also shrinks. */
+export function useStableHeight(enabled: boolean, canMeasure = true, measure?: (el: HTMLElement) => number) {
   const [area, setArea] = useState<HTMLElement | null>(null)
   const [height, setHeight] = useState(0)
   useEffect(() => {
     if (!enabled || !area || !canMeasure) return
     // observe() reports the current size right away, so this also measures after each render.
-    const observer = new ResizeObserver(() => setHeight((h) => Math.max(h, Math.ceil(measure(area)))))
+    const observer = new ResizeObserver(() => setHeight((h) => measure ? Math.ceil(measure(area)) : Math.max(h, area.offsetHeight)))
     observer.observe(area)
     return () => observer.disconnect()
   })
@@ -82,7 +84,8 @@ export function collapsedRowsHeight(list: HTMLElement, rows = PAGE_SIZE) {
     const header = li.querySelector<HTMLElement>('[data-accordion-header]')
     return header ? header.offsetHeight + (li.offsetHeight - li.clientHeight) : li.offsetHeight
   }))
-  const gap = items[1] ? parseFloat(getComputedStyle(items[1]).marginTop) || 0 : 0
+  // From positions, not margins: space-y-* puts the gap on margin-bottom (Tailwind v4).
+  const gap = items[1] ? Math.max(0, items[1].getBoundingClientRect().top - items[0].getBoundingClientRect().bottom) : 0
   const box = getComputedStyle(list)
   return row * rows + gap * (rows - 1) + (parseFloat(box.paddingTop) || 0) + (parseFloat(box.paddingBottom) || 0)
 }
@@ -99,7 +102,8 @@ function pageList(current: number, count: number): (number | 'gap')[] {
 export function Pagination({ page, pageCount, total, pageSize, onChange, label = 'Pages', className }: {
   page: number; pageCount: number; total: number; pageSize: number; onChange: (page: number) => void; label?: string; className?: string
 }) {
-  if (total <= pageSize) return null
+  // Always shown once there are rows (also on a single page, with Previous / Next disabled).
+  if (total === 0) return null
   const from = page * pageSize + 1
   const to = Math.min(total, (page + 1) * pageSize)
   const first = page === 0
