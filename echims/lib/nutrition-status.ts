@@ -25,3 +25,8 @@ export const NUTRITION_TONE_COLOR: Record<StatusTone, string> = {
   good: 'var(--tone-good)', warn: 'var(--tone-warn)', danger: 'var(--tone-danger)',
   nutrition: 'var(--tone-nutrition)', info: 'var(--brand-blue)', neutral: '#94A3B8',
 }
+
+/** Child profile opened at the Nutrition history section (lands like the NIP links). */
+export function nutritionProfileHref(childId: number) {
+  return `/child-profiling/children/${childId}#nutrition-history`
+}

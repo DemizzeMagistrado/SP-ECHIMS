@@ -2160,7 +2160,6 @@ export default function NutritionPage() {
           }
           error={error?.message}
           offline={!online}
-          onRefresh={() => void mutate()}
         />
       )}
       {reportView !== "Assessments" &&
