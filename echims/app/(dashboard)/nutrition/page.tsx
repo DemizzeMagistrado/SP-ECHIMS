@@ -19,23 +19,24 @@ import {
   type NutritionPayload,
   type QueuedAssessment,
 } from "@/lib/nutrition-offline";
-import { AlertCircle, ChevronDown, Plus, RefreshCw, Printer, SearchX } from "lucide-react";
+import { AlertCircle, BarChart3, ChevronDown, FileText, Plus, RefreshCw, Printer, SearchX } from "lucide-react";
 import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
-import { FilterChips, TabBar } from '@/components/ui/module-tabs'
+import { TabBar } from '@/components/ui/module-tabs'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { Checkbox, Field, Select, DateInput } from '@/components/ui/form'
 import { InfoTip } from '@/components/ui/info-tip'
 import { Pagination, usePagination, useStableHeight } from '@/components/ui/pagination'
 import { LoadError } from '@/components/ui/load-error'
+import { ScoresDialog } from '@/components/nutrition/assessment-scores-dialog'
 import { cn } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { canPerform, type UserRole } from '@/lib/echims-data'
-import { nutritionProfileHref, nutritionTone } from '@/lib/nutrition-status'
+import { muacImplausible, nutritionFlagClass, nutritionLabel, nutritionProfileHref, nutritionTone } from '@/lib/nutrition-status'
 import { reportSync } from '@/lib/offline/refresh'
 type Relation<T> = T | T[] | null;
 type Barangay = {
@@ -167,30 +168,7 @@ function childName(child: Child | null) {
     : "Child name unavailable";
 }
 function label(value: string | null | undefined) {
-  const names: Record<string, string> = {
-    SAM: "SAM",
-    MAM: "MAM",
-    NO_FLAGGED_INDICATORS: "No flagged indicators",
-    NOT_UNDERWEIGHT: "Not underweight",
-    NOT_STUNTED: "Not stunted",
-    NOT_INTERPRETABLE_EDEMA: "Not interpretable — edema",
-    INFANT_URGENT_REVIEW: "Infant urgent review",
-    NOT_EVALUATED: "Not evaluated",
-    NEEDS_VERIFICATION: "Needs verification",
-    NORMAL: "Normal",
-    NO_LOW_MUAC: "No low MUAC",
-    AT_RISK: "At risk",
-    NOT_APPLICABLE: "Not applicable",
-  };
-  if (!value) return "Not recorded";
-  return (
-    names[value] ??
-    value
-      .toLowerCase()
-      .replaceAll("_", " ")
-      .replace(/^./, (first) => first.toUpperCase())
-      .replace(/\bmuac\b/gi, "MUAC")
-  );
+  return nutritionLabel(value);
 }
 function ipMembership(ethnicity: string | null | undefined) {
   switch (ethnicity?.trim().toUpperCase()) {
@@ -369,92 +347,6 @@ function followUp(item: Assessment) {
   if (item.evaluation_status !== "EVALUATED")
     return "Complete or verify assessment";
   return "Routine growth monitoring";
-}
-function AssessmentDetails({
-  assessment,
-  onClose,
-}: {
-  assessment: Assessment;
-  onClose: () => void;
-}) {
-  const item = assessment;
-  const rows = [
-    ["Assessment", `#${item.assessment_id}`],
-    ["Child", childName(one(item.child))],
-    ["Date measured", item.assessment_date],
-    [
-      "Birth date used for calculation",
-      birthAtAssessment(item) ?? "Not recorded",
-    ],
-    ["Sex used for calculation", label(item.sex_at_assessment)],
-    [
-      "Residence location (current profile)",
-      one(item.child)
-        ? residentLocation(one(item.child)!) || "Not recorded"
-        : "Not recorded",
-    ],
-    ["Mother/caregiver (current profile)", caregiverName(one(item.child))],
-    ["Ethnicity (current profile)", item.profile?.ethnicity || "Not recorded"],
-    [
-      "Belongs to IP group? (current profile)",
-      ipMembership(item.profile?.ethnicity),
-    ],
-    [
-      "Age in completed months",
-      String(
-        completedMonths(birthAtAssessment(item), item.assessment_date) ??
-          "Not recorded",
-      ),
-    ],
-    ["Summary", label(item.nutritional_status)],
-    ["Evaluation", label(item.evaluation_status)],
-    [
-      "Age at assessment",
-      item.age_days == null ? "Not recorded" : `${item.age_days} days`,
-    ],
-    ["Weight", quantity(item.weight, "kg")],
-    ["Measured length/height", quantity(item.height, "cm")],
-    ["Measurement position", label(item.measurement_type)],
-    ["Corrected length/height", quantity(item.normalized_height_cm, "cm")],
-    ["MUAC", quantity(item.muac, "cm")],
-    ["MUAC classification", label(item.muac_status)],
-    [
-      "Bilateral pitting edema",
-      item.edema_grade == null
-        ? "Not recorded"
-        : item.edema_grade === 0
-          ? "Absent"
-          : `+${item.edema_grade}`,
-    ],
-    ["WAZ", quantity(item.waz, "", 2)],
-    ["Weight-for-age", label(item.weight_for_age)],
-    ["HAZ", quantity(item.haz, "", 2)],
-    ["Length/height-for-age", label(item.height_for_age)],
-    ["WLZ/WHZ", quantity(item.whz, "", 2)],
-    ["Weight-for-length/height", label(item.weight_for_height)],
-    ["BAZ", quantity(item.baz, "", 2)],
-    ["BMI-for-age", label(item.bmi_for_age)],
-    ["BMI", quantity(item.bmi, "kg/m²", 2)],
-    ["Engine", item.engine_version ?? "Not engine evaluated"],
-  ];
-  return (
-    <Modal open size="lg" title="Assessment details" onClose={onClose} cancelLabel="Close">
-      <p className="mb-4 rounded-lg bg-sky-50 p-3 text-sm">
-        {followUp(item)}. Each growth indicator is interpreted separately.
-      </p>
-      <dl className="grid gap-4 rounded-xl bg-muted p-4 sm:grid-cols-2">
-        {rows.map(([name, value]) => (
-          <div key={name}>
-            <dt className="text-xs text-muted-foreground">{name}</dt>
-            <dd className="mt-1 break-words text-sm font-medium">{value}</dd>
-          </div>
-        ))}
-      </dl>
-      <p className="mt-4 text-sm">
-        <strong>Remarks:</strong> {item.remarks || "None recorded"}
-      </p>
-    </Modal>
-  );
 }
 type IndicatorField = "weight_for_age" | "height_for_age" | "weight_for_height";
 type ListCode = "UW" | "SUW" | "St" | "SSt" | "W" | "SW";
@@ -640,302 +532,301 @@ function caregiverCount(records: Assessment[]) {
   }
   return ids.size;
 }
+/** A value cell in the Summary table: 0, 0.0% and — are muted and regular; others ink semibold. */
+const isZero = (v: number | string) => v === 0 || v === "0" || v === "0.0%" || v === "—";
+// Column groups of the Summary table (client-verified headings), alternating tints.
+const SUMMARY_GROUPS = [
+  ...ageBands.map((band) => ({ label: band.label, cols: ["Boys", "Girls", "Total"] })),
+  { label: "0–59 months", cols: ["Total", "Prevalence"] },
+  { label: "F1K: 0–23 months", cols: ["F1K total", "F1K prevalence"] },
+  { label: "IP children", cols: ["IP boys", "IP girls", "IP total"] },
+];
+/** Group starts get the 1px left border (cell index within a row of 22 value cells). */
+const SUMMARY_GROUP_START = new Set(
+  SUMMARY_GROUPS.reduce<number[]>((starts, g, i) => [...starts, i === 0 ? 0 : starts[i - 1] + SUMMARY_GROUPS[i - 1].cols.length], []),
+);
 function SummaryReport({
   records,
   year,
   barangay,
   onList,
   canPrint,
+  views,
 }: {
   records: Assessment[];
   year: string;
   barangay: string;
   onList: (code: ListCode) => void;
   canPrint: boolean;
+  /** Overview / List UW … List SW segmented control. */
+  views: ReactNode;
 }) {
   const eligible = records.filter(eligibleForReport);
   const underTwo = inAgeBand(eligible, 0, 23);
   const denominators = (field: IndicatorField) =>
     eligible.filter((item) => validIndicator(item, field));
-  const cell = "border border-border px-3 py-2 text-center text-xs";
-  const summary = [
-    ["Children assessed, 0–59 months", eligible.length],
-    [
+  // The 17 indicators (labels and values unchanged), grouped for the cards below the table.
+  const indicator: Record<string, number> = {
+    "Children assessed, 0–59 months": eligible.length,
+    "Children with UW/SUW, St/SSt or W/SW (unique children)": eligible.filter(undernourished).length,
+    "Children with overweight/obesity (WFL/H)": eligible.filter(overnourished).length,
+    "Children assessed, 0–23 months": underTwo.length,
+    "Children 0–23 months with UW/St/W classifications": underTwo.filter(undernourished).length,
+    "Linked mothers/caregivers of assessed children": caregiverCount(eligible),
+    "Linked mothers/caregivers of children with UW/St/W classifications": caregiverCount(eligible.filter(undernourished)),
+    "Linked mothers/caregivers of children with overweight/obesity": caregiverCount(eligible.filter(overnourished)),
+    "Linked mothers/caregivers of children 0–23 months": caregiverCount(underTwo),
+    "Children without a linked caregiver ID": eligible.filter(
+      (item) => one(one(item.child)?.guardian ?? null)?.guardian_id == null,
+    ).length,
+    "WFA unavailable / not verified": eligible.length - denominators("weight_for_age").length,
+    "HFA unavailable / not verified": eligible.length - denominators("height_for_age").length,
+    "WFL/H unavailable / not verified": eligible.length - denominators("weight_for_height").length,
+    "Excluded: age unavailable or outside 0–59 months": records.length - eligible.length,
+    "Sex unavailable (included in totals only)": eligible.filter(
+      (item) => !["MALE", "FEMALE"].includes(assessmentSex(item) ?? ""),
+    ).length,
+    "IP children (current profile)": eligible.filter((item) => ipMembership(item.profile?.ethnicity) === "Yes").length,
+    "IP membership not confirmed": eligible.filter(
+      (item) => ipMembership(item.profile?.ethnicity) === "Not confirmed",
+    ).length,
+  };
+  const indicatorGroups: [string, string[]][] = [
+    ["Children", [
+      "Children assessed, 0–59 months",
+      "Children assessed, 0–23 months",
       "Children with UW/SUW, St/SSt or W/SW (unique children)",
-      eligible.filter(undernourished).length,
-    ],
-    [
       "Children with overweight/obesity (WFL/H)",
-      eligible.filter(overnourished).length,
-    ],
-    ["Children assessed, 0–23 months", underTwo.length],
-    [
       "Children 0–23 months with UW/St/W classifications",
-      underTwo.filter(undernourished).length,
-    ],
-    [
+    ]],
+    ["Mothers and caregivers", [
       "Linked mothers/caregivers of assessed children",
-      caregiverCount(eligible),
-    ],
-    [
       "Linked mothers/caregivers of children with UW/St/W classifications",
-      caregiverCount(eligible.filter(undernourished)),
-    ],
-    [
       "Linked mothers/caregivers of children with overweight/obesity",
-      caregiverCount(eligible.filter(overnourished)),
-    ],
-    [
       "Linked mothers/caregivers of children 0–23 months",
-      caregiverCount(underTwo),
-    ],
-    [
       "Children without a linked caregiver ID",
-      eligible.filter(
-        (item) => one(one(item.child)?.guardian ?? null)?.guardian_id == null,
-      ).length,
-    ],
-    [
+    ]],
+    ["Data quality", [
       "WFA unavailable / not verified",
-      eligible.length - denominators("weight_for_age").length,
-    ],
-    [
       "HFA unavailable / not verified",
-      eligible.length - denominators("height_for_age").length,
-    ],
-    [
       "WFL/H unavailable / not verified",
-      eligible.length - denominators("weight_for_height").length,
-    ],
-    [
       "Excluded: age unavailable or outside 0–59 months",
-      records.length - eligible.length,
-    ],
-    [
       "Sex unavailable (included in totals only)",
-      eligible.filter(
-        (item) => !["MALE", "FEMALE"].includes(assessmentSex(item) ?? ""),
-      ).length,
-    ],
-    [
+    ]],
+    ["IP membership", [
       "IP children (current profile)",
-      eligible.filter((item) => ipMembership(item.profile?.ethnicity) === "Yes")
-        .length,
-    ],
-    [
       "IP membership not confirmed",
-      eligible.filter(
-        (item) => ipMembership(item.profile?.ethnicity) === "Not confirmed",
-      ).length,
-    ],
+    ]],
+  ];
+  const ipYes = (items: Assessment[]) => items.filter((item) => ipMembership(item.profile?.ethnicity) === "Yes");
+  const sticky = "sticky left-0 z-[1] min-w-[230px] border-r border-brand-line shadow-[6px_0_8px_-6px_rgba(12,18,96,0.18)]";
+  const valueCell = (v: number | string, i: number, extra = "") => (
+    <td
+      key={i}
+      className={cn(
+        "px-3 py-2 text-right tabular-nums",
+        SUMMARY_GROUP_START.has(i) && "border-l border-brand-line",
+        isZero(v) ? "font-normal text-zero" : "font-semibold text-brand-navy",
+        extra,
+      )}
+    >
+      {v}
+    </td>
+  );
+  const totalValues: (number | string)[] = [
+    ...ageBands.flatMap((band) => {
+      const c = sexCounts(inAgeBand(eligible, band.min, band.max));
+      return [c.boys, c.girls, c.total];
+    }),
+    eligible.length, "—", underTwo.length, "—",
+    ...(() => { const c = sexCounts(ipYes(eligible)); return [c.boys, c.girls, c.total]; })(),
   ];
   return (
-    <section
-      className="space-y-4 rounded-2xl border border-border bg-white p-5"
-      aria-label="OPT Plus summary"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold">
-            Nutritional Assessment {year} — Summary
-          </h2>
-          <p className="text-sm text-muted-foreground">{barangay}</p>
+    <>
+      <section className="overflow-hidden rounded-[14px] border border-brand-line bg-white" aria-label="OPT Plus summary">
+        <div className="flex flex-wrap items-start justify-between gap-3 p-4">
+          <div className="min-w-0">
+            <h2 className="text-xl font-semibold text-brand-navy">
+              Nutritional Assessment {year} — Summary
+            </h2>
+            <p className="text-sm text-brand-muted">{barangay}</p>
+          </div>
+          <div className="nutrition-no-print flex flex-wrap items-center gap-2">
+            {views}
+            {canPrint && (
+              <Button variant="outline" size="lg" onClick={() => window.print()}>
+                <Printer size={16} aria-hidden="true" />
+                Print summary
+              </Button>
+            )}
+          </div>
         </div>
-        {canPrint && (
-          <Button variant="tonal" className="nutrition-no-print" onClick={() => window.print()}>
-            <Printer size={16} aria-hidden="true" />
-            Print summary
-          </Button>
-        )}
-      </div>
-      <div className="grid gap-3 sm:grid-cols-3">
-        {(
-          [
-            "weight_for_age",
-            "height_for_age",
-            "weight_for_height",
-          ] as IndicatorField[]
-        ).map((field) => (
-          <div key={field} className="rounded-lg bg-sky-50 p-3 text-sm">
-            <p>
-              {field === "weight_for_age"
-                ? "Total valid WFA"
-                : field === "height_for_age"
-                  ? "Total valid HFA"
-                  : "Total valid WFL/H"}
-            </p>
-            <strong className="text-xl">{denominators(field).length}</strong>
-          </div>
-        ))}
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <caption className="sr-only">
-            Nutrition classifications by age, sex, prevalence and IP membership
-          </caption>
-          <thead>
-            <tr className="bg-sky-50">
-              <th rowSpan={2} className={cell}>
-                Classification
-              </th>
-              {ageBands.map((band) => (
-                <th key={band.label} colSpan={3} className={cell}>
-                  {band.label}
+        {/* Valid totals: one strip, 1px between cells. */}
+        <div className="grid grid-cols-1 gap-px border-y border-brand-line bg-brand-line sm:grid-cols-3">
+          {(["weight_for_age", "height_for_age", "weight_for_height"] as IndicatorField[]).map((field) => {
+            const n = denominators(field).length;
+            return (
+              <p key={field} className="flex items-baseline gap-2 bg-white px-4 py-3">
+                <span className={cn("text-2xl font-bold tabular-nums", n === 0 ? "text-zero" : "text-brand-navy")}>{n}</span>
+                <span className="text-sm text-brand-muted">
+                  {field === "weight_for_age" ? "Total valid WFA" : field === "height_for_age" ? "Total valid HFA" : "Total valid WFL/H"}
+                </span>
+              </p>
+            );
+          })}
+        </div>
+        <div className="scroll-subtle overflow-x-auto">
+          <table className="w-full border-separate border-spacing-0 text-sm text-brand-navy">
+            <caption className="sr-only">
+              Nutrition classifications by age, sex, prevalence and IP membership
+            </caption>
+            <thead>
+              <tr>
+                <th rowSpan={2} scope="col" className={cn(sticky, "z-[2] border-b bg-white px-4 py-2 text-left text-[13px] font-semibold")}>
+                  Classification
                 </th>
-              ))}
-              <th colSpan={2} className={cell}>
-                0–59 months
-              </th>
-              <th colSpan={2} className={cell}>
-                F1K: 0–23 months
-              </th>
-              <th colSpan={3} className={cell}>
-                IP children
-              </th>
-            </tr>
-            <tr className="bg-muted">
-              {ageBands.flatMap((band) =>
-                ["Boys", "Girls", "Total"].map((heading) => (
-                  <th key={`${band.label}-${heading}`} className={cell}>
-                    {heading}
+                {SUMMARY_GROUPS.map((g, i) => (
+                  <th key={g.label} colSpan={g.cols.length} scope="colgroup" className={cn("whitespace-nowrap border-l border-brand-line px-3 py-2 text-center text-[13px] font-semibold", i % 2 === 0 ? "bg-group-a" : "bg-group-b")}>
+                    {g.label}
                   </th>
-                )),
-              )}
-              {[
-                "Total",
-                "Prevalence",
-                "F1K total",
-                "F1K prevalence",
-                "IP boys",
-                "IP girls",
-                "IP total",
-              ].map((heading) => (
-                <th key={heading} className={cell}>
-                  {heading}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {summaryRows.map((row) => {
-              const matching = eligible.filter(
-                (item) =>
-                  validIndicator(item, row.field) &&
-                  item[row.field] === row.value,
-              );
-              const f1k = inAgeBand(matching, 0, 23);
-              const ip = sexCounts(
-                matching.filter(
-                  (item) => ipMembership(item.profile?.ethnicity) === "Yes",
-                ),
-              );
-              return (
-                <tr key={row.title}>
-                  <th
-                    scope="row"
-                    className={`${cell} whitespace-nowrap text-left`}
-                  >
-                    {row.list ? (
-                      <button
-                        type="button"
-                        onClick={() => onList(row.list!)}
-                        className="font-medium text-primary underline"
-                      >
-                        {row.title}
-                      </button>
-                    ) : (
-                      row.title
-                    )}
-                  </th>
-                  {ageBands.flatMap((band) => {
-                    const count = sexCounts(
-                      inAgeBand(matching, band.min, band.max),
-                    );
-                    return [count.boys, count.girls, count.total].map(
-                      (n, index) => (
-                        <td key={`${band.label}-${index}`} className={cell}>
-                          {n}
-                        </td>
-                      ),
-                    );
-                  })}
-                  <td className={cell}>{matching.length}</td>
-                  <td className={cell}>
-                    {prevalence(
-                      matching.length,
-                      denominators(row.field).length,
-                    )}
-                  </td>
-                  <td className={cell}>{f1k.length}</td>
-                  <td className={cell}>
-                    {prevalence(
-                      f1k.length,
-                      inAgeBand(denominators(row.field), 0, 23).length,
-                    )}
-                  </td>
-                  <td className={cell}>{ip.boys}</td>
-                  <td className={cell}>{ip.girls}</td>
-                  <td className={cell}>{ip.total}</td>
-                </tr>
-              );
-            })}
-            <tr className="bg-slate-800 font-bold text-white">
-              <th scope="row" className={`${cell} text-left`}>
-                Children assessed
-              </th>
-              {ageBands.flatMap((band) => {
-                const c = sexCounts(inAgeBand(eligible, band.min, band.max));
-                return [c.boys, c.girls, c.total].map((n, index) => (
-                  <td key={`${band.label}-${index}`} className={cell}>
-                    {n}
-                  </td>
-                ));
-              })}
-              <td className={cell}>{eligible.length}</td>
-              <td className={cell}>—</td>
-              <td className={cell}>{underTwo.length}</td>
-              <td className={cell}>—</td>
-              {(() => {
-                const c = sexCounts(
-                  eligible.filter(
-                    (item) => ipMembership(item.profile?.ethnicity) === "Yes",
-                  ),
+                ))}
+              </tr>
+              <tr>
+                {SUMMARY_GROUPS.flatMap((g, gi) =>
+                  g.cols.map((col, ci) => (
+                    <th key={`${g.label}-${col}`} scope="col" className={cn("whitespace-nowrap border-b border-brand-line px-3 py-2 text-right text-xs font-semibold text-brand-muted", gi % 2 === 0 ? "bg-group-a" : "bg-group-b", ci === 0 && "border-l")}>
+                      {col}
+                    </th>
+                  )),
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {summaryRows.map((row, r) => {
+                const matching = eligible.filter(
+                  (item) => validIndicator(item, row.field) && item[row.field] === row.value,
                 );
-                return [c.boys, c.girls, c.total].map((n, index) => (
-                  <td key={index} className={cell}>
-                    {n}
+                const f1k = inAgeBand(matching, 0, 23);
+                const ip = sexCounts(ipYes(matching));
+                const values: (number | string)[] = [
+                  ...ageBands.flatMap((band) => {
+                    const count = sexCounts(inAgeBand(matching, band.min, band.max));
+                    return [count.boys, count.girls, count.total];
+                  }),
+                  matching.length,
+                  prevalence(matching.length, denominators(row.field).length),
+                  f1k.length,
+                  prevalence(f1k.length, inAgeBand(denominators(row.field), 0, 23).length),
+                  ip.boys, ip.girls, ip.total,
+                ];
+                // HFA and WFL/H start a new indicator: 2px rule above.
+                const startsIndicator = r === 3 || r === 6;
+                return (
+                  <tr key={row.title} className={cn("[&>*]:border-b [&>*]:border-brand-line/70", startsIndicator && "[&>*]:border-t-2 [&>*]:border-t-brand-line")}>
+                    <th scope="row" className={cn(sticky, "whitespace-nowrap bg-white px-4 py-2 text-left text-sm font-semibold")}>
+                      {row.list ? (
+                        <button
+                          type="button"
+                          onClick={() => onList(row.list!)}
+                          className="rounded font-semibold text-link underline underline-offset-2 outline-none hover:text-brand-navy focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-link"
+                        >
+                          {row.title}
+                        </button>
+                      ) : (
+                        row.title
+                      )}
+                    </th>
+                    {values.map((v, i) => valueCell(v, i))}
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="bg-brand-navy text-white">
+                <th scope="row" className="sticky left-0 z-[1] min-w-[230px] border-r border-total-line bg-brand-navy px-4 py-2.5 text-left text-sm font-bold shadow-[6px_0_8px_-6px_rgba(12,18,96,0.18)]">
+                  Children assessed
+                </th>
+                {totalValues.map((v, i) => (
+                  <td key={i} className={cn("px-3 py-2.5 text-right tabular-nums", SUMMARY_GROUP_START.has(i) && "border-l border-total-line", isZero(v) ? "font-normal text-total-zero" : "font-bold text-white")}>
+                    {v}
                   </td>
-                ));
-              })()}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        One latest assessment per child in the selected year and barangay.
-        Prevalence uses the number with a valid classification for that
-        indicator; missing, implausible, edema-affected and legacy results are
-        excluded from its denominator. The six classifications remain separate.
-        Current profile data supplies IP membership and caregiver links.
-      </p>
-      <div className="grid gap-3 md:grid-cols-2">
-        {summary.map(([name, value]) => (
-          <div
-            key={name}
-            className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm"
-          >
-            <span>{name}</span>
-            <strong>{value}</strong>
-          </div>
+                ))}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <p className="border-t border-brand-line px-4 py-3 text-[13px] text-brand-muted">
+          One latest assessment per child in the selected year and barangay.
+          Prevalence uses the number with a valid classification for that
+          indicator; missing, implausible, edema-affected and legacy results are
+          excluded from its denominator. The six classifications remain separate.
+          Current profile data supplies IP membership and caregiver links.
+        </p>
+      </section>
+      <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr))]">
+        {indicatorGroups.map(([title, labels]) => (
+          <section key={title} aria-label={title} className="rounded-[14px] border border-brand-line bg-white p-4">
+            <h3 className="text-base font-semibold text-brand-navy">{title}</h3>
+            <dl className="mt-2 divide-y divide-brand-line/70">
+              {labels.map((name) => (
+                <div key={name} className="flex items-baseline justify-between gap-4 py-2 text-sm">
+                  <dt className="text-brand-navy">{name}</dt>
+                  <dd className={cn("tabular-nums", indicator[name] === 0 ? "text-zero" : "font-semibold text-brand-navy")}>{indicator[name]}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground">
-        Total barangay population and estimated child population are unavailable
-        in the supplied database. Caregivers are counted by linked guardian ID,
-        not by name. WFA does not define overweight and HFA does not define
-        tallness in the installed engine, so those sample rows are not
-        fabricated.
+      <p className="text-[13px] text-brand-muted">
+        Total barangay population and estimated child population are not yet in the database. Caregivers are counted by linked guardian ID, not by name. The current rules have no overweight class for WFA and no tall class for HFA, so those rows are not shown.
       </p>
+    </>
+  );
+}
+/** Overview / List UW … List SW: one segmented control (aria-pressed), counts in badges. */
+function SummaryViews({ value, onChange, counts }: {
+  value: "Summary" | ListCode;
+  onChange: (view: "Summary" | ListCode) => void;
+  counts: Record<ListCode, number>;
+}) {
+  return (
+    <div role="group" aria-label="Summary views" className="flex flex-wrap gap-1 rounded-[12px] border border-brand-line/70 bg-group-a p-1">
+      {(["Summary", ...listCodes] as Array<"Summary" | ListCode>).map((view) => {
+        const active = view === value;
+        return (
+          <button
+            key={view}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(view)}
+            className={cn(
+              "inline-flex h-9 items-center gap-1.5 rounded-[8px] px-3 text-sm font-semibold outline-none transition-colors focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-link",
+              active ? "bg-brand-navy text-white" : "text-brand-navy hover:bg-white",
+            )}
+          >
+            {view === "Summary" ? "Overview" : `List ${view}`}
+            {view !== "Summary" && (
+              <span className={cn("inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs tabular-nums", active ? "bg-white/20 text-white" : "bg-badge text-brand-muted")}>
+                {counts[view]}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+/** Filter card shared by All assessments and Summary: one row of controls on a shared bottom edge
+ *  (Refresh pushed right), with an optional row below (the counts). */
+function FilterCard({ children, refresh, below }: { children: ReactNode; refresh: ReactNode; below?: ReactNode }) {
+  return (
+    <section aria-label="Filters" className="nutrition-no-print overflow-hidden rounded-[14px] border border-brand-line bg-white">
+      <div className="flex flex-wrap items-end gap-3 p-4">
+        {children}
+        {refresh}
+      </div>
+      {below}
     </section>
   );
 }
@@ -946,6 +837,7 @@ function ClassificationList({
   barangay,
   onScores,
   canPrint,
+  views,
 }: {
   records: Assessment[];
   code: ListCode;
@@ -953,6 +845,7 @@ function ClassificationList({
   barangay: string;
   onScores: (item: Assessment) => void;
   canPrint: boolean;
+  views: ReactNode;
 }) {
   const definition = listDefinitions[code];
   const items = listRecords(records, code);
@@ -960,7 +853,7 @@ function ClassificationList({
   const cell = "border border-border px-4 py-3 text-left text-sm";
   return (
     <section
-      className="space-y-4 rounded-2xl border border-border bg-white p-5"
+      className="space-y-4 rounded-[14px] border border-brand-line bg-white p-4"
       aria-label={`List ${code}`}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -972,12 +865,15 @@ function ClassificationList({
             {barangay} · {year} · {items.length} children
           </p>
         </div>
-        {canPrint && (
-          <Button variant="tonal" className="nutrition-no-print" onClick={() => window.print()}>
-            <Printer size={16} aria-hidden="true" />
-            Print list
-          </Button>
-        )}
+        <div className="nutrition-no-print flex flex-wrap items-center gap-2">
+          {views}
+          {canPrint && (
+            <Button variant="outline" size="lg" onClick={() => window.print()}>
+              <Printer size={16} aria-hidden="true" />
+              Print list
+            </Button>
+          )}
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
@@ -1123,13 +1019,7 @@ const RECORD_GROUPS = [
 function recorded(value: NumberValue) {
   return value === null || value === "" ? "—" : String(value);
 }
-/** Flagged classification values: severe / SAM in severe red, possible risk of overweight in violet. */
-function flagClass(code: string | null | undefined) {
-  const c = String(code ?? "").toUpperCase();
-  if (c.startsWith("SEVERE") || c === "SAM" || c === "INFANT_URGENT_REVIEW") return "font-semibold text-severe";
-  if (c === "POSSIBLE_RISK_OF_OVERWEIGHT") return "font-semibold text-risk";
-  return "";
-}
+const flagClass = nutritionFlagClass;
 const isUrgent = (item: Assessment) => followUp(item) === "Urgent clinical assessment";
 type RecordCell = { content: ReactNode; numeric?: boolean; className?: string };
 /** The 19 data cells of one row, shared by the wide table and the phone cards. */
@@ -1143,9 +1033,7 @@ function recordCells(item: Assessment, seq: number): RecordCell[] {
     {
       className: "min-w-44 font-medium",
       content: <>
-        <Link href={childRecordUrl(item.child_id)} className="text-brand-navy underline-offset-4 hover:text-brand-sky hover:underline">
-          {childName(child)}
-        </Link>
+        <span className="font-semibold text-brand-navy">{childName(child)}</span>
         <span className="mt-0.5 block text-xs font-normal text-brand-muted">{barangay}</span>
       </>,
     },
@@ -1167,7 +1055,7 @@ function recordCells(item: Assessment, seq: number): RecordCell[] {
     { content: label(item.height_for_age), className: cn("min-w-40", flagClass(item.height_for_age)) },
     { content: label(item.weight_for_height), className: cn("min-w-40", flagClass(item.weight_for_height)) },
     { content: item.edema_grade == null ? "Not recorded" : item.edema_grade === 0 ? "Absent" : `+${item.edema_grade}` },
-    { content: "Not recorded in child profile", className: "min-w-40 text-brand-muted" },
+    { content: "Not recorded in child profile", className: "min-w-40 text-zero" },
     { content: recorded(item.muac), numeric: true, className: flagClass(item.muac_status) },
     { content: label(item.muac_status), className: cn("min-w-36", flagClass(item.muac_status)) },
   ];
@@ -1281,6 +1169,11 @@ export default function NutritionPage() {
   const { visible: recordRows, page: recordPage, props: recordPager } = usePagination(visible);
   const { bindArea: bindRecords, height: recordsMin } = useStableHeight(recordPager.pageCount > 1, recordRows.length >= recordPager.pageSize);
   const urgent = latest.filter(isUrgent);
+  // Same rule as edit_nutritional_assessment: the assigned midwife / BNS who recorded it, the
+  // RHU's PHN (visible rows are already in their RHU), an administrator. The RPC re-checks.
+  const canEditAssessment = (item: Assessment) =>
+    data?.role === "Administrator" || data?.role === "PHN" ||
+    ((data?.role === "RHM" || data?.role === "BNS") && item.assessed_by === data.currentUserId);
   const countCategories = [
     "MAM",
     "SAM",
@@ -2023,11 +1916,34 @@ export default function NutritionPage() {
     return ()=>{alive=false;window.clearTimeout(first);window.clearInterval(timer);window.removeEventListener('online',wake);window.removeEventListener('focus',wake);};
   },[ownerId,online,canRecord,accessDenied]);
 
+  // Refresh for the filter card (All assessments and Summary): secondary, pushed right.
+  const refreshButton = ownerId ? (
+    <Button
+      variant="outline"
+      size="lg"
+      className="ml-auto"
+      loading={isValidating && Boolean(data)}
+      disabled={!online || accessDenied}
+      title={online ? undefined : "Reconnect to refresh"}
+      onClick={() => void mutate()}
+    >
+      {!(isValidating && data) && <RefreshCw size={16} aria-hidden="true" />}
+      Refresh
+    </Button>
+  ) : null;
+  const summaryViews = (
+    <SummaryViews
+      value={reportView === "Summary" || listCodes.includes(reportView as ListCode) ? (reportView as "Summary" | ListCode) : "Summary"}
+      onChange={setReportView}
+      counts={Object.fromEntries(listCodes.map((code) => [code, listRecords(latest, code).length])) as Record<ListCode, number>}
+    />
+  );
   // Year and barangay: on the Summary tab on their own, on All assessments with the other filters.
   const periodFields = (
     <>
-      <Field label="Year">
+      <Field label="Year" labelStyle="filter">
         <Select
+          controlSize="lg"
           value={reportYear}
           onChange={(event) => setReportYear(event.target.value)}
         >
@@ -2036,8 +1952,9 @@ export default function NutritionPage() {
           ))}
         </Select>
       </Field>
-      <Field label="Barangay">
+      <Field label="Barangay" labelStyle="filter">
         <Select
+          controlSize="lg"
           value={reportBarangay}
           onChange={(event) => setReportBarangay(event.target.value)}
         >
@@ -2064,9 +1981,11 @@ export default function NutritionPage() {
       .nutrition-report-root th:first-child { width: 15%; }
       .nutrition-report-root thead { display: table-header-group; }
       .nutrition-report-root tr { break-inside: avoid; }
+      .nutrition-report-root .sticky { position: static !important; box-shadow: none !important; }
       @page { size: A4 landscape; margin: 8mm; }
     }`}</style>
       <TabBar
+        variant="underline"
         className="nutrition-no-print"
         label="Nutrition views"
         group="nutrition"
@@ -2080,14 +1999,16 @@ export default function NutritionPage() {
         ]}
       />
       <PageHeader
+        size="lg"
         title="Nutritional Assessment"
         subtitle="OPT Plus measurements, WHO classifications, and follow-up monitoring"
         className="nutrition-no-print"
         actions={<>
-          {/* Admission tracking has its own data and its own Refresh. */}
-          {tab !== "Admissions" && tab !== "Assessments" && ownerId && (
+          {/* All assessments and Summary refresh from their filter card; Admission tracking has its own. */}
+          {tab === "Risk" && ownerId && (
             <Button
-              variant="tonal"
+              variant="outline"
+              size="lg"
               loading={isValidating && Boolean(data)}
               disabled={!online || accessDenied}
               title={online ? undefined : "Reconnect to refresh"}
@@ -2099,6 +2020,7 @@ export default function NutritionPage() {
           )}
           {canRecord && (
             <Button
+              size="lg"
               disabled={!ownerId || accessDenied}
               onClick={() => {
                 editingRequest.current = null;
@@ -2234,19 +2156,9 @@ export default function NutritionPage() {
         />
       )}
       {tab === "Summary" && (
-        <div className="nutrition-no-print space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">{periodFields}</div>
-          <FilterChips
-            label="Summary classifications"
-            value={reportView as "Summary" | ListCode}
-            onChange={setReportView}
-            options={(["Summary", ...listCodes] as Array<"Summary" | ListCode>).map((view) => ({
-              value: view,
-              label: view === "Summary" ? "Overview" : `List ${view}`,
-              count: view === "Summary" ? undefined : listRecords(latest, view).length,
-            }))}
-          />
-        </div>
+        <FilterCard refresh={refreshButton}>
+          <div className="grid min-w-0 flex-[1_1_28rem] grid-cols-1 items-end gap-3 sm:grid-cols-2">{periodFields}</div>
+        </FilterCard>
       )}
       {reportView === "Summary" && (
         <SummaryReport
@@ -2259,6 +2171,7 @@ export default function NutritionPage() {
           }
           onList={setReportView}
           canPrint={canExport}
+          views={summaryViews}
         />
       )}
       {reportView !== "Summary" &&
@@ -2276,72 +2189,62 @@ export default function NutritionPage() {
             }
             onScores={setSelected}
             canPrint={canExport}
+            views={summaryViews}
           />
         )}
       {reportView === "Assessments" && (
         <>
           {/* Filters and counts: one card. Controls share one bottom edge. */}
-          <section aria-label="Filters and counts" className="nutrition-no-print overflow-hidden rounded-[14px] border border-brand-line bg-white">
-            <div className="flex flex-wrap items-end gap-3 p-4">
-              <div className="grid min-w-0 flex-[1_1_32rem] grid-cols-1 items-end gap-3 sm:grid-cols-3">
-                {periodFields}
-                <Field label="Classification view">
-                  <Select value={category} onChange={(event) => setCategory(event.target.value)}>
-                    {allCategories.map((name) => (
-                      <option key={name}>{name}</option>
-                    ))}
-                  </Select>
-                </Field>
+          <FilterCard
+            refresh={refreshButton}
+            below={
+              // Counts (latest assessment per child); each one filters the table. 1px dividers between cells.
+              <div className="grid grid-cols-2 gap-px border-t border-brand-line/70 bg-brand-line/70 sm:grid-cols-3 lg:grid-cols-5">
+                {["SAM", "MAM", "Stunted", "Wasted", "Overweight / obesity"].map((name) => {
+                  const count = latest.filter((item) => matches(item, name)).length;
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      aria-pressed={category === name}
+                      onClick={() => setCategory(category === name ? "All" : name)}
+                      className={cn(
+                        "flex items-baseline gap-2 bg-white px-4 py-3 text-left outline-none transition-colors hover:bg-brand-ice focus-visible:outline-3 focus-visible:outline-solid focus-visible:-outline-offset-3 focus-visible:outline-link",
+                        category === name && "bg-brand-ice",
+                        // 5 cells: the last one fills the spare slot at 2 and 3 columns (no empty divider cell).
+                        name === "Overweight / obesity" && "col-span-2 lg:col-span-1",
+                      )}
+                    >
+                      <span className={cn("text-2xl font-bold tabular-nums", count === 0 ? "text-zero" : name === "SAM" ? "text-severe" : "text-brand-navy")}>{count}</span>
+                      <span className="text-sm text-brand-muted">{name}</span>
+                    </button>
+                  );
+                })}
               </div>
-              <div className="flex h-10 items-center">
-                <Checkbox
-                  label="Include assessment history"
-                  checked={history}
-                  onChange={(event) => setHistory(event.target.checked)}
-                />
-              </div>
-              {ownerId && (
-                <Button
-                  variant="secondary"
-                  className="ml-auto"
-                  loading={isValidating && Boolean(data)}
-                  disabled={!online || accessDenied}
-                  title={online ? undefined : "Reconnect to refresh"}
-                  onClick={() => void mutate()}
-                >
-                  {!(isValidating && data) && <RefreshCw size={16} aria-hidden="true" />}
-                  Refresh
-                </Button>
-              )}
+            }
+          >
+            <div className="grid min-w-0 flex-[1_1_32rem] grid-cols-1 items-end gap-3 sm:grid-cols-3">
+              {periodFields}
+              <Field label="Classification view" labelStyle="filter">
+                <Select controlSize="lg" value={category} onChange={(event) => setCategory(event.target.value)}>
+                  {allCategories.map((name) => (
+                    <option key={name}>{name}</option>
+                  ))}
+                </Select>
+              </Field>
             </div>
-            {/* Counts (latest assessment per child); each one filters the table. 1px dividers between cells. */}
-            <div className="grid grid-cols-2 gap-px border-t border-brand-line/70 bg-brand-line/70 sm:grid-cols-3 lg:grid-cols-5">
-              {["SAM", "MAM", "Stunted", "Wasted", "Overweight / obesity"].map((name) => {
-                const count = latest.filter((item) => matches(item, name)).length;
-                return (
-                  <button
-                    key={name}
-                    type="button"
-                    aria-pressed={category === name}
-                    onClick={() => setCategory(category === name ? "All" : name)}
-                    className={cn(
-                      "flex items-baseline gap-2 bg-white px-4 py-3 text-left outline-none transition-colors hover:bg-brand-ice focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-sky",
-                      category === name && "bg-brand-ice",
-                      // 5 cells: the last one fills the spare slot at 2 and 3 columns (no empty divider cell).
-                      name === "Overweight / obesity" && "col-span-2 lg:col-span-1",
-                    )}
-                  >
-                    <span className={cn("text-2xl font-bold tabular-nums", count === 0 ? "text-brand-muted" : name === "SAM" ? "text-severe" : "text-brand-navy")}>{count}</span>
-                    <span className="text-sm text-brand-muted">{name}</span>
-                  </button>
-                );
-              })}
+            <div className="flex h-11 items-center">
+              <Checkbox
+                label="Include assessment history"
+                checked={history}
+                onChange={(event) => setHistory(event.target.checked)}
+              />
             </div>
-          </section>
+          </FilterCard>
 
           {/* Follow-up banner: only when a child needs urgent clinical assessment. */}
           {urgent.length > 0 && (
-            <div role="status" className="nutrition-no-print flex flex-wrap items-center gap-3 rounded-[14px] border border-severe/25 bg-white p-4">
+            <div role="status" className="nutrition-no-print flex flex-wrap items-center gap-3 rounded-[14px] border border-severe-line bg-white p-4">
               <AlertCircle size={20} aria-hidden="true" className="shrink-0 text-severe-icon" />
               <p className="min-w-0 flex-[1_1_20rem] text-sm text-brand-navy">
                 <span className="font-semibold text-severe">
@@ -2350,9 +2253,12 @@ export default function NutritionPage() {
                 <span className="text-brand-muted">
                   SAM or infant urgent review: {urgent.slice(0, 3).map((item) => childName(one(item.child))).join(", ")}
                   {urgent.length > 3 ? ` and ${urgent.length - 3} more` : ""}.
+                  {urgent.some((item) => muacImplausible(item.muac, item.age_days)) && (
+                    <span className="font-semibold text-brand-navy"> Re-check the measurement before admission.</span>
+                  )}
                 </span>
               </p>
-              <Link href={childRecordUrl(urgent[0].child_id)} className={buttonVariants({ variant: "secondary" })}>
+              <Link href={childRecordUrl(urgent[0].child_id)} className={buttonVariants({ variant: "outline", size: "lg" })}>
                 View child record
               </Link>
             </div>
@@ -2391,14 +2297,14 @@ export default function NutritionPage() {
                             colSpan={span}
                             className={cn(
                               "px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-brand-muted",
-                              i % 2 === 0 ? "bg-brand-ice" : "bg-brand-mist/35",
+                              i % 2 === 0 ? "bg-group-a" : "bg-group-b",
                               i > 0 && "border-l border-brand-line",
                             )}
                           >
                             {group}
                           </th>
                         ))}
-                        <td aria-hidden="true" className="sticky right-0 z-[2] w-[230px] min-w-[230px] border-l border-brand-line bg-brand-ice shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]" />
+                        <td aria-hidden="true" className="sticky right-0 z-[2] w-[260px] min-w-[260px] border-l border-brand-line bg-group-a shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]" />
                       </tr>
                       <tr>
                         {RECORD_COLUMNS.map((heading, i) => {
@@ -2414,7 +2320,7 @@ export default function NutritionPage() {
                                 // Labels wrap to two lines at most (narrow numeric columns otherwise stack 3–4).
                                 i !== 0 && i !== 5 && !actions && (i === 15 ? "min-w-32" : "min-w-[6.75rem]"),
                                 [7, 12, 15].includes(i) && "border-l border-brand-line",
-                                actions && "sticky right-0 z-[2] w-[230px] min-w-[230px] border-l shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]",
+                                actions && "sticky right-0 z-[2] w-[260px] min-w-[260px] border-l shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]",
                               )}
                             >
                               {heading}
@@ -2431,13 +2337,15 @@ export default function NutritionPage() {
                           <tr
                             key={item.assessment_id}
                             onClick={(event) => openRow(event, item.child_id)}
-                            className={cn("group cursor-pointer transition-colors hover:bg-brand-ice [&:last-child>td]:border-b-0", rowBg)}
+                            className={cn("group cursor-pointer transition-colors duration-[120ms] hover:bg-brand-ice [&:last-child>td]:border-b-0", rowBg)}
                           >
                             {recordCells(item, recordPage * recordPager.pageSize + i + 1).map((cell, c) => (
                               <td
                                 key={c}
                                 className={cn(
-                                  "border-b border-brand-line/70 px-4 py-3.5 align-top",
+                                  "border-b border-brand-line/70 px-4 py-3.5 align-top transition-[box-shadow] duration-[120ms]",
+                                  // Row hover like Child Profiling: a 3px navy bar on the first cell.
+                                  c === 0 && "group-hover:shadow-[inset_3px_0_0_var(--brand-navy)]",
                                   cell.numeric && "text-right tabular-nums",
                                   [7, 12, 15].includes(c) && "border-l border-brand-line/70",
                                   cell.className,
@@ -2446,7 +2354,7 @@ export default function NutritionPage() {
                                 {cell.content}
                               </td>
                             ))}
-                            <td className={cn("sticky right-0 z-[1] w-[230px] min-w-[230px] border-b border-l border-brand-line/70 px-4 py-3.5 align-top shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)] group-hover:bg-brand-ice", rowBg)}>
+                            <td className={cn("sticky right-0 z-[1] w-[260px] min-w-[260px] border-b border-l border-brand-line/70 px-4 py-3.5 align-top shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)] transition-colors duration-[120ms] group-hover:bg-brand-ice", rowBg)}>
                               <RecordActions item={item} onScores={() => setSelected(item)} />
                             </td>
                           </tr>
@@ -2933,9 +2841,23 @@ export default function NutritionPage() {
         </Modal>
       )}
       {selected && (
-        <AssessmentDetails
-          assessment={selected}
+        <ScoresDialog
+          key={selected.assessment_id}
+          item={selected}
+          childName={childName(one(selected.child))}
+          meta={[
+            `${selected.sex_at_assessment === "MALE" ? "Male" : selected.sex_at_assessment === "FEMALE" ? "Female" : "Sex not recorded"}, ${assessmentMonths(selected) ?? "?"} months (${selected.age_days ?? "?"} days), ${one(one(selected.child)?.barangay ?? null)?.barangay_name ?? "Barangay unavailable"}.`,
+            `Measured ${selected.assessment_date}.`,
+          ].join(" ")}
+          recommendation={followUp(selected)}
+          canEdit={canEditAssessment(selected)}
+          online={online}
           onClose={() => setSelected(null)}
+          onEdited={(updated) => {
+            setSelected((current) => (current ? ({ ...current, ...updated } as Assessment) : current));
+            void mutate();
+            toast.success("Measurements updated. The earlier values are kept in History.");
+          }}
         />
       )}
     </div>
@@ -2949,19 +2871,23 @@ function RecordBadge({ item }: { item: Assessment }) {
       status={item.nutritional_status ?? "unknown"}
       tone={item.engine_version ? nutritionTone(item.nutritional_status) : "neutral"}
       label={!item.engine_version ? "Legacy — not verified" : label(item.nutritional_status)}
+      className="text-xs font-semibold"
     />
   );
 }
 
-/** "View child record" and "Scores": two equal small secondary buttons side by side. */
+/** "View child record" and "Scores": two equal row buttons side by side (shared Button "row"). */
 function RecordButtons({ item, onScores }: { item: Assessment; onScores: () => void }) {
-  const small = "h-auto min-h-8 w-full whitespace-normal px-2 py-1 text-center leading-tight";
+  // Two equal buttons in the 260px column: a long label wraps inside the button (min 36px).
+  const wrap = "h-auto min-h-9 gap-1 whitespace-normal px-2 py-1.5 text-center leading-tight";
   return (
     <div className="grid grid-cols-2 gap-2">
-      <Link href={childRecordUrl(item.child_id)} className={cn(buttonVariants({ variant: "secondary", size: "sm" }), small)}>
+      <Link href={childRecordUrl(item.child_id)} className={cn(buttonVariants({ variant: "row", size: "row" }), wrap)}>
+        <FileText aria-hidden="true" />
         View child record
       </Link>
-      <Button variant="secondary" size="sm" className={small} onClick={onScores}>
+      <Button variant="row" size="row" className={wrap} onClick={onScores}>
+        <BarChart3 aria-hidden="true" />
         Scores
         <span className="sr-only"> for assessment {item.assessment_id}</span>
       </Button>

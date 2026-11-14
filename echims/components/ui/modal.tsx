@@ -17,12 +17,13 @@ import { Button } from './button'
 import { useConfirm } from './confirm-dialog'
 import { cn } from '@/lib/utils'
 
-const SIZES = { sm: 'sm:max-w-md', md: 'sm:max-w-lg', lg: 'sm:max-w-2xl', xl: 'sm:max-w-4xl' }
+const SIZES = { sm: 'sm:max-w-md', md: 'sm:max-w-lg', form: 'sm:max-w-[640px]', lg: 'sm:max-w-2xl', wide: 'sm:max-w-[760px] sm:rounded-[18px]', xl: 'sm:max-w-4xl' }
 const DURATION = 200
 
 export function Modal({
   open, onClose, title, subtitle, icon, size = 'md', children, footer, footerStart, onSubmit,
   cancelLabel = 'Cancel', hideCancel = false, busy = false, dirty, confirmDiscard = true, className, bodyClassName, belowHeader, bodyRef, noValidate, formRef,
+  eyebrow, titleClassName, buttonSize = 'md',
 }: {
   open: boolean
   onClose: () => void
@@ -49,6 +50,11 @@ export function Modal({
   bodyClassName?: string
   /** Between the header and the scrolling body (e.g. a stepper); does not scroll. */
   belowHeader?: ReactNode
+  /** Small label above the title (e.g. "Scores"). */
+  eyebrow?: ReactNode
+  titleClassName?: string
+  /** lg: the 44px data-page Cancel / Close button (outline variant). */
+  buttonSize?: 'md' | 'lg'
   /** Ref to the scrolling body (e.g. to scroll to top on a step change). */
   bodyRef?: Ref<HTMLDivElement>
   /** Skip native form validation (the form validates itself). */
@@ -106,7 +112,7 @@ export function Modal({
       {(footer || !hideCancel || footerStart) && (
         <div className="flex flex-col-reverse gap-2 border-t border-brand-line bg-brand-ice/50 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:gap-3">
-            {!hideCancel && <Button variant="secondary" onClick={() => void requestClose()} disabled={busy}>{cancelLabel}</Button>}
+            {!hideCancel && <Button variant={buttonSize === 'lg' ? 'outline' : 'secondary'} size={buttonSize} onClick={() => void requestClose()} disabled={busy}>{cancelLabel}</Button>}
             {footerStart}
           </div>
           {footer && <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">{footer}</div>}
@@ -141,10 +147,11 @@ export function Modal({
         <div className="flex items-start gap-3 border-b border-brand-line px-5 py-4 sm:px-6">
           {icon && <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-mist text-brand-blue [&_svg]:size-5">{icon}</span>}
           <div className="min-w-0 flex-1">
-            <h2 id={titleId} className="font-display text-lg font-bold leading-snug">{title}</h2>
+            {eyebrow && <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">{eyebrow}</p>}
+            <h2 id={titleId} className={cn('font-display text-lg font-bold leading-snug', titleClassName)}>{title}</h2>
             {subtitle && <p id={subtitleId} className="mt-0.5 text-sm text-brand-muted">{subtitle}</p>}
           </div>
-          <button type="button" onClick={() => void requestClose()} disabled={busy} aria-label="Close" className="-mr-1.5 rounded-lg p-1.5 text-brand-muted outline-none hover:bg-brand-ice hover:text-brand-navy focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-40">
+          <button type="button" onClick={() => void requestClose()} disabled={busy} aria-label="Close" className="-mr-2.5 -mt-1.5 inline-flex size-11 shrink-0 items-center justify-center rounded-[10px] text-brand-muted outline-none hover:bg-brand-ice hover:text-brand-navy focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-40">
             <X size={18} aria-hidden="true" />
           </button>
         </div>
