@@ -1,6 +1,6 @@
 "use client";
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
-import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -19,18 +19,18 @@ import {
   type NutritionPayload,
   type QueuedAssessment,
 } from "@/lib/nutrition-offline";
-import { AlertCircle, Plus, RefreshCw, Printer, SearchX } from "lucide-react";
+import { AlertCircle, ChevronDown, Plus, RefreshCw, Printer, SearchX } from "lucide-react";
 import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { FilterChips, TabBar } from '@/components/ui/module-tabs'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { Checkbox, Field, Select, DateInput } from '@/components/ui/form'
-import { FilterBar } from '@/components/ui/filter-bar'
 import { InfoTip } from '@/components/ui/info-tip'
-import { Pagination, usePagination } from '@/components/ui/pagination'
-import { StatCard } from '@/components/ui/stat-card'
+import { Pagination, usePagination, useStableHeight } from '@/components/ui/pagination'
+import { LoadError } from '@/components/ui/load-error'
+import { cn } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
@@ -189,6 +189,7 @@ function label(value: string | null | undefined) {
       .toLowerCase()
       .replaceAll("_", " ")
       .replace(/^./, (first) => first.toUpperCase())
+      .replace(/\bmuac\b/gi, "MUAC")
   );
 }
 function ipMembership(ethnicity: string | null | undefined) {
@@ -1088,6 +1089,90 @@ function ClassificationList({
     </section>
   );
 }
+// "Latest assessments" table: client-verified columns, in this exact order with these exact labels.
+const RECORD_COLUMNS = [
+  "Child seq.",
+  "Address / location of residence",
+  "Name of mother or caregiver",
+  "Full name of child",
+  "Belongs to IP group?",
+  "Sex",
+  "Date of birth",
+  "Date measured",
+  "Weight (kg)",
+  "Length / height (cm)",
+  "Age in months",
+  "Age in days",
+  "Weight-for-age status",
+  "Length/height-for-age status",
+  "Weight-for-length/height status",
+  "Bilateral pitting edema",
+  "Disability",
+  "MUAC (cm)",
+  "MUAC status",
+  "Actions",
+] as const;
+// Column groups above the labels (7 + 5 + 3 + 4 = the 19 data columns; Actions has its own cell).
+const RECORD_GROUPS = [
+  ["Child", 7],
+  ["Measurement", 5],
+  ["WHO classification", 3],
+  ["Other indicators", 4],
+] as const;
+/** A measurement exactly as recorded (no rounding or reformatting); "—" when missing. */
+function recorded(value: NumberValue) {
+  return value === null || value === "" ? "—" : String(value);
+}
+/** Flagged classification values: severe / SAM in severe red, possible risk of overweight in violet. */
+function flagClass(code: string | null | undefined) {
+  const c = String(code ?? "").toUpperCase();
+  if (c.startsWith("SEVERE") || c === "SAM" || c === "INFANT_URGENT_REVIEW") return "font-semibold text-severe";
+  if (c === "POSSIBLE_RISK_OF_OVERWEIGHT") return "font-semibold text-risk";
+  return "";
+}
+const isUrgent = (item: Assessment) => followUp(item) === "Urgent clinical assessment";
+type RecordCell = { content: ReactNode; numeric?: boolean; className?: string };
+/** The 19 data cells of one row, shared by the wide table and the phone cards. */
+function recordCells(item: Assessment, seq: number): RecordCell[] {
+  const child = one(item.child);
+  const barangay = one(child?.barangay ?? null)?.barangay_name ?? "Barangay unavailable";
+  return [
+    { content: seq, numeric: true },
+    { content: child ? residentLocation(child) || "Not recorded" : "Not recorded", className: "min-w-40" },
+    { content: caregiverName(child), className: "min-w-44" },
+    {
+      className: "min-w-44 font-medium",
+      content: <>
+        <Link href={childRecordUrl(item.child_id)} className="text-brand-navy underline-offset-4 hover:text-brand-sky hover:underline">
+          {childName(child)}
+        </Link>
+        <span className="mt-0.5 block text-xs font-normal text-brand-muted">{barangay}</span>
+      </>,
+    },
+    { content: ipMembership(item.profile?.ethnicity) },
+    { content: child?.sex === "MALE" ? "M" : child?.sex === "FEMALE" ? "F" : "Not recorded" },
+    { content: child?.date_of_birth ?? "Not recorded", className: "whitespace-nowrap" },
+    { content: item.assessment_date, className: "whitespace-nowrap" },
+    { content: recorded(item.weight), numeric: true },
+    {
+      numeric: true,
+      content: <>
+        {recorded(item.height)}
+        <span className="block text-xs text-brand-muted">{label(item.measurement_type)}</span>
+      </>,
+    },
+    { content: item.age_days == null ? "Not recorded" : completedMonths(birthAtAssessment(item), item.assessment_date), numeric: true },
+    { content: item.age_days ?? "Not recorded", numeric: true },
+    { content: label(item.weight_for_age), className: cn("min-w-40", flagClass(item.weight_for_age)) },
+    { content: label(item.height_for_age), className: cn("min-w-40", flagClass(item.height_for_age)) },
+    { content: label(item.weight_for_height), className: cn("min-w-40", flagClass(item.weight_for_height)) },
+    { content: item.edema_grade == null ? "Not recorded" : item.edema_grade === 0 ? "Absent" : `+${item.edema_grade}` },
+    { content: "Not recorded in child profile", className: "min-w-40 text-brand-muted" },
+    { content: recorded(item.muac), numeric: true, className: flagClass(item.muac_status) },
+    { content: label(item.muac_status), className: cn("min-w-36", flagClass(item.muac_status)) },
+  ];
+}
+
 export default function NutritionPage() {
   const sharedAuth = useAuth();
   const [category, setCategory] = useState("All");
@@ -1192,6 +1277,10 @@ export default function NutritionPage() {
   const visible = (history ? scopedRecords : latest).filter((item) =>
     matches(item, category),
   );
+  // Shared pager (6 per page). Stable height only across several pages; one page fits its rows.
+  const { visible: recordRows, page: recordPage, props: recordPager } = usePagination(visible);
+  const { bindArea: bindRecords, height: recordsMin } = useStableHeight(recordPager.pageCount > 1, recordRows.length >= recordPager.pageSize);
+  const urgent = latest.filter(isUrgent);
   const countCategories = [
     "MAM",
     "SAM",
@@ -1199,18 +1288,6 @@ export default function NutritionPage() {
     "Wasted",
     "Overweight / obesity",
   ];
-  const categoryCode: Record<string, string> = {
-    MAM: "MAM",
-    SAM: "SAM",
-    Stunted: "STUNTED",
-    Wasted: "WASTED",
-    "Overweight / obesity": "OVERWEIGHT",
-  };
-  const categoryTone = (name: string) => {
-    const tone = nutritionTone(categoryCode[name]);
-    // StatCard has no nutrition-only tones: severe -> danger, healthy -> good, risk -> nutrition.
-    return tone === "neutral" ? "default" : tone === "severe" ? "danger" : tone === "healthy" ? "good" : tone === "risk" ? "nutrition" : tone;
-  };
   const allCategories = [
     "All",
     ...countCategories,
@@ -2008,7 +2085,7 @@ export default function NutritionPage() {
         className="nutrition-no-print"
         actions={<>
           {/* Admission tracking has its own data and its own Refresh. */}
-          {tab !== "Admissions" && ownerId && (
+          {tab !== "Admissions" && tab !== "Assessments" && ownerId && (
             <Button
               variant="tonal"
               loading={isValidating && Boolean(data)}
@@ -2037,19 +2114,14 @@ export default function NutritionPage() {
               }}
             >
               <Plus size={17} aria-hidden="true" />
-              New assessment
+              Record assessment
             </Button>
           )}
         </>}
       />
 
       {error && (
-        <div role="alert" className={alertClass}>
-          {error.message}
-          <Button variant="ghost" size="sm" className="ml-2" onClick={() => void mutate()}>
-            Retry
-          </Button>
-        </div>
+        <LoadError what="nutrition records" error={error} retrying={isValidating} onRetry={() => void mutate()} />
       )}
       {authReady && !ownerId && (
         <p role="alert" className={alertClass}>
@@ -2208,239 +2280,240 @@ export default function NutritionPage() {
         )}
       {reportView === "Assessments" && (
         <>
-          <div className="nutrition-no-print grid grid-cols-2 gap-4 lg:grid-cols-5">
-            {countCategories.map((name) => (
-              <StatCard
-                key={name}
-                label={name}
-                value={latest.filter((item) => matches(item, name)).length}
-                tone={categoryTone(name)}
-                onClick={() => setCategory(category === name ? "All" : name)}
-                pressed={category === name}
-              />
-            ))}
-          </div>
-          <FilterBar
-            className="nutrition-no-print"
-            info="Counts use the latest loaded assessment per child in the selected year and barangay. Categories can overlap."
-          >
-            {periodFields}
-            <Field label="Classification view">
-              <Select
-                value={category}
-                onChange={(event) => setCategory(event.target.value)}
-              >
-                {allCategories.map((name) => (
-                  <option key={name}>{name}</option>
-                ))}
-              </Select>
-            </Field>
-            <div className="flex items-end pb-2">
-              <Checkbox
-                label="Include assessment history"
-                checked={history}
-                onChange={(event) => setHistory(event.target.checked)}
-              />
+          {/* Filters and counts: one card. Controls share one bottom edge. */}
+          <section aria-label="Filters and counts" className="nutrition-no-print overflow-hidden rounded-[14px] border border-brand-line bg-white">
+            <div className="flex flex-wrap items-end gap-3 p-4">
+              <div className="grid min-w-0 flex-[1_1_32rem] grid-cols-1 items-end gap-3 sm:grid-cols-3">
+                {periodFields}
+                <Field label="Classification view">
+                  <Select value={category} onChange={(event) => setCategory(event.target.value)}>
+                    {allCategories.map((name) => (
+                      <option key={name}>{name}</option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
+              <div className="flex h-10 items-center">
+                <Checkbox
+                  label="Include assessment history"
+                  checked={history}
+                  onChange={(event) => setHistory(event.target.checked)}
+                />
+              </div>
+              {ownerId && (
+                <Button
+                  variant="secondary"
+                  className="ml-auto"
+                  loading={isValidating && Boolean(data)}
+                  disabled={!online || accessDenied}
+                  title={online ? undefined : "Reconnect to refresh"}
+                  onClick={() => void mutate()}
+                >
+                  {!(isValidating && data) && <RefreshCw size={16} aria-hidden="true" />}
+                  Refresh
+                </Button>
+              )}
             </div>
-          </FilterBar>
-          <div className="overflow-hidden rounded-2xl border border-border bg-white">
-            <div className="border-b border-border px-5 py-4">
+            {/* Counts (latest assessment per child); each one filters the table. 1px dividers between cells. */}
+            <div className="grid grid-cols-2 gap-px border-t border-brand-line/70 bg-brand-line/70 sm:grid-cols-3 lg:grid-cols-5">
+              {["SAM", "MAM", "Stunted", "Wasted", "Overweight / obesity"].map((name) => {
+                const count = latest.filter((item) => matches(item, name)).length;
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    aria-pressed={category === name}
+                    onClick={() => setCategory(category === name ? "All" : name)}
+                    className={cn(
+                      "flex items-baseline gap-2 bg-white px-4 py-3 text-left outline-none transition-colors hover:bg-brand-ice focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-sky",
+                      category === name && "bg-brand-ice",
+                      // 5 cells: the last one fills the spare slot at 2 and 3 columns (no empty divider cell).
+                      name === "Overweight / obesity" && "col-span-2 lg:col-span-1",
+                    )}
+                  >
+                    <span className={cn("text-2xl font-bold tabular-nums", count === 0 ? "text-brand-muted" : name === "SAM" ? "text-severe" : "text-brand-navy")}>{count}</span>
+                    <span className="text-sm text-brand-muted">{name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Follow-up banner: only when a child needs urgent clinical assessment. */}
+          {urgent.length > 0 && (
+            <div role="status" className="nutrition-no-print flex flex-wrap items-center gap-3 rounded-[14px] border border-severe/25 bg-white p-4">
+              <AlertCircle size={20} aria-hidden="true" className="shrink-0 text-severe-icon" />
+              <p className="min-w-0 flex-[1_1_20rem] text-sm text-brand-navy">
+                <span className="font-semibold text-severe">
+                  {urgent.length} {urgent.length === 1 ? "child needs" : "children need"} urgent clinical assessment.
+                </span>{" "}
+                <span className="text-brand-muted">
+                  SAM or infant urgent review: {urgent.slice(0, 3).map((item) => childName(one(item.child))).join(", ")}
+                  {urgent.length > 3 ? ` and ${urgent.length - 3} more` : ""}.
+                </span>
+              </p>
+              <Link href={childRecordUrl(urgent[0].child_id)} className={buttonVariants({ variant: "secondary" })}>
+                View child record
+              </Link>
+            </div>
+          )}
+
+          {/* Latest assessments. White sits on the header, rows and pager, so a short last page shows the page background. */}
+          <section className={cn("overflow-hidden rounded-[14px] border border-brand-line", recordPager.pageCount <= 1 && "bg-white")}>
+            <div className="border-b border-brand-line bg-white px-4 py-3">
               <h2 className="flex items-center gap-1.5 text-lg font-semibold text-brand-navy">
                 {history ? "Assessment history" : "Latest assessments"}
                 <InfoTip label="About this table">
                   Profile information comes from the linked child record. View
                   child record opens the centralized profile and health history;
-                  Scores shows this assessment’s calculated results.
+                  Scores shows this assessment’s calculated results. Counts use the
+                  latest loaded assessment per child in the selected year and
+                  barangay; categories can overlap.
                 </InfoTip>
               </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-0.5 text-sm text-brand-muted">
                 {visible.length} assessment{visible.length === 1 ? "" : "s"} · {category === "All" ? "all classifications" : category}
               </p>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-muted">
-                  <tr>
-                    {[
-                      "Child seq.",
-                      "Address / location of residence",
-                      "Name of mother or caregiver",
-                      "Full name of child",
-                      "Belongs to IP group?",
-                      "Sex",
-                      "Date of birth",
-                      "Date measured",
-                      "Weight (kg)",
-                      "Length / height (cm)",
-                      "Age in months",
-                      "Age in days",
-                      "Weight-for-age status",
-                      "Length/height-for-age status",
-                      "Weight-for-length/height status",
-                      "Bilateral pitting edema",
-                      "Disability",
-                      "MUAC (cm)",
-                      "MUAC status",
-                      "Actions",
-                    ].map((heading) => (
-                      <th
-                        key={heading}
-                        scope="col"
-                        className="min-w-24 px-4 py-4 text-left text-xs font-semibold"
-                      >
-                        {heading}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {visible.map((item, index) => (
-                    <tr
-                      key={item.assessment_id}
-                      onClick={(event) => openRow(event, item.child_id)}
-                      className="cursor-pointer transition-colors hover:bg-brand-ice/60"
-                    >
-                      <td className="px-4 py-4 text-sm">{index + 1}</td>
-                      <td className="min-w-40 px-4 py-4 text-sm">
-                        {one(item.child)
-                          ? residentLocation(one(item.child)!) || "Not recorded"
-                          : "Not recorded"}
-                      </td>
-                      <td className="min-w-44 px-4 py-4 text-sm">
-                        {caregiverName(one(item.child))}
-                      </td>
-                      <td className="min-w-44 px-4 py-4 text-sm font-medium">
-                        <Link
-                          href={childRecordUrl(item.child_id)}
-                          className="text-brand-navy underline-offset-4 hover:text-brand-blue hover:underline"
-                        >
-                          {childName(one(item.child))}
-                        </Link>
-                        <span className="mt-1 block text-xs text-muted-foreground">
-                          {one(one(item.child)?.barangay ?? null)
-                            ?.barangay_name ?? "Barangay unavailable"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        {ipMembership(item.profile?.ethnicity)}
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        {one(item.child)?.sex === "MALE"
-                          ? "M"
-                          : one(item.child)?.sex === "FEMALE"
-                            ? "F"
-                            : "Not recorded"}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-4 text-sm">
-                        {one(item.child)?.date_of_birth ?? "Not recorded"}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-4 text-sm">
-                        {item.assessment_date}
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        {quantity(item.weight)}
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        {quantity(item.height)}
-                        <span className="block text-xs text-muted-foreground">
-                          {label(item.measurement_type)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        {item.age_days == null
-                          ? "Not recorded"
-                          : completedMonths(
-                              birthAtAssessment(item),
-                              item.assessment_date,
+            {data && visible.length === 0 ? (
+              <EmptyState icon={SearchX} title="No assessments match this view" description="Try a different filter or date range." className="bg-white" />
+            ) : (
+              <div ref={bindRecords} style={recordsMin ? { minHeight: recordsMin } : undefined}>
+                {/* Tablet and up: the wide table, scrolling sideways with the Actions column pinned. */}
+                <div className="scroll-subtle hidden overflow-x-auto bg-white sm:block">
+                  <table className="w-full border-separate border-spacing-0 text-sm text-brand-navy">
+                    <thead>
+                      <tr>
+                        {RECORD_GROUPS.map(([group, span], i) => (
+                          <th
+                            key={group}
+                            scope="colgroup"
+                            colSpan={span}
+                            className={cn(
+                              "px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-brand-muted",
+                              i % 2 === 0 ? "bg-brand-ice" : "bg-brand-mist/35",
+                              i > 0 && "border-l border-brand-line",
                             )}
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        {item.age_days ?? "Not recorded"}
-                      </td>
-                      <td className="min-w-40 px-4 py-4 text-sm">
-                        {label(item.weight_for_age)}
-                      </td>
-                      <td className="min-w-40 px-4 py-4 text-sm">
-                        {label(item.height_for_age)}
-                      </td>
-                      <td className="min-w-40 px-4 py-4 text-sm">
-                        {label(item.weight_for_height)}
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        {item.edema_grade == null
-                          ? "Not recorded"
-                          : item.edema_grade === 0
-                            ? "Absent"
-                            : `+${item.edema_grade}`}
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        Not recorded in child profile
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        {quantity(item.muac)}
-                      </td>
-                      <td className="min-w-36 px-4 py-4 text-sm">
-                        {label(item.muac_status)}
-                      </td>
-                      <td className="min-w-44 px-4 py-4 text-sm">
-                        <StatusBadge
-                          status={item.nutritional_status ?? "unknown"}
-                          tone={item.engine_version ? nutritionTone(item.nutritional_status) : "neutral"}
-                          label={!item.engine_version
-                            ? "Legacy — not verified"
-                            : label(item.nutritional_status)}
-                        />
-                        <span className="my-1 block text-xs text-muted-foreground">
-                          {followUp(item)}
-                        </span>
-                        <Link
-                          href={childRecordUrl(item.child_id)}
-                          className="block whitespace-nowrap font-medium text-brand-navy underline-offset-4 hover:text-brand-blue hover:underline"
-                        >
-                          View child record
-                        </Link>
-                        <Button variant="ghost" size="sm" className="-ml-3 mt-1" onClick={() => setSelected(item)}>
-                          Scores
-                          <span className="sr-only">
-                            {" "}
-                            for assessment {item.assessment_id}
-                          </span>
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                  {data && visible.length === 0 && (
-                    <tr>
-                      <td colSpan={20}><EmptyState icon={SearchX} title="No assessments match this view" description="Try a different filter or date range." /></td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <p className="flex items-center gap-1.5 border-t border-border px-5 py-3 text-xs text-muted-foreground">
-              Profile details are current; measurements are from the assessment date.
+                          >
+                            {group}
+                          </th>
+                        ))}
+                        <td aria-hidden="true" className="sticky right-0 z-[2] w-[230px] min-w-[230px] border-l border-brand-line bg-brand-ice shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]" />
+                      </tr>
+                      <tr>
+                        {RECORD_COLUMNS.map((heading, i) => {
+                          const numeric = [0, 8, 9, 10, 11, 17].includes(i);
+                          const actions = heading === "Actions";
+                          return (
+                            <th
+                              key={heading}
+                              scope="col"
+                              className={cn(
+                                "border-b border-brand-line bg-white px-4 py-3 align-bottom text-[13px] font-semibold text-brand-navy",
+                                numeric ? "text-right" : "text-left",
+                                // Labels wrap to two lines at most (narrow numeric columns otherwise stack 3–4).
+                                i !== 0 && i !== 5 && !actions && (i === 15 ? "min-w-32" : "min-w-[6.75rem]"),
+                                [7, 12, 15].includes(i) && "border-l border-brand-line",
+                                actions && "sticky right-0 z-[2] w-[230px] min-w-[230px] border-l shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]",
+                              )}
+                            >
+                              {heading}
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recordRows.map((item, i) => {
+                        const flagged = isUrgent(item);
+                        const rowBg = flagged ? "bg-severe-row" : "bg-white";
+                        return (
+                          <tr
+                            key={item.assessment_id}
+                            onClick={(event) => openRow(event, item.child_id)}
+                            className={cn("group cursor-pointer transition-colors hover:bg-brand-ice [&:last-child>td]:border-b-0", rowBg)}
+                          >
+                            {recordCells(item, recordPage * recordPager.pageSize + i + 1).map((cell, c) => (
+                              <td
+                                key={c}
+                                className={cn(
+                                  "border-b border-brand-line/70 px-4 py-3.5 align-top",
+                                  cell.numeric && "text-right tabular-nums",
+                                  [7, 12, 15].includes(c) && "border-l border-brand-line/70",
+                                  cell.className,
+                                )}
+                              >
+                                {cell.content}
+                              </td>
+                            ))}
+                            <td className={cn("sticky right-0 z-[1] w-[230px] min-w-[230px] border-b border-l border-brand-line/70 px-4 py-3.5 align-top shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)] group-hover:bg-brand-ice", rowBg)}>
+                              <RecordActions item={item} onScores={() => setSelected(item)} />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Phones: one card per row, same labels in the same order. */}
+                <ul className="divide-y divide-brand-line/70 bg-white sm:hidden">
+                  {recordRows.map((item, i) => {
+                    const seq = recordPage * recordPager.pageSize + i + 1;
+                    const child = one(item.child);
+                    const cells = recordCells(item, seq);
+                    return (
+                      <li key={item.assessment_id} className={cn("space-y-3 p-4", isUrgent(item) && "bg-severe-row")}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-brand-navy">
+                              <span className="tabular-nums text-brand-muted">{seq}.</span> {childName(child)}
+                            </p>
+                            <p className="text-xs text-brand-muted">
+                              {one(child?.barangay ?? null)?.barangay_name ?? "Barangay unavailable"} · Measured {item.assessment_date}
+                            </p>
+                          </div>
+                          <RecordBadge item={item} />
+                        </div>
+                        <dl className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
+                          {cells.map((cell, c) => (
+                            <div key={RECORD_COLUMNS[c]} className="contents">
+                              <dt className="text-xs font-semibold text-brand-muted">{RECORD_COLUMNS[c]}</dt>
+                              <dd className={cn("text-right text-brand-navy", cell.numeric && "tabular-nums", cell.className?.replace(/min-w-\S+/g, ""))}>{cell.content}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                        <p className="text-xs text-brand-muted">{followUp(item)}</p>
+                        <RecordButtons item={item} onScores={() => setSelected(item)} />
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+            <Pagination {...recordPager} label="Assessment pages" />
+            <p className="flex items-center gap-1.5 border-t border-brand-line bg-white px-4 py-3 text-xs text-brand-muted">
+              Profile columns show the child&rsquo;s current record. Measurements are as recorded on the date measured. Flagged values are shown in color.
               <InfoTip label="About these columns">
-                Shows current linked profile information alongside measurements
-                recorded on the assessment date. IP membership comes from the
-                latest child profile’s Ethnicity field. Disability and region are
-                not present in the supplied profile fields. All accessible
-                assessment records are loaded in pages.
+                IP membership comes from the latest child profile’s Ethnicity
+                field. Disability and region are not present in the supplied
+                profile fields. All accessible assessment records are loaded in
+                pages.
               </InfoTip>
             </p>
-          </div>
+          </section>
         </>
       )}
       </TabPanel>
-      <p className="nutrition-no-print flex items-start gap-2 text-sm text-muted-foreground">
-        <AlertCircle size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-warn" />
-        <span>
-          SAM and infant urgent-review results require prompt clinical
-          assessment. Other growth concerns require health-staff review.
-        </span>
-        <InfoTip label="About follow-up guidance">
-          Missing scores and flagged measurements are displayed for verification.
-        </InfoTip>
-      </p>
+      <details className="nutrition-no-print group rounded-[14px] border border-brand-line bg-white">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-[14px] px-4 text-sm font-semibold text-brand-navy outline-none focus-visible:ring-2 focus-visible:ring-brand-sky [&::-webkit-details-marker]:hidden">
+          <AlertCircle size={16} aria-hidden="true" className="shrink-0 text-warn" />
+          Follow-up guidance
+          <ChevronDown size={16} aria-hidden="true" className="ml-auto text-brand-muted transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none" />
+        </summary>
+        <p className="border-t border-brand-line/70 px-4 py-3 text-sm text-brand-navy">
+          SAM and infant urgent-review results require prompt clinical assessment. Other growth concerns require health-staff review. Missing scores and flagged measurements are displayed for verification.
+        </p>
+      </details>
       {syncReview && (
         <Modal
           open
@@ -2865,6 +2938,44 @@ export default function NutritionPage() {
           onClose={() => setSelected(null)}
         />
       )}
+    </div>
+  );
+}
+
+/** Classification pill for a row (legacy rows are unverified, gray). */
+function RecordBadge({ item }: { item: Assessment }) {
+  return (
+    <StatusBadge
+      status={item.nutritional_status ?? "unknown"}
+      tone={item.engine_version ? nutritionTone(item.nutritional_status) : "neutral"}
+      label={!item.engine_version ? "Legacy — not verified" : label(item.nutritional_status)}
+    />
+  );
+}
+
+/** "View child record" and "Scores": two equal small secondary buttons side by side. */
+function RecordButtons({ item, onScores }: { item: Assessment; onScores: () => void }) {
+  const small = "h-auto min-h-8 w-full whitespace-normal px-2 py-1 text-center leading-tight";
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <Link href={childRecordUrl(item.child_id)} className={cn(buttonVariants({ variant: "secondary", size: "sm" }), small)}>
+        View child record
+      </Link>
+      <Button variant="secondary" size="sm" className={small} onClick={onScores}>
+        Scores
+        <span className="sr-only"> for assessment {item.assessment_id}</span>
+      </Button>
+    </div>
+  );
+}
+
+/** Pinned Actions cell: pill, recommendation, then the two buttons. */
+function RecordActions({ item, onScores }: { item: Assessment; onScores: () => void }) {
+  return (
+    <div className="space-y-2">
+      <RecordBadge item={item} />
+      <p className="text-xs text-brand-muted">{followUp(item)}</p>
+      <RecordButtons item={item} onScores={onScores} />
     </div>
   );
 }
