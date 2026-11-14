@@ -17,10 +17,10 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { CountsStrip, FilterCard, REPORT_CARD, SectionHeader } from '@/components/nutrition/report-parts'
 
 const PRIORITY_TONE = { CRITICAL: 'severe', HIGH: 'review', MEDIUM: 'neutral', LOW: 'neutral' } as const
-// Same table styling as All assessments: 13px headers, row hover with a navy bar, pinned Action column.
-const HEAD = 'border-b border-brand-line bg-white px-4 py-3 text-left align-bottom text-[13px] font-semibold text-brand-navy'
-const CELL = 'border-b border-brand-line/70 px-4 py-3.5 align-top'
-const PINNED = 'sm:sticky right-0 w-[208px] min-w-[208px] border-l sm:shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]'
+// Same table styling as All assessments (.data-grid lines, zebra, hover with a navy bar, pinned Action column).
+const HEAD = 'px-4 py-3 text-left align-bottom text-[13px] font-semibold text-brand-navy'
+const CELL = 'px-4 py-3.5 align-top'
+const PINNED = 'relative sm:sticky right-0 w-[208px] min-w-[208px] border-l-brand-line sm:shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]'
 
 // Refresh comes from the page (it reloads the same data as the assessments) and sits in the filter card.
 export function NutritionRiskMonitor({ monitoring, error, loading, offline, refresh }: { monitoring?: RiskMonitoring; error?: string; loading: boolean; offline: boolean; refresh?: ReactNode }) {
@@ -65,18 +65,17 @@ export function NutritionRiskMonitor({ monitoring, error, loading, offline, refr
       </FilterCard>
       <div className={REPORT_CARD}>
         <div ref={bindList} style={listStyle} className="scroll-subtle overflow-x-auto">
-          <table className="w-full border-separate border-spacing-0 text-sm text-brand-navy">
+          <table className="data-grid data-grid--hover w-full text-sm text-brand-navy">
             <thead><tr>
               {['Child', 'Barangay', 'Latest assessment', 'Recorded risks', 'Priority', 'Change'].map((title) => <th key={title} scope="col" className={HEAD}>{title}</th>)}
-              <th scope="col" className={cn(HEAD, PINNED, 'z-[2] border-l-brand-line')}>Action</th>
+              <th scope="col" className={cn(HEAD, PINNED, 'z-[2]')}>Action</th>
             </tr></thead>
             <tbody>
-              {page.map((row) => {
-                const rowBg = row.worsening.length ? 'bg-severe-row' : 'bg-white'
+              {page.map((row, i) => {
                 // Screening (SAM/MAM) first, as a pill; each other indicator as "name  classification".
                 const risks = [...row.classifications].sort((a, b) => Number(b.field === 'nutritional_status') - Number(a.field === 'nutritional_status'))
-                return <tr key={row.child_id} onClick={(event) => openRow(event, row.child_id)} className={cn('group cursor-pointer transition-colors duration-[120ms] hover:bg-brand-ice [&:last-child>td]:border-b-0', rowBg)}>
-                  <td className={cn(CELL, 'min-w-44 transition-[box-shadow] duration-[120ms] group-hover:shadow-[inset_3px_0_0_var(--brand-navy)]')}>
+                return <tr key={row.child_id} onClick={(event) => openRow(event, row.child_id)} data-zebra={i % 2 === 1 || undefined} data-urgent={row.worsening.length > 0 || undefined} className="group cursor-pointer">
+                  <td className={cn(CELL, 'min-w-44 transition-[box-shadow,background-color] duration-[120ms] group-hover:shadow-[inset_3px_0_0_var(--brand-navy)]')}>
                     <span className="font-semibold">{row.child_name}</span>
                     <span className="block text-xs text-brand-muted">{formatChildId(row.child_id)}</span>
                   </td>
@@ -100,7 +99,7 @@ export function NutritionRiskMonitor({ monitoring, error, loading, offline, refr
                       <p className="text-xs text-brand-muted">Compared with assessment #{row.previous_assessment_id}, {row.previous_date}</p>
                     </div> : <span className="text-brand-muted">{row.previous_assessment_id ? 'No comparable worsening detected' : 'No earlier assessment date'}</span>}
                   </td>
-                  <td className={cn(CELL, PINNED, 'z-[1] border-l-brand-line/70 transition-colors duration-[120ms] group-hover:bg-brand-ice', rowBg)}>
+                  <td className={cn(CELL, PINNED, 'z-[1]')}>
                     <Link href={nutritionProfileHref(row.child_id)} className={cn(buttonVariants({ variant: 'row', size: 'row' }), 'w-full')}>
                       <FileText aria-hidden="true" />View child record<span className="sr-only"> for {row.child_name}</span>
                     </Link>

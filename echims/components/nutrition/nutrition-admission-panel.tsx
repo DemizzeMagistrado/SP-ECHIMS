@@ -229,10 +229,10 @@ export function NutritionAdmissionPanel({
   };
   const toggle = (id: number) =>
     setExpanded((list) => (list.includes(id) ? list.filter((v) => v !== id) : [...list, id]));
-  // Same table styling as All assessments: 13px headers, row hover with a navy bar, pinned Action column.
-  const head = "border-b border-brand-line bg-white px-4 py-3 text-left align-bottom text-[13px] font-semibold text-brand-navy";
-  const cell = "border-b border-brand-line/70 px-4 py-3.5 align-top";
-  const pinned = "sm:sticky right-0 w-[208px] min-w-[208px] border-l sm:shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]";
+  // Same table styling as All assessments (.data-grid lines, zebra, hover with a navy bar, pinned Action column).
+  const head = "px-4 py-3 text-left align-bottom text-[13px] font-semibold text-brand-navy";
+  const cell = "px-4 py-3.5 align-top";
+  const pinned = "relative sm:sticky right-0 w-[208px] min-w-[208px] border-l-brand-line sm:shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]";
   const dash = <span className="text-brand-muted">—</span>;
   const careLabel = (v: string | null | undefined) => (v === "INPATIENT" ? "Inpatient" : v === "OUTPATIENT" ? "Outpatient" : null);
   const statusLabel = (v: string) => (v === "PENDING" ? "Pending confirmation" : v === "ACTIVE" ? "Active" : v === "DONE" ? "Done" : v);
@@ -304,13 +304,13 @@ export function NutritionAdmissionPanel({
       ) : (
         <div className={REPORT_CARD}>
           <div ref={bindList} style={listStyle} className="scroll-subtle overflow-x-auto">
-            <table className="w-full border-separate border-spacing-0 text-sm text-brand-navy">
+            <table className="data-grid data-grid--hover w-full text-sm text-brand-navy">
               <thead>
                 <tr>
                   {["Child / Source assessment", "Screening", "Care type", "Status / Checkup", "Facility / Remarks", "Recorded by"].map((v) => (
                     <th key={v} scope="col" className={cn(head, "whitespace-nowrap")}>{v}</th>
                   ))}
-                  <th scope="col" className={cn(head, pinned, "z-[2] border-l-brand-line")}>Action</th>
+                  <th scope="col" className={cn(head, pinned, "z-[2]")}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -319,7 +319,7 @@ export function NutritionAdmissionPanel({
                     <td colSpan={7}><EmptyState icon={HeartPulse} title="No care entries in this view" description="Try a different status or filter." /></td>
                   </tr>
                 ) : (
-                  pageRows.map((r) => {
+                  pageRows.map((r, i) => {
                     const expandedRow = expanded.includes(r.admission_id);
                     const historyId = `admission-${r.admission_id}-history`;
                     // History is newest first: a correction of the source assessment is the latest UPDATED event.
@@ -328,8 +328,8 @@ export function NutritionAdmissionPanel({
                     const recordedBy = r.updated_by_name || r.confirmed_by_name;
                     return (
                       <Fragment key={r.admission_id}>
-                        <tr onClick={(event) => openRow(event, r.child_id)} className="group cursor-pointer bg-white transition-colors duration-[120ms] hover:bg-brand-ice">
-                          <td className={cn(cell, "min-w-52 transition-[box-shadow] duration-[120ms] group-hover:shadow-[inset_3px_0_0_var(--brand-navy)]")}>
+                        <tr onClick={(event) => openRow(event, r.child_id)} data-zebra={i % 2 === 1 || undefined} className="group cursor-pointer">
+                          <td className={cn(cell, "min-w-52 transition-[box-shadow,background-color] duration-[120ms] group-hover:shadow-[inset_3px_0_0_var(--brand-navy)]")}>
                             <span className="font-semibold">{r.child_name}</span>
                             <span className="block text-xs text-brand-muted">
                               {r.barangay_name}. Assessment #{r.source_assessment_id}, <span className="whitespace-nowrap">{r.source_assessment_date}</span>
@@ -363,7 +363,7 @@ export function NutritionAdmissionPanel({
                             ) : dash}
                           </td>
                           <td className={cn(cell, "min-w-36")}>{recordedBy ?? dash}</td>
-                          <td className={cn(cell, pinned, "z-[1] border-l-brand-line/70 bg-white transition-colors duration-[120ms] group-hover:bg-brand-ice")}>
+                          <td className={cn(cell, pinned, "z-[1]")}>
                             <div className="flex items-center gap-2">
                               {data?.canEdit && r.status !== "DONE" && (
                                 <Button
@@ -392,8 +392,8 @@ export function NutritionAdmissionPanel({
                           </td>
                         </tr>
                         {expandedRow && (
-                          <tr id={historyId}>
-                            <td colSpan={7} className="border-b border-brand-line/70 bg-group-a px-4 py-3">
+                          <tr id={historyId} data-detail>
+                            <td colSpan={7} className="bg-group-a px-4 py-3">
                               {/* Pinned to the visible width when the table scrolls sideways (phones). */}
                               <div className="sticky left-4 max-w-[calc(100vw-4.5rem)] sm:static sm:max-w-none">
                               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand-muted">Admission history</p>

@@ -123,6 +123,7 @@
   --zero-value: #66728F;
   --group-a: #F2F8FB;
   --group-b: #E8F3F8;
+  --row-zebra: #F8FBFD; /* even data rows in .data-grid tables; lighter than hover (brand-ice) and the urgent tint */
   --rowbtn-line: #9DB6C6;
   --rowbtn-hover: #E6F1F7;
   --rowbtn-active: #D6E8F1;
@@ -548,4 +549,44 @@ html[data-navigating] .page-gate { opacity: 0; transition: opacity 120ms var(--e
   [data-accordion-panel] { grid-template-rows: 1fr !important; opacity: 1 !important; }
   body.printing-slip > *:not(.print-slip-root) { display: none !important; }
   body.printing-slip > .print-slip-root { display: block !important; }
+}
+
+/* Data grid (Nutritional Assessment tables): one treatment for every table on the page.
+   Lines: cells and rows brand-line/70; header rule, group dividers and sticky edges brand-line
+   (set per cell with border-l-brand-line etc., which as utilities override these defaults).
+   Rows opt in: data-zebra (even data rows), data-urgent, data-current, data-detail (expanded row
+   that belongs to the row above). .data-grid--hover adds the hover tint for clickable rows.
+   Backgrounds sit on the cells (not the row) so sticky cells match their row. */
+@layer components {
+  .data-grid {
+    --grid-line: color-mix(in srgb, var(--brand-line) 70%, white);
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .data-grid > :is(thead, tbody, tfoot) > tr > * { border-color: var(--grid-line); }
+  .data-grid > :is(thead, tbody, tfoot) > tr > :not(:first-child) { border-left-width: 1px; }
+  /* A sticky first column draws its own right edge; the next cell does not add a second line. */
+  .data-grid > :is(thead, tbody, tfoot) > tr > .grid-pin-left + * { border-left-width: 0; }
+
+  .data-grid > thead > tr > * { background-color: var(--group-a); }
+  .data-grid > thead > tr:not(:last-child) > :not([rowspan]) { border-bottom-width: 1px; }
+  .data-grid > thead > tr:last-child > *,
+  .data-grid > thead > tr > [rowspan] { border-bottom: 2px solid var(--brand-line); }
+
+  .data-grid > tbody > tr > * {
+    background-color: #fff;
+    border-bottom-width: 1px;
+    transition: background-color 120ms;
+  }
+  /* The card (pager, footnote or totals row) closes the table; a detail row joins its parent. */
+  .data-grid > tbody > tr:last-child > *,
+  .data-grid > tbody > tr:has(+ tr[data-detail]) > * { border-bottom-width: 0; }
+  .data-grid > tbody > tr[data-zebra] > * { background-color: var(--row-zebra); }
+  .data-grid > tbody > tr[data-current] > * { background-color: var(--brand-ice); }
+  .data-grid > tbody > tr[data-urgent] > * { background-color: var(--tone-severe-row); }
+  .data-grid--hover > tbody > tr:not([data-detail]):hover > * { background-color: var(--brand-ice); }
+
+  /* Totals row: 2px rule above so it reads as a total. */
+  .data-grid > tfoot > tr > * { border-top: 2px solid var(--total-line); }
+  .data-grid > tfoot > tr > :not(:first-child) { border-left-color: var(--total-line); }
 }

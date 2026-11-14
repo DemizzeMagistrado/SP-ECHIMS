@@ -620,13 +620,13 @@ function SummaryReport({
     ]],
   ];
   const ipYes = (items: Assessment[]) => items.filter((item) => ipMembership(item.profile?.ethnicity) === "Yes");
-  const sticky = "sticky left-0 z-[1] min-w-[230px] border-r border-brand-line shadow-[6px_0_8px_-6px_rgba(12,18,96,0.18)]";
+  const sticky = "grid-pin-left sticky left-0 z-[1] min-w-[230px] border-r border-r-brand-line shadow-[6px_0_8px_-6px_rgba(12,18,96,0.18)]";
   const valueCell = (v: number | string, i: number, extra = "") => (
     <td
       key={i}
       className={cn(
-        "px-3 py-2 text-right tabular-nums",
-        SUMMARY_GROUP_START.has(i) && "border-l border-brand-line",
+        "px-4 py-3.5 text-right tabular-nums",
+        SUMMARY_GROUP_START.has(i) && i > 0 && "border-l-brand-line",
         isZero(v) ? "font-normal text-zero" : "font-semibold text-brand-navy",
         extra,
       )}
@@ -671,17 +671,17 @@ function SummaryReport({
           })}
         </div>
         <div className="scroll-subtle overflow-x-auto">
-          <table className="w-full border-separate border-spacing-0 text-sm text-brand-navy">
+          <table className="data-grid w-full text-sm text-brand-navy">
             <caption className="sr-only">
               Nutrition classifications by age, sex, prevalence and IP membership
             </caption>
             <thead>
               <tr>
-                <th rowSpan={2} scope="col" className={cn(sticky, "z-[2] border-b bg-white px-4 py-2 text-left text-[13px] font-semibold")}>
+                <th rowSpan={2} scope="col" className={cn(sticky, "z-[2] px-4 py-2.5 text-left text-[13px] font-semibold")}>
                   Classification
                 </th>
                 {SUMMARY_GROUPS.map((g, i) => (
-                  <th key={g.label} colSpan={g.cols.length} scope="colgroup" className={cn("whitespace-nowrap border-l border-brand-line px-3 py-2 text-center text-[13px] font-semibold", i % 2 === 0 ? "bg-group-a" : "bg-group-b")}>
+                  <th key={g.label} colSpan={g.cols.length} scope="colgroup" className={cn("whitespace-nowrap px-4 py-2.5 text-center text-[13px] font-semibold", i % 2 === 0 ? "bg-group-a" : "bg-group-b", i > 0 && "border-l-brand-line")}>
                     {g.label}
                   </th>
                 ))}
@@ -689,7 +689,7 @@ function SummaryReport({
               <tr>
                 {SUMMARY_GROUPS.flatMap((g, gi) =>
                   g.cols.map((col, ci) => (
-                    <th key={`${g.label}-${col}`} scope="col" className={cn("whitespace-nowrap border-b border-brand-line px-3 py-2 text-right text-xs font-semibold text-brand-muted", gi % 2 === 0 ? "bg-group-a" : "bg-group-b", ci === 0 && "border-l")}>
+                    <th key={`${g.label}-${col}`} scope="col" className={cn("whitespace-nowrap px-4 py-2.5 text-right text-xs font-semibold text-brand-muted", gi % 2 === 0 ? "bg-group-a" : "bg-group-b", ci === 0 && gi > 0 && "border-l-brand-line")}>
                       {col}
                     </th>
                   )),
@@ -717,8 +717,8 @@ function SummaryReport({
                 // HFA and WFL/H start a new indicator: 2px rule above.
                 const startsIndicator = r === 3 || r === 6;
                 return (
-                  <tr key={row.title} className={cn("[&>*]:border-b [&>*]:border-brand-line/70", startsIndicator && "[&>*]:border-t-2 [&>*]:border-t-brand-line")}>
-                    <th scope="row" className={cn(sticky, "whitespace-nowrap bg-white px-4 py-2 text-left text-sm font-semibold")}>
+                  <tr key={row.title} data-zebra={r % 2 === 1 || undefined} className={cn(startsIndicator && "[&>*]:border-t-2 [&>*]:border-t-brand-line")}>
+                    <th scope="row" className={cn(sticky, "whitespace-nowrap px-4 py-3.5 text-left text-sm font-semibold")}>
                       {row.list ? (
                         <button
                           type="button"
@@ -738,11 +738,11 @@ function SummaryReport({
             </tbody>
             <tfoot>
               <tr className="bg-brand-navy text-white">
-                <th scope="row" className="sticky left-0 z-[1] min-w-[230px] border-r border-total-line bg-brand-navy px-4 py-2.5 text-left text-sm font-bold shadow-[6px_0_8px_-6px_rgba(12,18,96,0.18)]">
+                <th scope="row" className="grid-pin-left sticky left-0 z-[1] min-w-[230px] border-r border-r-total-line bg-brand-navy px-4 py-3.5 text-left text-sm font-bold shadow-[6px_0_8px_-6px_rgba(12,18,96,0.18)]">
                   Children assessed
                 </th>
                 {totalValues.map((v, i) => (
-                  <td key={i} className={cn("px-3 py-2.5 text-right tabular-nums", SUMMARY_GROUP_START.has(i) && "border-l border-total-line", isZero(v) ? "font-normal text-total-zero" : "font-bold text-white")}>
+                  <td key={i} className={cn("px-4 py-3.5 text-right tabular-nums", isZero(v) ? "font-normal text-total-zero" : "font-bold text-white")}>
                     {v}
                   </td>
                 ))}
@@ -856,8 +856,8 @@ function ClassificationList({
   const definition = listDefinitions[code];
   const items = listRecords(records, code);
   const heightIndicator = definition.field === "height_for_age";
-  const head = "border-b border-brand-line bg-group-a px-4 py-2.5 align-bottom text-[13px] font-semibold leading-tight text-brand-navy";
-  const sticky = "sticky right-0 w-[260px] min-w-[260px] border-l border-brand-line shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]";
+  const head = "px-4 py-2.5 align-bottom text-[13px] font-semibold leading-tight text-brand-navy";
+  const sticky = "sticky right-0 w-[260px] min-w-[260px] border-l-brand-line shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]";
   return (
     <section className={REPORT_CARD} aria-label={`List ${code}`}>
       <ReportHeader
@@ -872,7 +872,7 @@ function ClassificationList({
         )}
       />
       <div className="scroll-subtle overflow-x-auto border-t border-brand-line">
-        <table className="w-full border-separate border-spacing-0 text-sm text-brand-navy">
+        <table className="data-grid data-grid--hover w-full text-sm text-brand-navy">
           <thead>
             <tr>
               {LIST_COLUMNS.map((c) => (
@@ -880,7 +880,7 @@ function ClassificationList({
                   {c.label}
                 </th>
               ))}
-              <th colSpan={4} scope="colgroup" className={cn(head, "border-b-0 border-l border-l-brand-line/70 pb-1 text-center")}>
+              <th colSpan={4} scope="colgroup" className={cn(head, "border-l-brand-line pb-1 text-center")}>
                 Date of follow-up
               </th>
               <th rowSpan={2} scope="col" className={cn(head, sticky, "z-[2] text-left nutrition-no-print")}>
@@ -889,15 +889,15 @@ function ClassificationList({
             </tr>
             <tr>
               {[1, 2, 3, 4].map((n) => (
-                <th key={n} scope="col" className={cn(head, "w-12 min-w-12 border-l border-l-brand-line/70 px-0 pt-1 text-center")}>
+                <th key={n} scope="col" className={cn(head, "w-12 min-w-12 px-0 pt-1 text-center", n === 1 && "border-l-brand-line")}>
                   {n}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => (
-              <tr key={item.child_id} className="group transition-colors duration-[120ms] hover:bg-brand-ice [&>td]:border-b [&>td]:border-brand-line/70">
+            {items.map((item, i) => (
+              <tr key={item.child_id} data-zebra={i % 2 === 1 || undefined} className="group">
                 <td className="px-4 py-3.5 align-top transition-[box-shadow] duration-[120ms] group-hover:shadow-[inset_3px_0_0_var(--brand-navy)]">CH-{item.child_id}</td>
                 <td className="px-4 py-3.5 align-top">
                   {one(item.child)
@@ -925,10 +925,10 @@ function ClassificationList({
                   <td
                     key={n}
                     aria-label={`Follow-up ${n}: not recorded`}
-                    className="w-12 min-w-12 border-l border-l-brand-line/70 px-0 py-3.5"
+                    className={cn("w-12 min-w-12 px-0 py-3.5", n === 1 && "border-l-brand-line")}
                   />
                 ))}
-                <td className={cn(sticky, "bg-white px-4 py-3.5 align-top transition-colors duration-[120ms] group-hover:bg-brand-ice nutrition-no-print")}>
+                <td className={cn(sticky, "px-4 py-3.5 align-top nutrition-no-print")}>
                   <RecordButtons item={item} onScores={() => onScores(item)} />
                 </td>
               </tr>
@@ -1973,6 +1973,8 @@ export default function NutritionPage() {
       .nutrition-report-root thead { display: table-header-group; }
       .nutrition-report-root tr { break-inside: avoid; }
       .nutrition-report-root .sticky { position: static !important; box-shadow: none !important; }
+      .nutrition-report-root .data-grid { border-collapse: collapse !important; }
+      .nutrition-report-root .data-grid th, .nutrition-report-root .data-grid td { border: 1px solid #555 !important; background: #fff !important; color: #000 !important; }
       @page { size: A4 landscape; margin: 8mm; }
     }`}</style>
       {/* Header block: title and subtitle, then the module tabs; one divider below. */}
@@ -2261,7 +2263,7 @@ export default function NutritionPage() {
               <div ref={bindRecords} style={recordsMin ? { minHeight: recordsMin } : undefined}>
                 {/* Tablet and up: the wide table, scrolling sideways with the Actions column pinned. */}
                 <div className="scroll-subtle hidden overflow-x-auto bg-white sm:block">
-                  <table className="w-full border-separate border-spacing-0 text-sm text-brand-navy">
+                  <table className="data-grid data-grid--hover w-full text-sm text-brand-navy">
                     <thead>
                       <tr>
                         {RECORD_GROUPS.map(([group, span], i) => (
@@ -2270,15 +2272,15 @@ export default function NutritionPage() {
                             scope="colgroup"
                             colSpan={span}
                             className={cn(
-                              "px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-brand-muted",
+                              "px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-brand-muted",
                               i % 2 === 0 ? "bg-group-a" : "bg-group-b",
-                              i > 0 && "border-l border-brand-line",
+                              i > 0 && "border-l-brand-line",
                             )}
                           >
                             {group}
                           </th>
                         ))}
-                        <td aria-hidden="true" className="sticky right-0 z-[2] w-[260px] min-w-[260px] border-l border-brand-line bg-group-a shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]" />
+                        <td aria-hidden="true" className="sticky right-0 z-[2] w-[260px] min-w-[260px] border-l-brand-line shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]" />
                       </tr>
                       <tr>
                         {RECORD_COLUMNS.map((heading, i) => {
@@ -2289,12 +2291,12 @@ export default function NutritionPage() {
                               key={heading}
                               scope="col"
                               className={cn(
-                                "border-b border-brand-line bg-white px-4 py-3 align-bottom text-[13px] font-semibold text-brand-navy",
+                                "px-4 py-3 align-bottom text-[13px] font-semibold text-brand-navy",
                                 numeric ? "text-right" : "text-left",
                                 // Labels wrap to two lines at most (narrow numeric columns otherwise stack 3–4).
                                 i !== 0 && i !== 5 && !actions && (i === 15 ? "min-w-32" : "min-w-[6.75rem]"),
-                                [7, 12, 15].includes(i) && "border-l border-brand-line",
-                                actions && "sticky right-0 z-[2] w-[260px] min-w-[260px] border-l shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]",
+                                [7, 12, 15].includes(i) && "border-l-brand-line",
+                                actions && "sticky right-0 z-[2] w-[260px] min-w-[260px] border-l-brand-line shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]",
                               )}
                             >
                               {heading}
@@ -2306,29 +2308,30 @@ export default function NutritionPage() {
                     <tbody>
                       {recordRows.map((item, i) => {
                         const flagged = isUrgent(item);
-                        const rowBg = flagged ? "bg-severe-row" : "bg-white";
                         return (
                           <tr
                             key={item.assessment_id}
                             onClick={(event) => openRow(event, item.child_id)}
-                            className={cn("group cursor-pointer transition-colors duration-[120ms] hover:bg-brand-ice [&:last-child>td]:border-b-0", rowBg)}
+                            data-zebra={i % 2 === 1 || undefined}
+                            data-urgent={flagged || undefined}
+                            className="group cursor-pointer"
                           >
                             {recordCells(item, recordPage * recordPager.pageSize + i + 1).map((cell, c) => (
                               <td
                                 key={c}
                                 className={cn(
-                                  "border-b border-brand-line/70 px-4 py-3.5 align-top transition-[box-shadow] duration-[120ms]",
+                                  "px-4 py-3.5 align-top transition-[box-shadow,background-color] duration-[120ms]",
                                   // Row hover like Child Profiling: a 3px navy bar on the first cell.
                                   c === 0 && "group-hover:shadow-[inset_3px_0_0_var(--brand-navy)]",
                                   cell.numeric && "text-right tabular-nums",
-                                  [7, 12, 15].includes(c) && "border-l border-brand-line/70",
+                                  [7, 12, 15].includes(c) && "border-l-brand-line",
                                   cell.className,
                                 )}
                               >
                                 {cell.content}
                               </td>
                             ))}
-                            <td className={cn("sticky right-0 z-[1] w-[260px] min-w-[260px] border-b border-l border-brand-line/70 px-4 py-3.5 align-top shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)] transition-colors duration-[120ms] group-hover:bg-brand-ice", rowBg)}>
+                            <td className="sticky right-0 z-[1] w-[260px] min-w-[260px] border-l-brand-line px-4 py-3.5 align-top shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]">
                               <RecordActions item={item} onScores={() => setSelected(item)} />
                             </td>
                           </tr>

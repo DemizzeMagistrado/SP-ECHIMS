@@ -190,8 +190,8 @@ export function ScoresDialog({ item, childName, meta, recommendation, canEdit, o
       buttonSize="lg"
       // Scores never asks to discard; the edit form asks only when something was typed.
       dirty={editing ? undefined : false}
-      cancelLabel="Close"
-      hideCancel={editing}
+      // Close / Cancel sit in the right-hand group, before the primary action.
+      hideCancel
       belowHeader={editing ? undefined : (
         <TabBar
           variant="underline"
@@ -203,16 +203,21 @@ export function ScoresDialog({ item, childName, meta, recommendation, canEdit, o
           items={[{ value: 'now', label: 'This assessment' }, { value: 'history', label: 'History' }]}
         />
       )}
-      footerStart={editing ? (
-        <Button variant="outline" size="lg" disabled={saving} onClick={() => showScores('now')}>Cancel</Button>
-      ) : undefined}
       footer={editing ? (
-        <Button type="submit" form={formId} size="lg" loading={saving}>Save changes</Button>
-      ) : canEdit ? (
-        <Button size="lg" disabled={!online} title={online ? undefined : 'Reconnect to edit'} onClick={() => { swapped.current = true; setNotice(null); setSession((n) => n + 1); setMode('edit') }}>
-          <Pencil size={16} aria-hidden="true" /> Edit measurements
-        </Button>
-      ) : undefined}
+        <>
+          <Button variant="outline" size="lg" disabled={saving} onClick={() => showScores('now')}>Cancel</Button>
+          <Button type="submit" form={formId} size="lg" loading={saving}>Save changes</Button>
+        </>
+      ) : (
+        <>
+          <Button variant="outline" size="lg" onClick={onClose}>Close</Button>
+          {canEdit && (
+            <Button size="lg" disabled={!online} title={online ? undefined : 'Reconnect to edit'} onClick={() => { swapped.current = true; setNotice(null); setSession((n) => n + 1); setMode('edit') }}>
+              <Pencil size={16} aria-hidden="true" /> Edit measurements
+            </Button>
+          )}
+        </>
+      )}
     >
       {editing ? (
         <EditMeasurementsForm
@@ -252,26 +257,26 @@ export function ScoresDialog({ item, childName, meta, recommendation, canEdit, o
                 ))}
               </dl>
               <div className="overflow-x-auto rounded-[14px] border border-brand-line">
-                <table className="w-full text-sm text-brand-navy">
-                  <thead className="bg-group-a">
+                <table className="data-grid w-full text-sm text-brand-navy">
+                  <thead>
                     <tr>
                       <th scope="col" className="px-4 py-2.5 text-left text-[13px] font-semibold">Indicator</th>
                       <th scope="col" className="px-4 py-2.5 text-right text-[13px] font-semibold">z-score</th>
                       <th scope="col" className="px-4 py-2.5 text-left text-[13px] font-semibold">Classification</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-brand-line">
+                  <tbody>
                     {([
                       ['Weight-for-age', item.waz, item.weight_for_age],
                       ['Length/height-for-age', item.haz, item.height_for_age],
                       ['Weight-for-length/height', item.whz, item.weight_for_height],
                       ['BMI-for-age', item.baz, item.bmi_for_age],
                       ['MUAC', null, item.muac_status],
-                    ] as const).map(([name, z, cls]) => (
-                      <tr key={name}>
-                        <th scope="row" className="px-4 py-2.5 text-left font-medium">{name}</th>
-                        <td className="px-4 py-2.5 text-right tabular-nums">{zScore(z)}</td>
-                        <td className={cn('px-4 py-2.5', nutritionFlagClass(cls))}>{nutritionLabel(cls)}</td>
+                    ] as const).map(([name, z, cls], i) => (
+                      <tr key={name} data-zebra={i % 2 === 1 || undefined}>
+                        <th scope="row" className="px-4 py-3.5 text-left font-medium">{name}</th>
+                        <td className="px-4 py-3.5 text-right tabular-nums">{zScore(z)}</td>
+                        <td className={cn('px-4 py-3.5', nutritionFlagClass(cls))}>{nutritionLabel(cls)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -343,25 +348,30 @@ function HistoryPanel({ item, state }: { item: ScoresAssessment; state: SWRRespo
       <section aria-labelledby="history-assessments">
         <h3 id="history-assessments" className="mb-2 text-sm font-semibold text-brand-navy">Assessments</h3>
         <div className="overflow-x-auto rounded-[14px] border border-brand-line">
-          <table className="w-full text-sm text-brand-navy">
-            <thead className="bg-group-a">
+          <table className="data-grid w-full text-sm text-brand-navy">
+            <thead>
               <tr>
                 {['Date measured', 'Weight (kg)', 'Length / height (cm)', 'MUAC (cm)', 'Result'].map((h, i) => (
-                  <th key={h} scope="col" className={cn('px-3 py-2.5 text-[13px] font-semibold', i > 0 && i < 4 ? 'text-right' : 'text-left')}>{h}</th>
+                  <th key={h} scope="col" className={cn('px-4 py-2.5 text-[13px] font-semibold', i > 0 && i < 4 ? 'text-right' : 'text-left')}>{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-brand-line">
+            <tbody>
               {rows.map((r, i) => (
-                <tr key={r.assessment_id} className={r.assessment_id === item.assessment_id ? 'bg-brand-ice' : undefined}>
-                  <td className="whitespace-nowrap px-3 py-2.5">
+                <tr
+                  key={r.assessment_id}
+                  data-zebra={i % 2 === 1 || undefined}
+                  data-current={r.assessment_id === item.assessment_id || undefined}
+                  aria-current={r.assessment_id === item.assessment_id ? 'true' : undefined}
+                >
+                  <td className="whitespace-nowrap px-4 py-3.5">
                     {r.assessment_date}
                     {i === 0 && <span className="ml-2 rounded-full bg-badge px-2 py-0.5 text-xs font-semibold text-brand-navy">Latest</span>}
                   </td>
-                  <td className="px-3 py-2.5 text-right tabular-nums">{shown(r.weight)}</td>
-                  <td className="px-3 py-2.5 text-right tabular-nums">{shown(r.height)}</td>
-                  <td className="px-3 py-2.5 text-right tabular-nums">{shown(r.muac)}</td>
-                  <td className="px-3 py-2.5"><Pill item={r} /></td>
+                  <td className="px-4 py-3.5 text-right tabular-nums">{shown(r.weight)}</td>
+                  <td className="px-4 py-3.5 text-right tabular-nums">{shown(r.height)}</td>
+                  <td className="px-4 py-3.5 text-right tabular-nums">{shown(r.muac)}</td>
+                  <td className="px-4 py-3.5"><Pill item={r} /></td>
                 </tr>
               ))}
             </tbody>
