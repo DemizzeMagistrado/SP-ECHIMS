@@ -643,24 +643,18 @@ function SummaryReport({
   ];
   return (
     <>
-      <section className="overflow-hidden rounded-[14px] border border-brand-line bg-white" aria-label="OPT Plus summary">
-        <div className="flex flex-wrap items-start justify-between gap-3 p-4">
-          <div className="min-w-0">
-            <h2 className="text-xl font-semibold text-brand-navy">
-              Nutritional Assessment {year} — Summary
-            </h2>
-            <p className="text-sm text-brand-muted">{barangay}</p>
-          </div>
-          <div className="nutrition-no-print flex flex-wrap items-center gap-2">
-            {views}
-            {canPrint && (
-              <Button variant="secondary" onClick={() => window.print()}>
-                <Printer size={16} aria-hidden="true" />
-                Print summary
-              </Button>
-            )}
-          </div>
-        </div>
+      <section className={REPORT_CARD} aria-label="OPT Plus summary">
+        <ReportHeader
+          views={views}
+          title={<>Nutritional Assessment {year} — Summary</>}
+          scope={barangay}
+          action={canPrint && (
+            <Button variant="secondary" onClick={() => window.print()}>
+              <Printer size={16} aria-hidden="true" />
+              Print summary
+            </Button>
+          )}
+        />
         {/* Valid totals: one strip, 1px between cells. */}
         <div className="grid grid-cols-1 gap-px border-y border-brand-line bg-brand-line sm:grid-cols-3">
           {(["weight_for_age", "height_for_age", "weight_for_height"] as IndicatorField[]).map((field) => {
@@ -755,17 +749,17 @@ function SummaryReport({
             </tfoot>
           </table>
         </div>
-        <p className="border-t border-brand-line px-4 py-3 text-[13px] text-brand-muted">
+        <ReportFootnote>
           One latest assessment per child in the selected year and barangay.
           Prevalence uses the number with a valid classification for that
           indicator; missing, implausible, edema-affected and legacy results are
           excluded from its denominator. The six classifications remain separate.
           Current profile data supplies IP membership and caregiver links.
-        </p>
+        </ReportFootnote>
       </section>
       <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr))]">
         {indicatorGroups.map(([title, labels]) => (
-          <section key={title} aria-label={title} className="rounded-[14px] border border-brand-line bg-white p-4">
+          <section key={title} aria-label={title} className={cn(REPORT_CARD, "p-4")}>
             <h3 className="text-base font-semibold text-brand-navy">{title}</h3>
             <dl className="mt-2 divide-y divide-brand-line/70">
               {labels.map((name) => (
@@ -817,26 +811,34 @@ function SummaryViews({ value, onChange, counts }: {
     </div>
   );
 }
-/** Filter card shared by All assessments and Summary, styled like Child Profiling's filters: the
- *  table-card container (rounded-2xl, border, soft shadow), selects in a 1 / 2 / 4-column grid with
- *  12px gaps, then a row with any extra control (history checkbox) and Refresh on the right. The
- *  optional row below holds the counts. */
+/** Filter card shared by All assessments, the Summary Overview and the List views: Child Profiling's
+ *  filter container, one row of controls on a shared bottom edge (gap 16px), Refresh pushed right
+ *  at the select height. The optional row below holds the counts. */
 function FilterCard({ children, refresh, extra, below }: { children: ReactNode; refresh: ReactNode; extra?: ReactNode; below?: ReactNode }) {
   return (
-    <section aria-label="Filters" className="nutrition-no-print overflow-hidden rounded-2xl border border-brand-line bg-white shadow-sm">
-      <div className="space-y-3 p-4">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{children}</div>
-        {(extra || refresh) && (
-          <div className="flex flex-wrap items-center gap-3">
-            {extra}
-            {refresh && <div className="ml-auto">{refresh}</div>}
-          </div>
-        )}
+    <section aria-label="Filters" className={cn(REPORT_CARD, "nutrition-no-print")}>
+      <div className="flex flex-wrap items-end gap-4 p-4">
+        <div className="grid min-w-0 flex-[1_1_28rem] gap-4 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
+        {extra && <div className="flex h-10 items-center">{extra}</div>}
+        {refresh && <div className="ml-auto">{refresh}</div>}
       </div>
       {below}
     </section>
   );
 }
+// List UW … List SW table: client-verified columns, in this exact order with these exact labels.
+const LIST_COLUMNS = [
+  { label: "Child ID", width: "min-w-28" },
+  { label: "Address / location", width: "min-w-40" },
+  { label: "Mother / caregiver", width: "min-w-40" },
+  { label: "Full name of child", width: "min-w-40" },
+  { label: "Sex", width: "min-w-14" },
+  { label: "Age (months)", width: "min-w-24", numeric: true },
+  { label: "Classification", width: "min-w-32" },
+  { label: "Weight (kg)", width: "min-w-24", numeric: true },
+  { label: "Length/height (cm)", width: "min-w-28", numeric: true },
+  { label: "Date measured", width: "min-w-28" },
+] as const;
 function ClassificationList({
   records,
   code,
@@ -857,61 +859,40 @@ function ClassificationList({
   const definition = listDefinitions[code];
   const items = listRecords(records, code);
   const heightIndicator = definition.field === "height_for_age";
-  const cell = "border border-border px-4 py-3 text-left text-sm";
+  const head = "border-b border-brand-line bg-group-a px-4 py-2.5 align-bottom text-[13px] font-semibold leading-tight text-brand-navy";
+  const sticky = "sticky right-0 w-[260px] min-w-[260px] border-l border-brand-line shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]";
   return (
-    <section
-      className="space-y-4 rounded-[14px] border border-brand-line bg-white p-4"
-      aria-label={`List ${code}`}
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold">
-            List {code} — {definition.title} children, 0–59 months
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {barangay} · {year} · {items.length} children
-          </p>
-        </div>
-        <div className="nutrition-no-print flex flex-wrap items-center gap-2">
-          {views}
-          {canPrint && (
-            <Button variant="secondary" onClick={() => window.print()}>
-              <Printer size={16} aria-hidden="true" />
-              Print list
-            </Button>
-          )}
-        </div>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead className="bg-muted">
+    <section className={REPORT_CARD} aria-label={`List ${code}`}>
+      <ReportHeader
+        views={views}
+        title={<>List {code} — {definition.title} children, 0–59 months</>}
+        scope={<>{barangay} · {year} · {items.length} children</>}
+        action={canPrint && (
+          <Button variant="secondary" onClick={() => window.print()}>
+            <Printer size={16} aria-hidden="true" />
+            Print list
+          </Button>
+        )}
+      />
+      <div className="scroll-subtle overflow-x-auto border-t border-brand-line">
+        <table className="w-full border-separate border-spacing-0 text-sm text-brand-navy">
+          <thead>
             <tr>
-              {[
-                "Child ID",
-                "Address / location",
-                "Mother / caregiver",
-                "Full name of child",
-                "Sex",
-                "Age (months)",
-                "Classification",
-                "Weight (kg)",
-                "Length/height (cm)",
-                "Date measured",
-              ].map((name) => (
-                <th key={name} rowSpan={2} className={cell}>
-                  {name}
+              {LIST_COLUMNS.map((c) => (
+                <th key={c.label} rowSpan={2} scope="col" className={cn(head, c.width, "numeric" in c ? "text-right" : "text-left")}>
+                  {c.label}
                 </th>
               ))}
-              <th colSpan={4} className={cell}>
+              <th colSpan={4} scope="colgroup" className={cn(head, "border-b-0 border-l border-l-brand-line/70 pb-1 text-center")}>
                 Date of follow-up
               </th>
-              <th rowSpan={2} className={`${cell} nutrition-no-print`}>
+              <th rowSpan={2} scope="col" className={cn(head, sticky, "z-[2] text-left nutrition-no-print")}>
                 Actions
               </th>
             </tr>
             <tr>
               {[1, 2, 3, 4].map((n) => (
-                <th key={n} className={cell}>
+                <th key={n} scope="col" className={cn(head, "w-12 min-w-12 border-l border-l-brand-line/70 px-0 pt-1 text-center")}>
                   {n}
                 </th>
               ))}
@@ -919,57 +900,45 @@ function ClassificationList({
           </thead>
           <tbody>
             {items.map((item) => (
-              <tr key={item.child_id}>
-                <td className={cell}>CH-{item.child_id}</td>
-                <td className={cell}>
+              <tr key={item.child_id} className="group transition-colors duration-[120ms] hover:bg-brand-ice [&>td]:border-b [&>td]:border-brand-line/70">
+                <td className="px-4 py-3.5 align-top transition-[box-shadow] duration-[120ms] group-hover:shadow-[inset_3px_0_0_var(--brand-navy)]">CH-{item.child_id}</td>
+                <td className="px-4 py-3.5 align-top">
                   {one(item.child)
                     ? residentLocation(one(item.child)!) || "Not recorded"
                     : "Not recorded"}
                 </td>
-                <td className={cell}>{caregiverName(one(item.child))}</td>
-                <td className={cell}>{childName(one(item.child))}</td>
-                <td className={cell}>
+                <td className="px-4 py-3.5 align-top">{caregiverName(one(item.child))}</td>
+                <td className="px-4 py-3.5 align-top font-semibold">{childName(one(item.child))}</td>
+                <td className="px-4 py-3.5 align-top">
                   {assessmentSex(item) === "MALE"
                     ? "M"
                     : assessmentSex(item) === "FEMALE"
                       ? "F"
                       : "—"}
                 </td>
-                <td className={cell}>{assessmentMonths(item)}</td>
-                <td className={cell}>{code}</td>
-                <td className={cell}>{quantity(item.weight)}</td>
-                <td className={cell}>{quantity(item.height)}</td>
-                <td className={`${cell} whitespace-nowrap`}>
+                <td className="px-4 py-3.5 text-right align-top tabular-nums">{assessmentMonths(item)}</td>
+                <td className={cn("px-4 py-3.5 align-top", nutritionFlagClass(item[definition.field]))}>{code}</td>
+                <td className="px-4 py-3.5 text-right align-top tabular-nums">{quantity(item.weight)}</td>
+                <td className="px-4 py-3.5 text-right align-top tabular-nums">{quantity(item.height)}</td>
+                <td className="whitespace-nowrap px-4 py-3.5 align-top">
                   {item.assessment_date}
                 </td>
                 {[1, 2, 3, 4].map((n) => (
+                  // Blank write-in boxes for the printed list.
                   <td
                     key={n}
                     aria-label={`Follow-up ${n}: not recorded`}
-                    className={`${cell} min-w-24`}
-                  >
-                    —
-                  </td>
+                    className="w-12 min-w-12 border-l border-l-brand-line/70 px-0 py-3.5"
+                  />
                 ))}
-                <td className={`${cell} nutrition-no-print`}>
-                  <Link
-                    href={childRecordUrl(item.child_id)}
-                    className="block whitespace-nowrap font-medium text-brand-navy underline-offset-4 hover:text-brand-blue hover:underline"
-                  >
-                    View child record
-                  </Link>
-                  <Button variant="ghost" size="sm" className="-ml-3 mt-1" onClick={() => onScores(item)}>
-                    Scores
-                  </Button>
+                <td className={cn(sticky, "bg-white px-4 py-3.5 align-top transition-colors duration-[120ms] group-hover:bg-brand-ice nutrition-no-print")}>
+                  <RecordButtons item={item} onScores={() => onScores(item)} />
                 </td>
               </tr>
             ))}
             {items.length === 0 && (
               <tr>
-                <td
-                  colSpan={15}
-                  className={`${cell} py-8 text-center text-muted-foreground`}
-                >
+                <td colSpan={15} className="h-14 px-4 text-left align-middle text-sm text-brand-muted">
                   No {definition.title.toLowerCase()} children in this scope.
                 </td>
               </tr>
@@ -977,7 +946,7 @@ function ClassificationList({
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-muted-foreground">
+      <ReportFootnote>
         This list uses{" "}
         {heightIndicator
           ? "height-for-age"
@@ -988,8 +957,34 @@ function ClassificationList({
         latest assessment in the selected year. Follow-up dates have no
         dedicated field in the supplied database; the four columns are blank
         spaces for the printed list.
-      </p>
+      </ReportFootnote>
     </section>
+  );
+}
+/** Card used by every Summary view (and the filter card): same radius, border and shadow. */
+const REPORT_CARD = "overflow-hidden rounded-2xl border border-brand-line bg-white shadow-sm";
+/** Summary report header: the view switcher on its own first row (never moves between views),
+ *  then the title and scope line. */
+function ReportHeader({ views, title, scope, action }: { views: ReactNode; title: ReactNode; scope: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="space-y-3 p-4">
+      <div className="nutrition-no-print flex min-h-10 flex-wrap items-center gap-2">
+        {views}
+        {action && <div className="ml-auto">{action}</div>}
+      </div>
+      <div className="min-w-0">
+        <h2 className="text-xl font-semibold text-brand-navy">{title}</h2>
+        <p className="text-sm text-brand-muted">{scope}</p>
+      </div>
+    </div>
+  );
+}
+/** Footnote under a Summary table: same spacing, rule and measure in every view. */
+function ReportFootnote({ children }: { children: ReactNode }) {
+  return (
+    <p className="border-t border-brand-line/70 px-4 py-3 text-[13px] text-brand-muted">
+      <span className="block max-w-[110ch]">{children}</span>
+    </p>
   );
 }
 // "Latest assessments" table: client-verified columns, in this exact order with these exact labels.
@@ -1970,7 +1965,7 @@ export default function NutritionPage() {
     </>
   );
   return (
-    <div className="nutrition-report-root space-y-6">
+    <div className="nutrition-report-root space-y-5">
       <style>{`@media print {
       body * { visibility: hidden; }
       .nutrition-report-root, .nutrition-report-root * { visibility: visible; }
@@ -2131,7 +2126,7 @@ export default function NutritionPage() {
           <Pagination {...queuePager} label="Offline draft pages" className="rounded-xl border-0 bg-white" />
         </section>
       )}
-      <TabPanel tabKey={tab} className="space-y-6">
+      <TabPanel tabKey={tab} className="space-y-5">
       {reportView === "Admissions" && ownerId && (
         <NutritionAdmissionPanel
           key={ownerId}
@@ -2234,7 +2229,7 @@ export default function NutritionPage() {
 
           {/* Follow-up banner: only when a child needs urgent clinical assessment. */}
           {urgent.length > 0 && (
-            <div role="status" className="nutrition-no-print flex flex-wrap items-center gap-3 rounded-[14px] border border-severe-line bg-white p-4">
+            <div role="status" className="nutrition-no-print flex flex-wrap items-center gap-3 rounded-2xl border border-severe-line bg-white p-4 shadow-sm">
               <AlertCircle size={20} aria-hidden="true" className="shrink-0 text-severe-icon" />
               <p className="min-w-0 flex-[1_1_20rem] text-sm text-brand-navy">
                 <span className="font-semibold text-severe">
@@ -2257,7 +2252,7 @@ export default function NutritionPage() {
           )}
 
           {/* Latest assessments. White sits on the header, rows and pager, so a short last page shows the page background. */}
-          <section className={cn("overflow-hidden rounded-[14px] border border-brand-line", recordPager.pageCount <= 1 && "bg-white")}>
+          <section className={cn("overflow-hidden rounded-2xl border border-brand-line shadow-sm", recordPager.pageCount <= 1 && "bg-white")}>
             <div className="border-b border-brand-line bg-white px-4 py-3">
               <h2 className="flex items-center gap-1.5 text-lg font-semibold text-brand-navy">
                 {history ? "Assessment history" : "Latest assessments"}
@@ -2404,8 +2399,8 @@ export default function NutritionPage() {
         </>
       )}
       </TabPanel>
-      <details className="nutrition-no-print group rounded-[14px] border border-brand-line bg-white">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-[14px] px-4 text-sm font-semibold text-brand-navy outline-none focus-visible:ring-2 focus-visible:ring-brand-sky [&::-webkit-details-marker]:hidden">
+      <details className={cn(REPORT_CARD, "nutrition-no-print group")}>
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-2xl px-4 text-sm font-semibold text-brand-navy outline-none focus-visible:ring-2 focus-visible:ring-brand-sky [&::-webkit-details-marker]:hidden">
           <AlertCircle size={16} aria-hidden="true" className="shrink-0 text-warn" />
           Follow-up guidance
           <ChevronDown size={16} aria-hidden="true" className="ml-auto text-brand-muted transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none" />
@@ -2848,7 +2843,6 @@ export default function NutritionPage() {
           onEdited={(updated) => {
             setSelected((current) => (current ? ({ ...current, ...updated } as Assessment) : current));
             void mutate();
-            toast.success("Measurements updated. The earlier values are kept in History.");
           }}
         />
       )}
