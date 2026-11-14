@@ -180,6 +180,23 @@ export function Select({ className, children, value, defaultValue, onChange, dis
 
   return (
     <>
+      {/* Before the trigger on purpose: the trigger stays the last in-flow child, so a parent's
+          space-y (margin-bottom on all but the last child in Tailwind v4) never pushes it up. */}
+      <select
+        ref={native}
+        tabIndex={-1}
+        aria-hidden="true"
+        name={name}
+        required={required}
+        disabled={disabled}
+        value={current}
+        onChange={(e) => { if (!controlled) setInner(e.target.value); onChange?.(e) }}
+        // Invalid on submit: send focus to the visible trigger instead.
+        onFocus={() => trigger.current?.focus()}
+        className="sr-only"
+      >
+        {all.map((o) => <option key={`${o.group ?? ''}:${o.value}`} value={o.value} disabled={o.disabled}>{o.label}</option>)}
+      </select>
       {canClear ? (
         <span className="relative block w-full min-w-0">
           {triggerEl}
@@ -196,21 +213,6 @@ export function Select({ className, children, value, defaultValue, onChange, dis
           )}
         </span>
       ) : triggerEl}
-      <select
-        ref={native}
-        tabIndex={-1}
-        aria-hidden="true"
-        name={name}
-        required={required}
-        disabled={disabled}
-        value={current}
-        onChange={(e) => { if (!controlled) setInner(e.target.value); onChange?.(e) }}
-        // Invalid on submit: send focus to the visible trigger instead.
-        onFocus={() => trigger.current?.focus()}
-        className="sr-only"
-      >
-        {all.map((o) => <option key={`${o.group ?? ''}:${o.value}`} value={o.value} disabled={o.disabled}>{o.label}</option>)}
-      </select>
       <FloatingPanel anchor={trigger} open={open} onClose={() => close(false)} minWidth={200} maxHeight={300}>
         {withSearch && (
           <div className="sticky top-0 z-[1] border-b border-brand-line bg-white p-2">
