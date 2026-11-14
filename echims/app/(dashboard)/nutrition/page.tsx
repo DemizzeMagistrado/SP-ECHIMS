@@ -625,7 +625,7 @@ function SummaryReport({
     <td
       key={i}
       className={cn(
-        "px-4 py-3.5 text-right tabular-nums",
+        "px-2.5 py-1.5 text-right tabular-nums",
         SUMMARY_GROUP_START.has(i) && i > 0 && "border-l-brand-line",
         isZero(v) ? "font-normal text-zero" : "font-semibold text-brand-navy",
         extra,
@@ -671,17 +671,18 @@ function SummaryReport({
           })}
         </div>
         <div className="scroll-subtle overflow-x-auto">
+          {/* Compact padding (10/6px) so most of the report fits at once; it scrolls sideways for the rest. */}
           <table className="data-grid w-full text-sm text-brand-navy">
             <caption className="sr-only">
               Nutrition classifications by age, sex, prevalence and IP membership
             </caption>
             <thead>
               <tr>
-                <th rowSpan={2} scope="col" className={cn(sticky, "z-[2] px-4 py-2.5 text-left text-[13px] font-semibold")}>
+                <th rowSpan={2} scope="col" className={cn(sticky, "z-[2] px-3 py-1.5 text-left text-[13px] font-semibold")}>
                   Classification
                 </th>
                 {SUMMARY_GROUPS.map((g, i) => (
-                  <th key={g.label} colSpan={g.cols.length} scope="colgroup" className={cn("whitespace-nowrap px-4 py-2.5 text-center text-[13px] font-semibold", i % 2 === 0 ? "bg-group-a" : "bg-group-b", i > 0 && "border-l-brand-line")}>
+                  <th key={g.label} colSpan={g.cols.length} scope="colgroup" className={cn("whitespace-nowrap px-2.5 py-1.5 text-center text-[13px] font-semibold", i % 2 === 0 ? "bg-group-a" : "bg-group-b", i > 0 && "border-l-brand-line")}>
                     {g.label}
                   </th>
                 ))}
@@ -689,7 +690,7 @@ function SummaryReport({
               <tr>
                 {SUMMARY_GROUPS.flatMap((g, gi) =>
                   g.cols.map((col, ci) => (
-                    <th key={`${g.label}-${col}`} scope="col" className={cn("whitespace-nowrap px-4 py-2.5 text-right text-xs font-semibold text-brand-muted", gi % 2 === 0 ? "bg-group-a" : "bg-group-b", ci === 0 && gi > 0 && "border-l-brand-line")}>
+                    <th key={`${g.label}-${col}`} scope="col" className={cn("whitespace-nowrap px-2.5 py-1.5 text-right text-xs font-semibold text-brand-muted", gi % 2 === 0 ? "bg-group-a" : "bg-group-b", ci === 0 && gi > 0 && "border-l-brand-line")}>
                       {col}
                     </th>
                   )),
@@ -718,7 +719,7 @@ function SummaryReport({
                 const startsIndicator = r === 3 || r === 6;
                 return (
                   <tr key={row.title} data-zebra={r % 2 === 1 || undefined} className={cn(startsIndicator && "[&>*]:border-t-2 [&>*]:border-t-brand-line")}>
-                    <th scope="row" className={cn(sticky, "whitespace-nowrap px-4 py-3.5 text-left text-sm font-semibold")}>
+                    <th scope="row" className={cn(sticky, "whitespace-nowrap px-3 py-1.5 text-left text-sm font-semibold")}>
                       {row.list ? (
                         <button
                           type="button"
@@ -738,11 +739,11 @@ function SummaryReport({
             </tbody>
             <tfoot>
               <tr className="bg-brand-navy text-white">
-                <th scope="row" className="grid-pin-left sticky left-0 z-[1] min-w-[230px] border-r border-r-total-line bg-brand-navy px-4 py-3.5 text-left text-sm font-bold shadow-[6px_0_8px_-6px_rgba(12,18,96,0.18)]">
+                <th scope="row" className="grid-pin-left sticky left-0 z-[1] min-w-[230px] border-r border-r-total-line bg-brand-navy px-3 py-1.5 text-left text-sm font-bold shadow-[6px_0_8px_-6px_rgba(12,18,96,0.18)]">
                   Children assessed
                 </th>
                 {totalValues.map((v, i) => (
-                  <td key={i} className={cn("px-4 py-3.5 text-right tabular-nums", isZero(v) ? "font-normal text-total-zero" : "font-bold text-white")}>
+                  <td key={i} className={cn("px-2.5 py-1.5 text-right tabular-nums", isZero(v) ? "font-normal text-total-zero" : "font-bold text-white")}>
                     {v}
                   </td>
                 ))}
