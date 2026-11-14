@@ -23,7 +23,7 @@ const DURATION = 200
 export function Modal({
   open, onClose, title, subtitle, icon, size = 'md', children, footer, footerStart, onSubmit,
   cancelLabel = 'Cancel', hideCancel = false, busy = false, dirty, confirmDiscard = true, className, bodyClassName, belowHeader, bodyRef, noValidate, formRef,
-  eyebrow, titleClassName, buttonSize = 'md',
+  eyebrow, titleClassName, buttonSize = 'md', aboveTitle, titleRef,
 }: {
   open: boolean
   onClose: () => void
@@ -52,6 +52,10 @@ export function Modal({
   belowHeader?: ReactNode
   /** Small label above the title (e.g. "Scores"). */
   eyebrow?: ReactNode
+  /** Content above the title, e.g. a "Back to …" link when the modal swaps views. */
+  aboveTitle?: ReactNode
+  /** The title element (focusable with tabIndex -1), to move focus to it when the content swaps. */
+  titleRef?: Ref<HTMLHeadingElement>
   titleClassName?: string
   /** lg: the 44px data-page Cancel / Close button (outline variant). */
   buttonSize?: 'md' | 'lg'
@@ -147,8 +151,9 @@ export function Modal({
         <div className="flex items-start gap-3 border-b border-brand-line px-5 py-4 sm:px-6">
           {icon && <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-mist text-brand-blue [&_svg]:size-5">{icon}</span>}
           <div className="min-w-0 flex-1">
+            {aboveTitle}
             {eyebrow && <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">{eyebrow}</p>}
-            <h2 id={titleId} className={cn('font-display text-lg font-bold leading-snug', titleClassName)}>{title}</h2>
+            <h2 id={titleId} ref={titleRef} tabIndex={titleRef ? -1 : undefined} className={cn('font-display text-lg font-bold leading-snug outline-none', titleClassName)}>{title}</h2>
             {subtitle && <p id={subtitleId} className="mt-0.5 text-sm text-brand-muted">{subtitle}</p>}
           </div>
           <button type="button" onClick={() => void requestClose()} disabled={busy} aria-label="Close" className="-mr-2.5 -mt-1.5 inline-flex size-11 shrink-0 items-center justify-center rounded-[10px] text-brand-muted outline-none hover:bg-brand-ice hover:text-brand-navy focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-40">

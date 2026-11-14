@@ -4,9 +4,9 @@
 // measurements dialog it opens. Edits go through POST /api/nutritional-assessment/edit (the
 // edit_nutritional_assessment RPC), which keeps the earlier values as a revision.
 
-import { useId, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import useSWR, { type SWRResponse } from 'swr'
-import { AlertTriangle, Pencil } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ChevronLeft, Pencil } from 'lucide-react'
 import { Modal } from '@/components/ui/modal'
 import { TabBar } from '@/components/ui/module-tabs'
 import { Button } from '@/components/ui/button'
@@ -137,8 +137,21 @@ export function ScoresDialog({ item, childName, meta, recommendation, canEdit, o
   onEdited: (updated: Partial<ScoresAssessment>) => void
 }) {
   const [tab, setTab] = useState<'now' | 'history'>('now')
-  const [editing, setEditing] = useState(false)
+  // One modal: Scores (This assessment / History) or the Edit measurements form, same size and place.
+  const [mode, setMode] = useState<'scores' | 'edit'>('scores')
+  const [session, setSession] = useState(0)
+  const [saving, setSaving] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
+  const titleRef = useRef<HTMLHeadingElement>(null)
+  const swapped = useRef(false)
   const idBase = useId().replace(/:/g, '')
+  const formId = `${idBase}-edit-form`
+  // After the content swaps (not on first open), focus moves to the new title.
+  useEffect(() => {
+    if (!swapped.current) return
+    titleRef.current?.focus()
+  }, [mode])
+  const showScores = (nextTab: 'now' | 'history') => { swapped.current = true; setMode('scores'); setTab(nextTab) }
   const history = useSWR<HistoryPayload>(
     tab === 'history' ? `/api/nutritional-assessment/history?childId=${item.child_id}` : null,
     async (url: string) => {
@@ -150,36 +163,71 @@ export function ScoresDialog({ item, childName, meta, recommendation, canEdit, o
   )
   const muacFlag = nutritionFlagClass(item.muac_status) || (muacUnusual(item.muac, item.age_days) ? 'font-semibold text-severe' : '')
 
+  const editing = mode === 'edit'
   return (
-    <>
-      <Modal
-        open={!editing}
-        size="wide"
-        eyebrow="Scores"
-        title={childName}
-        titleClassName="font-sans text-[22px]"
-        subtitle={meta}
-        onClose={onClose}
-        cancelLabel="Close"
-        buttonSize="lg"
-        confirmDiscard={false}
-        belowHeader={
-          <TabBar
-            variant="underline"
-            className="px-5 sm:px-6"
-            label="Scores views"
-            idBase={idBase}
-            value={tab}
-            onChange={setTab}
-            items={[{ value: 'now', label: 'This assessment' }, { value: 'history', label: 'History' }]}
-          />
-        }
-        footer={canEdit ? (
-          <Button size="lg" disabled={!online} title={online ? undefined : 'Reconnect to edit'} onClick={() => setEditing(true)}>
-            <Pencil size={16} aria-hidden="true" /> Edit measurements
-          </Button>
-        ) : undefined}
-      >
+    <Modal
+      open
+      size="wide"
+      // Fixed height: Scores and the Edit form swap in place without the modal resizing or moving.
+      className="sm:h-[min(90dvh,780px)]"
+      eyebrow={editing ? undefined : 'Scores'}
+      aboveTitle={editing ? (
+        <button
+          type="button"
+          onClick={() => showScores('now')}
+          disabled={saving}
+          className="mb-1 inline-flex items-center gap-1 rounded text-[13px] font-semibold text-link outline-none hover:underline focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-link disabled:opacity-50"
+        >
+          <ChevronLeft size={14} aria-hidden="true" /> Back to scores
+        </button>
+      ) : undefined}
+      title={editing ? 'Edit measurements' : childName}
+      titleRef={titleRef}
+      titleClassName="font-sans text-[22px]"
+      subtitle={editing ? `${childName}. Assessment of ${item.assessment_date}.` : meta}
+      onClose={onClose}
+      busy={saving}
+      buttonSize="lg"
+      // Scores never asks to discard; the edit form asks only when something was typed.
+      dirty={editing ? undefined : false}
+      cancelLabel="Close"
+      hideCancel={editing}
+      belowHeader={editing ? undefined : (
+        <TabBar
+          variant="underline"
+          className="px-5 sm:px-6"
+          label="Scores views"
+          idBase={idBase}
+          value={tab}
+          onChange={setTab}
+          items={[{ value: 'now', label: 'This assessment' }, { value: 'history', label: 'History' }]}
+        />
+      )}
+      footerStart={editing ? (
+        <Button variant="outline" size="lg" disabled={saving} onClick={() => showScores('now')}>Cancel</Button>
+      ) : undefined}
+      footer={editing ? (
+        <Button type="submit" form={formId} size="lg" loading={saving}>Save changes</Button>
+      ) : canEdit ? (
+        <Button size="lg" disabled={!online} title={online ? undefined : 'Reconnect to edit'} onClick={() => { swapped.current = true; setNotice(null); setSession((n) => n + 1); setMode('edit') }}>
+          <Pencil size={16} aria-hidden="true" /> Edit measurements
+        </Button>
+      ) : undefined}
+    >
+      {editing ? (
+        <EditMeasurementsForm
+          key={session}
+          formId={formId}
+          item={item}
+          onSavingChange={setSaving}
+          onSaved={(updated) => {
+            setNotice('Changes saved. Scores were recalculated.')
+            showScores('history')
+            void history.mutate()
+            onEdited(updated)
+          }}
+        />
+      ) : (
         <div role="tabpanel" id={`${idBase}-panel-${tab}`} aria-labelledby={`${idBase}-tab-${tab}`}>
           {tab === 'now' ? (
             <div className="space-y-4">
@@ -252,24 +300,18 @@ export function ScoresDialog({ item, childName, meta, recommendation, canEdit, o
               </details>
             </div>
           ) : (
-            <HistoryPanel item={item} state={history} />
+            <div className="space-y-4">
+              {notice && (
+                <p role="status" className="flex items-center gap-2 rounded-[14px] border border-good/20 bg-good-soft px-4 py-3 text-sm font-semibold text-good">
+                  <CheckCircle2 size={16} aria-hidden="true" /> {notice}
+                </p>
+              )}
+              <HistoryPanel item={item} state={history} />
+            </div>
           )}
         </div>
-      </Modal>
-      {editing && (
-        <EditMeasurementsDialog
-          item={item}
-          childName={childName}
-          onClose={() => setEditing(false)}
-          onSaved={(updated) => {
-            setEditing(false)
-            setTab('history')
-            void history.mutate()
-            onEdited(updated)
-          }}
-        />
       )}
-    </>
+    </Modal>
   )
 }
 
@@ -372,11 +414,13 @@ function Warning({ children }: { children: ReactNode }) {
   )
 }
 
-export function EditMeasurementsDialog({ item, childName, onClose, onSaved }: {
+/** The Edit measurements form, shown inside the Scores modal. Submitted by the modal's Save button
+ *  (form attribute), so the footer stays the modal's own. */
+function EditMeasurementsForm({ item, formId, onSaved, onSavingChange }: {
   item: ScoresAssessment
-  childName: string
-  onClose: () => void
+  formId: string
   onSaved: (updated: Partial<ScoresAssessment>) => void
+  onSavingChange: (saving: boolean) => void
 }) {
   const [weight, setWeight] = useState(item.weight == null ? '' : String(item.weight))
   const [height, setHeight] = useState(item.height == null ? '' : String(item.height))
@@ -386,7 +430,7 @@ export function EditMeasurementsDialog({ item, childName, onClose, onSaved }: {
   const [reason, setReason] = useState('')
   const [note, setNote] = useState('')
   const [errors, setErrors] = useState<Partial<Record<FieldName, string>>>({})
-  const [saving, setSaving] = useState(false)
+  const setSaving = onSavingChange
   const name = useId()
   // A field's warning (and the general one) goes away as soon as that field is changed.
   const clear = (field: FieldName) => setErrors((e) => (e[field] || e.form ? { ...e, [field]: undefined, form: undefined } : e))
@@ -431,18 +475,7 @@ export function EditMeasurementsDialog({ item, childName, onClose, onSaved }: {
   }
 
   return (
-    <Modal
-      open
-      size="form"
-      title="Edit measurements"
-      subtitle={`${childName}. Assessment of ${item.assessment_date}.`}
-      onClose={onClose}
-      onSubmit={submit}
-      noValidate
-      busy={saving}
-      buttonSize="lg"
-      footer={<Button type="submit" size="lg" loading={saving}>Save changes</Button>}
-    >
+    <form id={formId} noValidate onSubmit={submit}>
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Weight (kg)" required>
@@ -497,6 +530,6 @@ export function EditMeasurementsDialog({ item, childName, onClose, onSaved }: {
           Saving recalculates the scores and classification. The earlier values stay in this assessment&rsquo;s history and the child&rsquo;s record.
         </p>
       </div>
-    </Modal>
+    </form>
   )
 }
