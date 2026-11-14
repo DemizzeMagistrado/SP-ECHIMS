@@ -65,8 +65,13 @@ export function nutritionFlagClass(code: string | null | undefined) {
   return ''
 }
 
-/** Proposed MUAC plausibility bounds for 6–59 months (supabase/proposals/nut_rev01_02). Until the
- *  database check is approved and applied, the app only warns with these. Keep in sync with NUT-R012. */
-export const MUAC_PLAUSIBLE_CM = { min: 7, max: 22 } as const
-export const muacImplausible = (muac: number | string | null | undefined, ageDays: number | null | undefined) =>
-  muac != null && muac !== '' && (ageDays == null || ageDays >= 182) && (Number(muac) < MUAC_PLAUSIBLE_CM.min || Number(muac) > MUAC_PLAUSIBLE_CM.max)
+/** Soft MUAC warning for 6–59 months (supabase/proposals/nut_rev01_02, pending a reference and
+ *  health-worker confirmation): the app warns and still allows saving. MUAC classification itself is
+ *  unchanged (severe < 11.5 cm, moderate 11.5 to < 12.5 cm, 6–59 months only). */
+export const MUAC_SOFT_CM = { min: 9, max: 21 } as const
+export const MUAC_SOFT_WARNING = { low: 'Unusually low for this child. Re-measure before saving.', high: 'Unusually high for this child. Re-measure before saving.' } as const
+/** 'low' / 'high' when MUAC is outside the soft range for a child 6–59 months (182+ days), else null. */
+export function muacUnusual(muac: number | string | null | undefined, ageDays: number | null | undefined): 'low' | 'high' | null {
+  if (muac == null || muac === '' || !Number.isFinite(Number(muac)) || (ageDays != null && ageDays < 182)) return null
+  return Number(muac) < MUAC_SOFT_CM.min ? 'low' : Number(muac) > MUAC_SOFT_CM.max ? 'high' : null
+}

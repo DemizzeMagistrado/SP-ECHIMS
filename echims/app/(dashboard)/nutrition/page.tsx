@@ -26,7 +26,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { TabBar } from '@/components/ui/module-tabs'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
-import { Checkbox, Field, Select, DateInput } from '@/components/ui/form'
+import { Checkbox, Select, DateInput } from '@/components/ui/form'
 import { InfoTip } from '@/components/ui/info-tip'
 import { Pagination, usePagination, useStableHeight } from '@/components/ui/pagination'
 import { LoadError } from '@/components/ui/load-error'
@@ -36,7 +36,7 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { canPerform, type UserRole } from '@/lib/echims-data'
-import { muacImplausible, nutritionFlagClass, nutritionLabel, nutritionProfileHref, nutritionTone } from '@/lib/nutrition-status'
+import { MUAC_SOFT_WARNING, muacUnusual, nutritionFlagClass, nutritionLabel, nutritionProfileHref, nutritionTone } from '@/lib/nutrition-status'
 import { reportSync } from '@/lib/offline/refresh'
 type Relation<T> = T | T[] | null;
 type Barangay = {
@@ -654,7 +654,7 @@ function SummaryReport({
           <div className="nutrition-no-print flex flex-wrap items-center gap-2">
             {views}
             {canPrint && (
-              <Button variant="outline" size="lg" onClick={() => window.print()}>
+              <Button variant="secondary" onClick={() => window.print()}>
                 <Printer size={16} aria-hidden="true" />
                 Print summary
               </Button>
@@ -784,14 +784,14 @@ function SummaryReport({
     </>
   );
 }
-/** Overview / List UW … List SW: one segmented control (aria-pressed), counts in badges. */
+/** Overview / List UW … List SW: the module-tab pill at a smaller size (aria-pressed), counts in badges. */
 function SummaryViews({ value, onChange, counts }: {
   value: "Summary" | ListCode;
   onChange: (view: "Summary" | ListCode) => void;
   counts: Record<ListCode, number>;
 }) {
   return (
-    <div role="group" aria-label="Summary views" className="flex flex-wrap gap-1 rounded-[12px] border border-brand-line/70 bg-group-a p-1">
+    <div role="group" aria-label="Summary views" className="flex flex-wrap gap-2">
       {(["Summary", ...listCodes] as Array<"Summary" | ListCode>).map((view) => {
         const active = view === value;
         return (
@@ -801,13 +801,13 @@ function SummaryViews({ value, onChange, counts }: {
             aria-pressed={active}
             onClick={() => onChange(view)}
             className={cn(
-              "inline-flex h-9 items-center gap-1.5 rounded-[8px] px-3 text-sm font-semibold outline-none transition-colors focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-link",
-              active ? "bg-brand-navy text-white" : "text-brand-navy hover:bg-white",
+              "inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/40",
+              active ? "border-transparent bg-primary text-white" : "border-border bg-white text-foreground shadow-sm hover:bg-muted",
             )}
           >
             {view === "Summary" ? "Overview" : `List ${view}`}
             {view !== "Summary" && (
-              <span className={cn("inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs tabular-nums", active ? "bg-white/20 text-white" : "bg-badge text-brand-muted")}>
+              <span className={cn("rounded-full px-1.5 text-[11px] font-semibold tabular-nums", active ? "bg-white/20" : "bg-muted text-muted-foreground")}>
                 {counts[view]}
               </span>
             )}
@@ -817,14 +817,21 @@ function SummaryViews({ value, onChange, counts }: {
     </div>
   );
 }
-/** Filter card shared by All assessments and Summary: one row of controls on a shared bottom edge
- *  (Refresh pushed right), with an optional row below (the counts). */
-function FilterCard({ children, refresh, below }: { children: ReactNode; refresh: ReactNode; below?: ReactNode }) {
+/** Filter card shared by All assessments and Summary, styled like Child Profiling's filters: the
+ *  table-card container (rounded-2xl, border, soft shadow), selects in a 1 / 2 / 4-column grid with
+ *  12px gaps, then a row with any extra control (history checkbox) and Refresh on the right. The
+ *  optional row below holds the counts. */
+function FilterCard({ children, refresh, extra, below }: { children: ReactNode; refresh: ReactNode; extra?: ReactNode; below?: ReactNode }) {
   return (
-    <section aria-label="Filters" className="nutrition-no-print overflow-hidden rounded-[14px] border border-brand-line bg-white">
-      <div className="flex flex-wrap items-end gap-3 p-4">
-        {children}
-        {refresh}
+    <section aria-label="Filters" className="nutrition-no-print overflow-hidden rounded-2xl border border-brand-line bg-white shadow-sm">
+      <div className="space-y-3 p-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{children}</div>
+        {(extra || refresh) && (
+          <div className="flex flex-wrap items-center gap-3">
+            {extra}
+            {refresh && <div className="ml-auto">{refresh}</div>}
+          </div>
+        )}
       </div>
       {below}
     </section>
@@ -868,7 +875,7 @@ function ClassificationList({
         <div className="nutrition-no-print flex flex-wrap items-center gap-2">
           {views}
           {canPrint && (
-            <Button variant="outline" size="lg" onClick={() => window.print()}>
+            <Button variant="secondary" onClick={() => window.print()}>
               <Printer size={16} aria-hidden="true" />
               Print list
             </Button>
@@ -1169,11 +1176,11 @@ export default function NutritionPage() {
   const { visible: recordRows, page: recordPage, props: recordPager } = usePagination(visible);
   const { bindArea: bindRecords, height: recordsMin } = useStableHeight(recordPager.pageCount > 1, recordRows.length >= recordPager.pageSize);
   const urgent = latest.filter(isUrgent);
-  // Same rule as edit_nutritional_assessment: the assigned midwife / BNS who recorded it, the
-  // RHU's PHN (visible rows are already in their RHU), an administrator. The RPC re-checks.
+  // Same rule as edit_nutritional_assessment: only the BNS who recorded it; administrators for
+  // support / data fixes. PHN and RHM view (incl. History). The RPC re-checks.
   const canEditAssessment = (item: Assessment) =>
-    data?.role === "Administrator" || data?.role === "PHN" ||
-    ((data?.role === "RHM" || data?.role === "BNS") && item.assessed_by === data.currentUserId);
+    data?.role === "Administrator" ||
+    (data?.role === "BNS" && item.assessed_by === data.currentUserId);
   const countCategories = [
     "MAM",
     "SAM",
@@ -1919,9 +1926,7 @@ export default function NutritionPage() {
   // Refresh for the filter card (All assessments and Summary): secondary, pushed right.
   const refreshButton = ownerId ? (
     <Button
-      variant="outline"
-      size="lg"
-      className="ml-auto"
+      variant="secondary"
       loading={isValidating && Boolean(data)}
       disabled={!online || accessDenied}
       title={online ? undefined : "Reconnect to refresh"}
@@ -1941,31 +1946,27 @@ export default function NutritionPage() {
   // Year and barangay: on the Summary tab on their own, on All assessments with the other filters.
   const periodFields = (
     <>
-      <Field label="Year" labelStyle="filter">
-        <Select
-          controlSize="lg"
-          value={reportYear}
-          onChange={(event) => setReportYear(event.target.value)}
-        >
-          {years.map((year) => (
-            <option key={year}>{year}</option>
-          ))}
-        </Select>
-      </Field>
-      <Field label="Barangay" labelStyle="filter">
-        <Select
-          controlSize="lg"
-          value={reportBarangay}
-          onChange={(event) => setReportBarangay(event.target.value)}
-        >
+      <Select
+        aria-label="Year"
+        value={reportYear}
+        onChange={(event) => setReportYear(event.target.value)}
+      >
+        {years.map((year) => (
+          <option key={year} value={year}>Year {year}</option>
+        ))}
+      </Select>
+      <Select
+        aria-label="Barangay"
+        value={reportBarangay}
+        onChange={(event) => setReportBarangay(event.target.value)}
+      >
           <option value="All">All accessible barangays</option>
           {barangays.map((b) => (
             <option key={b.barangay_id} value={b.barangay_id}>
               {b.barangay_name} — {b.municipality}
             </option>
           ))}
-        </Select>
-      </Field>
+      </Select>
     </>
   );
   return (
@@ -1985,7 +1986,6 @@ export default function NutritionPage() {
       @page { size: A4 landscape; margin: 8mm; }
     }`}</style>
       <TabBar
-        variant="underline"
         className="nutrition-no-print"
         label="Nutrition views"
         group="nutrition"
@@ -1999,7 +1999,6 @@ export default function NutritionPage() {
         ]}
       />
       <PageHeader
-        size="lg"
         title="Nutritional Assessment"
         subtitle="OPT Plus measurements, WHO classifications, and follow-up monitoring"
         className="nutrition-no-print"
@@ -2007,8 +2006,7 @@ export default function NutritionPage() {
           {/* All assessments and Summary refresh from their filter card; Admission tracking has its own. */}
           {tab === "Risk" && ownerId && (
             <Button
-              variant="outline"
-              size="lg"
+              variant="secondary"
               loading={isValidating && Boolean(data)}
               disabled={!online || accessDenied}
               title={online ? undefined : "Reconnect to refresh"}
@@ -2020,7 +2018,6 @@ export default function NutritionPage() {
           )}
           {canRecord && (
             <Button
-              size="lg"
               disabled={!ownerId || accessDenied}
               onClick={() => {
                 editingRequest.current = null;
@@ -2035,8 +2032,7 @@ export default function NutritionPage() {
                 });
               }}
             >
-              <Plus size={17} aria-hidden="true" />
-              Record assessment
+              <Plus size={17} aria-hidden="true" />Record assessment
             </Button>
           )}
         </>}
@@ -2156,9 +2152,7 @@ export default function NutritionPage() {
         />
       )}
       {tab === "Summary" && (
-        <FilterCard refresh={refreshButton}>
-          <div className="grid min-w-0 flex-[1_1_28rem] grid-cols-1 items-end gap-3 sm:grid-cols-2">{periodFields}</div>
-        </FilterCard>
+        <FilterCard refresh={refreshButton}>{periodFields}</FilterCard>
       )}
       {reportView === "Summary" && (
         <SummaryReport
@@ -2197,6 +2191,13 @@ export default function NutritionPage() {
           {/* Filters and counts: one card. Controls share one bottom edge. */}
           <FilterCard
             refresh={refreshButton}
+            extra={
+              <Checkbox
+                label="Include assessment history"
+                checked={history}
+                onChange={(event) => setHistory(event.target.checked)}
+              />
+            }
             below={
               // Counts (latest assessment per child); each one filters the table. 1px dividers between cells.
               <div className="grid grid-cols-2 gap-px border-t border-brand-line/70 bg-brand-line/70 sm:grid-cols-3 lg:grid-cols-5">
@@ -2223,23 +2224,12 @@ export default function NutritionPage() {
               </div>
             }
           >
-            <div className="grid min-w-0 flex-[1_1_32rem] grid-cols-1 items-end gap-3 sm:grid-cols-3">
-              {periodFields}
-              <Field label="Classification view" labelStyle="filter">
-                <Select controlSize="lg" value={category} onChange={(event) => setCategory(event.target.value)}>
-                  {allCategories.map((name) => (
-                    <option key={name}>{name}</option>
-                  ))}
-                </Select>
-              </Field>
-            </div>
-            <div className="flex h-11 items-center">
-              <Checkbox
-                label="Include assessment history"
-                checked={history}
-                onChange={(event) => setHistory(event.target.checked)}
-              />
-            </div>
+            {periodFields}
+            <Select aria-label="Classification view" value={category} onChange={(event) => setCategory(event.target.value)}>
+              {allCategories.map((name) => (
+                <option key={name} value={name}>{name === "All" ? "All classifications" : name}</option>
+              ))}
+            </Select>
           </FilterCard>
 
           {/* Follow-up banner: only when a child needs urgent clinical assessment. */}
@@ -2253,12 +2243,14 @@ export default function NutritionPage() {
                 <span className="text-brand-muted">
                   SAM or infant urgent review: {urgent.slice(0, 3).map((item) => childName(one(item.child))).join(", ")}
                   {urgent.length > 3 ? ` and ${urgent.length - 3} more` : ""}.
-                  {urgent.some((item) => muacImplausible(item.muac, item.age_days)) && (
-                    <span className="font-semibold text-brand-navy"> Re-check the measurement before admission.</span>
-                  )}
+                  {(() => {
+                    // Soft MUAC warning only (bounds pending confirmation).
+                    const unusual = urgent.map((item) => muacUnusual(item.muac, item.age_days)).find(Boolean);
+                    return unusual ? <span className="font-semibold text-brand-navy"> MUAC: {MUAC_SOFT_WARNING[unusual]}</span> : null;
+                  })()}
                 </span>
               </p>
-              <Link href={childRecordUrl(urgent[0].child_id)} className={buttonVariants({ variant: "outline", size: "lg" })}>
+              <Link href={childRecordUrl(urgent[0].child_id)} className={buttonVariants({ variant: "secondary" })}>
                 View child record
               </Link>
             </div>
@@ -2878,15 +2870,14 @@ function RecordBadge({ item }: { item: Assessment }) {
 
 /** "View child record" and "Scores": two equal row buttons side by side (shared Button "row"). */
 function RecordButtons({ item, onScores }: { item: Assessment; onScores: () => void }) {
-  // Two equal buttons in the 260px column: a long label wraps inside the button (min 36px).
-  const wrap = "h-auto min-h-9 gap-1 whitespace-normal px-2 py-1.5 text-center leading-tight";
+  // Stacked in the 260px Actions column: full width, 36px each, 8px apart, one line each.
   return (
-    <div className="grid grid-cols-2 gap-2">
-      <Link href={childRecordUrl(item.child_id)} className={cn(buttonVariants({ variant: "row", size: "row" }), wrap)}>
+    <div className="grid grid-cols-1 gap-2">
+      <Link href={childRecordUrl(item.child_id)} className={cn(buttonVariants({ variant: "row", size: "row" }), "w-full")}>
         <FileText aria-hidden="true" />
         View child record
       </Link>
-      <Button variant="row" size="row" className={wrap} onClick={onScores}>
+      <Button variant="row" size="row" className="w-full" onClick={onScores}>
         <BarChart3 aria-hidden="true" />
         Scores
         <span className="sr-only"> for assessment {item.assessment_id}</span>

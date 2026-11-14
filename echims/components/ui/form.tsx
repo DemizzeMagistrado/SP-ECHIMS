@@ -15,10 +15,8 @@ import { Combobox as BaseCombobox, type ComboboxProps } from './combobox'
 type FieldContext = { id: string; describedBy?: string; invalid: boolean; required: boolean }
 const Ctx = createContext<FieldContext | null>(null)
 
-export function Field({ label, required = false, hint, error, children, className, labelStyle = 'form' }: {
+export function Field({ label, required = false, hint, error, children, className }: {
   label: ReactNode; required?: boolean; hint?: ReactNode; error?: ReactNode; children: ReactNode; className?: string
-  /** filter: the small muted label used above filter controls on data pages. */
-  labelStyle?: 'form' | 'filter'
 }) {
   const id = useId()
   const hintId = hint ? `${id}-hint` : undefined
@@ -27,7 +25,7 @@ export function Field({ label, required = false, hint, error, children, classNam
   return (
     <Ctx.Provider value={{ id, describedBy, invalid: Boolean(error), required }}>
       <div className={cn('space-y-1.5', className)}>
-        <label htmlFor={id} className={labelStyle === 'filter' ? 'block text-[13px] font-medium text-brand-muted' : 'block text-sm font-semibold text-brand-navy'}>
+        <label htmlFor={id} className="block text-sm font-semibold text-brand-navy">
           {label}
           {required && <span aria-hidden="true" className="ml-0.5 text-danger">*</span>}
         </label>

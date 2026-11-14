@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Field, Select, Textarea, Input } from '@/components/ui/form'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { cn } from '@/lib/utils'
-import { MUAC_PLAUSIBLE_CM, muacImplausible, nutritionFlagClass, nutritionLabel, nutritionTone } from '@/lib/nutrition-status'
+import { MUAC_SOFT_WARNING, muacUnusual, nutritionFlagClass, nutritionLabel, nutritionTone } from '@/lib/nutrition-status'
 
 type Num = number | string | null
 
@@ -148,7 +148,7 @@ export function ScoresDialog({ item, childName, meta, recommendation, canEdit, o
       return d as HistoryPayload
     },
   )
-  const muacFlag = nutritionFlagClass(item.muac_status) || (muacImplausible(item.muac, item.age_days) ? 'font-semibold text-severe' : '')
+  const muacFlag = nutritionFlagClass(item.muac_status) || (muacUnusual(item.muac, item.age_days) ? 'font-semibold text-severe' : '')
 
   return (
     <>
@@ -392,10 +392,9 @@ export function EditMeasurementsDialog({ item, childName, onClose, onSaved }: {
   const clear = (field: FieldName) => setErrors((e) => (e[field] || e.form ? { ...e, [field]: undefined, form: undefined } : e))
 
   const positive = (v: string) => /^\d+(?:\.\d+)?$/.test(v.trim()) && Number(v) > 0
-  // Non-blocking: the proposed MUAC bounds are not enforced by the database yet.
-  const muacWarning = muac.trim() && positive(muac) && muacImplausible(Number(muac), item.age_days)
-    ? `MUAC ${muac.trim()} cm is outside the usual range for 6–59 months (${MUAC_PLAUSIBLE_CM.min.toFixed(1)}–${MUAC_PLAUSIBLE_CM.max.toFixed(1)} cm). Re-check the measurement before saving.`
-    : null
+  // Soft warning only (bounds pending confirmation): saving is still allowed.
+  const unusual = muac.trim() && positive(muac) ? muacUnusual(Number(muac), item.age_days) : null
+  const muacWarning = unusual ? MUAC_SOFT_WARNING[unusual] : null
 
   async function submit(event: FormEvent) {
     event.preventDefault()
