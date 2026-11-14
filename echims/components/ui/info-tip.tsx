@@ -15,13 +15,15 @@ import { cn } from '@/lib/utils'
 const WIDTH = 312
 const MARGIN = 16
 
-export function InfoTip({ label, children, className, align = 'start' }: {
+export function InfoTip({ label, children, className, align = 'start', text }: {
   /** Accessible name of the button, e.g. "About Child ID". */
   label: string
   children: ReactNode
   className?: string
   /** Preferred side: the bubble starts at the icon (start) or ends at it (end); it still shifts to fit. */
   align?: 'start' | 'end'
+  /** Visible text after the icon, e.g. "About this view" (link colour, 13px semibold). It is then the button's name. */
+  text?: string
 }) {
   const [open, setOpen] = useState(false)
   const id = useId()
@@ -76,16 +78,19 @@ export function InfoTip({ label, children, className, align = 'start' }: {
       <button
         ref={button}
         type="button"
-        aria-label={label}
+        aria-label={text ? undefined : label}
         aria-expanded={open}
         aria-describedby={open ? id : undefined}
         onClick={(e) => { e.stopPropagation(); if (open && Date.now() - openedAt.current < 400) return; if (open) hide(); else show() }}
         onFocus={show}
         onBlur={hide}
         onKeyDown={(e) => { if (e.key === 'Escape' && open) { e.stopPropagation(); hide() } }}
-        className="inline-flex size-5 items-center justify-center rounded-full text-brand-muted hover:text-brand-navy focus-visible:outline-2 focus-visible:outline-ring"
+        className={text
+          ? 'inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded text-[13px] font-semibold text-link outline-none hover:underline focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-link'
+          : 'inline-flex size-5 items-center justify-center rounded-full text-brand-muted hover:text-brand-navy focus-visible:outline-2 focus-visible:outline-ring'}
       >
         <Info size={14} aria-hidden="true" />
+        {text}
       </button>
       {open && typeof document !== 'undefined' && createPortal(
         <span

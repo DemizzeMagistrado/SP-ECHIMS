@@ -28,6 +28,13 @@ export const NUTRITION_TONE_COLOR: Record<StatusTone, string> = {
   good: 'var(--tone-good)', warn: 'var(--tone-warn)', danger: 'var(--tone-danger)',
   nutrition: 'var(--tone-nutrition)', info: 'var(--brand-blue)', neutral: '#94A3B8',
   severe: 'var(--tone-severe)', risk: 'var(--tone-risk)', healthy: 'var(--tone-healthy)',
+  review: 'var(--tone-review)',
+}
+
+/** Text colour for a classification shown inline (same tones as the badges): severe red, review amber,
+ *  risk violet, normal green, overweight link-blue, stunted nutrition violet; other codes stay ink. */
+export function nutritionToneText(value: string | null | undefined) {
+  return ({ severe: 'text-severe', warn: 'text-review', risk: 'text-risk', healthy: 'text-healthy', info: 'text-link', nutrition: 'text-nutrition' } as Partial<Record<StatusTone, string>>)[nutritionTone(value)] ?? 'text-brand-navy'
 }
 
 /** Child profile opened at the Nutrition history section (lands like the NIP links). */

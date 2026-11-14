@@ -15,6 +15,8 @@ const TONES = {
   severe: 'bg-severe-soft text-severe ring-severe/20 [&_svg]:text-severe-icon',
   risk: 'bg-risk-soft text-risk ring-risk/20',
   healthy: 'bg-healthy-soft text-healthy ring-healthy/20',
+  // Needs review / high priority / pending (amber, the nutrition review token).
+  review: 'bg-review-soft text-review ring-review-line/40',
 } as const
 
 export type StatusTone = keyof typeof TONES

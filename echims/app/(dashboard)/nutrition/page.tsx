@@ -23,6 +23,7 @@ import { AlertCircle, BarChart3, ChevronDown, FileText, Plus, RefreshCw, Printer
 import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
+import { FilterCard, REPORT_CARD } from '@/components/nutrition/report-parts'
 import { TabBar } from '@/components/ui/module-tabs'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
@@ -784,8 +785,19 @@ function SummaryViews({ value, onChange, counts }: {
   onChange: (view: "Summary" | ListCode) => void;
   counts: Record<ListCode, number>;
 }) {
+  const row = useRef<HTMLDivElement>(null);
+  // Phones: one row that scrolls sideways; keep the active pill in view (on load and on change).
+  useEffect(() => {
+    const list = row.current;
+    const pill = list?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (!list || !pill || list.scrollWidth <= list.clientWidth) return;
+    const left = pill.offsetLeft - list.offsetLeft - 16;
+    const right = pill.offsetLeft - list.offsetLeft + pill.offsetWidth + 16 - list.clientWidth;
+    if (list.scrollLeft > left) list.scrollLeft = left;
+    else if (list.scrollLeft < right) list.scrollLeft = right;
+  }, [value]);
   return (
-    <div role="group" aria-label="Summary views" className="flex flex-wrap gap-2">
+    <div ref={row} role="group" aria-label="Summary views" className="-m-1 flex min-w-0 max-w-full flex-nowrap gap-2 overflow-x-auto p-1 [scrollbar-width:none] sm:flex-wrap [&::-webkit-scrollbar]:hidden">
       {(["Summary", ...listCodes] as Array<"Summary" | ListCode>).map((view) => {
         const active = view === value;
         return (
@@ -795,7 +807,7 @@ function SummaryViews({ value, onChange, counts }: {
             aria-pressed={active}
             onClick={() => onChange(view)}
             className={cn(
-              "inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/40",
+              "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/40",
               active ? "border-transparent bg-primary text-white" : "border-border bg-white text-foreground shadow-sm hover:bg-muted",
             )}
           >
@@ -809,21 +821,6 @@ function SummaryViews({ value, onChange, counts }: {
         );
       })}
     </div>
-  );
-}
-/** Filter card shared by All assessments, the Summary Overview and the List views: Child Profiling's
- *  filter container, one row of controls on a shared bottom edge (gap 16px), Refresh pushed right
- *  at the select height. The optional row below holds the counts. */
-function FilterCard({ children, refresh, extra, below }: { children: ReactNode; refresh: ReactNode; extra?: ReactNode; below?: ReactNode }) {
-  return (
-    <section aria-label="Filters" className={cn(REPORT_CARD, "nutrition-no-print")}>
-      <div className="flex flex-wrap items-end gap-4 p-4">
-        <div className="grid min-w-0 flex-[1_1_28rem] gap-4 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
-        {extra && <div className="flex h-10 items-center">{extra}</div>}
-        {refresh && <div className="ml-auto">{refresh}</div>}
-      </div>
-      {below}
-    </section>
   );
 }
 // List UW … List SW table: client-verified columns, in this exact order with these exact labels.
@@ -961,15 +958,13 @@ function ClassificationList({
     </section>
   );
 }
-/** Card used by every Summary view (and the filter card): same radius, border and shadow. */
-const REPORT_CARD = "overflow-hidden rounded-2xl border border-brand-line bg-white shadow-sm";
 /** Summary report header: the view switcher on its own first row (never moves between views),
  *  then the title and scope line. */
 function ReportHeader({ views, title, scope, action }: { views: ReactNode; title: ReactNode; scope: ReactNode; action?: ReactNode }) {
   return (
     <div className="space-y-3 p-4">
       <div className="nutrition-no-print flex min-h-10 flex-wrap items-center gap-2">
-        {views}
+        <div className="min-w-0 max-sm:w-full">{views}</div>
         {action && <div className="ml-auto">{action}</div>}
       </div>
       <div className="min-w-0">
@@ -1918,7 +1913,7 @@ export default function NutritionPage() {
     return ()=>{alive=false;window.clearTimeout(first);window.clearInterval(timer);window.removeEventListener('online',wake);window.removeEventListener('focus',wake);};
   },[ownerId,online,canRecord,accessDenied]);
 
-  // Refresh for the filter card (All assessments and Summary): secondary, pushed right.
+  // Refresh for the filter card (All assessments, Summary, Risk monitoring): secondary, pushed right.
   const refreshButton = ownerId ? (
     <Button
       variant="secondary"
@@ -1980,37 +1975,14 @@ export default function NutritionPage() {
       .nutrition-report-root .sticky { position: static !important; box-shadow: none !important; }
       @page { size: A4 landscape; margin: 8mm; }
     }`}</style>
-      <TabBar
-        className="nutrition-no-print"
-        label="Nutrition views"
-        group="nutrition"
-        value={tab}
-        onChange={setReportView}
-        items={[
-          { value: "Assessments", label: "All assessments" },
-          { value: "Summary", label: "Summary" },
-          { value: "Risk", label: "Risk monitoring" },
-          { value: "Admissions", label: "Admission tracking" },
-        ]}
-      />
+      {/* Header block: title and subtitle, then the module tabs; one divider below. */}
+      <div className="nutrition-no-print space-y-4">
       <PageHeader
         title="Nutritional Assessment"
         subtitle="OPT Plus measurements, WHO classifications, and follow-up monitoring"
         className="nutrition-no-print"
         actions={<>
-          {/* All assessments and Summary refresh from their filter card; Admission tracking has its own. */}
-          {tab === "Risk" && ownerId && (
-            <Button
-              variant="secondary"
-              loading={isValidating && Boolean(data)}
-              disabled={!online || accessDenied}
-              title={online ? undefined : "Reconnect to refresh"}
-              onClick={() => void mutate()}
-            >
-              {!(isValidating && data) && <RefreshCw size={16} aria-hidden="true" />}
-              Refresh
-            </Button>
-          )}
+          {/* Refresh sits in each tab's filter card. */}
           {canRecord && (
             <Button
               disabled={!ownerId || accessDenied}
@@ -2032,6 +2004,20 @@ export default function NutritionPage() {
           )}
         </>}
       />
+      <TabBar
+        className="pb-5"
+        label="Nutrition views"
+        group="nutrition"
+        value={tab}
+        onChange={setReportView}
+        items={[
+          { value: "Assessments", label: "All assessments" },
+          { value: "Summary", label: "Summary" },
+          { value: "Risk", label: "Risk monitoring" },
+          { value: "Admissions", label: "Admission tracking" },
+        ]}
+      />
+      </div>
 
       {error && (
         <LoadError what="nutrition records" error={error} retrying={isValidating} onRetry={() => void mutate()} />
@@ -2144,6 +2130,7 @@ export default function NutritionPage() {
           }
           error={error?.message}
           offline={!online}
+          refresh={refreshButton}
         />
       )}
       {tab === "Summary" && (
