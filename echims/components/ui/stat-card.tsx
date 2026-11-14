@@ -39,7 +39,7 @@ export function StatCard({ label, value, tone = 'default', hint, icon, onClick, 
       type="button"
       onClick={onClick}
       aria-pressed={pressed}
-      className={cn(box, 'transition-colors hover:bg-muted/40', pressed && 'border-primary ring-1 ring-primary', className)}
+      className={cn(box, 'card-hover', pressed && 'border-primary ring-1 ring-primary', className)}
     >
       {body}
     </button>

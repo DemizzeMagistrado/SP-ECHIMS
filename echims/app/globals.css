@@ -22,6 +22,31 @@
   --color-good-soft: var(--tone-good-soft);
   --color-nutrition: var(--tone-nutrition);
   --color-nutrition-soft: var(--tone-nutrition-soft);
+  /* Nutritional status only (badges, flagged values): never on buttons */
+  --color-severe: var(--tone-severe);
+  --color-severe-soft: var(--tone-severe-soft);
+  --color-severe-icon: var(--tone-severe-icon);
+  --color-severe-row: var(--tone-severe-row);
+  --color-review: var(--tone-review);
+  --color-review-soft: var(--tone-review-soft);
+  --color-review-line: var(--tone-review-line);
+  --color-severe-line: var(--tone-severe-line);
+  /* Data UI: control borders, zero values, column-group tints, row buttons, total rows, links */
+  --color-control-line: var(--control-line);
+  --color-zero: var(--zero-value);
+  --color-group-a: var(--group-a);
+  --color-group-b: var(--group-b);
+  --color-rowbtn-line: var(--rowbtn-line);
+  --color-rowbtn-hover: var(--rowbtn-hover);
+  --color-rowbtn-active: var(--rowbtn-active);
+  --color-total-line: var(--total-line);
+  --color-total-zero: var(--total-zero);
+  --color-badge: var(--badge-bg);
+  --color-link: var(--link);
+  --color-risk: var(--tone-risk);
+  --color-risk-soft: var(--tone-risk-soft);
+  --color-healthy: var(--tone-healthy);
+  --color-healthy-soft: var(--tone-healthy-soft);
   --font-display: var(--font-jakarta), system-ui, Helvetica, Arial, sans-serif;
   --font-sans: var(--font-inter), system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
   --font-serif: var(--font-caslon), Georgia, 'Times New Roman', serif;
@@ -84,6 +109,32 @@
   --tone-good-soft: #ECFDF5;
   --tone-nutrition: #6D28D9;
   --tone-nutrition-soft: #F5F3FF;
+  /* Nutritional status: severe / SAM, risk of overweight, normal (text on soft pill, all >= 4.5:1) */
+  --tone-severe: #A61E1E;
+  --tone-severe-soft: #FBE3E3;
+  --tone-severe-icon: #C42B2B;
+  --tone-severe-row: #FFF8F8; /* table row of a child needing urgent assessment */
+  --tone-severe-line: #F0C4C4;
+  /* Nutritional status: needs review / warning (also inline measurement warnings) */
+  --tone-review: #8A4B00;
+  --tone-review-soft: #FDF3E4;
+  --tone-review-line: #D9861C;
+  --control-line: #BFD3DE;
+  --zero-value: #66728F;
+  --group-a: #F2F8FB;
+  --group-b: #E8F3F8;
+  --row-zebra: #F8FBFD; /* even data rows in .data-grid tables; lighter than hover (brand-ice) and the urgent tint */
+  --rowbtn-line: #9DB6C6;
+  --rowbtn-hover: #E6F1F7;
+  --rowbtn-active: #D6E8F1;
+  --total-line: #2A2A86;
+  --total-zero: #A9B0E0;
+  --badge-bg: #EEF4F8;
+  --link: #0B759A;
+  --tone-risk: #4B3BAE;
+  --tone-risk-soft: #E6E2FA;
+  --tone-healthy: #17694C;
+  --tone-healthy-soft: #DDF1E8;
   --background: #CAF0F8;
   --foreground: #03045E;
   --card: #FFFFFF;
@@ -191,6 +242,9 @@
 }
 
 @layer base {
+  /* Data tables line numbers up: tabular figures in every table. */
+  table { font-feature-settings: 'tnum' 1; font-variant-numeric: tabular-nums; }
+
   /* Subtle scrollbars everywhere: a faint thumb in the surface's own color that firms up on hover.
      The colors are inherited custom properties, so a .scroll-subtle-dark panel (the navy sidebar)
      re-tints every scroll area inside it. */
@@ -366,6 +420,19 @@ html {
 /* Loader → content handoff (components/brand/loading-gate.tsx). One easing and one length everywhere;
    only opacity and transform animate. */
 :root { --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1); --fade: 300ms; }
+
+/* One card hover for the whole system (the dashboard card's shadow). card-hover: clickable cards
+   lift 2px, take the shadow, an aqua border and a faint ice tint. card-hover-soft: the shadow only,
+   for frames that are not clickable themselves (widgets, closed accordion cards). */
+@utility card-hover {
+  transition: translate 200ms var(--ease-smooth), box-shadow 200ms var(--ease-smooth), border-color 200ms var(--ease-smooth), background-color 200ms var(--ease-smooth);
+  &:hover { translate: 0 -2px; box-shadow: 0 14px 30px -22px rgba(3, 4, 94, 0.45); border-color: var(--brand-aqua); background-color: color-mix(in srgb, var(--brand-ice) 60%, white); }
+  @media (prefers-reduced-motion: reduce) { &:hover { translate: none; } }
+}
+@utility card-hover-soft {
+  transition: box-shadow 200ms var(--ease-smooth);
+  &:hover { box-shadow: 0 14px 30px -22px rgba(3, 4, 94, 0.45); }
+}
 html { scrollbar-gutter: stable; }
 
 /* A loader taking over from another one already on screen: no delay, no intro. */
@@ -449,11 +516,14 @@ html[data-navigating] .page-gate { opacity: 0; transition: opacity 120ms var(--e
 }
 @media (prefers-reduced-motion: reduce) { .tab-pill { transition: opacity 120ms; } }
 
-/* Visible keyboard focus on every interactive element. :where() keeps it at zero specificity, so a
-   component's own focus ring (ring-*, outline-*) still wins. */
-:where(a[href], button, summary, select, [role='tab'], [role='option'], [tabindex]:not([tabindex='-1'])):focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
+/* Visible keyboard focus on every interactive element. In the base layer (and :where(), zero
+   specificity) so a component's own focus ring (ring-*, outline-* utilities) still wins: unlayered
+   CSS would beat every Tailwind utility regardless of specificity. */
+@layer base {
+  :where(a[href], button, summary, select, [role='tab'], [role='option'], [tabindex]:not([tabindex='-1'])):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
 }
 
 /* "Print next schedule" slip: hidden on screen; when printing it, only the slip prints. */
@@ -464,7 +534,7 @@ html[data-navigating] .page-gate { opacity: 0; transition: opacity 120ms var(--e
   @page { margin: 12mm; }
   html, body, .brand { background: #fff !important; color: #000 !important; }
   #main-sidebar, .app-topbar, .nav-progress, .print-hide,
-  button, [data-slot='button'], [data-arrow-nav], [role='tablist'], nav[aria-label='Breadcrumb'], nav[aria-label='Table pages'],
+  button, [data-slot='button'], [data-arrow-nav], [role='tablist'], nav[aria-label='Table pages'],
   input, select, textarea, fieldset, dialog, a[href='#main-content'] { display: none !important; }
   #main-content { padding: 0 !important; }
   #main-content > div { max-width: none !important; }
@@ -479,4 +549,44 @@ html[data-navigating] .page-gate { opacity: 0; transition: opacity 120ms var(--e
   [data-accordion-panel] { grid-template-rows: 1fr !important; opacity: 1 !important; }
   body.printing-slip > *:not(.print-slip-root) { display: none !important; }
   body.printing-slip > .print-slip-root { display: block !important; }
+}
+
+/* Data grid (Nutritional Assessment tables): one treatment for every table on the page.
+   Lines: cells and rows brand-line/70; header rule, group dividers and sticky edges brand-line
+   (set per cell with border-l-brand-line etc., which as utilities override these defaults).
+   Rows opt in: data-zebra (even data rows), data-urgent, data-current, data-detail (expanded row
+   that belongs to the row above). .data-grid--hover adds the hover tint for clickable rows.
+   Backgrounds sit on the cells (not the row) so sticky cells match their row. */
+@layer components {
+  .data-grid {
+    --grid-line: color-mix(in srgb, var(--brand-line) 70%, white);
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .data-grid > :is(thead, tbody, tfoot) > tr > * { border-color: var(--grid-line); }
+  .data-grid > :is(thead, tbody, tfoot) > tr > :not(:first-child) { border-left-width: 1px; }
+  /* A sticky first column draws its own right edge; the next cell does not add a second line. */
+  .data-grid > :is(thead, tbody, tfoot) > tr > .grid-pin-left + * { border-left-width: 0; }
+
+  .data-grid > thead > tr > * { background-color: var(--group-a); }
+  .data-grid > thead > tr:not(:last-child) > :not([rowspan]) { border-bottom-width: 1px; }
+  .data-grid > thead > tr:last-child > *,
+  .data-grid > thead > tr > [rowspan] { border-bottom: 2px solid var(--brand-line); }
+
+  .data-grid > tbody > tr > * {
+    background-color: #fff;
+    border-bottom-width: 1px;
+    transition: background-color 120ms;
+  }
+  /* The card (pager, footnote or totals row) closes the table; a detail row joins its parent. */
+  .data-grid > tbody > tr:last-child > *,
+  .data-grid > tbody > tr:has(+ tr[data-detail]) > * { border-bottom-width: 0; }
+  .data-grid > tbody > tr[data-zebra] > * { background-color: var(--row-zebra); }
+  .data-grid > tbody > tr[data-current] > * { background-color: var(--brand-ice); }
+  .data-grid > tbody > tr[data-urgent] > * { background-color: var(--tone-severe-row); }
+  .data-grid--hover > tbody > tr:not([data-detail]):hover > * { background-color: var(--brand-ice); }
+
+  /* Totals row: 2px rule above so it reads as a total. */
+  .data-grid > tfoot > tr > * { border-top: 2px solid var(--total-line); }
+  .data-grid > tfoot > tr > :not(:first-child) { border-left-color: var(--total-line); }
 }

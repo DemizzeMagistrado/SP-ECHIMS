@@ -35,7 +35,7 @@ import { LoadError } from '@/components/ui/load-error'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { AccordionCard, ExpandCollapseAll } from '@/components/ui/accordion-card'
+import { AccordionCard, useSingleOpen } from '@/components/ui/accordion-card'
 import { DataTable } from '@/components/ui/data-table'
 import { Modal } from '@/components/ui/modal'
 import { PAGE_SIZE, Pagination, collapsedRowsHeight, usePagination, useStableHeight } from '@/components/ui/pagination'
@@ -43,6 +43,7 @@ import { Field } from '@/components/ui/form'
 import { BhwAssistBadge, BhwAssistToggle } from '@/components/vaccination/bhw-assist'
 import { ScheduleHistoryButton } from '@/components/vaccination/schedule-history'
 import { BulkReminderButton, SendReminderButton, remindersByChild, type ReminderData, type ReminderRow } from '@/components/vaccination/schedule-reminders'
+import { NoAccess } from '@/components/ui/no-access'
 
 /* ═════════════════════════ Shared helpers ═════════════════════════ */
 
@@ -524,7 +525,8 @@ function ScheduleSection() {
       window.history.replaceState(null, '', u)
     }
   }
-  const [openOverride, setOpenOverride] = useState<Record<number, boolean>>({})
+  const { isOpen, toggle: toggleOpen } = useSingleOpen<number>()
+  const router = useRouter()
   const [reviewing, setReviewing] = useState<ScheduleRow | null>(null)
   const [reviewAction, setReviewAction] = useState<'APPROVE' | 'REVISE'>('APPROVE')
   const [reviewRemarks, setReviewRemarks] = useState('')
@@ -604,10 +606,6 @@ function ScheduleSection() {
   // list, so the card and the pager never change height between pages.
   const { bindArea: bindStable, height: stableHeight } = useStableHeight(pagerProps.pageCount > 1, true, collapsedRowsHeight)
 
-  const isOpen = (id: number) => openOverride[id] ?? false
-  const allOpen = shown.length > 0 && shown.every((c) => isOpen(c.child_id))
-  const noneOpen = shown.every((c) => !isOpen(c.child_id))
-  const setAll = (open: boolean) => setOpenOverride(Object.fromEntries(shown.map((c) => [c.child_id, open])))
 
   if (!isReady) return <LogoLoader />
   if (!canView) return <div className="rounded-2xl border border-border bg-white p-10 text-center text-red-600">You are not authorized to view the vaccination schedule.</div>
@@ -653,7 +651,7 @@ function ScheduleSection() {
     <div className="space-y-6">
       <VaccinationSnapshotNotice savedAt={doses.savedAt} readOnly={readOnly} />
       <PageHeader
-        title="Vaccination Schedule"
+        title="Vaccination: Schedule"
         subtitle="Each child's next dose, Missed doses with their new dates, schedule requests and guardian reminders."
         actions={<>
           {role === 'Administrator' && <Link href="/alerts?tab=SMS" className={buttonVariants({ variant: 'tonal' })}><MessageSquare size={16} aria-hidden="true" /> SMS history</Link>}
@@ -686,7 +684,6 @@ function ScheduleSection() {
             }
             // Only when the server capped the list; the chip counts already say how many children.
             info={truncated && counts ? `Showing the ${counts.total_shown} longest-missed of ${counts.total_matched} missed doses. Pick a vaccine to see the rest.` : null}
-            actions={shown.length > 1 ? <ExpandCollapseAll allOpen={allOpen} noneOpen={noneOpen} onSet={setAll} /> : null}
           >
             <Select aria-label="Vaccine" value={vaccineFilter} onChange={(e) => setVaccineFilter(e.target.value)}>
               <option value="">All vaccines</option>
@@ -710,9 +707,9 @@ function ScheduleSection() {
               className="rounded-2xl border border-dashed border-border bg-white"
             />
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-brand-line bg-white">
-              <div ref={bindList} style={stableHeight ? undefined : listStyle} className="scroll-mt-4">
-              <ul ref={bindStable} style={stableHeight ? { height: stableHeight } : undefined} className={cn('space-y-2.5 p-3', stableHeight > 0 && 'scroll-subtle overflow-y-auto overscroll-contain')}>
+            <div className={cn('overflow-hidden rounded-2xl border border-brand-line', !stableHeight && 'bg-white')}>
+              <div ref={bindList} style={stableHeight ? { height: stableHeight } : listStyle} className={cn('scroll-mt-4', stableHeight > 0 && 'scroll-subtle overflow-y-auto overscroll-contain')}>
+              <ul ref={bindStable} className="space-y-2.5 bg-white p-3">
                 {visible.map((c) => {
                   const open = isOpen(c.child_id)
                   const req = c.request
@@ -722,15 +719,22 @@ function ScheduleSection() {
                       key={c.child_id}
                       id={`schedule-${c.child_id}`}
                       open={open}
-                      onToggle={() => setOpenOverride((o) => ({ ...o, [c.child_id]: !open }))}
+                      onToggle={() => toggleOpen(c.child_id)}
                       header={<>
-                        <span className="min-w-0 flex-1">
-                          <span className="block font-semibold text-brand-navy">{c.child_name}</span>
+                        {/* 12rem basis: on a phone the status line wraps below the name instead of squeezing it. */}
+                        <span className="min-w-0 flex-[1_1_12rem]">
+                          {/* The name opens the profile's NIP section (the full dose breakdown); the rest of the
+                              header toggles the card. Keyboard users reach the same page with "View". */}
+                          <span
+                            onClick={(e) => { e.stopPropagation(); router.push(vaccinationProfileHref(c.child_id)) }}
+                            title="Open the child's vaccination profile"
+                            className="font-semibold text-brand-navy underline-offset-4 hover:text-brand-blue hover:underline"
+                          >{c.child_name}</span>
                           <span className="mt-0.5 block text-xs text-muted-foreground">{c.child_code ?? `#${c.child_id}`} · {c.barangay_name ?? '—'}{c.date_of_birth ? ` · Born ${formatYmd(c.date_of_birth)}` : ''}</span>
                         </span>
                         {/* Status summary: the next dose (compact), a missed count only when more than one,
                             and the request only when it needs action. */}
-                        <span className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
+                        <span className="flex flex-wrap items-center justify-start gap-x-3 gap-y-1.5 sm:justify-end">
                           {next && <NextDose date={doseDate(next)} vaccine={next.vaccine_type} dose={next.dose_number} missed={next.status === 'OVERDUE'} provisional={next.provisional} />}
                           {c.missed.length > 1 && <StatusBadge status="missed" tone="danger" label={`${c.missed.length} missed`} />}
                           {c.completed && <StatusBadge status="completed" tone="good" label="Completed" />}
@@ -739,7 +743,9 @@ function ScheduleSection() {
                         </span>
                       </>}
                     >
-                      <div className="space-y-4">
+                      {/* Bounded on purpose: actions and the latest request only, so an open card stays small.
+                          The full missed / pending dose list lives on the child profile (View). */}
+                      <div className="space-y-2.5">
                       <div className="flex flex-wrap items-center gap-2">
                         {canReview && req?.status === 'PENDING' && <>
                           <Button size="sm" onClick={() => openReview(req, 'APPROVE')}><CheckCircle2 size={14} aria-hidden="true" /> Approve {formatYmd(req.schedule_date)}</Button>
@@ -750,31 +756,19 @@ function ScheduleSection() {
                         {canSeeRequests && <ScheduleHistoryButton variant="ghost" childId={c.child_id} childName={c.child_name} />}
                         <Link href={vaccinationProfileHref(c.child_id)} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>View <ArrowRight size={12} aria-hidden="true" /></Link>
                       </div>
-                      {req && (
-                        <p className="rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-border/70">
-                          <span className="font-medium text-brand-navy">Schedule request for {formatYmd(req.schedule_date)}</span> · {SCHEDULE_STATUS_META[req.status].label}
-                          {req.remarks && <span className="block text-xs text-muted-foreground">Requester: {req.remarks}</span>}
-                          {req.review_remarks && <span className="block text-xs text-muted-foreground">Reviewer: {req.review_remarks}</span>}
-                        </p>
-                      )}
-                      <ul className="space-y-2.5">
-                        {c.missed.map((d) => (
-                          <li key={`m-${d.vaccine_code}-${d.dose_number}`} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-border/70">
-                            <span>
-                              <Link href={vaccinationProfileHref(c.child_id, d.vaccine_code)} className="font-medium text-brand-navy underline-offset-4 hover:text-brand-blue hover:underline">{d.vaccine_type} · Dose {d.dose_number}</Link>
-                              <span className="mt-0.5 block text-xs text-muted-foreground">Due {formatYmd(d.due_date)} · missed for {days(d.days_overdue)}</span>
+                      {req ? (
+                        // One line each, truncated (full text on hover and in View history).
+                        <p className="rounded-lg bg-white px-4 py-2.5 text-sm ring-1 ring-border/70">
+                          <span className="block truncate"><span className="font-medium text-brand-navy">Schedule request for {formatYmd(req.schedule_date)}</span> · {SCHEDULE_STATUS_META[req.status].label}</span>
+                          {(req.review_remarks || req.remarks) && (
+                            <span className="block truncate text-xs text-muted-foreground" title={req.review_remarks ?? req.remarks ?? undefined}>
+                              {req.review_remarks ? `Reviewer: ${req.review_remarks}` : `Requester: ${req.remarks}`}
                             </span>
-                            <NextDose date={doseDate(d)} missed provisional={d.provisional} />
-                          </li>
-                        ))}
-                        {c.pending.map((d) => (
-                          <li key={`p-${d.vaccine_code}-${d.dose_number}`} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg bg-white px-4 py-3 text-sm ring-1 ring-border/70">
-                            <span className="font-medium text-brand-navy">{d.vaccine_type} · Dose {d.dose_number}</span>
-                            <NextDose date={doseDate(d)} provisional={d.provisional} />
-                          </li>
-                        ))}
-                        {c.missed.length === 0 && c.pending.length === 0 && <li className="text-sm text-muted-foreground">{c.completed ? 'Completed: every routine dose is given or past its age limit.' : 'No routine doses due right now.'}</li>}
-                      </ul>
+                          )}
+                        </p>
+                      ) : c.missed.length === 0 && c.pending.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">{c.completed ? 'Completed: every routine dose is given or past its age limit.' : 'No routine doses due right now.'}</p>
+                      ) : null}
                       </div>
                     </AccordionCard>
                   )
@@ -867,13 +861,7 @@ export default function VaccinationPage() {
   const visible = role ? TABS.filter((t) => canPerform(role, t.resource, 'view')) : []
   if (visible.length === 0) {
     return (
-      <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-6">
-        <AlertCircle size={20} className="mt-0.5 shrink-0 text-rose-700" />
-        <div>
-          <h2 className="text-lg font-bold text-rose-900">Not authorized</h2>
-          <p className="mt-1 text-sm text-rose-700">You do not have access to the Vaccination module.</p>
-        </div>
-      </div>
+      <NoAccess>You do not have access to the Vaccination module.</NoAccess>
     )
   }
   const active: TabId = visible.some((t) => t.id === tab) ? tab : visible[0].id

@@ -1,21 +1,20 @@
 "use client";
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
-import { HeartPulse, RefreshCw, Search } from "lucide-react";
-import { FilterBar } from '@/components/ui/filter-bar'
-import { InfoTip } from '@/components/ui/info-tip'
+import { Fragment, useEffect, useRef, useState, type MouseEvent } from "react";
+import { AlertTriangle, ChevronDown, HeartPulse, RefreshCw, Search } from "lucide-react";
+import { CountsStrip, FilterCard, REPORT_CARD, SectionHeader } from '@/components/nutrition/report-parts'
+import { cn } from '@/lib/utils'
 import { Pagination, usePagination } from '@/components/ui/pagination'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { toast } from '@/components/ui/toast'
-import { nutritionProfileHref } from '@/lib/nutrition-status'
+import { nutritionLabel, nutritionProfileHref, nutritionTone } from '@/lib/nutrition-status'
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
-import { DateInput, Field, Input, Select, Textarea } from '@/components/ui/form'
+import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 
 type Event = {
   event_id: number;
@@ -26,6 +25,7 @@ type Event = {
     status: string;
     care_type: string | null;
     remarks: string | null;
+    note?: string;
   };
 };
 type Entry = {
@@ -100,7 +100,8 @@ export function NutritionAdmissionPanel({
   const [reload, setReload] = useState(0),
     [filter, setFilter] = useState("OPEN"),
     [search, setSearch] = useState(""),
-    [selected, setSelected] = useState<Entry | null>(null);
+    [selected, setSelected] = useState<Entry | null>(null),
+    [expanded, setExpanded] = useState<number[]>([]);
   const [form, setForm] = useState<Form>({
       careType: "",
       status: "ACTIVE",
@@ -215,76 +216,74 @@ export function NutritionAdmissionPanel({
       if (active.current) setBusy(false);
     }
   }
-  const rows = (data?.rows || []).filter(
-    (r) =>
-      (filter === "ALL" ||
-        (filter === "OPEN" ? r.status !== "DONE" : r.status === filter)) &&
-      `${r.child_name} ${r.barangay_name}`
-        .toLowerCase()
-        .includes(search.toLowerCase().trim()),
+  const matchesSearch = (r: Entry) =>
+    `${r.child_name} ${r.barangay_name}`.toLowerCase().includes(search.toLowerCase().trim());
+  const searched = (data?.rows || []).filter(matchesSearch);
+  const rows = searched.filter(
+    (r) => filter === "ALL" || (filter === "OPEN" ? r.status !== "DONE" : r.status === filter),
   );
   const { visible: pageRows, bindList, listStyle, props: pager } = usePagination(rows);
-  // The whole row opens the profile; links, buttons and the History toggle keep their own action.
+  // The whole row opens the profile; buttons keep their own action.
   const openRow = (event: MouseEvent, childId: number) => {
-    if (!(event.target as HTMLElement).closest("a,button,summary,details")) router.push(nutritionProfileHref(childId));
+    if (!(event.target as HTMLElement).closest("a,button")) router.push(nutritionProfileHref(childId));
   };
+  const toggle = (id: number) =>
+    setExpanded((list) => (list.includes(id) ? list.filter((v) => v !== id) : [...list, id]));
+  // Same table styling as All assessments (.data-grid lines, zebra, hover with a navy bar, pinned Action column).
+  const head = "px-4 py-3 text-left align-bottom text-[13px] font-semibold text-brand-navy";
+  const cell = "px-4 py-3.5 align-top";
+  const pinned = "relative sm:sticky right-0 w-[208px] min-w-[208px] border-l-brand-line sm:shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]";
+  const dash = <span className="text-brand-muted">—</span>;
+  const careLabel = (v: string | null | undefined) => (v === "INPATIENT" ? "Inpatient" : v === "OUTPATIENT" ? "Outpatient" : null);
+  const statusLabel = (v: string) => (v === "PENDING" ? "Pending confirmation" : v === "ACTIVE" ? "Active" : v === "DONE" ? "Done" : v);
   return (
-    <section className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="flex items-center gap-1.5 text-lg font-semibold text-brand-navy">
-            SAM/MAM admission tracking
-            <InfoTip label="About admission tracking">
-              Qualifying saved assessments create pending entries. RHM/BNS confirm
-              actual inpatient or outpatient care after checkup. Active means confirmed
-              ongoing care; Done means this tracking entry was completed, not an
-              automatically inferred cure. No next follow-up date is required. At most
-              the latest 500 scoped entries are displayed.
-            </InfoTip>
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Confirm actual care for children flagged SAM or MAM
-          </p>
-        </div>
-        <Button variant="tonal"
-          loading={loading && Boolean(data)}
-          disabled={loading || busy || !online}
-          onClick={() => setReload((v) => v + 1)}
-        >
-          <RefreshCw size={16} aria-hidden="true" />
-          Refresh
-        </Button>
-      </div>
-      <FilterBar>
-        <Field label="Child or barangay">
-          <div className="relative">
-            <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="search"
-              className="pl-9"
-              placeholder="Search by child or barangay"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </Field>
-        <Field label="Care status">
-          <Select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+    <section className="space-y-5" aria-label="SAM/MAM admission tracking">
+      <SectionHeader
+        title="SAM/MAM admission tracking"
+        subtitle="Children flagged SAM or MAM. Confirm the care they are actually receiving and track their checkups."
+        about="Qualifying saved assessments create pending entries. RHM/BNS confirm actual inpatient or outpatient care after checkup. Active means confirmed ongoing care; Done means this tracking entry was completed, not an automatically inferred cure. No next follow-up date is required. At most the latest 500 scoped entries are displayed."
+      />
+      <FilterCard
+        refresh={
+          <Button
+            variant="secondary"
+            loading={loading && Boolean(data)}
+            disabled={loading || busy || !online}
+            title={online ? undefined : "Reconnect to refresh"}
+            onClick={() => setReload((v) => v + 1)}
           >
-            {["OPEN", "PENDING", "ACTIVE", "DONE", "ALL"].map((v) => (
-              <option key={v} value={v}>
-                {v === "OPEN"
-                  ? "Pending & Active"
-                  : v === "PENDING"
-                    ? "Pending confirmation"
-                    : v}
-              </option>
-            ))}
-          </Select>
-        </Field>
-      </FilterBar>
+            {!(loading && data) && <RefreshCw size={16} aria-hidden="true" />}
+            Refresh
+          </Button>
+        }
+        below={data && (
+          // Counts for the current search (applying the care-status filter would zero the other two).
+          <CountsStrip label="Admission counts" items={[
+            { label: "Pending confirmation", value: searched.filter((r) => r.status === "PENDING").length, tone: "review" },
+            { label: "Active", value: searched.filter((r) => r.status === "ACTIVE").length },
+            { label: "Done", value: searched.filter((r) => r.status === "DONE").length },
+          ]} />
+        )}
+      >
+        <div className="relative lg:col-span-2">
+          <Search size={18} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            aria-label="Search by child or barangay"
+            className="pl-10"
+            placeholder="Search by child or barangay"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <Select aria-label="Care status" value={filter} onChange={(e) => setFilter(e.target.value)}>
+          {["OPEN", "PENDING", "ACTIVE", "DONE", "ALL"].map((v) => (
+            <option key={v} value={v}>
+              {v === "OPEN" ? "Pending & Active" : v === "PENDING" ? "Pending confirmation" : v}
+            </option>
+          ))}
+        </Select>
+      </FilterCard>
       {!online && (
         <p className="text-sm text-amber-800">
           Reconnect to confirm care. Admission changes are not queued offline.
@@ -303,135 +302,133 @@ export function NutritionAdmissionPanel({
       {loading && !data ? (
         <Spinner showLabel label="Loading admission tracking…" className="w-full justify-center py-6 text-sm text-muted-foreground" />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-border bg-white">
-        <div ref={bindList} style={listStyle} className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-muted">
-              <tr>
-                {[
-                  "Child / Source assessment",
-                  "Screening",
-                  "Care type",
-                  "Status / Checkup",
-                  "Facility / Remarks",
-                  "Recorded by",
-                  "Action",
-                ].map((v) => (
-                  <th key={v} scope="col" className="px-4 py-3 text-xs font-semibold">
-                    {v}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {rows.length === 0 ? (
+        <div className={REPORT_CARD}>
+          <div ref={bindList} style={listStyle} className="scroll-subtle overflow-x-auto">
+            <table className="data-grid data-grid--hover w-full text-sm text-brand-navy">
+              <thead>
                 <tr>
-                  <td colSpan={7}><EmptyState icon={HeartPulse} title="No care entries in this view" description="Try a different status or filter." /></td>
+                  {["Child / Source assessment", "Screening", "Care type", "Status / Checkup", "Facility / Remarks", "Recorded by"].map((v) => (
+                    <th key={v} scope="col" className={cn(head, "whitespace-nowrap")}>{v}</th>
+                  ))}
+                  <th scope="col" className={cn(head, pinned, "z-[2]")}>Action</th>
                 </tr>
-              ) : (
-                pageRows.map((r) => (
-                  <tr key={r.admission_id} onClick={(event) => openRow(event, r.child_id)} className="cursor-pointer transition-colors hover:bg-brand-ice/60">
-                    <td className="px-4 py-3">
-                      <Link
-                        className="font-medium text-brand-navy underline-offset-4 hover:text-brand-blue hover:underline"
-                        href={nutritionProfileHref(r.child_id)}
-                      >
-                        {r.child_name}
-                      </Link>
-                      <p className="text-xs text-muted-foreground">
-                        {r.barangay_name} · Assessment #{r.source_assessment_id}{" "}
-                        · {r.source_assessment_date}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3">
-                      {r.classification_at_detection}
-                      {r.latest_classification !==
-                        r.classification_at_detection && (
-                        <p className="text-xs text-amber-800">
-                          Latest: {r.latest_classification || "Unavailable"} ·{" "}
-                          {r.latest_assessment_date}
-                        </p>
-                      )}
-                      {!["SAM", "MAM"].includes(
-                        r.source_current_classification,
-                      ) && (
-                        <p className="text-xs text-amber-800">
-                          Source assessment corrected; review required.
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {r.care_type === "INPATIENT"
-                        ? "Inpatient"
-                        : r.care_type === "OUTPATIENT"
-                          ? "Outpatient"
-                          : "Not confirmed"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge
-                        status={r.status}
-                        tone={r.status === "PENDING" ? "warn" : r.status === "ACTIVE" ? "info" : "good"}
-                        label={r.status === "PENDING" ? "Pending confirmation" : r.status === "ACTIVE" ? "Active" : "Done"}
-                      />
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {r.checkup_date || "No checkup confirmed"}
-                      </p>
-                    </td>
-                    <td className="max-w-sm px-4 py-3">
-                      <p>{r.facility_name || "—"}</p>
-                      <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
-                        {r.remarks || "—"}
-                      </p>
-                      <details className="mt-2 text-xs">
-                        <summary className="cursor-pointer text-primary">
-                          History
-                        </summary>
-                        {r.history.map((h) => (
-                          <div
-                            key={h.event_id}
-                            className="mt-2 rounded border p-2"
-                          >
-                            <p>
-                              {h.action} · {h.new_values.status} ·{" "}
-                              {h.new_values.care_type || "Not confirmed"}
-                            </p>
-                            <p>{h.new_values.remarks}</p>
-                            <p className="text-muted-foreground">
-                              {h.actor_name || "Automatic detection"} ·{" "}
-                              {new Date(h.created_at).toLocaleString("en-PH", {
-                                timeZone: "Asia/Manila",
-                              })}
-                            </p>
-                          </div>
-                        ))}
-                      </details>
-                    </td>
-                    <td className="px-4 py-3">
-                      {r.updated_by_name ||
-                        r.confirmed_by_name ||
-                        "Not confirmed"}
-                    </td>
-                    <td className="px-4 py-3">
-                      {data?.canEdit && (
-                        <Button
-                          variant="tonal"
-                          size="sm"
-                          disabled={busy || !online}
-                          onClick={() => open(r)}
-                        >
-                          {r.status === "PENDING"
-                            ? "Confirm care"
-                            : "Update remarks / status"}
-                        </Button>
-                      )}
-                    </td>
+              </thead>
+              <tbody>
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={7}><EmptyState icon={HeartPulse} title="No care entries in this view" description="Try a different status or filter." /></td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        <Pagination {...pager} label="Admission tracking pages" />
+                ) : (
+                  pageRows.map((r, i) => {
+                    const expandedRow = expanded.includes(r.admission_id);
+                    const historyId = `admission-${r.admission_id}-history`;
+                    // History is newest first: a correction of the source assessment is the latest UPDATED event.
+                    const latest = r.history[0];
+                    const corrected = latest?.action === "UPDATED" && latest.new_values?.note === "Source assessment corrected";
+                    const recordedBy = r.updated_by_name || r.confirmed_by_name;
+                    return (
+                      <Fragment key={r.admission_id}>
+                        <tr onClick={(event) => openRow(event, r.child_id)} data-zebra={i % 2 === 1 || undefined} className="group cursor-pointer">
+                          <td className={cn(cell, "min-w-52 transition-[box-shadow,background-color] duration-[120ms] group-hover:shadow-[inset_3px_0_0_var(--brand-navy)]")}>
+                            <span className="font-semibold">{r.child_name}</span>
+                            <span className="block text-xs text-brand-muted">
+                              {r.barangay_name}. Assessment #{r.source_assessment_id}, <span className="whitespace-nowrap">{r.source_assessment_date}</span>
+                            </span>
+                          </td>
+                          <td className={cn(cell, "min-w-36")}>
+                            <StatusBadge status={r.classification_at_detection} tone={nutritionTone(r.classification_at_detection)} label={nutritionLabel(r.classification_at_detection)} />
+                            {r.latest_classification !== r.classification_at_detection && (
+                              <p className="mt-1 text-xs text-review">
+                                Latest: {r.latest_classification ? nutritionLabel(r.latest_classification) : "Unavailable"}, <span className="whitespace-nowrap">{r.latest_assessment_date}</span>
+                              </p>
+                            )}
+                          </td>
+                          <td className={cell}>{careLabel(r.care_type) ?? dash}</td>
+                          <td className={cn(cell, "min-w-48")}>
+                            <StatusBadge status={r.status} tone={r.status === "PENDING" ? "review" : r.status === "ACTIVE" ? "info" : "good"} label={statusLabel(r.status)} />
+                            <p className="mt-1 text-xs text-brand-muted">{r.checkup_date || "No checkup yet"}</p>
+                            {(corrected || !["SAM", "MAM"].includes(r.source_current_classification)) && (
+                              <p className="mt-1.5 flex items-start gap-1.5 text-xs font-semibold text-review">
+                                <AlertTriangle size={14} aria-hidden="true" className="mt-px shrink-0" />
+                                Source assessment corrected. Review this admission.
+                              </p>
+                            )}
+                          </td>
+                          <td className={cn(cell, "min-w-48 max-w-sm")}>
+                            {r.facility_name || r.remarks ? (
+                              <>
+                                {r.facility_name && <p>{r.facility_name}</p>}
+                                {r.remarks && <p className={cn("whitespace-pre-wrap text-xs text-brand-muted", r.facility_name && "mt-1")}>{r.remarks}</p>}
+                              </>
+                            ) : dash}
+                          </td>
+                          <td className={cn(cell, "min-w-36")}>{recordedBy ?? dash}</td>
+                          <td className={cn(cell, pinned, "z-[1]")}>
+                            <div className="flex items-center gap-2">
+                              {data?.canEdit && r.status !== "DONE" && (
+                                <Button
+                                  variant={r.status === "PENDING" ? "primary" : "row"}
+                                  size="row"
+                                  className="flex-1"
+                                  disabled={busy || !online}
+                                  onClick={() => open(r)}
+                                >
+                                  {r.status === "PENDING" ? "Confirm care" : "Update"}
+                                  <span className="sr-only"> for {r.child_name}</span>
+                                </Button>
+                              )}
+                              <Button
+                                variant="row"
+                                size="row"
+                                className="ml-auto w-9 shrink-0 px-0"
+                                aria-expanded={expandedRow}
+                                aria-controls={historyId}
+                                aria-label={`History for ${r.child_name}`}
+                                onClick={() => toggle(r.admission_id)}
+                              >
+                                <ChevronDown aria-hidden="true" className={cn("transition-transform duration-200 motion-reduce:transition-none", expandedRow && "rotate-180")} />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                        {expandedRow && (
+                          <tr id={historyId} data-detail>
+                            <td colSpan={7} className="bg-group-a px-4 py-3">
+                              {/* Pinned to the visible width when the table scrolls sideways (phones). */}
+                              <div className="sticky left-4 max-w-[calc(100vw-4.5rem)] sm:static sm:max-w-none">
+                              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand-muted">Admission history</p>
+                              {r.history.length ? (
+                                <ol className="space-y-2">
+                                  {r.history.map((h) => (
+                                    <li key={h.event_id} className="rounded-xl border border-brand-line bg-white px-3 py-2 text-sm">
+                                      <p className="flex flex-wrap items-baseline gap-x-2">
+                                        <span className="text-xs font-semibold uppercase tracking-wide">{h.action}</span>
+                                        <span className="text-xs text-brand-muted">
+                                          {new Date(h.created_at).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}. {h.actor_name || "Automatic detection"}
+                                        </span>
+                                      </p>
+                                      <p className="mt-0.5">
+                                        Status: {statusLabel(h.new_values?.status ?? "")}. Care type: {careLabel(h.new_values?.care_type) ?? "not confirmed"}.
+                                      </p>
+                                      {h.new_values?.remarks && <p className="mt-0.5 whitespace-pre-wrap text-brand-muted">{h.new_values.remarks}</p>}
+                                    </li>
+                                  ))}
+                                </ol>
+                              ) : (
+                                <p className="text-sm text-brand-muted">No events recorded.</p>
+                              )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+          <Pagination {...pager} label="Admission tracking pages" />
         </div>
       )}
       {selected && (

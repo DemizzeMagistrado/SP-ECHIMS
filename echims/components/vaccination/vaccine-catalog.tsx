@@ -11,7 +11,7 @@ import { refreshOfflineViews as globalMutate } from '@/lib/offline/refresh'
 import { useVaccinationView } from '@/hooks/use-vaccination-view'
 import { vaccinationKeyMatches } from '@/lib/vaccination-cache'
 import { VaccinationSnapshotNotice } from '@/components/vaccination/vaccination-offline-tools'
-import { Plus, AlertCircle, CheckCircle2, Pencil, Power, Syringe, Settings2, History, BookOpen, Shield, Info, ExternalLink, Search } from 'lucide-react'
+import { Plus, CheckCircle2, Pencil, Power, Syringe, Settings2, History, BookOpen, Shield, Info, ExternalLink, Search } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { toast } from '@/components/ui/toast'
@@ -25,7 +25,8 @@ import { Button } from '@/components/ui/button'
 import { BatchFormatPanel, CompanionMedicinesPanel } from '@/components/vaccination/vaccine-settings-panels'
 import { Input, Select } from '@/components/ui/form'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { AccordionCard, ExpandCollapseAll } from '@/components/ui/accordion-card'
+import { AccordionCard, useSingleOpen } from '@/components/ui/accordion-card'
+import { NoAccess } from '@/components/ui/no-access'
 
 /* ═════════════════════════ Shared helpers ═════════════════════════ */
 
@@ -81,17 +82,8 @@ export function CatalogSection() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<VaccineCatalogRow | null>(null)
   const [togglingId, setTogglingId] = useState<number | null>(null)
-  // NIP-USR011 — tracks which rows have the inline Guidelines panel expanded.
-  // Using a Set so multiple rows can stay open simultaneously if the user wants
-  // to compare two vaccines side-by-side.
-  const [expanded, setExpanded] = useState<Set<number>>(new Set())
-  function toggleExpanded(id: number) {
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
-      return next
-    })
-  }
+  // NIP-USR011 — the inline Guidelines panel; one vaccine open at a time.
+  const { isOpen, toggle: toggleExpanded } = useSingleOpen<number>()
   const [search, setSearch] = useState('')
   // Active vaccines by default (Rotavirus is kept as inactive for old records).
   const [activeFilter, setActiveFilter] = useState<'all' | 'ACTIVE' | 'INACTIVE'>('ACTIVE')
@@ -129,13 +121,7 @@ export function CatalogSection() {
     return (
       <div className="space-y-6">
       <VaccinationSnapshotNotice savedAt={savedAt} readOnly={readOnly} />
-        <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-6">
-          <AlertCircle size={20} className="mt-0.5 shrink-0 text-rose-700" />
-          <div>
-            <h2 className="text-lg font-bold text-rose-900">Not authorized</h2>
-            <p className="mt-1 text-sm text-rose-700">You do not have access to the NIP vaccine catalog.</p>
-          </div>
-        </div>
+        <NoAccess>You do not have access to the Vaccines tab.</NoAccess>
       </div>
     )
   }
@@ -148,15 +134,12 @@ export function CatalogSection() {
     return (!q || [item?.item_name, v.vaccine_type, item?.description].some((x) => x?.toLowerCase().includes(q)))
       && (activeFilter === 'all' || (activeFilter === 'ACTIVE') === isActive)
   })
-  const allOpen = rows.length > 0 && rows.every((v) => expanded.has(v.vaccine_id))
-  const noneOpen = rows.every((v) => !expanded.has(v.vaccine_id))
-  const setAll = (open: boolean) => setExpanded(open ? new Set(rows.map((v) => v.vaccine_id)) : new Set())
 
   return (
     <div className="space-y-6">
       <VaccinationSnapshotNotice savedAt={savedAt} readOnly={readOnly} />
       <PageHeader
-        title="Vaccines"
+        title="Vaccination: Vaccines"
         subtitle="The DOH immunization catalog and schedule rules. Open a vaccine for eligibility and guidelines; every change is logged."
         actions={(isAdmin || canManage) && <>
           {canManage && (
@@ -204,7 +187,6 @@ export function CatalogSection() {
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs text-muted-foreground">{rows.length} of {allRows.length} vaccines</span>
-            {rows.length > 1 && <ExpandCollapseAll allOpen={allOpen} noneOpen={noneOpen} onSet={setAll} />}
           </div>
         </div>
 
@@ -216,7 +198,7 @@ export function CatalogSection() {
               {rows.map((v) => {
                 const item = one(v.item)
                 const active = item?.status === 'ACTIVE'
-                const open = expanded.has(v.vaccine_id)
+                const open = isOpen(v.vaccine_id)
                 return (
                   <AccordionCard
                     key={v.vaccine_id}
@@ -299,13 +281,9 @@ function GuidelinesPanel({
           <BookOpen size={13} /> DOH Guidelines & Eligibility
         </h4>
         {isAdmin && (
-          <button
-            type="button"
-            onClick={onEdit}
-            className="inline-flex items-center gap-1 rounded-lg border border-sky-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-sky-800 hover:bg-sky-100"
-          >
-            <Pencil size={10} /> Edit guidelines
-          </button>
+          <Button variant="secondary" size="sm" onClick={onEdit}>
+            <Pencil size={13} aria-hidden="true" /> Edit guidelines
+          </Button>
         )}
       </div>
 

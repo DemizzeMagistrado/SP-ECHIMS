@@ -12,7 +12,7 @@ import { useState, useSyncExternalStore } from 'react'
 import { normalizeBatchNumber } from '@/lib/vaccination-config'
 import useSWR from 'swr'
 import {
-  Search, Package, Hash, MapPin, CalendarClock, AlertCircle, Download, Users, Syringe, Pill,
+  Search, Package, Hash, MapPin, CalendarClock, Download, Users, Syringe, Pill,
   CheckCircle2, Clock, Send,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
@@ -23,6 +23,8 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/form'
+import { NoAccess } from '@/components/ui/no-access'
+import { LoadError } from '@/components/ui/load-error'
 
 type TracePayload = {
   batch_number: string
@@ -70,7 +72,7 @@ export default function BatchTracePage() {
   const query = typed ?? linked
   const submitted = chosen ?? linked
 
-  const { data, error, isLoading } = useSWR<TracePayload>(
+  const { data, error, isLoading, isValidating, mutate } = useSWR<TracePayload>(
     canView && submitted ? `/api/inventory/batch-trace?batch_number=${encodeURIComponent(submitted)}` : null,
     fetcher,
   )
@@ -80,13 +82,7 @@ export default function BatchTracePage() {
     return (
       <div className="space-y-6">
         <ModuleTabs parent="Inventory" role={role} />
-        <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-6">
-          <AlertCircle size={20} className="mt-0.5 shrink-0 text-rose-700" />
-          <div>
-            <h2 className="text-lg font-bold text-rose-900">Not authorized</h2>
-            <p className="mt-1 text-sm text-rose-700">Batch tracing is restricted to PHN and Admin.</p>
-          </div>
-        </div>
+        <NoAccess>Batch tracing is restricted to PHN and Admin.</NoAccess>
       </div>
     )
   }
@@ -162,7 +158,7 @@ export default function BatchTracePage() {
         <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Searching…</div>
       )}
       {submitted && error && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
+        <LoadError what="the batch trace" error={error} retrying={isValidating} onRetry={() => void mutate()} />
       )}
 
       {data && (

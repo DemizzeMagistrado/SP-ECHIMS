@@ -11,6 +11,7 @@ import useSWR from 'swr'
 import { useMemo, useState } from 'react'
 import { MapPin, MapPinOff, RefreshCw, Search, X } from 'lucide-react'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
+import { LoadError } from '@/components/ui/load-error'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { LogoLoader } from '@/components/brand/logo-loader'
@@ -162,16 +163,13 @@ export default function GeospatialMapPage() {
     <div className="space-y-6">
       <ModuleTabs parent="Child Profiling" role={role} />
       <PageHeader
-        title="Map"
+        title="Child Profiling: Map"
         subtitle={data?.scopeLabel ? `Where registered children live and who needs follow-up · ${data.scopeLabel}` : 'Where registered children live and who needs follow-up.'}
         actions={<Button variant="tonal" onClick={() => mutate()} disabled={isLoading}><RefreshCw size={16} aria-hidden="true" />Refresh</Button>}
       />
 
       {error && !data ? (
-        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-danger/20 bg-danger-soft p-4 text-sm text-danger">
-          {error.message}
-          <Button variant="secondary" size="sm" onClick={() => mutate()}>Try again</Button>
-        </div>
+        <LoadError what="the map" error={error} onRetry={() => void mutate()} />
       ) : !data ? (
         <LogoLoader size="section" label="Loading the map…" />
       ) : noRole || noScope ? (

@@ -3,10 +3,10 @@
 // Collapsible card (the NIP vaccine-card pattern): white header with a soft hover tint; open
 // header tinted with a navy left accent; body in a light panel. Height and opacity animate
 // together (~220ms ease-out), instant with reduced motion. The header is a button with
-// aria-expanded, so Enter / Space toggle it.
+// aria-expanded, so Enter / Space toggle it. Lists open one card at a time (useSingleOpen).
 
-import type { ReactNode } from 'react'
-import { ChevronDown, ChevronsDown, ChevronsUp } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function AccordionCard({ id, open, onToggle, header, children, className }: {
@@ -21,7 +21,7 @@ export function AccordionCard({ id, open, onToggle, header, children, className 
 }) {
   const panelId = `${id}-panel`
   return (
-    <li className={cn('overflow-hidden rounded-xl border transition-colors duration-200', open ? 'border-primary/25 shadow-sm' : 'border-border', className)}>
+    <li className={cn('overflow-hidden rounded-xl border transition-colors duration-200', open ? 'border-primary/25 shadow-sm' : 'card-hover-soft border-border', className)}>
       <button
         type="button"
         aria-expanded={open}
@@ -45,20 +45,12 @@ export function AccordionCard({ id, open, onToggle, header, children, className 
   )
 }
 
-/** Expand all / Collapse all as one small segmented pair, each half disabled when it would do
- *  nothing. Lists using it start fully collapsed on every visit (keep open state in component
- *  state, never storage). */
-export function ExpandCollapseAll({ allOpen, noneOpen, onSet }: { allOpen: boolean; noneOpen: boolean; onSet: (open: boolean) => void }) {
-  const half = 'inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-brand-navy outline-none transition-colors hover:bg-white hover:shadow-sm focus-visible:ring-2 focus-visible:ring-brand-blue/35 disabled:pointer-events-none disabled:text-slate-500 [&_svg]:text-brand-blue disabled:[&_svg]:text-slate-400'
-  return (
-    <div role="group" aria-label="Expand or collapse all" className="inline-flex items-center gap-0.5 rounded-lg bg-brand-blue/[0.07] p-0.5">
-      <button type="button" className={half} onClick={() => onSet(true)} disabled={allOpen}>
-        <ChevronsDown size={14} aria-hidden="true" />Expand all
-      </button>
-      <span aria-hidden="true" className="h-4 w-px bg-brand-blue/15" />
-      <button type="button" className={half} onClick={() => onSet(false)} disabled={noneOpen}>
-        <ChevronsUp size={14} aria-hidden="true" />Collapse all
-      </button>
-    </div>
-  )
+/** Single-open accordion state: opening one card closes the open one; clicking the open one
+ *  closes it. Starts collapsed (or on `initial`) on every visit, never remembered. */
+export function useSingleOpen<K extends string | number>(initial: K | null = null) {
+  const [openKey, setOpenKey] = useState<K | null>(initial)
+  return {
+    isOpen: (key: K) => openKey === key,
+    toggle: (key: K) => setOpenKey((cur) => (cur === key ? null : key)),
+  }
 }

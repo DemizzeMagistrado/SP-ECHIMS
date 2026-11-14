@@ -13,6 +13,7 @@ import { toast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { Textarea } from '@/components/ui/form'
+import { StatusBadge } from '@/components/ui/status-badge'
 
 export type ReplenishmentRequest = {
   stock_request_id: number
@@ -97,7 +98,7 @@ export function ReplenishmentDecisionModal({ open, onClose, onDecided, request }
       size="lg"
       icon={<Package />}
       title={`Replenishment request #${request.stock_request_id}`}
-      subtitle={<>Submitted {request.request_date} · <StatusChip status={request.status} /></>}
+      subtitle={<>Submitted {request.request_date} · <StatusBadge status={request.status} /></>}
       cancelLabel={isPending ? 'Cancel' : 'Close'}
       footer={!isPending ? null : mode === 'review' ? (
         <>
@@ -174,13 +175,4 @@ function Row({ icon, label, value }: { icon: React.ReactNode; label: string; val
     </div>
   )
 }
-function StatusChip({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    PENDING: 'bg-amber-100 text-amber-800',
-    APPROVED: 'bg-emerald-100 text-emerald-800',
-    REJECTED: 'bg-rose-100 text-rose-800',
-    COMPLETED: 'bg-sky-100 text-sky-800',
-    CANCELLED: 'bg-slate-200 text-slate-700',
-  }
-  return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${map[status] ?? 'bg-slate-100 text-slate-700'}`}>{status}</span>
-}
+

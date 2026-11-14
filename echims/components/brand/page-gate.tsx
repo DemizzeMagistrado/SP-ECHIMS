@@ -118,7 +118,14 @@ export function TabPanel({ tabKey, children, className = '' }: {
   }, [tabKey])
   useEffect(() => { setArmedFor(tabKey) }, [tabKey])
 
-  const ready = armedFor === tabKey && pending === 0
+  // Same guard as PageGate: a request that never settles stops hiding the tab after 10s, so a tab
+  // never sits on the loader forever; its section then shows its own loading or error state.
+  const [timedOutFor, setTimedOutFor] = useState<string | null>(null)
+  useEffect(() => {
+    const t = window.setTimeout(() => setTimedOutFor(tabKey), 10_000)
+    return () => window.clearTimeout(t)
+  }, [tabKey])
+  const ready = armedFor === tabKey && (pending === 0 || timedOutFor === tabKey)
   useEffect(() => {
     if (!ready || shown) return
     let live = true

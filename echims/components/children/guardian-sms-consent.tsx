@@ -5,6 +5,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useState } from "react";
 import { Spinner } from '@/components/brand/logo-loader'
 import { Button } from '@/components/ui/button'
+import { StatusBadge } from '@/components/ui/status-badge'
 
 type Props = {
   guardian: {
@@ -95,11 +96,7 @@ export function GuardianSmsConsent({ guardian, canEdit, onSaved }: Props) {
     <div className="mt-4 space-y-3 rounded-xl border border-border bg-muted/30 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-semibold">Guardian SMS reminders</p>
-        <span
-          className={`rounded-full px-2.5 py-1 text-xs font-medium ${enabled ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
-        >
-          {enabled ? "Consent confirmed" : "Not enabled"}
-        </span>
+        <StatusBadge status={enabled ? 'confirmed' : 'not_enabled'} tone={enabled ? 'good' : 'warn'} label={enabled ? 'Consent confirmed' : 'Not enabled'} />
       </div>
       <p className="text-xs text-muted-foreground">
         Reminders use the saved guardian number. Consent applies to all children

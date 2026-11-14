@@ -18,7 +18,7 @@ export type TabItem<T extends string = string> = {
  * tabs are white with a soft border. Scrolls sideways on small screens instead of wrapping.
  * State tabs: pass onChange and wrap the content in <TabPanel tabKey={value}> for the fade.
  */
-export function TabBar<T extends string>({ items, value, onChange, label, group, idBase, className }: {
+export function TabBar<T extends string>({ items, value, onChange, label, group, idBase, className, variant = 'pill' }: {
   items: readonly TabItem<T>[]
   value: T
   onChange?: (value: T) => void
@@ -29,8 +29,11 @@ export function TabBar<T extends string>({ items, value, onChange, label, group,
   /** Gives tabs ids `${idBase}-tab-${value}` and aria-controls `${idBase}-panel-${value}`. */
   idBase?: string
   className?: string
+  /** underline: 44px text tabs on a 1px control-border line, active = navy text + 3px navy bar. */
+  variant?: 'pill' | 'underline'
 }) {
   const row = useRef<HTMLDivElement>(null)
+  const underline = variant === 'underline'
 
   // Keep the active tab in view when the row scrolls (phones).
   useEffect(() => {
@@ -43,19 +46,24 @@ export function TabBar<T extends string>({ items, value, onChange, label, group,
     else if (list.scrollLeft < right) list.scrollLeft = right
   }, [value])
 
-  const tabClass = (active: boolean) => cn(
-    'relative z-10 shrink-0 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60',
-    active ? 'border-transparent text-white' : 'border-border bg-white text-foreground shadow-sm hover:bg-muted',
-  )
+  const tabClass = (active: boolean) => underline
+    ? cn(
+      'inline-flex h-11 shrink-0 items-center whitespace-nowrap border-b-[3px] px-4 text-sm font-semibold outline-none transition-colors focus-visible:outline-3 focus-visible:outline-solid focus-visible:-outline-offset-3 focus-visible:outline-link disabled:cursor-not-allowed disabled:opacity-60',
+      active ? 'border-brand-navy text-brand-navy' : 'border-transparent text-brand-muted hover:text-brand-navy',
+    )
+    : cn(
+      'relative z-10 shrink-0 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+      active ? 'border-transparent text-white' : 'border-border bg-white text-foreground shadow-sm hover:bg-muted',
+    )
   const links = items.some((i) => i.href)
 
   return (
-    <div className={cn('border-b border-border pb-3', className)}>
+    <div className={cn(underline ? 'border-b border-control-line' : 'border-b border-border pb-3', className)}>
       <div
         ref={row}
         role={links ? undefined : 'tablist'}
         aria-label={links ? undefined : label}
-        className="relative -m-1 flex gap-2 overflow-x-auto p-1"
+        className={underline ? 'scroll-subtle flex gap-1 overflow-x-auto overflow-y-hidden' : 'relative -m-1 flex gap-2 overflow-x-auto p-1'}
       >
         {links ? (
           <nav aria-label={label} data-arrow-nav className="contents">
@@ -81,7 +89,7 @@ export function TabBar<T extends string>({ items, value, onChange, label, group,
             {item.label}
           </button>
         ))}
-        <TabIndicator group={group ?? label} activeKey={value} className="rounded-lg bg-primary" />
+        {!underline && <TabIndicator group={group ?? label} activeKey={value} className="rounded-lg bg-primary" />}
       </div>
     </div>
   )

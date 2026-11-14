@@ -100,16 +100,18 @@ export function DataTable<T>({
   const align = (c: Column<T>) => (c.align === 'right' ? 'text-right tabular-nums' : 'text-left')
 
   return (
-    <div className={cn('overflow-hidden rounded-2xl border border-brand-line bg-white shadow-sm', className)}>
-      {toolbar && <div className="flex flex-col gap-3 border-b border-brand-line p-4 md:flex-row md:items-center">{toolbar}</div>}
+    // stableHeight: white sits on the rows, toolbar and pager, so a short last page's reserved space
+    // shows the page background instead of a white filler box.
+    <div className={cn('overflow-hidden rounded-2xl border border-brand-line shadow-sm', !stableHeight && 'bg-white', className)}>
+      {toolbar && <div className="flex flex-col gap-3 border-b border-brand-line bg-white p-4 md:flex-row md:items-center">{toolbar}</div>}
 
       {rows.length === 0 ? (
-        <EmptyState {...(empty ?? { title: 'Nothing to show yet' })} />
+        <EmptyState {...(empty ?? { title: 'Nothing to show yet' })} className={cn('bg-white', empty?.className)} />
       ) : (
         <div ref={bindList} className={cn('scroll-mt-4 transition-opacity duration-200', refreshing && 'opacity-60')} aria-busy={refreshing || undefined}>
           <div ref={setArea} style={areaStyle}>
           {/* Sticky header: the scroll box is capped in height so the header has something to stick to. */}
-          <div className={cn('scroll-subtle max-h-[70vh] overflow-auto', mobile === 'cards' && 'hidden sm:block')}>
+          <div className={cn('scroll-subtle max-h-[70vh] overflow-auto bg-white', mobile === 'cards' && 'hidden sm:block')}>
             <table className="w-full border-separate border-spacing-0 text-sm">
               {caption && <caption className="sr-only">{caption}</caption>}
               <thead>
@@ -160,7 +162,7 @@ export function DataTable<T>({
           </div>
 
           {mobile === 'cards' && (
-            <ul className="divide-y divide-brand-line sm:hidden">
+            <ul className="divide-y divide-brand-line bg-white sm:hidden">
               {visible.map((row) => (
                 <li key={rowKey(row)} {...rowProps(row)} className={cn('relative space-y-1.5 p-4', onRowClick && cn(openable, 'pr-10'))}>
                   {onRowClick && <ChevronRight size={18} aria-hidden="true" className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-muted group-hover:text-primary" />}

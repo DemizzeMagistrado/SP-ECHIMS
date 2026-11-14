@@ -84,7 +84,7 @@ type ShellProps = WidgetProps & {
 export function WidgetShell({ id, title, note, link, action, style, size, className = '', loading, refreshing = false, error, empty, children }: ShellProps) {
   return (
     <section aria-labelledby={`${id}-heading`} aria-busy={loading || refreshing}
-      className={`${card} flex min-w-0 flex-col p-5 sm:p-6 ${size ? SIZE[size] : ''} ${rise} ${className}`} style={style}>
+      className={`${card} card-hover-soft flex min-w-0 flex-col p-5 sm:p-6 ${size ? SIZE[size] : ''} ${rise} ${className}`} style={style}>
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
         <div className="min-w-0 flex-[1_1_12rem]">
           <h2 id={`${id}-heading`} className="line-clamp-2 text-base font-semibold leading-snug">{title}</h2>
@@ -558,7 +558,7 @@ export function QuickActionsWidget({ actions, style }: WidgetProps & { actions: 
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-2">
         {actions.map((a) => (
           <li key={a.href}>
-            <Link href={a.href} className={`flex h-full items-center gap-2.5 rounded-xl border border-brand-line px-3 py-2.5 text-sm font-medium transition-colors duration-200 hover:border-brand-aqua hover:bg-brand-ice ${focusRing}`}>
+            <Link href={a.href} className={`flex h-full items-center gap-2.5 rounded-xl border border-brand-line px-3 py-2.5 text-sm font-medium card-hover ${focusRing}`}>
               <span aria-hidden className="shrink-0 text-brand-sky">{a.icon}</span>
               <span className="min-w-0 leading-snug">{a.label}</span>
             </Link>

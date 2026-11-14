@@ -14,7 +14,7 @@
 import { useMemo, useState } from 'react'
 import useSWR, { mutate as globalMutate } from 'swr'
 import {
-  Plus, Package, AlertCircle, CheckCircle2, Clock, CalendarClock, Hash, MapPin, Syringe, Pill, AlertTriangle,
+  Plus, Package, AlertCircle, CalendarClock, Hash, MapPin, Syringe, Pill, AlertTriangle,
   Layers,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
@@ -26,6 +26,10 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/form'
+import { Pagination, usePagination } from '@/components/ui/pagination'
+import { NoAccess } from '@/components/ui/no-access'
+import { LoadError } from '@/components/ui/load-error'
+import { StatusBadge } from '@/components/ui/status-badge'
 
 type Batch = { batch_id: number; batch_number: string; expiry_date: string; received_date: string; quantity_on_hand: number }
 type Item = { item_id: number; item_name: string; unit: string; status: string }
@@ -90,11 +94,13 @@ export default function StockOverviewPage() {
     return `/api/inventory/stock-overview${qs.toString() ? `?${qs}` : ''}`
   }, [itemFilter, brgyFilter])
 
-  const { data, error, isLoading } = useSWR<Payload>(isReady && canView ? url : null, fetcher, { keepPreviousData: true })
+  const { data, error, isLoading, isValidating, mutate } = useSWR<Payload>(isReady && canView ? url : null, fetcher, { keepPreviousData: true })
   const itemsSWR = useSWR<{ items: { item_id: number; item_name: string; kind: string }[] }>(canView ? '/api/inventory/items' : null, fetcher)
   const brgysSWR = useSWR<Barangay[] | { barangays: Barangay[] }>(canView ? '/api/barangays' : null, fetcher)
   const items = itemsSWR.data?.items ?? []
   const barangays = Array.isArray(brgysSWR.data) ? brgysSWR.data : (brgysSWR.data?.barangays ?? [])
+
+  const { visible: pagedRows, props: stockPager } = usePagination(data?.inventories ?? [])
 
   if (!isReady) {
     return <LogoLoader />
@@ -103,13 +109,7 @@ export default function StockOverviewPage() {
     return (
       <div className="space-y-6">
         <ModuleTabs parent="Inventory" role={role} />
-        <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-6">
-          <AlertCircle size={20} className="mt-0.5 shrink-0 text-rose-700" />
-          <div>
-            <h2 className="text-lg font-bold text-rose-900">Not authorized</h2>
-            <p className="mt-1 text-sm text-rose-700">You do not have access to Inventory.</p>
-          </div>
-        </div>
+        <NoAccess>You do not have access to Inventory.</NoAccess>
       </div>
     )
   }
@@ -160,7 +160,7 @@ export default function StockOverviewPage() {
       {isLoading && !data ? (
         <div className="rounded-2xl border border-border bg-white"><LogoLoader size="section" label="Loading stock…" /></div>
       ) : error ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
+        <LoadError what="stock levels" error={error} retrying={isValidating} onRetry={() => void mutate()} />
       ) : rows.length === 0 ? (
         <EmptyState
           size="page"
@@ -171,7 +171,7 @@ export default function StockOverviewPage() {
         />
       ) : (
         <div className="space-y-3">
-          {rows.map((inv) => {
+          {pagedRows.map((inv) => {
             const item = one(inv.item)
             const brgy = one(inv.barangay)
             const lowStock = Number(inv.quantity_on_hand) <= LOW_STOCK_UI_THRESHOLD
@@ -226,11 +226,6 @@ export default function StockOverviewPage() {
                       ) : inv.batches.map((batch) => {
                         const tone = expiryTone(batch.expiry_date)
                         const days = daysUntil(batch.expiry_date)
-                        const toneChip = {
-                          rose: 'bg-rose-100 text-rose-800',
-                          amber: 'bg-amber-100 text-amber-800',
-                          slate: 'bg-slate-100 text-slate-700',
-                        }[tone]
                         const toneLabel = days <= 0 ? 'Expired' : days <= 90 ? `Expiring in ${days}d` : 'OK'
                         return (
                           <tr key={batch.batch_id} className="hover:bg-muted/30">
@@ -241,10 +236,7 @@ export default function StockOverviewPage() {
                               <CalendarClock size={10} className="mr-1 inline" />{batch.expiry_date}
                             </td>
                             <td className="px-5 py-3">
-                              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${toneChip}`}>
-                                {tone === 'slate' ? <CheckCircle2 size={10} /> : <Clock size={10} />}
-                                {toneLabel}
-                              </span>
+                              <StatusBadge status={tone === 'rose' ? 'expired' : tone === 'amber' ? 'expiring' : 'ok'} tone={tone === 'rose' ? 'danger' : tone === 'amber' ? 'warn' : 'good'} label={toneLabel} />
                             </td>
                           </tr>
                         )
@@ -255,6 +247,9 @@ export default function StockOverviewPage() {
               </article>
             )
           })}
+          <div className="overflow-hidden rounded-2xl border border-brand-line bg-white">
+            <Pagination {...stockPager} label="Stock pages" className="border-t-0" />
+          </div>
         </div>
       )}
 

@@ -15,7 +15,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useMemo, useState } from 'react'
 import useSWR from 'swr'
 import { Syringe, Printer, AlertCircle, Ban, CheckCircle2, Clock, CalendarClock, Plus, History, SearchX } from 'lucide-react'
-import { AccordionCard, ExpandCollapseAll } from '@/components/ui/accordion-card'
+import { AccordionCard, useSingleOpen } from '@/components/ui/accordion-card'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { RecordPriorVaccinationModal } from '@/components/vaccination/record-prior-vaccination-modal'
@@ -144,14 +144,9 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
   // Every card starts collapsed on each visit (not remembered); headers keep the status badges.
   // ?dose=<vaccine code> (a "View" link from a specific dose in Vaccination) opens that card only.
   // This list renders after its data loads on the client, so reading the URL here is safe.
-  const [openOverride, setOpenOverride] = useState<Record<string, boolean>>(() => {
-    const dose = typeof window === 'undefined' ? null : new URLSearchParams(routeSearch()).get('dose')
-    return dose ? { [dose]: true } : {}
-  })
-  const isOpen = (code: string) => openOverride[code] ?? false
-  const setAll = (open: boolean) => setOpenOverride(Object.fromEntries(groups.map((g) => [g.code, open])))
-  const allOpen = groups.length > 0 && groups.every((g) => isOpen(g.code))
-  const noneOpen = groups.every((g) => !isOpen(g.code))
+  const { isOpen, toggle: toggleOpen } = useSingleOpen<string>(
+    typeof window === 'undefined' ? null : new URLSearchParams(routeSearch()).get('dose'),
+  )
   function handlePrint() {
     if (typeof window !== 'undefined') window.print()
   }
@@ -161,11 +156,11 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
       {/* Header */}
       <div className="flex flex-col gap-3 border-b border-border p-6 md:flex-row md:items-start md:justify-between">
         <div className="flex items-start gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-primary">
-            <Syringe size={18} />
+          <div className="rounded-lg bg-primary/10 p-2 text-primary">
+            <Syringe size={18} aria-hidden="true" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-foreground">Immunization history</h2>
+            <h2 className="text-lg font-semibold text-primary">Immunization History</h2>
             <p className="mt-0.5 text-sm text-muted-foreground">
               Approved doses and Pending / Missed status against the DOH schedule.
             </p>
@@ -253,7 +248,6 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
                   </Select>
                 </label>
               </div>
-              {groups.length > 1 && <ExpandCollapseAll allOpen={allOpen} noneOpen={noneOpen} onSet={setAll} />}
             </div>
             {/* Vaccines: one card each. Changing a filter fades the list in; open states persist. */}
             <div key={`${vaccineFilter}|${statusFilter}`} className="animate-in fade-in duration-150 motion-reduce:animate-none">
@@ -268,7 +262,7 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
                       key={g.code}
                       id={`nip-${childId}-${g.code}`}
                       open={open}
-                      onToggle={() => setOpenOverride((o) => ({ ...o, [g.code]: !open }))}
+                      onToggle={() => toggleOpen(g.code)}
                       header={<>
                         <span className="min-w-0 flex-1">
                           <span className="block font-semibold text-brand-navy">{g.name}</span>

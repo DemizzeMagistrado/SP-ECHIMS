@@ -214,9 +214,9 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
                  
                 >Cancel</Button>
                 <Button
-                  disabled={submitting}
+                  loading={submitting}
                   onClick={submitRequest}
-                >{submitting && <Spinner className="mr-2" />}{submitting ? 'Submitting...' : 'Submit for review'}</Button>
+                >{submitting ? 'Submitting…' : 'Submit for review'}</Button>
               </div>
             </div>
           )}

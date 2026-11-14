@@ -613,18 +613,12 @@ export function ChildProfileView({childId}: {childId: string}) {
               Print
             </Button>
             {canEdit && (<>
-            <button
-              type="button"
-              onClick={() => setStatusOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-white px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
-            >
-              <ArrowRightLeft size={16} />
+            <Button variant="secondary" onClick={() => setStatusOpen(true)}>
+              <ArrowRightLeft size={16} aria-hidden="true" />
               Change status
-            </button>
-            <Button variant="secondary"
-              onClick={() => setEditOpen(true)}
-            >
-              <Pencil size={16} />
+            </Button>
+            <Button variant="secondary" onClick={() => setEditOpen(true)}>
+              <Pencil size={16} aria-hidden="true" />
               Edit profile
             </Button>
             </>)}
@@ -810,7 +804,7 @@ export function ChildProfileView({childId}: {childId: string}) {
                       <span>
                         <span className="font-medium text-brand-navy">{sib.first_name} {sib.last_name}</span>
                         <span className="block text-xs text-muted-foreground">
-                          <span className="font-mono">{sib.child_code ?? ""}</span> · Born {formatDate(sib.date_of_birth)}
+                          <span className="font-mono">{sib.child_code ?? formatChildId(sib.child_id)}</span> · Born {formatDate(sib.date_of_birth)}
                         </span>
                       </span>
                       <span aria-hidden="true" className="inline-flex items-center gap-0.5 text-xs font-semibold text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">

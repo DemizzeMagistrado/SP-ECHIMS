@@ -18,10 +18,18 @@ const variants = cva(
         tonal: 'border-transparent bg-brand-blue/[0.07] font-medium text-brand-navy hover:bg-brand-blue/[0.13] active:bg-brand-blue/[0.18] focus-visible:ring-brand-blue/35 [&_svg]:text-brand-blue disabled:bg-slate-100 disabled:text-slate-500 disabled:opacity-100 disabled:[&_svg]:text-slate-400',
         ghost: 'border-transparent bg-transparent text-brand-navy hover:bg-brand-ice',
         danger: 'border-transparent bg-danger text-white shadow-sm hover:bg-danger/90',
+        // Secondary on data pages: white, control border, ink text.
+        outline: 'border-control-line bg-white text-brand-navy hover:border-brand-navy/40 hover:bg-brand-ice',
+        // Buttons inside table rows (View child record, Scores): clearly buttons, with hover, pressed
+        // and a 3px link-colour focus outline. Use with size="row".
+        row: 'border-rowbtn-line bg-white text-brand-navy shadow-[0_1px_2px_rgba(12,18,96,0.08)] hover:border-brand-navy hover:bg-rowbtn-hover active:bg-rowbtn-active focus-visible:ring-0 focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-link',
       },
       size: {
         sm: 'h-8 gap-1.5 px-3 text-xs',
         md: 'h-10 px-4 text-sm',
+        // Data-page controls: 44px tall, 10px radius.
+        lg: 'h-11 rounded-[10px] px-4 text-sm',
+        row: 'h-9 gap-1.5 rounded-[10px] px-3 text-[13px] [&_svg]:size-3.5',
         icon: 'size-9',
       },
     },

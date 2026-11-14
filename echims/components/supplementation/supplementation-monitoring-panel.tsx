@@ -9,6 +9,7 @@ import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
+import { Pagination, usePagination } from '@/components/ui/pagination'
 
 type Status =
   | 'UPCOMING'
@@ -154,6 +155,7 @@ export function SupplementationMonitoringPanel({
   const filtered = scoped.filter(
     (row) => status === 'ALL' || row.status === status,
   )
+  const { visible: pagedRows, props: rowPager } = usePagination(filtered)
   const statuses = Object.keys(labels) as Status[]
   const input =
     'mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm'
@@ -331,7 +333,7 @@ export function SupplementationMonitoringPanel({
                       </td>
                     </tr>
                   ) : (
-                    filtered.map((row) => (
+                    pagedRows.map((row) => (
                       <tr key={row.tracking_key}>
                         <td className="px-3 py-3">
                           <Link
@@ -384,6 +386,7 @@ export function SupplementationMonitoringPanel({
                 </tbody>
               </table>
             </div>
+            <Pagination {...rowPager} label="Schedule pages" />
             <p className="text-xs text-muted-foreground">
               Monitoring uses saved administrations only. Dispensing is not
               proof of administration. Children without a saved schedule are not

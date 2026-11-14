@@ -55,9 +55,11 @@ export type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
   searchable?: boolean
   /** Text for the trigger when nothing is chosen and there is no "" option. */
   placeholder?: string
+  /** lg: the 44px data-page control (10px radius, control border). */
+  controlSize?: 'md' | 'lg'
 }
 
-export function Select({ className, children, value, defaultValue, onChange, disabled, required, name, id, searchable, placeholder, ...rest }: SelectProps) {
+export function Select({ className, children, value, defaultValue, onChange, disabled, required, name, id, searchable, placeholder, controlSize = 'md', ...rest }: SelectProps) {
   const all = useMemo(() => collect(children), [children])
   const prompt = all.find(isPrompt)
   const options = useMemo(() => all.filter((o) => !isPrompt(o)), [all])
@@ -169,6 +171,7 @@ export function Select({ className, children, value, defaultValue, onChange, dis
         className={cn(
           'flex h-10 w-full min-w-0 cursor-pointer items-center justify-between gap-2 rounded-lg border border-brand-line bg-white px-3 text-left text-sm text-brand-navy outline-none transition-[border-color,box-shadow,background-color] hover:border-brand-blue/50 hover:bg-brand-ice/40 focus-visible:border-brand-blue focus-visible:ring-3 focus-visible:ring-brand-blue/20 disabled:cursor-not-allowed disabled:bg-brand-ice disabled:text-brand-muted aria-invalid:border-danger aria-invalid:focus-visible:ring-danger/15',
           open && 'border-brand-blue ring-3 ring-brand-blue/20',
+          controlSize === 'lg' && 'h-11 rounded-[10px] border-control-line px-4',
           clearable && 'pr-[3.75rem]',
           className,
         )}
@@ -180,6 +183,23 @@ export function Select({ className, children, value, defaultValue, onChange, dis
 
   return (
     <>
+      {/* Before the trigger on purpose: the trigger stays the last in-flow child, so a parent's
+          space-y (margin-bottom on all but the last child in Tailwind v4) never pushes it up. */}
+      <select
+        ref={native}
+        tabIndex={-1}
+        aria-hidden="true"
+        name={name}
+        required={required}
+        disabled={disabled}
+        value={current}
+        onChange={(e) => { if (!controlled) setInner(e.target.value); onChange?.(e) }}
+        // Invalid on submit: send focus to the visible trigger instead.
+        onFocus={() => trigger.current?.focus()}
+        className="sr-only"
+      >
+        {all.map((o) => <option key={`${o.group ?? ''}:${o.value}`} value={o.value} disabled={o.disabled}>{o.label}</option>)}
+      </select>
       {canClear ? (
         <span className="relative block w-full min-w-0">
           {triggerEl}
@@ -196,21 +216,6 @@ export function Select({ className, children, value, defaultValue, onChange, dis
           )}
         </span>
       ) : triggerEl}
-      <select
-        ref={native}
-        tabIndex={-1}
-        aria-hidden="true"
-        name={name}
-        required={required}
-        disabled={disabled}
-        value={current}
-        onChange={(e) => { if (!controlled) setInner(e.target.value); onChange?.(e) }}
-        // Invalid on submit: send focus to the visible trigger instead.
-        onFocus={() => trigger.current?.focus()}
-        className="sr-only"
-      >
-        {all.map((o) => <option key={`${o.group ?? ''}:${o.value}`} value={o.value} disabled={o.disabled}>{o.label}</option>)}
-      </select>
       <FloatingPanel anchor={trigger} open={open} onClose={() => close(false)} minWidth={200} maxHeight={300}>
         {withSearch && (
           <div className="sticky top-0 z-[1] border-b border-brand-line bg-white p-2">

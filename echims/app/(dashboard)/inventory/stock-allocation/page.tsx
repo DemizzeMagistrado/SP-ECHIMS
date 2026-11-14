@@ -11,7 +11,7 @@
 
 import { useMemo, useState } from 'react'
 import useSWR, { mutate as globalMutate } from 'swr'
-import { Plus, Send, AlertCircle, ArrowRight, Clock } from 'lucide-react'
+import { Plus, Send, ArrowRight, Clock } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
@@ -19,6 +19,7 @@ import { AllocateStockModal } from '@/components/inventory/allocate-stock-modal'
 import { LogoLoader } from '@/components/brand/logo-loader'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
+import { NoAccess } from '@/components/ui/no-access'
 
 type Txn = {
   transaction_id: number
@@ -76,13 +77,7 @@ export default function StockAllocationPage() {
     return (
       <div className="space-y-6">
         <ModuleTabs parent="Inventory" role={role} />
-        <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-6">
-          <AlertCircle size={20} className="mt-0.5 shrink-0 text-rose-700" />
-          <div>
-            <h2 className="text-lg font-bold text-rose-900">Not authorized</h2>
-            <p className="mt-1 text-sm text-rose-700">You do not have access to Stock Allocation.</p>
-          </div>
-        </div>
+        <NoAccess>You do not have access to Stock Allocation.</NoAccess>
       </div>
     )
   }

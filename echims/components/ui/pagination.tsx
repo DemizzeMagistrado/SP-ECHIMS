@@ -35,7 +35,8 @@ export function usePagination<T>(rows: T[], pageSize = PAGE_SIZE, control?: { pa
     const el = listEl
     if (el) {
       setMinHeight((h) => Math.max(h ?? 0, el.offsetHeight))
-      el.querySelectorAll<HTMLElement>('.scroll-subtle').forEach((box) => { box.scrollTop = 0 })
+      // The list itself may be the scroll box (a stable-height card list), or hold one.
+      ;[el, ...el.querySelectorAll<HTMLElement>('.scroll-subtle')].forEach((box) => { box.scrollTop = 0 })
       if (el.getBoundingClientRect().top < 0) el.scrollIntoView({ block: 'start', behavior: 'smooth' })
     }
     if (control) control.onPageChange(next)
@@ -56,6 +57,9 @@ export function usePagination<T>(rows: T[], pageSize = PAGE_SIZE, control?: { pa
 /** Stable height for a paginated list: every page is as tall as a full page, so a short last page
  *  leaves empty space instead of shrinking and the pager stays put. Bind `bindArea` to the list
  *  area and apply `height` (min-height for plain rows, a fixed height for expandable rows).
+ *  Only lists with more than one page reserve it (pass enabled = pageCount > 1): a list that fits
+ *  on one page is sized to its rows. Keep the reserved space see-through (white on the rows and
+ *  the pager, not the frame), so a short last page shows the page background, not a filler box.
  *  The pager is never part of the area: render <Pagination> after it, so it always stays visible.
  *  Without `measure`: the area's own height, read only while `canMeasure` (pass "this page is
  *  full") and kept as the tallest seen, since a short page cannot be measured.
@@ -109,7 +113,7 @@ export function Pagination({ page, pageCount, total, pageSize, onChange, label =
   const first = page === 0
   const last = page >= pageCount - 1
   return (
-    <nav aria-label={label} className={cn('flex items-center justify-between gap-3 border-t border-brand-line px-4 py-3 text-sm', className)}>
+    <nav aria-label={label} className={cn('print-hide flex items-center justify-between gap-3 border-t border-brand-line bg-white px-4 py-3 text-sm', className)}>
       <p className="hidden whitespace-nowrap text-brand-muted sm:block" aria-live="polite">
         Showing <span className="font-semibold text-brand-navy">{from}–{to}</span> of <span className="font-semibold text-brand-navy">{total}</span>
       </p>
