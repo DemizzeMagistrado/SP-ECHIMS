@@ -786,7 +786,7 @@ function SummaryViews({ value, onChange, counts }: {
   counts: Record<ListCode, number>;
 }) {
   const row = useRef<HTMLDivElement>(null);
-  // Phones: one row that scrolls sideways; keep the active pill in view (on load and on change).
+  // One row at every width; it scrolls sideways when narrow. Keep the active pill in view (on load and on change).
   useEffect(() => {
     const list = row.current;
     const pill = list?.querySelector<HTMLElement>('[aria-pressed="true"]');
@@ -797,7 +797,7 @@ function SummaryViews({ value, onChange, counts }: {
     else if (list.scrollLeft < right) list.scrollLeft = right;
   }, [value]);
   return (
-    <div ref={row} role="group" aria-label="Summary views" className="-m-1 flex min-w-0 max-w-full flex-nowrap gap-2 overflow-x-auto p-1 [scrollbar-width:none] sm:flex-wrap [&::-webkit-scrollbar]:hidden">
+    <div ref={row} role="group" aria-label="Summary views" className="-m-1 flex min-w-0 max-w-full flex-nowrap gap-2 overflow-x-auto p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {(["Summary", ...listCodes] as Array<"Summary" | ListCode>).map((view) => {
         const active = view === value;
         return (
@@ -964,7 +964,8 @@ function ReportHeader({ views, title, scope, action }: { views: ReactNode; title
   return (
     <div className="space-y-3 p-4">
       <div className="nutrition-no-print flex min-h-10 flex-wrap items-center gap-2">
-        <div className="min-w-0 max-sm:w-full">{views}</div>
+        {/* The views stay on one line; they scroll sideways only when the row is too narrow. */}
+        <div className="min-w-0 flex-1 max-sm:basis-full">{views}</div>
         {action && <div className="ml-auto">{action}</div>}
       </div>
       <div className="min-w-0">
