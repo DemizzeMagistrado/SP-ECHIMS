@@ -25,11 +25,12 @@ function measurement(value: unknown): number | null | 'invalid' {
   return Number.isFinite(n) && n > 0 ? n : 'invalid'
 }
 
-/** Which field a database message belongs under, so the dialog can show it inline. */
+/** Which field a database message belongs under, so the dialog can show it inline.
+ *  Edit-flow errors are NUT-E0xx (NUT-E008 = proposed MUAC bound); NUT-R004 is the WHO plausibility check. */
 function fieldFor(message: string): Field {
-  if (/NUT-R012|MUAC/i.test(message)) return 'muac'
-  if (/NUT-R009/.test(message)) return 'reason'
-  if (/NUT-R010/.test(message)) return 'note'
+  if (/NUT-E008|MUAC/i.test(message)) return 'muac'
+  if (/NUT-E005/.test(message)) return 'reason'
+  if (/NUT-E006/.test(message)) return 'note'
   if (/edema/i.test(message)) return 'edemaGrade'
   if (/LENGTH for lying|position/i.test(message) && !/NUT-R004/.test(message)) return 'measurementType'
   if (/NUT-R004|weight|length\/height|Corrected length/i.test(message)) return 'weight'
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
       return fail('Editing measurements is not available yet: the database update for edit history has not been applied.', 503)
     }
     const message = error.message || 'Unable to save the changes.'
-    const code = /NUT-R\d+/.exec(message)?.[0]
+    const code = /NUT-[ER]\d+/.exec(message)?.[0]
     const status = error.code === '42501' ? 403 : error.code === 'P0002' ? 404 : 400
     return fail(message, status, fieldFor(message), code)
   }
