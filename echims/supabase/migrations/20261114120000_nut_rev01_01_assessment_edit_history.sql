@@ -1,0 +1,299 @@
+-- NUT-REV01 backend 01 — tracked edits for nutritional assessments.
+-- An edit replaces the values shown everywhere (the latest wins) and keeps the earlier values as
+-- history:
+-- * nutritional_assessment gains updated_at, updated_by and revision_count.
+-- * nutritional_assessment_revision: one immutable row per edit with the changed fields, the old and
+--   new measurements and classifications, the reason (and note), and who edited when. Readable by
+--   whoever can read the assessment; no client writes (only the RPC below writes it).
+-- * edit_nutritional_assessment(...): the only way to change weight, height, measurement_type,
+--   muac or edema_grade. Permission = the existing UPDATE policies (assigned midwife / BNS who
+--   recorded it, the RHU's PHN, an administrator). The existing BEFORE triggers re-evaluate the
+--   row; the AFTER triggers reconcile alerts and admissions as for any update.
+-- * guard_nutrition_submission: a direct UPDATE of those five fields outside the RPC is refused
+--   with NUT-R005 (administrators included). Everything else in the guard is unchanged.
+-- The editor's name and role are stored on the revision when it is written: users can read only
+-- their own users row, so they could not be looked up later for the History view.
+-- * guard_targeted_alert_update: the nutrition alert engines (notify_nutritional_assessment_risks,
+--   refresh_nutrition_worsening_alerts) may supersede / re-open NUTRITION alerts for the other
+--   recipients. Without this, any correction of an assessment that already had alerts failed with
+--   "Only the active assigned recipient can handle this alert." (found in the dry run; it affected
+--   direct updates before this migration too). Same pattern as the CFU and NIP engine exemptions.
+-- Existing assessment data is not modified (no backfill; revision_count starts at 0).
+-- MUAC plausibility (proposed bounds) is NOT in this migration: see supabase/proposals/.
+-- Backup before applying: backup_nut_rev01_be.functions ('guard_nutrition_submission (before 01)',
+-- 'guard_targeted_alert_update (before 01)').
+
+alter table public.nutritional_assessment
+  add column if not exists updated_at timestamptz,
+  add column if not exists updated_by uuid,
+  add column if not exists revision_count integer not null default 0;
+comment on column public.nutritional_assessment.updated_at is 'Last measurement edit through edit_nutritional_assessment; null if never edited.';
+comment on column public.nutritional_assessment.updated_by is 'User who made the last measurement edit.';
+comment on column public.nutritional_assessment.revision_count is 'Number of recorded edits (= the latest nutritional_assessment_revision.revision_no).';
+
+create table if not exists public.nutritional_assessment_revision (
+  revision_id bigint generated always as identity primary key,
+  assessment_id bigint not null references public.nutritional_assessment(assessment_id) on delete cascade,
+  child_id bigint not null,
+  revision_no integer not null check (revision_no > 0),
+  changed_fields text[] not null check (pg_catalog.cardinality(changed_fields) > 0),
+  old_values jsonb not null,
+  new_values jsonb not null,
+  reason text not null check (reason in ('ENTRY_ERROR', 'REMEASURED_SAME_DAY', 'WRONG_POSITION', 'OTHER')),
+  note text check (note is null or pg_catalog.length(note) <= 500),
+  editor_name text,
+  editor_role text,
+  edited_by uuid not null default auth.uid(),
+  edited_at timestamptz not null default pg_catalog.now(),
+  constraint nutritional_assessment_revision_no_unique unique (assessment_id, revision_no),
+  constraint nutritional_assessment_revision_note_for_other
+    check (reason <> 'OTHER' or pg_catalog.btrim(coalesce(note, '')) <> '')
+);
+comment on table public.nutritional_assessment_revision is
+  'Immutable history of measurement edits to nutritional_assessment (written only by edit_nutritional_assessment). old_values / new_values hold weight, height, measurement_type, muac, edema_grade, waz, haz, whz, baz and the five classifications.';
+create index if not exists nutritional_assessment_revision_assessment_idx
+  on public.nutritional_assessment_revision (assessment_id, revision_no desc);
+create index if not exists nutritional_assessment_revision_child_idx
+  on public.nutritional_assessment_revision (child_id);
+
+-- Read access mirrors the assessment's own SELECT visibility (the parent's RLS applies inside the
+-- policy). No INSERT / UPDATE / DELETE for clients: revisions are immutable.
+alter table public.nutritional_assessment_revision enable row level security;
+revoke all on public.nutritional_assessment_revision from public, anon, authenticated;
+grant select on public.nutritional_assessment_revision to authenticated;
+drop policy if exists nutritional_assessment_revision_select on public.nutritional_assessment_revision;
+create policy nutritional_assessment_revision_select on public.nutritional_assessment_revision
+  for select to authenticated
+  using (exists (
+    select 1 from public.nutritional_assessment na
+    where na.assessment_id = nutritional_assessment_revision.assessment_id
+  ));
+
+-- Guard: measurements change only through the edit flow (transaction-local flag set by the RPC).
+CREATE OR REPLACE FUNCTION public.guard_nutrition_submission()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF TG_OP = 'UPDATE' THEN
+    IF NEW.client_request_id IS DISTINCT FROM OLD.client_request_id THEN
+      RAISE EXCEPTION 'The assessment request identifier cannot be changed.'
+        USING ERRCODE = '22023';
+    END IF;
+    -- NUT-REV01: edits must leave a revision. Administrators are not exempt.
+    IF ROW(NEW.weight, NEW.height, NEW.measurement_type, NEW.muac, NEW.edema_grade)
+       IS DISTINCT FROM
+       ROW(OLD.weight, OLD.height, OLD.measurement_type, OLD.muac, OLD.edema_grade)
+       AND pg_catalog.current_setting('echims.na_edit', true) IS DISTINCT FROM 'on' THEN
+      RAISE EXCEPTION
+        'NUT-R005: Edit measurements through the edit flow so the change is recorded.'
+        USING ERRCODE = '42501';
+    END IF;
+    IF ROW(NEW.assessment_date, NEW.weight, NEW.height, NEW.muac,
+           NEW.measurement_type, NEW.edema_grade)
+       IS NOT DISTINCT FROM
+       ROW(OLD.assessment_date, OLD.weight, OLD.height, OLD.muac,
+           OLD.measurement_type, OLD.edema_grade) THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+
+  -- NUT-USR001 submission policy: refuse values needing verification.
+  -- The existing evaluator applies the indicator-specific WHO plausibility
+  -- bounds and flags invalid infant standing measurements. This guard runs
+  -- after it and before an assessment or its alerts can be committed.
+  IF 'NEEDS_VERIFICATION' = ANY(ARRAY[
+    NEW.weight_for_age, NEW.height_for_age,
+    NEW.weight_for_height, NEW.bmi_for_age
+  ]) THEN
+    RAISE EXCEPTION
+      'NUT-R004: Measurements are outside the accepted WHO plausibility bounds or use an invalid measurement position. Recheck the measurements before saving.'
+      USING ERRCODE = '22023';
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
+
+-- Alert guard: let the nutrition alert engines reconcile NUTRITION alerts after a correction.
+-- Unchanged otherwise (CFU and NIP engine branches and the recipient rules are as before).
+CREATE OR REPLACE FUNCTION public.guard_targeted_alert_update()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+BEGIN
+ -- CFU_ENGINE_RESOLVE_V1
+ IF OLD.source_module='CHILD_FOLLOW_UP' AND OLD.event_key LIKE 'CFU_V1:%'
+ AND current_user=pg_catalog.pg_get_userbyid((SELECT p.proowner FROM pg_catalog.pg_proc p
+  WHERE p.oid='public.echims_refresh_child_follow_up_alerts(bigint)'::regprocedure))
+ AND OLD.status IN ('UNREAD','READ') AND NEW.status='RESOLVED' AND NEW.resolved_by IS NULL
+ AND (pg_catalog.to_jsonb(NEW)-'status'-'resolved_at'-'resolved_by') IS NOT DISTINCT FROM
+     (pg_catalog.to_jsonb(OLD)-'status'-'resolved_at'-'resolved_by') THEN
+  NEW.resolved_at:=pg_catalog.now(); RETURN NEW;
+ END IF;
+
+ -- NIP_ENGINE_RESOLVE_V1 (NIP-REV01): missed-dose alert whose dose is no longer missed.
+ IF OLD.alert_type='NIP_DOSE_OVERDUE'
+ AND current_user=pg_catalog.pg_get_userbyid((SELECT p.proowner FROM pg_catalog.pg_proc p
+  WHERE p.oid='public.echims_resolve_stale_nip_alerts(bigint)'::regprocedure))
+ AND OLD.status IN ('UNREAD','READ') AND NEW.status='RESOLVED' AND NEW.resolved_by IS NULL
+ AND (pg_catalog.to_jsonb(NEW)-'status'-'resolved_at'-'resolved_by'-'resolution_note') IS NOT DISTINCT FROM
+     (pg_catalog.to_jsonb(OLD)-'status'-'resolved_at'-'resolved_by'-'resolution_note') THEN
+  NEW.resolved_at:=pg_catalog.now(); RETURN NEW;
+ END IF;
+
+ -- NUTRITION_ENGINE_V1 (NUT-REV01): a corrected assessment supersedes or re-opens its NUTRITION
+ -- alerts for every recipient. Only state, message, severity and actor may change.
+ IF OLD.source_module='NUTRITION'
+ AND current_user IN (
+   pg_catalog.pg_get_userbyid((SELECT p.proowner FROM pg_catalog.pg_proc p
+     WHERE p.oid='public.notify_nutritional_assessment_risks()'::regprocedure)),
+   pg_catalog.pg_get_userbyid((SELECT p.proowner FROM pg_catalog.pg_proc p
+     WHERE p.oid='public.refresh_nutrition_worsening_alerts(bigint,uuid)'::regprocedure)))
+ AND (pg_catalog.to_jsonb(NEW)-'status'-'read_at'-'resolved_at'-'resolved_by'-'alert_message'-'severity'-'actor_id')
+     IS NOT DISTINCT FROM
+     (pg_catalog.to_jsonb(OLD)-'status'-'read_at'-'resolved_at'-'resolved_by'-'alert_message'-'severity'-'actor_id') THEN
+  RETURN NEW;
+ END IF;
+
+ IF OLD.recipient_id IS NULL AND NEW.recipient_id IS NULL THEN RETURN NEW; END IF;
+ IF auth.uid() IS NULL OR OLD.recipient_id IS DISTINCT FROM auth.uid()
+  OR NOT EXISTS (SELECT 1 FROM public.users u WHERE u.user_id=auth.uid() AND u.account_status='ACTIVE') THEN
+  RAISE EXCEPTION 'Only the active assigned recipient can handle this alert.' USING ERRCODE='42501';
+ END IF;
+ IF (pg_catalog.to_jsonb(NEW)-'status'-'read_at'-'resolved_at'-'resolved_by') IS DISTINCT FROM
+    (pg_catalog.to_jsonb(OLD)-'status'-'read_at'-'resolved_at'-'resolved_by') THEN
+  RAISE EXCEPTION 'Only read state or manual resolution may change.' USING ERRCODE='22023';
+ END IF;
+ IF NEW.status NOT IN ('UNREAD','READ','RESOLVED') OR NEW.status IS NULL THEN
+  RAISE EXCEPTION 'Use UNREAD, READ or RESOLVED.' USING ERRCODE='22023';
+ END IF;
+ IF OLD.status='RESOLVED' THEN
+  IF NEW.status<>'RESOLVED' THEN RAISE EXCEPTION 'Resolved alerts cannot be reopened by this action.' USING ERRCODE='22023'; END IF;
+  NEW.resolved_by:=OLD.resolved_by; NEW.resolved_at:=OLD.resolved_at; NEW.read_at:=OLD.read_at;
+  RETURN NEW;
+ END IF;
+ IF NEW.status='RESOLVED' THEN
+  NEW.resolved_by:=auth.uid(); NEW.resolved_at:=pg_catalog.now();
+  NEW.read_at:=COALESCE(OLD.read_at,pg_catalog.now());
+ ELSE
+  NEW.resolved_by:=OLD.resolved_by; NEW.resolved_at:=OLD.resolved_at;
+  IF NEW.status='UNREAD' THEN NEW.read_at:=NULL;
+  ELSIF OLD.status='READ' THEN NEW.read_at:=COALESCE(OLD.read_at,pg_catalog.now());
+  ELSE NEW.read_at:=pg_catalog.now(); END IF;
+ END IF;
+ RETURN NEW;
+END;
+$function$;
+
+-- The edit flow. SECURITY DEFINER only because clients cannot write revisions; the permission
+-- check below repeats the UPDATE policies explicitly (definer rights bypass RLS).
+create or replace function public.edit_nutritional_assessment(
+  p_assessment_id bigint,
+  p_weight numeric,
+  p_height numeric,
+  p_measurement_type text,
+  p_muac numeric,
+  p_edema_grade smallint,
+  p_reason text,
+  p_note text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path to ''
+as $$
+declare
+  v_old public.nutritional_assessment%rowtype;
+  v_new public.nutritional_assessment%rowtype;
+  v_barangay_id bigint;
+  v_changed text[] := array[]::text[];
+  v_note text := nullif(pg_catalog.btrim(p_note), '');
+  v_editor_name text;
+  v_editor_role text;
+  v_fields constant text[] := array[
+    'weight', 'height', 'measurement_type', 'muac', 'edema_grade',
+    'waz', 'haz', 'whz', 'baz',
+    'weight_for_age', 'height_for_age', 'weight_for_height', 'bmi_for_age',
+    'muac_status', 'nutritional_status'];
+begin
+  if auth.uid() is null then
+    raise exception 'NUT-R006: Sign in to edit an assessment.' using errcode = '42501';
+  end if;
+
+  select * into v_old from public.nutritional_assessment
+   where assessment_id = p_assessment_id
+   for update;
+  if not found then
+    raise exception 'NUT-R007: Assessment not found.' using errcode = 'P0002';
+  end if;
+  select c.barangay_id into v_barangay_id from public.child c where c.child_id = v_old.child_id;
+
+  -- Same as the UPDATE policies on nutritional_assessment.
+  if not (
+    public.is_admin()
+    or (public.is_phn() and public.is_phn_assigned_to_rhu(v_barangay_id))
+    or ((public.is_midwife() or public.is_bns())
+        and v_old.assessed_by = auth.uid()
+        and public.is_assigned_to_barangay(v_barangay_id))
+  ) then
+    raise exception 'NUT-R008: You cannot edit this assessment. The assigned midwife or BNS who recorded it, the RHU''s PHN, or an administrator can.'
+      using errcode = '42501';
+  end if;
+
+  if p_reason is null or p_reason not in ('ENTRY_ERROR', 'REMEASURED_SAME_DAY', 'WRONG_POSITION', 'OTHER') then
+    raise exception 'NUT-R009: Choose a reason for the change.' using errcode = '22023';
+  end if;
+  if p_reason = 'OTHER' and v_note is null then
+    raise exception 'NUT-R010: Add a note explaining the change.' using errcode = '22023';
+  end if;
+  if v_note is not null and pg_catalog.length(v_note) > 500 then
+    raise exception 'NUT-R010: Keep the note to 500 characters or fewer.' using errcode = '22023';
+  end if;
+
+  if p_weight is distinct from v_old.weight then v_changed := v_changed || 'weight'::text; end if;
+  if p_height is distinct from v_old.height then v_changed := v_changed || 'height'::text; end if;
+  if p_measurement_type is distinct from v_old.measurement_type then v_changed := v_changed || 'measurement_type'::text; end if;
+  if p_muac is distinct from v_old.muac then v_changed := v_changed || 'muac'::text; end if;
+  if p_edema_grade is distinct from v_old.edema_grade then v_changed := v_changed || 'edema_grade'::text; end if;
+  if pg_catalog.cardinality(v_changed) = 0 then
+    raise exception 'NUT-R011: Nothing changed. Edit at least one measurement.' using errcode = '22023';
+  end if;
+
+  -- The BEFORE triggers validate and re-evaluate the row (NUT-R004 still applies); the AFTER
+  -- triggers reconcile alerts and admissions. The flag is on for this statement only.
+  perform pg_catalog.set_config('echims.na_edit', 'on', true);
+  update public.nutritional_assessment
+     set weight = p_weight,
+         height = p_height,
+         measurement_type = p_measurement_type,
+         muac = p_muac,
+         edema_grade = p_edema_grade,
+         revision_count = revision_count + 1,
+         updated_at = pg_catalog.now(),
+         updated_by = auth.uid()
+   where assessment_id = p_assessment_id;
+  perform pg_catalog.set_config('echims.na_edit', 'off', true);
+
+  select * into v_new from public.nutritional_assessment where assessment_id = p_assessment_id;
+  select gp.full_name, gp.role into v_editor_name, v_editor_role from public.get_my_profile() gp limit 1;
+
+  insert into public.nutritional_assessment_revision (
+    assessment_id, child_id, revision_no, changed_fields, old_values, new_values,
+    reason, note, editor_name, editor_role, edited_by
+  ) values (
+    p_assessment_id, v_old.child_id, v_new.revision_count, v_changed,
+    (select pg_catalog.jsonb_object_agg(f, pg_catalog.to_jsonb(v_old) -> f) from pg_catalog.unnest(v_fields) as u(f)),
+    (select pg_catalog.jsonb_object_agg(f, pg_catalog.to_jsonb(v_new) -> f) from pg_catalog.unnest(v_fields) as u(f)),
+    p_reason, v_note, v_editor_name, v_editor_role, auth.uid()
+  );
+
+  return pg_catalog.jsonb_build_object('assessment', pg_catalog.to_jsonb(v_new), 'revision_no', v_new.revision_count);
+end
+$$;
+revoke all on function public.edit_nutritional_assessment(bigint, numeric, numeric, text, numeric, smallint, text, text) from public, anon;
+grant execute on function public.edit_nutritional_assessment(bigint, numeric, numeric, text, numeric, smallint, text, text) to authenticated;
+comment on function public.edit_nutritional_assessment(bigint, numeric, numeric, text, numeric, smallint, text, text) is
+  'Edits an assessment''s measurements, re-evaluates it and records a nutritional_assessment_revision. Returns {assessment, revision_no}.';
