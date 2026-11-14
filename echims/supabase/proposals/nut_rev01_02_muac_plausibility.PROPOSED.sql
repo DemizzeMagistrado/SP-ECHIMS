@@ -1,17 +1,22 @@
--- PROPOSED (awaiting approval of the bounds) — NUT-REV01 backend 02: MUAC plausibility.
--- Not in supabase/migrations on purpose: move it there (and give it a timestamp after
--- 20261114120000_nut_rev01_01) only once the bounds below are approved.
+-- PROPOSED — PENDING REFERENCE + HEALTH-WORKER CONFIRMATION. Do not apply.
+-- NUT-REV01 backend 02: MUAC plausibility for children 6–59 months.
+-- Not in supabase/migrations on purpose: move it there (with a timestamp after
+-- 20261114120000_nut_rev01_01) only once a reference is cited and the health workers confirm it.
 --
--- No MUAC plausibility bound exists today (checked: the evaluator, the guard, the API and the
--- offline queue only require MUAC > 0). A record with MUAC 4.4 cm (assessment 16) was accepted and
--- classified SAM.
+-- Today no MUAC plausibility bound exists (the evaluator, the guard, the API and the offline queue
+-- only require MUAC > 0). A record with MUAC 4.4 cm (assessment 16) was accepted and classified SAM.
+-- MUAC classification is NOT changed by this proposal: severe < 11.5 cm, moderate 11.5 to < 12.5 cm,
+-- 6–59 months only (the evaluator marks MUAC NOT_APPLICABLE under 6 months, so this check keys off
+-- muac_status).
 --
--- Proposed rule, for children 6–59 months (the evaluator already marks MUAC NOT_APPLICABLE under
--- 6 months, so the check keys off muac_status):
---   refuse MUAC < 7.0 cm or > 22.0 cm  →  NUT-R012
--- Why these numbers: they sit outside the WHO MUAC-for-age range for 6–59 months (roughly −5 SD at
--- 6 months to +5 SD at 59 months), so a real child is never refused, while values like 4.4 cm
--- (a typo for 14.4) or 44 are. Tighter alternative: 9.0–21.0 cm.
+-- Two options for review:
+--   Hard bound (database refuses the save):  MUAC < 7.0 cm or > 22.0 cm  →  NUT-R012 (below).
+--   Soft warning (app warns, saving allowed): MUAC < 9.0 cm or > 21.0 cm. This is what the app
+--     does today (lib/nutrition-status.ts MUAC_SOFT_CM): "Unusually low/high for this child.
+--     Re-measure before saving." No database change is needed for the soft option.
+-- Reference still to be cited (WHO MUAC-for-age 6–59 months; e.g. the ±5 SD range).
+-- Note: the code NUT-R012 is also used as the rule id of the NUT_OVERWEIGHT alert rule
+-- (alert_rule.condition_logic); pick another code before applying.
 -- Runs alongside NUT-R004 in guard_nutrition_submission, after its "nothing changed" early return,
 -- so existing rows are never touched; they are checked only when their measurements are edited.
 -- Requires migration 01 (this replaces the guard defined there).

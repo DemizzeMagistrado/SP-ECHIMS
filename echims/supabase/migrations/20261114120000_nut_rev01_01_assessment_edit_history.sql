@@ -6,9 +6,20 @@
 --   new measurements and classifications, the reason (and note), and who edited when. Readable by
 --   whoever can read the assessment; no client writes (only the RPC below writes it).
 -- * edit_nutritional_assessment(...): the only way to change weight, height, measurement_type,
---   muac or edema_grade. Permission = the existing UPDATE policies (assigned midwife / BNS who
---   recorded it, the RHU's PHN, an administrator). The existing BEFORE triggers re-evaluate the
---   row; the AFTER triggers reconcile alerts and admissions as for any update.
+--   muac or edema_grade. Permission (manuscript: "Only the BNS shall record new assessments; other
+--   permitted roles shall have view access"): the BNS who recorded the assessment, in an assigned
+--   barangay; administrators only for support / data fixes. PHN and RHM keep view access (incl.
+--   history) but cannot edit. The existing BEFORE triggers re-evaluate the row; the AFTER triggers
+--   reconcile alerts and admissions as for any update (a SAM/MAM result still opens an admission
+--   through ensure_nutrition_admission, which skips a child with an open one and is ON CONFLICT DO
+--   NOTHING on the unique source_assessment_id, so there is never a duplicate).
+-- * Admissions after a correction: admissions are never closed or cancelled automatically (status
+--   allows only PENDING / ACTIVE / DONE, and DONE needs care type, checkup date, confirmer and
+--   remarks). When an edit turns a SAM/MAM result into anything else, every admission detected
+--   from that assessment gets an UPDATED event ("Source assessment corrected", old / new
+--   classification, revision_no; its status is left as it is), and while it is still PENDING or
+--   ACTIVE the child's assigned RHM / BNS get a NUT_ADMISSION_SOURCE_CORRECTED alert to resolve it.
+--   New alert_rule row NUT_ADMISSION_SOURCE_CORRECTED (alert.rule_id is required).
 -- * guard_nutrition_submission: a direct UPDATE of those five fields outside the RPC is refused
 --   with NUT-R005 (administrators included). Everything else in the guard is unchanged.
 -- The editor's name and role are stored on the revision when it is written: users can read only
@@ -19,7 +30,9 @@
 --   "Only the active assigned recipient can handle this alert." (found in the dry run; it affected
 --   direct updates before this migration too). Same pattern as the CFU and NIP engine exemptions.
 -- Existing assessment data is not modified (no backfill; revision_count starts at 0).
--- MUAC plausibility (proposed bounds) is NOT in this migration: see supabase/proposals/.
+-- MUAC plausibility is NOT in this migration (pending a reference and health-worker confirmation):
+-- see supabase/proposals/. MUAC classification is unchanged (severe < 11.5 cm, moderate 11.5 to
+-- < 12.5 cm, 6–59 months only).
 -- Backup before applying: backup_nut_rev01_be.functions ('guard_nutrition_submission (before 01)',
 -- 'guard_targeted_alert_update (before 01)').
 
@@ -188,8 +201,28 @@ BEGIN
 END;
 $function$;
 
+-- Alert for an admission whose source assessment was corrected out of SAM/MAM.
+-- alr_validate_rule only lets a signed-in administrator add inventory / NIP rules (the other
+-- NUTRITION_FIXED rules were seeded before it existed), so this one seed row is inserted with that
+-- trigger off for this statement only. The audit trigger still records it; alert_rule_audit needs an
+-- actor, so the insert is attributed to the earliest active administrator (looked up, not hard-coded;
+-- the migration fails clearly if there is none) and the claim is cleared right after.
+select pg_catalog.set_config('request.jwt.claims', pg_catalog.json_build_object('role', 'authenticated', 'sub',
+  (select a.user_id from public.administrator a join public.users u on u.user_id = a.user_id
+    where u.account_status = 'ACTIVE' order by u.created_at, a.user_id limit 1))::text, true);
+alter table public.alert_rule disable trigger alr_validate_rule;
+insert into public.alert_rule (rule_name, description, rule_category, condition_logic, severity, status, evaluator_type)
+select 'NUT_ADMISSION_SOURCE_CORRECTED',
+       'The assessment an admission was detected from was corrected and is no longer SAM/MAM. Review the admission and resolve or update it.',
+       'NUTRITION',
+       'edit_nutritional_assessment: source assessment of a PENDING / ACTIVE admission corrected from SAM/MAM to another result.',
+       'HIGH', 'ACTIVE', 'NUTRITION_FIXED'
+where not exists (select 1 from public.alert_rule where rule_name = 'NUT_ADMISSION_SOURCE_CORRECTED');
+alter table public.alert_rule enable trigger alr_validate_rule;
+select pg_catalog.set_config('request.jwt.claims', '', true);
+
 -- The edit flow. SECURITY DEFINER only because clients cannot write revisions; the permission
--- check below repeats the UPDATE policies explicitly (definer rights bypass RLS).
+-- check below is explicit (definer rights bypass RLS).
 create or replace function public.edit_nutritional_assessment(
   p_assessment_id bigint,
   p_weight numeric,
@@ -213,6 +246,10 @@ declare
   v_note text := nullif(pg_catalog.btrim(p_note), '');
   v_editor_name text;
   v_editor_role text;
+  v_child_name text;
+  v_rule public.alert_rule%rowtype;
+  v_admission public.nutrition_admission%rowtype;
+  v_note_text text;
   v_fields constant text[] := array[
     'weight', 'height', 'measurement_type', 'muac', 'edema_grade',
     'waz', 'haz', 'whz', 'baz',
@@ -229,17 +266,18 @@ begin
   if not found then
     raise exception 'NUT-R007: Assessment not found.' using errcode = 'P0002';
   end if;
-  select c.barangay_id into v_barangay_id from public.child c where c.child_id = v_old.child_id;
+  select c.barangay_id, pg_catalog.concat_ws(' ', c.first_name, c.middle_name, c.last_name)
+    into v_barangay_id, v_child_name
+    from public.child c where c.child_id = v_old.child_id;
 
-  -- Same as the UPDATE policies on nutritional_assessment.
+  -- Only the BNS who recorded it (in an assigned barangay); administrators for support / data fixes.
   if not (
     public.is_admin()
-    or (public.is_phn() and public.is_phn_assigned_to_rhu(v_barangay_id))
-    or ((public.is_midwife() or public.is_bns())
+    or (public.is_bns()
         and v_old.assessed_by = auth.uid()
         and public.is_assigned_to_barangay(v_barangay_id))
   ) then
-    raise exception 'NUT-R008: You cannot edit this assessment. The assigned midwife or BNS who recorded it, the RHU''s PHN, or an administrator can.'
+    raise exception 'NUT-R008: Only the BNS who recorded this assessment can edit it. Other roles can view it and its history.'
       using errcode = '42501';
   end if;
 
@@ -289,6 +327,57 @@ begin
     (select pg_catalog.jsonb_object_agg(f, pg_catalog.to_jsonb(v_new) -> f) from pg_catalog.unnest(v_fields) as u(f)),
     p_reason, v_note, v_editor_name, v_editor_role, auth.uid()
   );
+
+  -- Corrected out of SAM/MAM: note it on every admission detected from this assessment (status
+  -- unchanged) and alert the assigned RHM / BNS while it is still open.
+  if v_old.nutritional_status in ('SAM', 'MAM')
+     and v_new.nutritional_status is distinct from 'SAM'
+     and v_new.nutritional_status is distinct from 'MAM' then
+    select * into v_rule from public.alert_rule
+     where rule_name = 'NUT_ADMISSION_SOURCE_CORRECTED' and status = 'ACTIVE'
+     order by rule_id limit 1;
+    for v_admission in
+      select * from public.nutrition_admission where source_assessment_id = p_assessment_id
+    loop
+      v_note_text := pg_catalog.format(
+        'Source assessment corrected (revision %s): %s → %s. Admission status left as %s; review and update it.',
+        v_new.revision_count, v_old.nutritional_status, v_new.nutritional_status, v_admission.status);
+      insert into public.nutrition_admission_event (admission_id, actor_id, action, old_values, new_values)
+      values (
+        v_admission.admission_id, auth.uid(), 'UPDATED',
+        pg_catalog.jsonb_build_object('source_classification', v_old.nutritional_status),
+        pg_catalog.jsonb_build_object(
+          'note', 'Source assessment corrected',
+          'source_assessment_id', p_assessment_id,
+          'revision_no', v_new.revision_count,
+          'old_classification', v_old.nutritional_status,
+          'new_classification', v_new.nutritional_status,
+          -- Shown by the Admission tracking history as it is.
+          'status', v_admission.status,
+          'care_type', v_admission.care_type,
+          'remarks', v_note_text));
+      if v_admission.status in ('PENDING', 'ACTIVE') and v_rule.rule_id is not null then
+        insert into public.alert (
+          alert_type, alert_message, severity, status, rule_id, recipient_id, actor_id,
+          child_id, assessment_id, source_module, event_key)
+        select 'NUTRITION',
+          pg_catalog.format(
+            'Nutrition assessment #%s for %s on %s was corrected (revision %s): %s → %s. Admission #%s was detected from the earlier result and is still %s. Review it and resolve or update the admission.',
+            p_assessment_id, v_child_name, v_new.assessment_date, v_new.revision_count,
+            v_old.nutritional_status, v_new.nutritional_status, v_admission.admission_id, v_admission.status),
+          v_rule.severity, 'UNREAD', v_rule.rule_id, u.user_id, auth.uid(),
+          v_old.child_id, p_assessment_id, 'NUTRITION',
+          pg_catalog.concat('NUTRITION_ADMISSION_CORRECTED:', v_admission.admission_id, ':', v_new.revision_count)
+        from public.users u
+        where u.account_status = 'ACTIVE'
+          and (exists (select 1 from public.barangay_nutrition_scholar b where b.user_id = u.user_id)
+               or exists (select 1 from public.rural_health_midwife r where r.user_id = u.user_id))
+          and exists (select 1 from public.health_worker_assignment hwa
+                      where hwa.user_id = u.user_id and hwa.barangay_id = v_barangay_id and hwa.status = 'ACTIVE')
+        on conflict (recipient_id, event_key) where recipient_id is not null and event_key is not null do nothing;
+      end if;
+    end loop;
+  end if;
 
   return pg_catalog.jsonb_build_object('assessment', pg_catalog.to_jsonb(v_new), 'revision_no', v_new.revision_count);
 end
