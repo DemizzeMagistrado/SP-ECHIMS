@@ -1,7 +1,7 @@
 -- PROPOSED — PENDING REFERENCE + HEALTH-WORKER CONFIRMATION. Do not apply.
 -- NUT-REV01 backend 02: MUAC plausibility for children 6–59 months.
 -- Not in supabase/migrations on purpose: move it there (with a timestamp after
--- 20261114120000_nut_rev01_01) only once a reference is cited and the health workers confirm it.
+-- 20261114122132_nut_rev01_01) only once a reference is cited and the health workers confirm it.
 --
 -- Today no MUAC plausibility bound exists (the evaluator, the guard, the API and the offline queue
 -- only require MUAC > 0). A record with MUAC 4.4 cm (assessment 16) was accepted and classified SAM.

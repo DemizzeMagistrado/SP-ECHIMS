@@ -251,6 +251,7 @@ declare
   v_rule public.alert_rule%rowtype;
   v_admission public.nutrition_admission%rowtype;
   v_note_text text;
+  v_labels text[];
   v_fields constant text[] := array[
     'weight', 'height', 'measurement_type', 'muac', 'edema_grade',
     'waz', 'haz', 'whz', 'baz',
@@ -337,12 +338,24 @@ begin
     select * into v_rule from public.alert_rule
      where rule_name = 'NUT_ADMISSION_SOURCE_CORRECTED' and status = 'ACTIVE'
      order by rule_id limit 1;
+    -- Display labels, same rule as nutritionLabel() in lib/nutrition-status.ts ("AT_RISK" → "At risk",
+    -- SAM / MAM unchanged, "MUAC" kept upper case). The jsonb below keeps the raw codes.
+    select pg_catalog.array_agg(case
+             when c is null then 'Not recorded'
+             when c in ('SAM', 'MAM') then c
+             when c = 'NOT_INTERPRETABLE_EDEMA' then 'Not interpretable — edema'
+             else pg_catalog.regexp_replace(
+               pg_catalog.upper(pg_catalog.left(c, 1)) || pg_catalog.lower(pg_catalog.replace(pg_catalog.substr(c, 2), '_', ' ')),
+               '\mmuac\M', 'MUAC', 'gi')
+           end order by o)
+      into v_labels
+      from pg_catalog.unnest(array[v_old.nutritional_status, v_new.nutritional_status]) with ordinality as l(c, o);
     for v_admission in
       select * from public.nutrition_admission where source_assessment_id = p_assessment_id
     loop
       v_note_text := pg_catalog.format(
         'Source assessment corrected (revision %s): %s → %s. Admission status left as %s; review and update it.',
-        v_new.revision_count, v_old.nutritional_status, v_new.nutritional_status, v_admission.status);
+        v_new.revision_count, v_labels[1], v_labels[2], pg_catalog.lower(v_admission.status));
       insert into public.nutrition_admission_event (admission_id, actor_id, action, old_values, new_values)
       values (
         v_admission.admission_id, auth.uid(), 'UPDATED',
@@ -365,7 +378,7 @@ begin
           pg_catalog.format(
             'Nutrition assessment #%s for %s on %s was corrected (revision %s): %s → %s. Admission #%s was detected from the earlier result and is still %s. Review it and resolve or update the admission.',
             p_assessment_id, v_child_name, v_new.assessment_date, v_new.revision_count,
-            v_old.nutritional_status, v_new.nutritional_status, v_admission.admission_id, v_admission.status),
+            v_labels[1], v_labels[2], v_admission.admission_id, pg_catalog.lower(v_admission.status)),
           v_rule.severity, 'UNREAD', v_rule.rule_id, u.user_id, auth.uid(),
           v_old.child_id, p_assessment_id, 'NUTRITION',
           pg_catalog.concat('NUTRITION_ADMISSION_CORRECTED:', v_admission.admission_id, ':', v_new.revision_count)

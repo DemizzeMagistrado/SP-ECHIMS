@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import { Pagination, usePagination } from '@/components/ui/pagination'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { toast } from '@/components/ui/toast'
-import { nutritionProfileHref, nutritionTone } from '@/lib/nutrition-status'
+import { nutritionLabel, nutritionProfileHref, nutritionTone } from '@/lib/nutrition-status'
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -336,10 +336,10 @@ export function NutritionAdmissionPanel({
                             </span>
                           </td>
                           <td className={cn(cell, "min-w-36")}>
-                            <StatusBadge status={r.classification_at_detection} tone={nutritionTone(r.classification_at_detection)} label={r.classification_at_detection} />
+                            <StatusBadge status={r.classification_at_detection} tone={nutritionTone(r.classification_at_detection)} label={nutritionLabel(r.classification_at_detection)} />
                             {r.latest_classification !== r.classification_at_detection && (
                               <p className="mt-1 text-xs text-review">
-                                Latest: {r.latest_classification || "Unavailable"}, <span className="whitespace-nowrap">{r.latest_assessment_date}</span>
+                                Latest: {r.latest_classification ? nutritionLabel(r.latest_classification) : "Unavailable"}, <span className="whitespace-nowrap">{r.latest_assessment_date}</span>
                               </p>
                             )}
                           </td>
