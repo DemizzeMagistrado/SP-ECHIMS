@@ -1,14 +1,21 @@
 "use client";
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { HeartPulse } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { HeartPulse, RefreshCw, Search } from "lucide-react";
+import { FilterBar } from '@/components/ui/filter-bar'
+import { InfoTip } from '@/components/ui/info-tip'
+import { Pagination, usePagination } from '@/components/ui/pagination'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { toast } from '@/components/ui/toast'
+import { nutritionProfileHref } from '@/lib/nutrition-status'
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
-import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
+import { DateInput, Field, Input, Select, Textarea } from '@/components/ui/form'
 
 type Event = {
   event_id: number;
@@ -87,8 +94,8 @@ export function NutritionAdmissionPanel({
 }) {
   const [data, setData] = useState<Data | null>(null),
     [loading, setLoading] = useState(true),
-    [error, setError] = useState(""),
-    [notice, setNotice] = useState("");
+    [error, setError] = useState("");
+  const router = useRouter();
   usePageLoading(loading)
   const [reload, setReload] = useState(0),
     [filter, setFilter] = useState("OPEN"),
@@ -149,7 +156,6 @@ export function NutritionAdmissionPanel({
     setSelected(entry);
     intent.current = null;
     setError("");
-    setNotice("");
     setForm({
       careType: entry.care_type || "",
       status: entry.status === "DONE" ? "DONE" : "ACTIVE",
@@ -179,7 +185,6 @@ export function NutritionAdmissionPanel({
     sending.current = true;
     setBusy(true);
     setError("");
-    setNotice("");
     try {
       const body = await read(
         await fetch(endpoint, {
@@ -192,7 +197,7 @@ export function NutritionAdmissionPanel({
       if (body.currentUserId !== ownerId)
         throw new Error("Session changed. Refresh the page.");
       if (active.current) {
-        setNotice(body.message);
+        if (body.message) toast.success(body.message);
         setSelected(null);
         intent.current = null;
         setReload((v) => v + 1);
@@ -218,36 +223,53 @@ export function NutritionAdmissionPanel({
         .toLowerCase()
         .includes(search.toLowerCase().trim()),
   );
+  const { visible: pageRows, bindList, listStyle, props: pager } = usePagination(rows);
+  // The whole row opens the profile; links, buttons and the History toggle keep their own action.
+  const openRow = (event: MouseEvent, childId: number) => {
+    if (!(event.target as HTMLElement).closest("a,button,summary,details")) router.push(nutritionProfileHref(childId));
+  };
   return (
-    <section className="space-y-4 rounded-2xl border border-border bg-white p-5">
-      <div className="flex flex-wrap justify-between gap-3">
+    <section className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="font-semibold">SAM/MAM Admission Tracking</h2>
+          <h2 className="flex items-center gap-1.5 text-lg font-semibold text-brand-navy">
+            SAM/MAM admission tracking
+            <InfoTip label="About admission tracking">
+              Qualifying saved assessments create pending entries. RHM/BNS confirm
+              actual inpatient or outpatient care after checkup. Active means confirmed
+              ongoing care; Done means this tracking entry was completed, not an
+              automatically inferred cure. No next follow-up date is required. At most
+              the latest 500 scoped entries are displayed.
+            </InfoTip>
+          </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Qualifying saved assessments create pending entries. RHM/BNS confirm
-            actual inpatient or outpatient care after checkup.
+            Confirm actual care for children flagged SAM or MAM
           </p>
         </div>
-        <Button variant="secondary"
+        <Button variant="tonal"
+          loading={loading && Boolean(data)}
           disabled={loading || busy || !online}
           onClick={() => setReload((v) => v + 1)}
         >
+          <RefreshCw size={16} aria-hidden="true" />
           Refresh
         </Button>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="text-sm">
-          Child or barangay
-          <Input
-            className="mt-1"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </label>
-        <label className="text-sm">
-          Care status
+      <FilterBar>
+        <Field label="Child or barangay">
+          <div className="relative">
+            <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              className="pl-9"
+              placeholder="Search by child or barangay"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </Field>
+        <Field label="Care status">
           <Select
-            className="mt-1"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           >
@@ -261,8 +283,8 @@ export function NutritionAdmissionPanel({
               </option>
             ))}
           </Select>
-        </label>
-      </div>
+        </Field>
+      </FilterBar>
       {!online && (
         <p className="text-sm text-amber-800">
           Reconnect to confirm care. Admission changes are not queued offline.
@@ -278,17 +300,13 @@ export function NutritionAdmissionPanel({
           {error}
         </p>
       )}
-      {notice && (
-        <p role="status" className="text-sm text-teal-800">
-          {notice}
-        </p>
-      )}
       {loading && !data ? (
         <Spinner showLabel label="Loading admission tracking…" className="w-full justify-center py-6 text-sm text-muted-foreground" />
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-hidden rounded-2xl border border-border bg-white">
+        <div ref={bindList} style={listStyle} className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-muted/50">
+            <thead className="bg-muted">
               <tr>
                 {[
                   "Child / Source assessment",
@@ -299,7 +317,7 @@ export function NutritionAdmissionPanel({
                   "Recorded by",
                   "Action",
                 ].map((v) => (
-                  <th key={v} className="p-3">
+                  <th key={v} scope="col" className="px-4 py-3 text-xs font-semibold">
                     {v}
                   </th>
                 ))}
@@ -311,12 +329,12 @@ export function NutritionAdmissionPanel({
                   <td colSpan={7}><EmptyState icon={HeartPulse} title="No care entries in this view" description="Try a different status or filter." /></td>
                 </tr>
               ) : (
-                rows.map((r) => (
-                  <tr key={r.admission_id}>
-                    <td className="p-3">
+                pageRows.map((r) => (
+                  <tr key={r.admission_id} onClick={(event) => openRow(event, r.child_id)} className="cursor-pointer transition-colors hover:bg-brand-ice/60">
+                    <td className="px-4 py-3">
                       <Link
-                        className="font-medium text-primary underline"
-                        href={`/child-profiling/children/${r.child_id}`}
+                        className="font-medium text-brand-navy underline-offset-4 hover:text-brand-blue hover:underline"
+                        href={nutritionProfileHref(r.child_id)}
                       >
                         {r.child_name}
                       </Link>
@@ -325,7 +343,7 @@ export function NutritionAdmissionPanel({
                         · {r.source_assessment_date}
                       </p>
                     </td>
-                    <td className="p-3">
+                    <td className="px-4 py-3">
                       {r.classification_at_detection}
                       {r.latest_classification !==
                         r.classification_at_detection && (
@@ -342,22 +360,24 @@ export function NutritionAdmissionPanel({
                         </p>
                       )}
                     </td>
-                    <td className="p-3">
+                    <td className="px-4 py-3">
                       {r.care_type === "INPATIENT"
                         ? "Inpatient"
                         : r.care_type === "OUTPATIENT"
                           ? "Outpatient"
                           : "Not confirmed"}
                     </td>
-                    <td className="p-3">
-                      {r.status === "PENDING"
-                        ? "Pending confirmation"
-                        : r.status}
-                      <p className="text-xs text-muted-foreground">
+                    <td className="px-4 py-3">
+                      <StatusBadge
+                        status={r.status}
+                        tone={r.status === "PENDING" ? "warn" : r.status === "ACTIVE" ? "info" : "good"}
+                        label={r.status === "PENDING" ? "Pending confirmation" : r.status === "ACTIVE" ? "Active" : "Done"}
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">
                         {r.checkup_date || "No checkup confirmed"}
                       </p>
                     </td>
-                    <td className="max-w-sm p-3">
+                    <td className="max-w-sm px-4 py-3">
                       <p>{r.facility_name || "—"}</p>
                       <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
                         {r.remarks || "—"}
@@ -386,23 +406,23 @@ export function NutritionAdmissionPanel({
                         ))}
                       </details>
                     </td>
-                    <td className="p-3">
+                    <td className="px-4 py-3">
                       {r.updated_by_name ||
                         r.confirmed_by_name ||
                         "Not confirmed"}
                     </td>
-                    <td className="p-3">
+                    <td className="px-4 py-3">
                       {data?.canEdit && (
-                        <button
-                          type="button"
+                        <Button
+                          variant="tonal"
+                          size="sm"
                           disabled={busy || !online}
-                          className="text-primary underline disabled:opacity-50"
                           onClick={() => open(r)}
                         >
                           {r.status === "PENDING"
                             ? "Confirm care"
                             : "Update remarks / status"}
-                        </button>
+                        </Button>
                       )}
                     </td>
                   </tr>
@@ -411,12 +431,9 @@ export function NutritionAdmissionPanel({
             </tbody>
           </table>
         </div>
+        <Pagination {...pager} label="Admission tracking pages" />
+        </div>
       )}
-      <p className="text-xs text-muted-foreground">
-        Active means confirmed ongoing care; Done means this tracking entry was
-        completed, not an automatically inferred cure. No next follow-up date is
-        required. At most the latest 500 scoped entries are displayed.
-      </p>
       {selected && (
         <Modal
           open

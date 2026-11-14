@@ -1,6 +1,7 @@
 "use client";
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from "react";
+import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { useAuth } from "@/components/auth/auth-provider";
 import Link from "next/link";
@@ -19,14 +20,22 @@ import {
   type QueuedAssessment,
 } from "@/lib/nutrition-offline";
 import { AlertCircle, Plus, RefreshCw, Printer, SearchX } from "lucide-react";
-import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
-import { usePageLoading } from '@/components/brand/page-gate'
+import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { FilterChips, TabBar } from '@/components/ui/module-tabs'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
-import { Select, DateInput } from '@/components/ui/form'
+import { Checkbox, Field, Select, DateInput } from '@/components/ui/form'
+import { FilterBar } from '@/components/ui/filter-bar'
+import { InfoTip } from '@/components/ui/info-tip'
+import { Pagination, usePagination } from '@/components/ui/pagination'
+import { StatCard } from '@/components/ui/stat-card'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { toast } from '@/components/ui/toast'
+import { useConfirm } from '@/components/ui/confirm-dialog'
+import { canPerform, type UserRole } from '@/lib/echims-data'
+import { nutritionProfileHref, nutritionTone } from '@/lib/nutrition-status'
 import { reportSync } from '@/lib/offline/refresh'
 type Relation<T> = T | T[] | null;
 type Barangay = {
@@ -270,7 +279,7 @@ function caregiverName(child: Child | null) {
     : "Not recorded";
 }
 function childRecordUrl(childId: number) {
-  return `/child-profiling/children/${childId}`;
+  return nutritionProfileHref(childId);
 }
 class NutritionHttpError extends Error {
   constructor(
@@ -635,11 +644,13 @@ function SummaryReport({
   year,
   barangay,
   onList,
+  canPrint,
 }: {
   records: Assessment[];
   year: string;
   barangay: string;
   onList: (code: ListCode) => void;
+  canPrint: boolean;
 }) {
   const eligible = records.filter(eligibleForReport);
   const underTwo = inAgeBand(eligible, 0, 23);
@@ -729,14 +740,12 @@ function SummaryReport({
           </h2>
           <p className="text-sm text-muted-foreground">{barangay}</p>
         </div>
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="nutrition-no-print flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm"
-        >
-          <Printer size={16} />
-          Print summary
-        </button>
+        {canPrint && (
+          <Button variant="tonal" className="nutrition-no-print" onClick={() => window.print()}>
+            <Printer size={16} aria-hidden="true" />
+            Print summary
+          </Button>
+        )}
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         {(
@@ -935,12 +944,14 @@ function ClassificationList({
   year,
   barangay,
   onScores,
+  canPrint,
 }: {
   records: Assessment[];
   code: ListCode;
   year: string;
   barangay: string;
   onScores: (item: Assessment) => void;
+  canPrint: boolean;
 }) {
   const definition = listDefinitions[code];
   const items = listRecords(records, code);
@@ -960,14 +971,12 @@ function ClassificationList({
             {barangay} · {year} · {items.length} children
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="nutrition-no-print flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm"
-        >
-          <Printer size={16} />
-          Print list
-        </button>
+        {canPrint && (
+          <Button variant="tonal" className="nutrition-no-print" onClick={() => window.print()}>
+            <Printer size={16} aria-hidden="true" />
+            Print list
+          </Button>
+        )}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
@@ -1041,17 +1050,13 @@ function ClassificationList({
                 <td className={`${cell} nutrition-no-print`}>
                   <Link
                     href={childRecordUrl(item.child_id)}
-                    className="block text-primary underline"
+                    className="block whitespace-nowrap font-medium text-brand-navy underline-offset-4 hover:text-brand-blue hover:underline"
                   >
                     View child record
                   </Link>
-                  <button
-                    type="button"
-                    onClick={() => onScores(item)}
-                    className="mt-2 text-primary underline"
-                  >
+                  <Button variant="ghost" size="sm" className="-ml-3 mt-1" onClick={() => onScores(item)}>
                     Scores
-                  </button>
+                  </Button>
                 </td>
               </tr>
             ))}
@@ -1091,13 +1096,17 @@ export default function NutritionPage() {
   const [selected, setSelected] = useState<Assessment | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
-  const [message, setMessage] = useState("");
+  const router = useRouter();
+  const confirm = useConfirm();
+  const role = sharedAuth.user?.role as UserRole | undefined;
+  // Print is the export of this page (PHN monitors and exports; BNS and Admin too).
+  const canExport = role ? canPerform(role, "Nutritional Assessment", "export") : false;
   const [reportYear, setReportYear] = useState(todayKey().slice(0, 4));
   const [reportBarangay, setReportBarangay] = useState("All");
   const [reportView, setReportView] = useState<ReportView>("Assessments");
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState(false);
-  usePageLoading(!authReady);
+  // One page-level loader: the page appears once the account and its first data are in.
   const [online, setOnline] = useState(true);
   const [cachedResponse, setCachedResponse] =
     useState<NutritionResponse | null>(null);
@@ -1133,6 +1142,13 @@ export default function NutritionPage() {
         ? cachedResponse
         : undefined;
   const canRecord = data?.role === "BNS" && data.permissions.create;
+  usePageLoading(!authReady || Boolean(ownerId && online && !data && !error));
+  const { visible: queuePage, bindList: bindQueue, listStyle: queueStyle, props: queuePager } = usePagination(queued);
+  const tab = reportView === "Assessments" || reportView === "Risk" || reportView === "Admissions" ? reportView : "Summary";
+  // The whole row opens the profile at Nutrition history; links and buttons inside keep their own action.
+  const openRow = (event: MouseEvent, childId: number) => {
+    if (!(event.target as HTMLElement).closest("a,button")) router.push(childRecordUrl(childId));
+  };
   const savingRef = useRef(false);
   const children = data?.children ?? [];
   const scopedRecords = useMemo(
@@ -1183,6 +1199,17 @@ export default function NutritionPage() {
     "Wasted",
     "Overweight / obesity",
   ];
+  const categoryCode: Record<string, string> = {
+    MAM: "MAM",
+    SAM: "SAM",
+    Stunted: "STUNTED",
+    Wasted: "WASTED",
+    "Overweight / obesity": "OVERWEIGHT",
+  };
+  const categoryTone = (name: string) => {
+    const tone = nutritionTone(categoryCode[name]);
+    return tone === "neutral" ? "default" : tone;
+  };
   const allCategories = [
     "All",
     ...countCategories,
@@ -1480,7 +1507,7 @@ export default function NutritionPage() {
       if (ownerRef.current === id) {
         await refreshQueue(id);
         if (saved > 0) {
-          setMessage(
+          toast.success(
             `${saved} assessment${saved === 1 ? "" : "s"} saved on the server and classified.`,
           );
           await mutate();
@@ -1661,7 +1688,7 @@ export default function NutritionPage() {
         setSelected(result.data);
         setReportYear(payload.assessment_date.slice(0, 4));
         setReportView("Assessments");
-        setMessage("Assessment saved on the server and classified.");
+        toast.success("Assessment saved on the server and classified.");
         await mutate();
       } catch (problem) {
         const detail =
@@ -1689,7 +1716,7 @@ export default function NutritionPage() {
             if (ownerRef.current === id) {
               onlineRequest.current = null;
               setDraft(null);
-              setMessage(
+              toast.warning(
                 "Submission could not be confirmed. A recovery draft was retained; review it before retrying. Eligible drafts sync when online; conflicts require recorder review.",
               );
               await refreshQueue(id);
@@ -1730,8 +1757,8 @@ export default function NutritionPage() {
       onlineRequest.current = null;
       setDraft(null);
       setStorageError("");
-      setMessage(
-        "Draft saved locally. Eligible drafts sync when online; review any flagged conflicts. Eligible drafts sync when online; conflicts require recorder review.",
+      toast.success(
+        "Draft saved locally. Eligible drafts sync when online; conflicts require recorder review.",
       );
       await refreshQueue(id);
     } catch (saveError) {
@@ -1764,6 +1791,13 @@ export default function NutritionPage() {
   async function removeQueued(row: QueuedAssessment) {
     const id = ownerRef.current;
     if (!id || row.ownerId !== id || syncing) return;
+    const ok = await confirm({
+      title: "Remove this local draft?",
+      description: `${row.childName} · ${row.payload.assessment_date}. The draft is deleted from this device and is not uploaded.`,
+      confirmLabel: "Remove draft",
+      tone: "danger",
+    });
+    if (!ok || ownerRef.current !== id) return;
     try {
       await removeQueuedAssessment(id, row.requestId);
       await refreshQueue(id);
@@ -1806,7 +1840,6 @@ export default function NutritionPage() {
         setDraft(null);
         setSelected(null);
         setFormError("");
-        setMessage("");
         setStorageError("");
         setSyncing(false);
         setSaving(false);
@@ -1912,6 +1945,34 @@ export default function NutritionPage() {
     return ()=>{alive=false;window.clearTimeout(first);window.clearInterval(timer);window.removeEventListener('online',wake);window.removeEventListener('focus',wake);};
   },[ownerId,online,canRecord,accessDenied]);
 
+  // Year and barangay: on the Summary tab on their own, on All assessments with the other filters.
+  const periodFields = (
+    <>
+      <Field label="Year">
+        <Select
+          value={reportYear}
+          onChange={(event) => setReportYear(event.target.value)}
+        >
+          {years.map((year) => (
+            <option key={year}>{year}</option>
+          ))}
+        </Select>
+      </Field>
+      <Field label="Barangay">
+        <Select
+          value={reportBarangay}
+          onChange={(event) => setReportBarangay(event.target.value)}
+        >
+          <option value="All">All accessible barangays</option>
+          {barangays.map((b) => (
+            <option key={b.barangay_id} value={b.barangay_id}>
+              {b.barangay_name} — {b.municipality}
+            </option>
+          ))}
+        </Select>
+      </Field>
+    </>
+  );
   return (
     <div className="nutrition-report-root space-y-6">
       <style>{`@media print {
@@ -1931,7 +1992,7 @@ export default function NutritionPage() {
         className="nutrition-no-print"
         label="Nutrition views"
         group="nutrition"
-        value={reportView === "Assessments" || reportView === "Risk" || reportView === "Admissions" ? reportView : "Summary"}
+        value={tab}
         onChange={setReportView}
         items={[
           { value: "Assessments", label: "All assessments" },
@@ -1945,83 +2006,58 @@ export default function NutritionPage() {
         subtitle="OPT Plus measurements, WHO classifications, and follow-up monitoring"
         className="nutrition-no-print"
         actions={<>
-          {data?.role === "BNS" && (
-            <div className="flex flex-col items-end gap-1">
-              <Button
-                disabled={!canRecord || !ownerId || accessDenied}
-                title={
-                  !data
-                    ? "Loading account permissions and child options"
-                    : !data.permissions.create
-                      ? "This account has view access only"
-                      : "Record anthropometric measurements"
-                }
-                onClick={() => {
-                  editingRequest.current = null;
-                  onlineRequest.current = null;
-                  setFormError("");
-                  setMessage("");
-                  setDraft({
-                    ...initialDraft(),
-                    assessment_date:
-                      reportYear === todayKey().slice(0, 4)
-                        ? todayKey()
-                        : `${reportYear}-12-31`,
-                  });
-                }}
-               
-              >
-                <Plus size={20} />
-                Record Assessment
-              </Button>
-              {!canRecord && (
-                <span className="text-xs text-muted-foreground">
-                  Recording permission is unavailable for this account.
-                </span>
-              )}
-            </div>
+          {/* Admission tracking has its own data and its own Refresh. */}
+          {tab !== "Admissions" && ownerId && (
+            <Button
+              variant="tonal"
+              loading={isValidating && Boolean(data)}
+              disabled={!online || accessDenied}
+              title={online ? undefined : "Reconnect to refresh"}
+              onClick={() => void mutate()}
+            >
+              {!(isValidating && data) && <RefreshCw size={16} aria-hidden="true" />}
+              Refresh
+            </Button>
+          )}
+          {canRecord && (
+            <Button
+              disabled={!ownerId || accessDenied}
+              onClick={() => {
+                editingRequest.current = null;
+                onlineRequest.current = null;
+                setFormError("");
+                setDraft({
+                  ...initialDraft(),
+                  assessment_date:
+                    reportYear === todayKey().slice(0, 4)
+                      ? todayKey()
+                      : `${reportYear}-12-31`,
+                });
+              }}
+            >
+              <Plus size={17} aria-hidden="true" />
+              New assessment
+            </Button>
           )}
         </>}
       />
 
-      {message && (
-        <p
-          role="status"
-          className="rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm text-teal-800"
-        >
-          {message}
-        </p>
-      )}
       {error && (
         <div role="alert" className={alertClass}>
           {error.message}
-          <button
-            type="button"
-            onClick={() => void mutate()}
-            className="ml-3 underline"
-          >
+          <Button variant="ghost" size="sm" className="ml-2" onClick={() => void mutate()}>
             Retry
-          </button>
+          </Button>
         </div>
-      )}
-      {!authReady && (
-        <LogoLoader size="section" label="Checking signed-in account…" />
       )}
       {authReady && !ownerId && (
         <p role="alert" className={alertClass}>
           Sign in to access this account’s nutrition records and offline drafts.
         </p>
       )}
-      {ownerId && !data && !error && (
-        <p role="status" className="flex items-center gap-2 text-sm">
-          {online ? (
-            <>
-              <Spinner />
-              Loading assessments…
-            </>
-          ) : (
-            "No cached child options are available. Open this page online once before working offline."
-          )}
+      {ownerId && !data && !error && !online && (
+        <p role="status" className="text-sm text-muted-foreground">
+          No cached child options are available. Open this page online once before working offline.
         </p>
       )}
       {storageError && (
@@ -2031,118 +2067,80 @@ export default function NutritionPage() {
       )}
       {(queued.length > 0 || !online) && (
         <section
-          className="nutrition-no-print space-y-3 rounded-xl border border-sky-200 bg-sky-50 p-4"
+          className="nutrition-no-print space-y-3 rounded-2xl border border-sky-200 bg-sky-50/70 p-5"
           aria-label="Offline assessment queue"
         >
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="font-semibold">
+              <h2 className="flex items-center gap-1.5 font-semibold text-brand-navy">
                 {online ? "Pending offline drafts" : "Offline"} ·{" "}
                 {queued.length} local draft{queued.length === 1 ? "" : "s"}
+                <InfoTip label="About offline drafts">
+                  Drafts stay on this device until you review and confirm upload.
+                  Eligible drafts sync automatically when online. Conflicts remain for recorder review.
+                </InfoTip>
               </h2>
-              <p className="text-xs text-muted-foreground">
-                Drafts stay on this device until you review and confirm upload.
-                Eligible drafts sync automatically when online. Conflicts remain for recorder review.
-              </p>
+              <p className="mt-1 text-xs text-muted-foreground">Saved on this device until uploaded</p>
             </div>
-            <Button variant="secondary"
-              disabled={
-                !online ||
-                !ownerId ||
-                !canRecord ||
-                syncing ||
-                reviewing ||
-                queued.length === 0
-              }
-              onClick={() => void reviewQueue()}
-            >
-              {syncing
-                ? "Uploading…"
-                : reviewing
-                  ? "Checking drafts…"
-                  : "Review pending drafts"}
-            </Button>
+            {canRecord && (
+              <Button
+                variant="tonal"
+                loading={syncing || reviewing}
+                disabled={!online || !ownerId || queued.length === 0}
+                onClick={() => void reviewQueue()}
+              >
+                {syncing
+                  ? "Uploading…"
+                  : reviewing
+                    ? "Checking drafts…"
+                    : "Review pending drafts"}
+              </Button>
+            )}
           </div>
-          {queued.map((row) => (
-            <div
-              key={row.requestId}
-              className="rounded-lg border border-border bg-white p-3 text-sm"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <strong>{row.childName}</strong>
-                  <p>
-                    {row.payload.assessment_date} ·{" "}
-                    {row.status === "BLOCKED"
-                      ? "Needs correction or permission review"
-                      : "Pending sync"}
-                  </p>
+          <div ref={bindQueue} style={queueStyle} className="space-y-3">
+            {queuePage.map((row) => (
+              <div
+                key={row.requestId}
+                className="rounded-xl border border-border bg-white p-4 text-sm"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-brand-navy">{row.childName}</p>
+                    <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      {row.payload.assessment_date}
+                      <StatusBadge
+                        status={row.status}
+                        tone={row.status === "BLOCKED" ? "danger" : "warn"}
+                        label={row.status === "BLOCKED" ? "Needs correction or permission review" : "Pending sync"}
+                      />
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {canRecord && (
+                      <Button variant="ghost" size="sm" disabled={syncing} onClick={() => editQueued(row)}>
+                        Edit draft
+                      </Button>
+                    )}
+                    {canRecord && (
+                      <Button variant="tonal" size="sm" disabled={syncing || !online} onClick={() => void retryQueued(row)}>
+                        Review & retry
+                      </Button>
+                    )}
+                    <Button variant="danger" size="sm" disabled={syncing} onClick={() => void removeQueued(row)}>
+                      Remove local draft
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    disabled={syncing || !canRecord}
-                    onClick={() => editQueued(row)}
-                    className="text-primary underline disabled:opacity-50"
-                  >
-                    Edit draft
-                  </button>
-                  <button
-                    type="button"
-                    disabled={syncing || !online || !canRecord}
-                    onClick={() => void retryQueued(row)}
-                    className="text-primary underline disabled:opacity-50"
-                  >
-                    Review & retry
-                  </button>
-                  <button
-                    type="button"
-                    disabled={syncing}
-                    onClick={() => void removeQueued(row)}
-                    className="text-red-700 underline disabled:opacity-50"
-                  >
-                    Remove local draft
-                  </button>
-                </div>
+                {row.lastError && (
+                  <p className="mt-2 text-xs text-red-700">{row.lastError}</p>
+                )}
               </div>
-              {row.lastError && (
-                <p className="mt-2 text-xs text-red-700">{row.lastError}</p>
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
+          <Pagination {...queuePager} label="Offline draft pages" className="rounded-xl border-0 bg-white" />
         </section>
       )}
-      {reportView !== "Risk" && reportView !== "Admissions" && (
-        <div className="nutrition-no-print flex flex-wrap items-center gap-3">
-          <label htmlFor="nutrition-year" className="text-sm font-medium">
-            Year
-          </label>
-          <Select
-            id="nutrition-year"
-            value={reportYear}
-            onChange={(event) => setReportYear(event.target.value)}
-          >
-            {years.map((year) => (
-              <option key={year}>{year}</option>
-            ))}
-          </Select>
-          <label htmlFor="nutrition-barangay" className="text-sm font-medium">
-            Barangay
-          </label>
-          <Select
-            id="nutrition-barangay"
-            value={reportBarangay}
-            onChange={(event) => setReportBarangay(event.target.value)}
-          >
-            <option value="All">All accessible barangays</option>
-            {barangays.map((b) => (
-              <option key={b.barangay_id} value={b.barangay_id}>
-                {b.barangay_name} — {b.municipality}
-              </option>
-            ))}
-          </Select>
-        </div>
-      )}
+      <TabPanel tabKey={tab} className="space-y-6">
       {reportView === "Admissions" && ownerId && (
         <NutritionAdmissionPanel
           key={ownerId}
@@ -2160,16 +2158,14 @@ export default function NutritionPage() {
           }
           error={error?.message}
           offline={!online}
-          onRefresh={() => void mutate()}
         />
       )}
-      {reportView !== "Assessments" &&
-        reportView !== "Risk" &&
-        reportView !== "Admissions" && (
+      {tab === "Summary" && (
+        <div className="nutrition-no-print space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">{periodFields}</div>
           <FilterChips
-            className="nutrition-no-print"
             label="Summary classifications"
-            value={reportView}
+            value={reportView as "Summary" | ListCode}
             onChange={setReportView}
             options={(["Summary", ...listCodes] as Array<"Summary" | ListCode>).map((view) => ({
               value: view,
@@ -2177,7 +2173,8 @@ export default function NutritionPage() {
               count: view === "Summary" ? undefined : listRecords(latest, view).length,
             }))}
           />
-        )}
+        </div>
+      )}
       {reportView === "Summary" && (
         <SummaryReport
           records={latest}
@@ -2188,6 +2185,7 @@ export default function NutritionPage() {
               : (selectedAreas[0]?.barangay_name ?? "Selected barangay")
           }
           onList={setReportView}
+          canPrint={canExport}
         />
       )}
       {reportView !== "Summary" &&
@@ -2204,70 +2202,58 @@ export default function NutritionPage() {
                 : (selectedAreas[0]?.barangay_name ?? "Selected barangay")
             }
             onScores={setSelected}
+            canPrint={canExport}
           />
         )}
       {reportView === "Assessments" && (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="nutrition-no-print grid grid-cols-2 gap-4 lg:grid-cols-5">
             {countCategories.map((name) => (
-              <button
+              <StatCard
                 key={name}
-                type="button"
+                label={name}
+                value={latest.filter((item) => matches(item, name)).length}
+                tone={categoryTone(name)}
                 onClick={() => setCategory(category === name ? "All" : name)}
-                aria-pressed={category === name}
-                className={`rounded-xl border p-4 text-left ${category === name ? "border-primary bg-sky-50" : "border-border bg-white"}`}
-              >
-                <p className="text-sm text-muted-foreground">{name}</p>
-                <p className="mt-1 text-2xl font-bold text-foreground">
-                  {latest.filter((item) => matches(item, name)).length}
-                </p>
-              </button>
+                pressed={category === name}
+              />
             ))}
           </div>
-          <p className="text-xs text-muted-foreground">
-            Counts use the latest loaded assessment per child in the selected
-            year and barangay. Categories can overlap.
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <label htmlFor="nutrition-category" className="text-sm font-medium">
-              Classification view
-            </label>
-            <Select
-              id="nutrition-category"
-              value={category}
-              onChange={(event) => setCategory(event.target.value)}
-            >
-              {allCategories.map((name) => (
-                <option key={name}>{name}</option>
-              ))}
-            </Select>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
+          <FilterBar
+            className="nutrition-no-print"
+            info="Counts use the latest loaded assessment per child in the selected year and barangay. Categories can overlap."
+          >
+            {periodFields}
+            <Field label="Classification view">
+              <Select
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+              >
+                {allCategories.map((name) => (
+                  <option key={name}>{name}</option>
+                ))}
+              </Select>
+            </Field>
+            <div className="flex items-end pb-2">
+              <Checkbox
+                label="Include assessment history"
                 checked={history}
                 onChange={(event) => setHistory(event.target.checked)}
               />
-              Include assessment history
-            </label>
-            <button
-              type="button"
-              disabled={isValidating}
-              onClick={() => void mutate()}
-              className="ml-auto flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm disabled:opacity-50"
-            >
-              {isValidating ? <Spinner /> : <RefreshCw size={16} />}
-              Refresh
-            </button>
-          </div>
+            </div>
+          </FilterBar>
           <div className="overflow-hidden rounded-2xl border border-border bg-white">
-            <div className="border-b border-border p-5">
-              <h2 className="font-semibold">
+            <div className="border-b border-border px-5 py-4">
+              <h2 className="flex items-center gap-1.5 text-lg font-semibold text-brand-navy">
                 {history ? "Assessment history" : "Latest assessments"}
+                <InfoTip label="About this table">
+                  Profile information comes from the linked child record. View
+                  child record opens the centralized profile and health history;
+                  Scores shows this assessment’s calculated results.
+                </InfoTip>
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Profile information comes from the linked child record. View
-                child record opens the centralized profile and health history;
-                Scores shows this assessment’s calculated results.
+                {visible.length} assessment{visible.length === 1 ? "" : "s"} · {category === "All" ? "all classifications" : category}
               </p>
             </div>
             <div className="overflow-x-auto">
@@ -2308,7 +2294,11 @@ export default function NutritionPage() {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {visible.map((item, index) => (
-                    <tr key={item.assessment_id} className="hover:bg-muted">
+                    <tr
+                      key={item.assessment_id}
+                      onClick={(event) => openRow(event, item.child_id)}
+                      className="cursor-pointer transition-colors hover:bg-brand-ice/60"
+                    >
                       <td className="px-4 py-4 text-sm">{index + 1}</td>
                       <td className="min-w-40 px-4 py-4 text-sm">
                         {one(item.child)
@@ -2319,7 +2309,12 @@ export default function NutritionPage() {
                         {caregiverName(one(item.child))}
                       </td>
                       <td className="min-w-44 px-4 py-4 text-sm font-medium">
-                        {childName(one(item.child))}
+                        <Link
+                          href={childRecordUrl(item.child_id)}
+                          className="text-brand-navy underline-offset-4 hover:text-brand-blue hover:underline"
+                        >
+                          {childName(one(item.child))}
+                        </Link>
                         <span className="mt-1 block text-xs text-muted-foreground">
                           {one(one(item.child)?.barangay ?? null)
                             ?.barangay_name ?? "Barangay unavailable"}
@@ -2387,31 +2382,29 @@ export default function NutritionPage() {
                         {label(item.muac_status)}
                       </td>
                       <td className="min-w-44 px-4 py-4 text-sm">
-                        <span className="block text-xs">
-                          {!item.engine_version
+                        <StatusBadge
+                          status={item.nutritional_status ?? "unknown"}
+                          tone={item.engine_version ? nutritionTone(item.nutritional_status) : "neutral"}
+                          label={!item.engine_version
                             ? "Legacy — not verified"
                             : label(item.nutritional_status)}
-                        </span>
+                        />
                         <span className="my-1 block text-xs text-muted-foreground">
                           {followUp(item)}
                         </span>
                         <Link
                           href={childRecordUrl(item.child_id)}
-                          className="mb-2 block font-medium text-primary underline"
+                          className="block whitespace-nowrap font-medium text-brand-navy underline-offset-4 hover:text-brand-blue hover:underline"
                         >
                           View child record
                         </Link>
-                        <button
-                          type="button"
-                          onClick={() => setSelected(item)}
-                          className="font-medium text-primary underline"
-                        >
+                        <Button variant="ghost" size="sm" className="-ml-3 mt-1" onClick={() => setSelected(item)}>
                           Scores
                           <span className="sr-only">
                             {" "}
                             for assessment {item.assessment_id}
                           </span>
-                        </button>
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -2423,27 +2416,30 @@ export default function NutritionPage() {
                 </tbody>
               </table>
             </div>
-            <p className="border-t border-border p-4 text-xs text-muted-foreground">
-              Shows current linked profile information alongside measurements
-              recorded on the assessment date. IP membership comes from the
-              latest child profile’s Ethnicity field. Disability and region are
-              not present in the supplied profile fields. All accessible
-              assessment records are loaded in pages.
+            <p className="flex items-center gap-1.5 border-t border-border px-5 py-3 text-xs text-muted-foreground">
+              Profile details are current; measurements are from the assessment date.
+              <InfoTip label="About these columns">
+                Shows current linked profile information alongside measurements
+                recorded on the assessment date. IP membership comes from the
+                latest child profile’s Ethnicity field. Disability and region are
+                not present in the supplied profile fields. All accessible
+                assessment records are loaded in pages.
+              </InfoTip>
             </p>
           </div>
         </>
       )}
-      <div className="nutrition-no-print rounded-2xl border border-border bg-white p-5">
-        <h2 className="flex items-center gap-2 font-semibold">
-          <AlertCircle size={19} className="text-orange-700" />
-          Follow-up guidance
-        </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
+      </TabPanel>
+      <p className="nutrition-no-print flex items-start gap-2 text-sm text-muted-foreground">
+        <AlertCircle size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-warn" />
+        <span>
           SAM and infant urgent-review results require prompt clinical
-          assessment. Other growth concerns require health-staff review. Missing
-          scores and flagged measurements are displayed for verification.
-        </p>
-      </div>
+          assessment. Other growth concerns require health-staff review.
+        </span>
+        <InfoTip label="About follow-up guidance">
+          Missing scores and flagged measurements are displayed for verification.
+        </InfoTip>
+      </p>
       {syncReview && (
         <Modal
           open
