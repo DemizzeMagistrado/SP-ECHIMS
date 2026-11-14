@@ -33,8 +33,9 @@
 -- MUAC plausibility is NOT in this migration (pending a reference and health-worker confirmation):
 -- see supabase/proposals/. MUAC classification is unchanged (severe < 11.5 cm, moderate 11.5 to
 -- < 12.5 cm, 6–59 months only).
--- Backup before applying: backup_nut_rev01_be.functions ('guard_nutrition_submission (before 01)',
--- 'guard_targeted_alert_update (before 01)').
+-- Backup before applying (2026-11-14): schema backup_nut_rev01_be — copies of nutritional_assessment,
+-- nutrition_admission, nutrition_admission_event, alert and alert_rule, and function_defs with the
+-- previous guard_nutrition_submission and guard_targeted_alert_update.
 
 alter table public.nutritional_assessment
   add column if not exists updated_at timestamptz,
