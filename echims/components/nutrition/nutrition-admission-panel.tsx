@@ -85,6 +85,74 @@ async function read(response: Response) {
     throw new Error(body.error || "Unable to process care details.");
   return body;
 }
+const EVENT_TITLE: Record<string, string> = { DETECTED: "Detected", CONFIRMED: "Care confirmed", UPDATED: "Updated" };
+const STATUS_TONE = { PENDING: "review", ACTIVE: "info", DONE: "good" } as const;
+const eventTime = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Manila", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true,
+});
+
+/** Expanded row under an admission: its events as a timeline, newest first. */
+function AdmissionHistory({ events, statusLabel, careLabel }: {
+  events: Event[];
+  statusLabel: (v: string) => string;
+  careLabel: (v: string | null | undefined) => string | null;
+}) {
+  return (
+    <section aria-label="Admission history" className="max-w-[78ch]">
+      <h3 className="mb-3 text-[13px] font-semibold text-brand-navy">
+        Admission history <span className="font-normal text-brand-muted">· {events.length} {events.length === 1 ? "event" : "events"}</span>
+      </h3>
+      {events.length === 0 ? (
+        <p className="text-sm text-brand-muted">No events recorded.</p>
+      ) : (
+        <ol className="relative space-y-3 before:absolute before:bottom-3 before:left-[7px] before:top-3 before:w-px before:bg-brand-line">
+          {events.map((h, i) => {
+            const corrected = h.new_values?.note === "Source assessment corrected";
+            const status = h.new_values?.status ?? "";
+            const care = careLabel(h.new_values?.care_type);
+            return (
+              <li key={h.event_id} className="relative pl-7">
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "absolute left-0 top-3 size-[15px] rounded-full border-2 bg-white",
+                    corrected ? "border-review-line" : i === 0 ? "border-brand-navy" : "border-brand-line",
+                  )}
+                />
+                <div className={cn("rounded-xl border bg-white px-4 py-3", corrected ? "border-review-line/60" : "border-brand-line")}>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    {corrected && <AlertTriangle size={14} aria-hidden="true" className="shrink-0 text-review" />}
+                    <span className={cn("text-sm font-semibold", corrected ? "text-review" : "text-brand-navy")}>
+                      {corrected ? "Source assessment corrected" : EVENT_TITLE[h.action] ?? nutritionLabel(h.action)}
+                    </span>
+                    {i === 0 && <span className="rounded-full bg-badge px-2 py-0.5 text-[11px] font-semibold text-brand-navy">Latest</span>}
+                    <span className="text-xs text-brand-muted sm:ml-auto">
+                      <time dateTime={h.created_at}>{eventTime.format(new Date(h.created_at))}</time>
+                      {" · "}
+                      {h.actor_name ? `by ${h.actor_name}` : "Automatic detection"}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                    {status && (
+                      <StatusBadge status={status} tone={STATUS_TONE[status as keyof typeof STATUS_TONE] ?? "neutral"} label={statusLabel(status)} />
+                    )}
+                    <span className="text-brand-muted">
+                      Care type: <span className={care ? "font-medium text-brand-navy" : undefined}>{care ?? "not confirmed"}</span>
+                    </span>
+                  </div>
+                  {h.new_values?.remarks && (
+                    <p className="mt-2 whitespace-pre-wrap border-l-2 border-brand-line pl-3 text-sm text-brand-navy/80">{h.new_values.remarks}</p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </section>
+  );
+}
+
 export function NutritionAdmissionPanel({
   ownerId,
   online = true,
@@ -345,7 +413,7 @@ export function NutritionAdmissionPanel({
                           </td>
                           <td className={cell}>{careLabel(r.care_type) ?? dash}</td>
                           <td className={cn(cell, "min-w-48")}>
-                            <StatusBadge status={r.status} tone={r.status === "PENDING" ? "review" : r.status === "ACTIVE" ? "info" : "good"} label={statusLabel(r.status)} />
+                            <StatusBadge status={r.status} tone={STATUS_TONE[r.status]} label={statusLabel(r.status)} />
                             <p className="mt-1 text-xs text-brand-muted">{r.checkup_date || "No checkup yet"}</p>
                             {(corrected || !["SAM", "MAM"].includes(r.source_current_classification)) && (
                               <p className="mt-1.5 flex items-start gap-1.5 text-xs font-semibold text-review">
@@ -393,30 +461,10 @@ export function NutritionAdmissionPanel({
                         </tr>
                         {expandedRow && (
                           <tr id={historyId} data-detail>
-                            <td colSpan={7} className="bg-group-a px-4 py-3">
+                            <td colSpan={7} className="bg-group-a px-4 py-4 sm:px-6">
                               {/* Pinned to the visible width when the table scrolls sideways (phones). */}
                               <div className="sticky left-4 max-w-[calc(100vw-4.5rem)] sm:static sm:max-w-none">
-                              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand-muted">Admission history</p>
-                              {r.history.length ? (
-                                <ol className="space-y-2">
-                                  {r.history.map((h) => (
-                                    <li key={h.event_id} className="rounded-xl border border-brand-line bg-white px-3 py-2 text-sm">
-                                      <p className="flex flex-wrap items-baseline gap-x-2">
-                                        <span className="text-xs font-semibold uppercase tracking-wide">{h.action}</span>
-                                        <span className="text-xs text-brand-muted">
-                                          {new Date(h.created_at).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}. {h.actor_name || "Automatic detection"}
-                                        </span>
-                                      </p>
-                                      <p className="mt-0.5">
-                                        Status: {statusLabel(h.new_values?.status ?? "")}. Care type: {careLabel(h.new_values?.care_type) ?? "not confirmed"}.
-                                      </p>
-                                      {h.new_values?.remarks && <p className="mt-0.5 whitespace-pre-wrap text-brand-muted">{h.new_values.remarks}</p>}
-                                    </li>
-                                  ))}
-                                </ol>
-                              ) : (
-                                <p className="text-sm text-brand-muted">No events recorded.</p>
-                              )}
+                              <AdmissionHistory events={r.history} statusLabel={statusLabel} careLabel={careLabel} />
                               </div>
                             </td>
                           </tr>
