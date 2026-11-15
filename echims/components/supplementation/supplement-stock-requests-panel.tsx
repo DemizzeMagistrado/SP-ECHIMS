@@ -1,11 +1,14 @@
 "use client";
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useEffect, useRef, useState } from "react";
-import { Package } from "lucide-react";
+import { Package, Plus, RefreshCw } from "lucide-react";
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { REPORT_CARD } from '@/components/ui/report-parts'
+import { cn } from '@/lib/utils'
 import { BatchNumberField, checkBatchNumber } from '@/components/inventory/batch-number-field'
 import { Modal } from '@/components/ui/modal'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
@@ -54,8 +57,6 @@ function manilaToday() {
   return `${part("year")}-${part("month")}-${part("day")}`;
 }
 const endpoint = "/api/supplementation/stock-requests";
-const button =
-  "rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50";
 export function SupplementStockRequestsPanel({
   ownerId,
   online = true,
@@ -256,87 +257,82 @@ export function SupplementStockRequestsPanel({
   }
   const shownRequests = (data?.requests ?? []).filter((r) => filter === "ALL" || r.status === filter);
   const { visible: pagedRequests, props: requestPager } = usePagination(shownRequests);
+  const head = "px-4 py-3 text-left align-bottom text-[13px] font-semibold text-brand-navy whitespace-nowrap";
+  const cell = "px-4 py-3.5 align-top";
+  const STATUS_TONE = { PENDING: "review", APPROVED: "good", REJECTED: "danger" } as const;
   return (
-    <section className="space-y-4 rounded-2xl border border-border bg-white p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-semibold">Supplement Batch Stock Requests</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+    <section aria-label="Supplement batch stock requests" className={REPORT_CARD}>
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-brand-line px-4 py-3">
+        <div className="min-w-0 flex-[1_1_20rem]">
+          <h3 className="text-base font-semibold text-brand-navy">Supplement Batch Stock Requests</h3>
+          <p className="mt-0.5 text-sm text-brand-muted">
             RHM requests stock for an assigned barangay. PHN reviews the
             request.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="secondary"
-            disabled={loading || busy || !online}
-            onClick={() => setReload((v) => v + 1)}
+        {data?.canRequest && (
+          <Button
+            disabled={busy || !online}
+            onClick={() => {
+              setForm({
+                supplementId: "",
+                barangayId: "",
+                quantity: "",
+                remarks: "",
+              });
+              intent.current = null;
+              setOpen(true);
+              setError("");
+              setNotice("");
+            }}
           >
-            Refresh
+            <Plus size={17} aria-hidden="true" /> Request Batch Stock
           </Button>
-          {data?.canRequest && (
-            <button
-              type="button"
-              className={button}
-              disabled={busy || !online}
-              onClick={() => {
-                setForm({
-                  supplementId: "",
-                  barangayId: "",
-                  quantity: "",
-                  remarks: "",
-                });
-                intent.current = null;
-                setOpen(true);
-                setError("");
-                setNotice("");
-              }}
-            >
-              Request Batch Stock
-            </button>
-          )}
-        </div>
+        )}
       </div>
-      <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-        Temporary stock test: PHN approval records a batch receipt directly into
-        the barangay. RHU source stock is not deducted yet. Pending requests do
-        not reserve stock.
-      </p>
-      {!online && (
-        <p className="text-sm text-amber-800">
-          Reconnect to submit or review stock requests. Stock requests are not
-          queued offline.
+      <div className="flex flex-wrap items-end gap-4 border-b border-brand-line/70 p-4">
+        <div className="w-full sm:w-64">
+          <Select aria-label="Request status" value={filter} onChange={(e) => setFilter(e.target.value)}>
+            {["ALL", "PENDING", "REJECTED", "APPROVED"].map((s) => (
+              <option key={s} value={s}>{s === "ALL" ? "All statuses" : s.charAt(0) + s.slice(1).toLowerCase()}</option>
+            ))}
+          </Select>
+        </div>
+        <Button variant="secondary" className="ml-auto" disabled={loading || busy || !online} onClick={() => setReload((v) => v + 1)}>
+          <RefreshCw size={16} aria-hidden="true" /> Refresh
+        </Button>
+      </div>
+      <div className="space-y-2 px-4 pt-4 empty:hidden">
+        <p className="rounded-xl border border-review-line/40 bg-review-soft px-3 py-2 text-sm text-review">
+          Temporary stock test: PHN approval records a batch receipt directly into
+          the barangay. RHU source stock is not deducted yet. Pending requests do
+          not reserve stock.
         </p>
-      )}
-      {error && (
-        <p role="alert" className="text-sm text-red-700">
-          {error}
-        </p>
-      )}
-      {notice && (
-        <p role="status" className="text-sm text-teal-800">
-          {notice}
-        </p>
-      )}
+        {!online && (
+          <p className="text-sm text-review">
+            Reconnect to submit or review stock requests. Stock requests are not
+            queued offline.
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="text-sm text-danger">
+            {error}
+          </p>
+        )}
+        {notice && (
+          <p role="status" className="text-sm font-semibold text-good">
+            {notice}
+          </p>
+        )}
+      </div>
       {loading && !data ? (
         <Spinner showLabel label="Loading stock requests…" className="w-full justify-center py-6 text-sm text-muted-foreground" />
       ) : (
         data && (
           <>
-            <label className="block text-sm">
-              Request status
-              <Select
-                className="ml-3"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-              >
-                {["ALL", "PENDING", "REJECTED", "APPROVED"].map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </Select>
-            </label>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-muted/50">
+            <div className="scroll-subtle mt-4 overflow-x-auto border-t border-brand-line">
+              <table className="data-grid w-full text-sm text-brand-navy">
+                <thead>
                   <tr>
                     {[
                       "Request",
@@ -347,94 +343,89 @@ export function SupplementStockRequestsPanel({
                       "Remarks / Review",
                       "Action",
                     ].map((h) => (
-                      <th key={h} className="p-3">
+                      <th key={h} scope="col" className={cn(head, h === "Quantity" && "text-right")}>
                         {h}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
-                  {data.requests.filter(
-                    (r) => filter === "ALL" || r.status === filter,
-                  ).length === 0 ? (
+                <tbody>
+                  {shownRequests.length === 0 ? (
                     <tr>
                       <td colSpan={7}><EmptyState icon={Package} title="No requests in this view" description="Try a different status filter." /></td>
                     </tr>
                   ) : (
-                    pagedRequests
-                      .map((r) => (
-                        <tr key={r.stock_request_id}>
-                          <td className="p-3">
-                            #{r.stock_request_id}
-                            <p className="text-xs text-muted-foreground">
-                              {r.request_date} · {r.requester_name}
-                            </p>
-                          </td>
-                          <td className="p-3">{r.item_name}</td>
-                          <td className="p-3">
-                            {r.barangay_name}
-                            <p className="text-xs text-muted-foreground">
-                              {r.rhu_name}
-                            </p>
-                          </td>
-                          <td className="p-3">
-                            {r.requested_quantity} {r.unit}
-                          </td>
-                          <td className="p-3">{r.status}</td>
-                          <td className="p-3">
-                            {r.remarks || "—"}
-                            {r.batch_number && (
-                              <p className="text-xs">Batch: {r.batch_number}</p>
-                            )}
-                            {r.supplement_approval_mode ===
-                              "TEMPORARY_RECEIPT" && (
-                              <p className="text-xs text-amber-800">
-                                Temporary barangay receipt
-                              </p>
-                            )}
-                            {r.reason && (
-                              <p className="mt-1 text-red-700">
-                                Reason: {r.reason}
-                              </p>
-                            )}
-                          </td>
-                          <td className="p-3">
-                            {data.canReject && r.status === "PENDING" ? (
-                              <div className="space-y-2">
-                                <Button variant="secondary" size="sm"
-                                  disabled={busy || !online || !data.canApprove}
-                                  onClick={() => {
-                                    setApprove(r);
-                                    setError("");
-                                    setNotice("");
-                                    setBatch({
-                                      batchNumber: "",
-                                      expiryDate: "",
-                                      receivedDate: manilaToday(),
-                                    });
-                                  }}
-                                >
-                                  Approve Batch
-                                </Button>
-                                <button
-                                  type="button"
-                                  disabled={busy || !online}
-                                  className="block text-red-700 underline disabled:opacity-50"
-                                  onClick={() => {
-                                    setReject(r);
-                                    setReason("");
-                                    setError("");
-                                  }}
-                                >
-                                  Reject
-                                </button>
-                              </div>
-                            ) : (
-                              "—"
-                            )}
-                          </td>
-                        </tr>
-                      ))
+                    pagedRequests.map((r, i) => (
+                      <tr key={r.stock_request_id} data-zebra={i % 2 === 1 || undefined}>
+                        <td className={cn(cell, "whitespace-nowrap")}>
+                          <span className="font-semibold">#{r.stock_request_id}</span>
+                          <span className="block text-xs text-brand-muted">
+                            {r.request_date} · {r.requester_name}
+                          </span>
+                        </td>
+                        <td className={cn(cell, "min-w-40")}>{r.item_name}</td>
+                        <td className={cn(cell, "min-w-36")}>
+                          {r.barangay_name}
+                          <span className="block text-xs text-brand-muted">{r.rhu_name}</span>
+                        </td>
+                        <td className={cn(cell, "whitespace-nowrap text-right tabular-nums")}>
+                          {r.requested_quantity} {r.unit}
+                        </td>
+                        <td className={cell}>
+                          <StatusBadge status={r.status} tone={STATUS_TONE[r.status as keyof typeof STATUS_TONE] ?? "neutral"} />
+                        </td>
+                        <td className={cn(cell, "min-w-48")}>
+                          {r.remarks || <span className="text-brand-muted">—</span>}
+                          {r.batch_number && (
+                            <span className="block text-xs text-brand-muted">Batch: {r.batch_number}</span>
+                          )}
+                          {r.supplement_approval_mode === "TEMPORARY_RECEIPT" && (
+                            <span className="block text-xs font-semibold text-review">Temporary barangay receipt</span>
+                          )}
+                          {r.reason && (
+                            <span className="mt-1 block text-danger">Reason: {r.reason}</span>
+                          )}
+                        </td>
+                        <td className={cn(cell, "min-w-40")}>
+                          {data.canReject && r.status === "PENDING" ? (
+                            <div className="grid gap-2">
+                              <Button
+                                variant="row"
+                                size="row"
+                                disabled={busy || !online || !data.canApprove}
+                                onClick={() => {
+                                  setApprove(r);
+                                  setError("");
+                                  setNotice("");
+                                  setBatch({
+                                    batchNumber: "",
+                                    expiryDate: "",
+                                    receivedDate: manilaToday(),
+                                  });
+                                }}
+                              >
+                                Approve Batch
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-danger"
+                                disabled={busy || !online}
+                                onClick={() => {
+                                  setReject(r);
+                                  setReason("");
+                                  setError("");
+                                }}
+                              >
+                                Reject
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-brand-muted">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
                   )}
                 </tbody>
               </table>

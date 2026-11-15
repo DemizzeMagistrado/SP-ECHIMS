@@ -14,7 +14,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { buttonVariants } from '@/components/ui/button'
 import { Pagination, usePagination } from '@/components/ui/pagination'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { CountsStrip, FilterCard, REPORT_CARD, SectionHeader } from '@/components/nutrition/report-parts'
+import { CountsStrip, FilterCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
 
 const PRIORITY_TONE = { CRITICAL: 'severe', HIGH: 'review', MEDIUM: 'neutral', LOW: 'neutral' } as const
 // Same table styling as All assessments (.data-grid lines, zebra, hover with a navy bar, pinned Action column).
