@@ -4,8 +4,11 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useEffect, useState } from "react";
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
-import { DataTable } from '@/components/ui/data-table'
-import { MessageSquare } from 'lucide-react'
+import { GridTable } from '@/components/ui/grid-table'
+import { FilterCard, SectionHeader } from '@/components/ui/report-parts'
+import { InfoContent } from '@/components/ui/info-tip'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { MessageSquare, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 type Queue = {
   notification_id: number;
@@ -90,72 +93,67 @@ export function SmsSimulationPanel({ ownerId }: { ownerId: string }) {
   const attempts = (data?.attempts ?? []).filter(
     (row) => program === "ALL" || ids.has(row.notification_id),
   );
+  const label = (value: string) => value.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+  // Delivery / queue states as badges: delivered and sent green, failed red, pending and queued amber.
+  const tone = (value: string) => /FAIL|ERROR|BLOCK/.test(value) ? "danger" as const : /DELIVER|SENT|SUCCE/.test(value) ? "good" as const : /PEND|QUEUE|WAIT|READY/.test(value) ? "review" as const : "neutral" as const;
+  const time = (ts: string) => new Date(ts).toLocaleString("en-PH", { timeZone: "Asia/Manila" });
   return (
-    <section className="space-y-4 rounded-2xl border border-border bg-white p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-semibold">System SMS overview</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Read-only system view. RHM and BHW handle sending from their program
-            SMS tabs.
-          </p>
-        </div>
-        <Button variant="secondary"
-          disabled={loading}
-          onClick={() => setReload((value) => value + 1)}
-        >
-          Refresh
-        </Button>
-      </div>
-      <label className="block text-sm">
-        Program
-        <Select
-          value={program}
-          onChange={(event) => setProgram(event.target.value)}
-          className="ml-3"
-        >
+    <section aria-labelledby="sms-title" className="space-y-4">
+      <SectionHeader
+        title={<span id="sms-title">System SMS overview</span>}
+        subtitle="Read-only system view. RHM and BHW handle sending from their program SMS tabs."
+        about={<InfoContent
+          title="System SMS overview"
+          description="Every SMS reminder in the queue, and every simulated send."
+          sections={[{ label: "Values", value: ["Actual delivery = what the SMS gateway reported", "Queue status = where the reminder is in the send queue"] }]}
+          note="Simulated results do not indicate real delivery."
+        />}
+        actions={<Button variant="secondary" disabled={loading} onClick={() => setReload((value) => value + 1)}><RefreshCw size={16} aria-hidden="true" className={loading ? "animate-spin motion-reduce:animate-none" : undefined} /> Refresh</Button>}
+      />
+      <FilterCard>
+        <Select aria-label="Program" value={program} onChange={(event) => setProgram(event.target.value)}>
           <option value="ALL">All programs</option>
           <option value="VACCINATION">Vaccination</option>
           <option value="SUPPLEMENTATION">Supplementation</option>
         </Select>
-      </label>
-      {error && (
-        <p role="alert" className="text-sm text-red-600">
-          {error}
-        </p>
-      )}
-      {loading && (
-        <Spinner showLabel label="Loading SMS overview…" className="w-full justify-center py-6 text-sm text-muted-foreground" />
-      )}
-      <DataTable
+      </FilterCard>
+      {error && <p role="alert" className="text-sm text-[#C42B2B]">{error}</p>}
+      {loading && <Spinner showLabel label="Loading SMS overview…" className="w-full justify-center py-6 text-sm text-muted-foreground" />}
+      <GridTable
+        caption="SMS queue"
         rows={queue}
         rowKey={(row) => row.notification_id}
-        caption="SMS queue"
+        pageSize={5}
+        minWidth={760}
         empty={{ icon: MessageSquare, title: "No queued SMS for this program", description: "Reminders waiting to send will appear here." }}
         columns={[
-          { key: "child", header: "Child", sortValue: (row) => row.child_name, cell: (row) => <>{row.child_name}<p className="text-xs text-muted-foreground">{row.masked_number}</p></> },
-          { key: "message", header: "Message", cell: (row) => row.message },
-          { key: "delivery", header: "Actual delivery", sortValue: (row) => row.delivery_status, cell: (row) => row.delivery_status },
-          { key: "queue", header: "Queue status", sortValue: (row) => row.queue_status, cell: (row) => row.queue_status.replace(/_/g, " ") },
+          { key: "child", header: "Child", width: "22%", cell: (row) => <><span className="block font-semibold text-[#0C1260]">{row.child_name}</span><span className="block text-xs text-[#8896B0]">{row.masked_number}</span></> },
+          { key: "message", header: "Message", width: "44%", cell: (row) => <span className="block break-words">{row.message}</span> },
+          { key: "delivery", header: "Actual delivery", width: "17%", cell: (row) => <StatusBadge status={row.delivery_status} tone={tone(row.delivery_status)} label={label(row.delivery_status)} /> },
+          { key: "queue", header: "Queue status", width: "17%", cell: (row) => <StatusBadge status={row.queue_status} tone={tone(row.queue_status)} label={label(row.queue_status)} /> },
         ]}
       />
-      <h3 className="text-sm font-semibold">Simulation attempt history</h3>
-      <p className="text-xs text-muted-foreground">
-        Historical Administrator demo attempts are retained. New attempts
-        require an assigned RHM/BHW. Simulated results do not indicate real
-        delivery.
-      </p>
-      <DataTable
+      <div className="space-y-1 pt-2">
+        <h3 className="text-sm font-semibold text-[#0C1260]">Simulation attempt history</h3>
+        <p className="text-xs text-[#55617F]">
+          Historical Administrator demo attempts are retained. New attempts
+          require an assigned RHM/BHW. Simulated results do not indicate real
+          delivery.
+        </p>
+      </div>
+      <GridTable
+        caption="Simulation attempt history"
         rows={attempts}
         rowKey={(row) => row.simulation_id}
-        caption="Simulation attempt history"
+        pageSize={5}
+        minWidth={720}
         empty={{ icon: MessageSquare, title: "No simulation attempts yet", description: "Simulated sends for this program will be logged here." }}
         columns={[
-          { key: "reminder", header: "Reminder", sortValue: (row) => row.notification_id, cell: (row) => `#${row.notification_id}` },
-          { key: "result", header: "Result", sortValue: (row) => row.outcome, cell: (row) => row.outcome.replace(/_/g, " ") },
-          { key: "error", header: "Error", cell: (row) => row.error_code?.replace(/_/g, " ") ?? "—" },
-          { key: "by", header: "Performed by", sortValue: (row) => row.performed_by, cell: (row) => row.performed_by },
-          { key: "time", header: "Time", sortValue: (row) => row.created_at, cell: (row) => new Date(row.created_at).toLocaleString("en-PH", { timeZone: "Asia/Manila" }) },
+          { key: "reminder", header: "Reminder", cell: (row) => <span className="font-semibold text-[#0C1260]">#{row.notification_id}</span> },
+          { key: "result", header: "Result", cell: (row) => <StatusBadge status={row.outcome} tone={tone(row.outcome)} label={label(row.outcome)} /> },
+          { key: "error", header: "Error", cell: (row) => row.error_code ? label(row.error_code) : "—" },
+          { key: "by", header: "Performed by", cell: (row) => row.performed_by },
+          { key: "time", header: "Time", cell: (row) => time(row.created_at) },
         ]}
       />
     </section>

@@ -1,8 +1,10 @@
 "use client";
-import { CountsStrip, REPORT_CARD } from '@/components/ui/report-parts'
+import { CountsStrip, FilterCard, SectionHeader } from '@/components/ui/report-parts'
+import { InfoContent } from '@/components/ui/info-tip'
+import { GridTable, RowButton } from '@/components/ui/grid-table'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, AlertCircle, Info, CheckCircle, Plus, RefreshCw, Settings, History } from "lucide-react";
+import { AlertTriangle, AlertCircle, Info, CheckCircle, Plus, RefreshCw, History, ListChecks } from "lucide-react";
 import Link from "next/link";
 import { alertDestination } from "@/lib/alerts/alert-destination";
 import { SmsSimulationPanel } from "@/components/alerts/sms-simulation-panel";
@@ -196,90 +198,60 @@ function EvaluationMonitoring({
     { code: "INVENTORY", label: "Inventory" },
   ];
   return (
-    <section
-      aria-label="Evaluation monitoring"
-      className="rounded-2xl border border-border bg-white p-5"
-    >
-      <h2 className="font-semibold text-foreground">Evaluation monitoring</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Latest recorded run for each hourly evaluator. Use Refresh to check for
-        updates.
-      </p>
+    <section aria-labelledby="monitoring-title" className="space-y-4">
+      <SectionHeader
+        title={<span id="monitoring-title">Evaluation monitoring</span>}
+        subtitle="Latest recorded run for each hourly evaluator. Use Refresh to check for updates."
+        about={<InfoContent
+          title="Evaluation monitoring"
+          description="Each scheduled evaluator checks its program every hour and logs the run here."
+          sections={[{ label: "Values", value: ["Succeeded = the run finished (zero new alerts is valid)", "Running = still checking", "Failed = the run stopped; see the error"] }]}
+          note="Nutrition is evaluated when assessments are saved, so it has no scheduled run."
+        />}
+      />
       {monitoring?.error ? (
-        <p
-          role="alert"
-          className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800"
-        >
+        <p role="alert" className="rounded-xl border border-[#F5C2C2] bg-[#FFF5F5] p-3 text-sm text-[#C42B2B]">
           {monitoring.error}
         </p>
       ) : !monitoring ? (
-        <p className="mt-4 text-sm text-muted-foreground">
-          Monitoring is unavailable. Update the Alerts API.
-        </p>
+        <p className="text-sm text-[#55617F]">Monitoring is unavailable. Update the Alerts API.</p>
       ) : (
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-3">
           {modules.map(({ code, label }) => {
             const run = monitoring.runs.find((item) => item.module === code);
             const tone =
               run?.status === "FAILED" ? "danger" : run?.status === "SUCCEEDED" ? "good" : run?.status === "RUNNING" ? "info" : "neutral";
             const status =
-              run?.status === "SUCCEEDED"
-                ? "Succeeded"
-                : run?.status === "FAILED"
-                  ? "Failed"
-                  : run?.status === "RUNNING"
-                    ? "Running"
-                    : "Not yet run";
+              run?.status === "SUCCEEDED" ? "Succeeded" : run?.status === "FAILED" ? "Failed" : run?.status === "RUNNING" ? "Running" : "Not yet run";
             return (
-              <div key={code} className="rounded-xl border border-border p-4">
+              <div key={code} className="rounded-xl border border-[#D5E2EA] bg-white p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold">{label}</h3>
+                  <h3 className="text-sm font-semibold text-[#0C1260]">{label}</h3>
                   <StatusBadge status={run?.status ?? "not_run"} tone={tone} label={status} />
                 </div>
                 {run ? (
                   <>
-                    <dl className="mt-3 space-y-2 text-sm">
-                      <div>
-                        <dt className="text-xs text-muted-foreground">
-                          Started · Manila time
-                        </dt>
-                        <dd>{formatTime(run.started_at)}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs text-muted-foreground">
-                          Completed · Manila time
-                        </dt>
-                        <dd>
-                          {run.completed_at
-                            ? formatTime(run.completed_at)
-                            : "Not recorded"}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs text-muted-foreground">
-                          Alerts created
-                        </dt>
-                        <dd>{run.alerts_created ?? "Unavailable"}</dd>
-                      </div>
+                    <dl className="mt-3 space-y-2 text-sm text-[#1E2A55]">
+                      <div><dt className="text-xs text-[#8896B0]">Started · Manila time</dt><dd>{formatTime(run.started_at)}</dd></div>
+                      <div><dt className="text-xs text-[#8896B0]">Completed · Manila time</dt><dd>{run.completed_at ? formatTime(run.completed_at) : "Not recorded"}</dd></div>
+                      <div><dt className="text-xs text-[#8896B0]">Alerts created</dt><dd>{run.alerts_created ?? "Unavailable"}</dd></div>
                     </dl>
                     {run.status === "FAILED" && (
-                      <p className="mt-3 break-words rounded-lg bg-red-50 p-3 text-xs text-red-800">
+                      <p className="mt-3 break-words rounded-lg bg-[#FFF5F5] p-3 text-xs text-[#C42B2B]">
                         {run.error_message ?? "Evaluation failed."}
                         {run.error_code ? ` (${run.error_code})` : ""}
                       </p>
                     )}
                   </>
                 ) : (
-                  <p className="mt-3 text-sm text-muted-foreground">
-                    No evaluation log has been recorded.
-                  </p>
+                  <p className="mt-3 text-sm text-[#55617F]">No evaluation log has been recorded.</p>
                 )}
               </div>
             );
           })}
         </div>
       )}
-      <p className="mt-4 text-xs text-muted-foreground">
+      <p className="text-xs text-[#8896B0]">
         Nutrition is evaluated when assessments are saved; it is not included in
         these scheduled run logs. A successful run with zero new alerts is
         valid.
@@ -287,6 +259,17 @@ function EvaluationMonitoring({
     </section>
   );
 }
+
+/** Severity shown on alerts: Critical, Warning (high and medium), Info (low). */
+const severityLabel = (severity: string) =>
+  severity === "CRITICAL" ? "Critical" : ["HIGH", "MEDIUM"].includes(severity) ? "Warning" : "Info";
+/** Rule severity badge tones (rules table). */
+const RULE_SEVERITY_TONE: Record<string, "danger" | "warn" | "review" | "info" | "neutral"> = {
+  CRITICAL: "danger", HIGH: "warn", MEDIUM: "review", LOW: "info", INFO: "neutral",
+};
+const titleCase = (value: string) => value.charAt(0) + value.slice(1).toLowerCase().replace(/_/g, " ");
+const ALERT_PAGE_SIZE = 5;
+
 export default function AlertsPage() {
   const {user,isReady}=useAuth();
   if(!isReady)return <LogoLoader label="Checking account…" />;
@@ -301,9 +284,7 @@ function AlertsWorkspace() {
   usePageLoading(!authReady || (loading && !data));
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [tab, setTab] = useState<
-    "ALERTS" | "RULES" | "AUDIT" | "MONITORING" | "SMS"
-  >("ALERTS");
+  const [tab, setTab] = useState<"ALERTS" | "RULES" | "SMS">("ALERTS");
   const [filter, setFilter] = useState("unresolved");
   const [program, setProgram] = useState("ALL");
   const [page, setPage] = useState(1);
@@ -319,7 +300,7 @@ function AlertsWorkspace() {
   ownerRef.current=owner;
   useEffect(()=>()=>{sequence.current++;ownerRef.current=null},[]);
   // Dashboard links open a program directly: /alerts?program=VACCINATION
-  useEffect(()=>{const q=new URLSearchParams(window.location.search),p=q.get("program"),t=q.get("tab");if(p&&/^[A-Z_]{1,40}$/.test(p))setProgram(p);if(t==="SMS")setTab("SMS")},[]);
+  useEffect(()=>{const q=new URLSearchParams(window.location.search),p=q.get("program"),t=q.get("tab");if(p&&/^[A-Z_]{1,40}$/.test(p))setProgram(p);if(t==="SMS")setTab("SMS");else if(t==="RULES")setTab("RULES")},[]);
   const load = useCallback(async () => {
     if (!owner) return;
     const token = ++sequence.current;
@@ -328,8 +309,8 @@ function AlertsWorkspace() {
     setError("");
     try {
       const body: Data = await jsonResponse(
-        // Filters and pages of 6 on the server, so the counts and pages cover every alert.
-        await fetch(`/api/alerts?page=${page}&pageSize=6&filter=${encodeURIComponent(filter)}&program=${encodeURIComponent(program)}`, { cache: "no-store" }),
+        // Filters and pages of 5 on the server, so the counts and pages cover every alert.
+        await fetch(`/api/alerts?page=${page}&pageSize=${ALERT_PAGE_SIZE}&filter=${encodeURIComponent(filter)}&program=${encodeURIComponent(program)}`, { cache: "no-store" }),
       );
       if (sequence.current !== token || ownerRef.current !== owner) return;
       if (
@@ -505,378 +486,266 @@ function AlertsWorkspace() {
       setResolving(false);
     }
   }
-  // The server applies the filter / program and sends one page of 6 (plus the exact match count).
+  // The server applies the filter / program and sends one page of 5 (plus the exact match count).
   const alerts = data?.alerts ?? [];
   const matched = data?.matched ?? alerts.length;
-  const alertPagerProps = { page: page - 1, pageCount: Math.max(1, Math.ceil(matched / 6)), total: matched, pageSize: 6, onChange: (p: number) => setPage(p + 1) };
+  const alertPagerProps = { page: page - 1, pageCount: Math.max(1, Math.ceil(matched / ALERT_PAGE_SIZE)), total: matched, pageSize: ALERT_PAGE_SIZE, onChange: (p: number) => setPage(p + 1) };
   const programs = data?.programs ?? [...new Set(alerts.map((alert) => alert.source_module ?? alert.alert_type))].sort();
   const summary = data?.summary;
   const inputClass =
-    "mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm";
+    "mt-1 w-full rounded-lg border border-[#D5E2EA] bg-white px-3 py-2 text-sm";
   return (
-    <div className="space-y-6">
-      {data?.canConfigure && (
-        <TabBar
-          label="Alert sections"
-          group="alerts"
-          value={tab}
-          onChange={setTab}
-          items={[
-            { value: "ALERTS", label: "Alerts" },
-            { value: "RULES", label: "Rules" },
-            { value: "AUDIT", label: "Rule change history" },
-            { value: "MONITORING", label: "Evaluation monitoring" },
-            { value: "SMS", label: "SMS Overview" },
-          ]}
+    <div className="space-y-5">
+      {/* Header block: title and subtitle, then the tabs (Administrators); one divider below. */}
+      <div className="space-y-4">
+        <PageHeader
+          title="Alert Management"
+          subtitle="Monitor system alerts and configure evaluation rules"
+          actions={
+            <Button variant="secondary" disabled={loading || !owner} onClick={() => void load()}>
+              <RefreshCw size={16} aria-hidden="true" className={loading ? "animate-spin motion-reduce:animate-none" : undefined} />
+              Refresh
+            </Button>
+          }
         />
-      )}
-      <PageHeader
-        title="Alert Management"
-        subtitle="Monitor system alerts and configure supported evaluation rules"
-        actions={<>
-          <Button variant="tonal"
-            disabled={loading || !owner}
-            onClick={() => void load()}
-          >
-            <RefreshCw size={18} />
-            Refresh
-          </Button>
-        </>}
-      />
-      {error && (
-        <p
-          role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
-        >
+        {data?.canConfigure && (
+          <TabBar
+            className="pb-5"
+            label="Alert sections"
+            group="alerts"
+            value={tab}
+            onChange={setTab}
+            items={[
+              { value: "ALERTS", label: "Alerts & evaluation monitoring" },
+              { value: "RULES", label: "Rules & change history" },
+              { value: "SMS", label: "SMS overview" },
+            ]}
+          />
+        )}
+      </div>
+      {error && !draft && !resolveTarget && (
+        <p role="alert" className="rounded-xl border border-[#F5C2C2] bg-[#FFF5F5] p-4 text-sm text-[#C42B2B]">
           {error}
         </p>
       )}
       {notice && (
-        <p
-          role="status"
-          className="rounded-xl border border-teal-200 bg-teal-50 p-4 text-sm text-teal-800"
-        >
+        <p role="status" className="rounded-xl border border-[#BFE3D2] bg-[#EEF8F3] p-4 text-sm text-[#17694C]">
           {notice}
         </p>
       )}
-      {!authReady || loading ? (
+      {!authReady || (loading && !data) ? (
         <LogoLoader size="section" label="Loading alerts…" />
       ) : !owner ? (
         <p>Please sign in to access alerts.</p>
       ) : null}
       {/* Tab content fades in with the previous tab's height held, so the page below does not jump. */}
-      <TabPanel tabKey={tab} className="space-y-6">
-      {data?.canConfigure && tab === "MONITORING" && (
-        <div role="tabpanel" aria-label="Evaluation monitoring">
-          <EvaluationMonitoring monitoring={data.monitoring} />
-        </div>
-      )}
+      <TabPanel tabKey={tab}>
       {data?.canConfigure && tab === "SMS" && (
-        <div role="tabpanel" aria-label="SMS Overview">
-          <SmsSimulationPanel
-            key={data.currentUserId}
-            ownerId={data.currentUserId}
-          />
+        <div role="tabpanel" aria-label="SMS overview">
+          <SmsSimulationPanel key={data.currentUserId} ownerId={data.currentUserId} />
         </div>
       )}
       {data && tab === "ALERTS" && (
-        <>
-          <section aria-label="Filters" className={REPORT_CARD}>
-          <div className="flex flex-wrap items-center gap-3 p-4">
-            <FilterChips
-              label="Filter alerts"
-              value={filter}
-              onChange={(value) => { setFilter(value); setPage(1); }}
-              options={["all", "unresolved", "critical", "warning", "info", "resolved"].map((value) => ({
-                value,
-                label: value[0].toUpperCase() + value.slice(1),
-              }))}
+        <div role="tabpanel" aria-label="Alerts and evaluation monitoring">
+          {data.canConfigure && <EvaluationMonitoring monitoring={data.monitoring} />}
+          <section aria-labelledby="alerts-title" className={data.canConfigure ? "mt-8 space-y-4 border-t-2 border-[#EAF0F4] pt-6" : "space-y-4"}>
+            <SectionHeader
+              title={<span id="alerts-title">Active alerts</span>}
+              subtitle="Alerts for the records and programs you can access."
+              about={<InfoContent
+                title="Active alerts"
+                description="Alerts are generated by scheduled evaluators and program rules."
+                sections={[
+                  { label: "Values", value: ["Critical and Warning = need action", "Info = for awareness", "High and medium severity appear under Warning"] },
+                  { label: "Tip", value: "Open the child record or the module link to follow up, then mark the alert as resolved" },
+                ]}
+                note="Counts cover every alert you can access; the chips and program filter the list."
+              />}
             />
-            <Select
-              aria-label="Filter by program"
-              value={program}
-              onChange={(event) => { setProgram(event.target.value); setPage(1); }}
+            <FilterCard
+              below={<CountsStrip label="Alert counts" items={[
+                { label: "Total alerts", value: summary?.total ?? 0 },
+                { label: "Critical", value: summary?.critical ?? 0, tone: "severe" },
+                { label: "Warning", value: summary?.warning ?? 0, tone: "review" },
+                { label: "Resolved", value: summary?.resolved ?? 0, tone: "good" },
+              ]} />}
             >
-              <option value="ALL">All programs</option>
-              {programs.map((value) => (
-                <option key={value}>{value}</option>
-              ))}
-            </Select>
-          </div>
-          <CountsStrip label="Alert counts" items={[
-            { label: 'Total alerts', value: summary?.total ?? 0 },
-            { label: 'Critical', value: summary?.critical ?? 0, tone: 'severe' },
-            { label: 'Warning', value: summary?.warning ?? 0, tone: 'review' },
-            { label: 'Resolved', value: summary?.resolved ?? 0 },
-          ]} />
-          </section>
-          <p className="text-xs text-muted-foreground">
-            Counts cover all alerts you can access. Filters apply to the current
-            page of 50 alerts. High and medium severity appear under Warning.
-          </p>
-          <div className="scroll-mt-4 space-y-3">
-            {alerts.length === 0 ? (
-              <div className="rounded-2xl border border-border bg-white p-10 text-center">
-                <CheckCircle size={40} className="mx-auto mb-3 text-teal-700" />
-                <h3 className="font-semibold">
-                  No matching alerts
-                </h3>
+              <div className="flex items-center sm:col-span-2">
+                <FilterChips
+                  label="Filter alerts"
+                  value={filter}
+                  onChange={(value) => { setFilter(value); setPage(1); }}
+                  options={["all", "unresolved", "critical", "warning", "info", "resolved"].map((value) => ({
+                    value,
+                    label: value[0].toUpperCase() + value.slice(1),
+                  }))}
+                />
               </div>
-            ) : (
-              alerts.map((alert) => {
-                const destination = alertDestination(alert);
-                const resolved = alert.status === "RESOLVED";
-                const critical = alert.severity === "CRITICAL";
-                const warning = ["HIGH", "MEDIUM"].includes(alert.severity);
-                const Icon = resolved
-                  ? CheckCircle
-                  : critical
-                    ? AlertTriangle
-                    : warning
-                      ? AlertCircle
-                      : Info;
-                return (
-                  <div
-                    key={alert.alert_id}
-                    className={`rounded-2xl border p-4 ${resolved ? "border-border bg-muted" : critical ? "border-red-200 bg-red-50" : warning ? "border-orange-200 bg-orange-50" : "border-blue-200 bg-blue-50"}`}
-                  >
-                    <div className="flex gap-4">
-                      <Icon
-                        size={24}
-                        className={`mt-1 shrink-0 ${resolved ? "text-teal-700" : critical ? "text-destructive" : warning ? "text-orange-700" : "text-secondary"}`}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap justify-between gap-2">
-                          <h3 className="font-semibold">
-                            {destination.primaryHref ? (
-                              <Link
-                                href={destination.primaryHref}
-                                className="rounded hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-                                aria-label={`Open related record for ${alert.alert_type.replace(/_/g, " ")}`}
-                              >
-                                {alert.alert_type.replace(/_/g, " ")}
+              <Select
+                aria-label="Filter by program"
+                value={program}
+                onChange={(event) => { setProgram(event.target.value); setPage(1); }}
+              >
+                <option value="ALL">All programs</option>
+                {programs.map((value) => (
+                  <option key={value} value={value}>{titleCase(value)}</option>
+                ))}
+              </Select>
+            </FilterCard>
+            <div key={`${filter}|${program}|${page}`} className={`space-y-3 animate-in fade-in duration-150 motion-reduce:animate-none ${loading ? "opacity-60 transition-opacity" : ""}`}>
+              {alerts.length === 0 ? (
+                <EmptyState icon={CheckCircle} title="No matching alerts" description="Try another filter or program." className="rounded-xl border border-[#D5E2EA] bg-white" />
+              ) : (
+                alerts.map((alert) => {
+                  const destination = alertDestination(alert);
+                  const resolved = alert.status === "RESOLVED";
+                  const critical = alert.severity === "CRITICAL";
+                  const warning = ["HIGH", "MEDIUM"].includes(alert.severity);
+                  const Icon = resolved ? CheckCircle : critical ? AlertTriangle : warning ? AlertCircle : Info;
+                  return (
+                    <article
+                      key={alert.alert_id}
+                      className={`rounded-xl border p-4 ${resolved ? "border-[#D5E2EA] bg-[#F9FBFC]" : critical ? "border-[#F5C2C2] bg-[#FFF5F5]" : warning ? "border-[#F3D9A4] bg-[#FFFBF0]" : "border-[#BFE0EC] bg-[#F2FAFD]"}`}
+                    >
+                      <div className="flex gap-4">
+                        <Icon
+                          size={22}
+                          aria-hidden="true"
+                          className={`mt-0.5 shrink-0 ${resolved ? "text-[#17694C]" : critical ? "text-[#C42B2B]" : warning ? "text-[#92610E]" : "text-[#0B759A]"}`}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap justify-between gap-2">
+                            <h3 className="font-semibold text-[#0C1260]">
+                              {destination.primaryHref ? (
+                                <Link
+                                  href={destination.primaryHref}
+                                  className="rounded hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                                  aria-label={`Open related record for ${alert.alert_type.replace(/_/g, " ")}`}
+                                >
+                                  {alert.alert_type.replace(/_/g, " ")}
+                                </Link>
+                              ) : (
+                                alert.alert_type.replace(/_/g, " ")
+                              )}
+                            </h3>
+                            <span className="text-xs text-[#8896B0]">{formatTime(alert.created_at)}</span>
+                          </div>
+                          <p className="mt-1 text-sm text-[#55617F]">{alert.alert_message}</p>
+                          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                            <StatusBadge status={severityLabel(alert.severity)} />
+                            <StatusBadge status={alert.status} label={titleCase(alert.status)} />
+                            <span className="text-[#8896B0]">#{alert.alert_id}</span>
+                            {alert.child_id && (
+                              <Link href={`/child-profiling/children/${alert.child_id}`} className="font-medium text-[#0B759A] underline-offset-2 hover:underline">
+                                View child record
                               </Link>
-                            ) : (
-                              alert.alert_type.replace(/_/g, " ")
                             )}
-                          </h3>
-                          <span className="text-xs text-muted-foreground">
-                            {formatTime(alert.created_at)}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {alert.alert_message}
-                        </p>
-                        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
-                          <span>
-                            {alert.severity} · {alert.status} · #
-                            {alert.alert_id}
-                          </span>
-                          {alert.child_id && (
-                            <Link
-                              href={`/child-profiling/children/${alert.child_id}`}
-                              className="font-medium text-primary underline"
-                            >
-                              View child record
-                            </Link>
-                          )}
-                          {destination.moduleHref &&
-                            destination.moduleHref !==
-                              destination.childHref && (
-                              <Link
-                                href={destination.moduleHref}
-                                className="font-medium text-primary underline"
-                              >
+                            {destination.moduleHref && destination.moduleHref !== destination.childHref && (
+                              <Link href={destination.moduleHref} className="font-medium text-[#0B759A] underline-offset-2 hover:underline">
                                 {destination.moduleLabel}
                               </Link>
                             )}
-                          {alert.recipient_id === owner &&
-                            alert.status === "UNREAD" && (
-                              <Button variant="secondary" size="sm"
-                                disabled={reading !== null}
-                                onClick={() => void markRead(alert)}
-                              >
-                                Mark as read
-                              </Button>
+                            {resolved && alert.resolved_at && (
+                              <span className="text-[#55617F]">
+                                Resolved {formatTime(alert.resolved_at)} · {alert.resolution_note ? alert.resolution_note : alert.resolved_by === owner ? "by you" : "handler recorded"}
+                              </span>
                             )}
-                          {alert.recipient_id === owner &&
-                            alert.status !== "RESOLVED" && (
-                              <Button size="sm"
-                                disabled={resolving || reading !== null}
-                                onClick={() => {
-                                  setResolveTarget(alert);
-                                  setResolutionReviewed(false);
-                                }}
-                               
-                              >
-                                Mark as Resolved
-                              </Button>
+                            {alert.recipient_id === owner && !resolved && (
+                              <span className="ml-auto flex flex-wrap gap-2">
+                                {alert.status === "UNREAD" && (
+                                  <Button variant="secondary" size="sm" disabled={reading !== null} onClick={() => void markRead(alert)}>
+                                    Mark as read
+                                  </Button>
+                                )}
+                                <Button size="sm" disabled={resolving || reading !== null} onClick={() => { setResolveTarget(alert); setResolutionReviewed(false); }}>
+                                  Mark as resolved
+                                </Button>
+                              </span>
                             )}
-                          {alert.status === "RESOLVED" && alert.resolved_at && (
-                            <span className="text-muted-foreground">
-                              Resolved {formatTime(alert.resolved_at)} ·{" "}
-                              {alert.resolution_note
-                                ? alert.resolution_note
-                                : alert.resolved_by === owner
-                                  ? "by you"
-                                  : "handler recorded"}
-                            </span>
-                          )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-          <div className="overflow-hidden rounded-2xl border border-brand-line bg-white">
-            <Pagination {...alertPagerProps} label="Alert pages" className="border-t-0" />
-          </div>
-        </>
-      )}
-      {data?.canConfigure && tab === "RULES" && (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">
-              Clinical criteria and saved protocol intervals are maintained by
-              their evaluators. Inventory thresholds are local settings.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setDraft(fresh());
-                setReview(false);
-                setError("");
-              }}
-              className="flex shrink-0 items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white"
-            >
-              <Plus size={18} />
-              Add inventory rule
-            </button>
-          </div>
-          <div className="overflow-x-auto rounded-2xl border border-border bg-white">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-muted">
-                <tr>
-                  {[
-                    "Rule",
-                    "Program / evaluator",
-                    "Condition",
-                    "Severity",
-                    "Status",
-                    "Action",
-                  ].map((label) => (
-                    <th key={label} className="px-4 py-3">
-                      {label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {data.rules.map((rule) => (
-                  <tr key={rule.rule_id}>
-                    <td className="px-4 py-4 font-medium">
-                      #{rule.rule_id} {rule.rule_name}
-                    </td>
-                    <td className="px-4 py-4">
-                      {rule.rule_category}
-                      <span className="mt-1 block text-xs text-muted-foreground">
-                        {rule.evaluator_type.replace(/_/g, " ")}
-                      </span>
-                    </td>
-                    <td className="max-w-md px-4 py-4">
-                      <p className="break-words">{conditionLabel(rule)}</p>
-                    </td>
-                    <td className="px-4 py-4">{rule.severity}</td>
-                    <td className="px-4 py-4">{rule.status}</td>
-                    <td className="px-4 py-4">
-                      {["EXTERNAL", "HEALTH_ACTIVITY_ACTION"].includes(
-                        rule.evaluator_type,
-                      ) ? (
-                        <span className="text-xs text-muted-foreground">
-                          Managed by existing module
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => editRule(rule)}
-                          className="flex items-center gap-1 font-medium text-primary"
-                        >
-                          <Settings size={16} />
-                          Edit
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+            <div className="overflow-hidden rounded-xl border border-[#D5E2EA] bg-white">
+              <Pagination {...alertPagerProps} label="Alert pages" className="border-t-0" />
+            </div>
+          </section>
         </div>
       )}
-      {data?.canConfigure && tab === "AUDIT" && (
-        <div className="overflow-x-auto rounded-2xl border border-border bg-white">
-          <p className="border-b p-4 text-sm text-muted-foreground">
-            Latest 50 rule changes. Changes made before installation are not
-            backfilled.
-          </p>
-          <table className="w-full text-left text-sm">
-            <thead className="bg-muted">
-              <tr>
-                {["Date", "Rule", "Action", "Administrator ID", "Changes"].map(
-                  (label) => (
-                    <th key={label} className="px-4 py-3">
-                      {label}
-                    </th>
+      {data?.canConfigure && tab === "RULES" && (
+        <div role="tabpanel" aria-label="Rules and change history">
+          <section aria-labelledby="rules-title" className="space-y-4">
+            <SectionHeader
+              title={<span id="rules-title">Alert rules</span>}
+              subtitle="What each evaluator checks, its severity and whether it runs."
+              about={<InfoContent
+                title="Alert rules"
+                description="Clinical criteria (nutrition, vaccination, supplementation) are managed by their evaluators and cannot be edited here."
+                sections={[{ label: "Tip", value: "Inventory thresholds are local settings you can adjust with Edit" }]}
+                note="Every saved change is recorded in Rule change history below."
+              />}
+              actions={
+                <Button onClick={() => { setDraft(fresh()); setReview(false); setError(""); }}>
+                  <Plus size={17} aria-hidden="true" /> Add inventory rule
+                </Button>
+              }
+            />
+            <GridTable
+              caption="Alert rules"
+              rows={data.rules}
+              rowKey={(rule) => rule.rule_id}
+              minWidth={900}
+              empty={{ icon: ListChecks, title: "No alert rules", description: "Add an inventory rule to start." }}
+              columns={[
+                { key: "rule", header: "Rule", width: "25%", cell: (rule) => <><span className="block break-words font-semibold text-[#0C1260]">{rule.rule_name.replace(/_/g, " ")}</span><span className="block text-xs text-[#8896B0]">#{rule.rule_id}</span></> },
+                { key: "program", header: "Program", width: "18%", cell: (rule) => <><span className="block">{titleCase(rule.rule_category)}</span><span className="block text-xs text-[#8896B0]">{rule.evaluator_type.replace(/_/g, " ").toLowerCase()}</span></> },
+                { key: "condition", header: "Condition", width: "27%", cell: (rule) => <span className="block break-words">{conditionLabel(rule)}</span> },
+                { key: "severity", header: "Severity", width: "10%", cell: (rule) => <StatusBadge status={rule.severity} tone={RULE_SEVERITY_TONE[rule.severity] ?? "neutral"} label={titleCase(rule.severity)} /> },
+                { key: "status", header: "Status", width: "10%", cell: (rule) => <StatusBadge status={rule.status} label={titleCase(rule.status)} /> },
+                {
+                  key: "actions", header: "Actions", width: "10%", sticky: true,
+                  cell: (rule) => ["EXTERNAL", "HEALTH_ACTIVITY_ACTION"].includes(rule.evaluator_type)
+                    ? <span className="text-xs text-[#8896B0]">Managed</span>
+                    : <RowButton aria-label={`Edit ${rule.rule_name}`} onClick={() => editRule(rule)}>Edit</RowButton>,
+                },
+              ]}
+            />
+          </section>
+          <section aria-labelledby="history-title" className="mt-10 space-y-4 border-t-2 border-[#EAF0F4] pt-8">
+            <SectionHeader
+              title={<span id="history-title">Rule change history</span>}
+              subtitle="Latest 50 rule changes. Changes made before installation are not backfilled."
+            />
+            <GridTable
+              caption="Rule change history"
+              rows={data.audit}
+              rowKey={(entry) => entry.audit_id}
+              pageSize={5}
+              minWidth={860}
+              empty={{ icon: History, title: "No rule changes recorded yet", description: "Edits to alert rules will be logged here." }}
+              columns={[
+                { key: "date", header: "Date", width: "20%", cell: (entry) => formatTime(entry.changed_at) },
+                { key: "rule", header: "Rule", width: "20%", cell: (entry) => <span className="block break-words font-semibold text-[#0C1260]">{String(entry.new_values.rule_name ?? entry.rule_id).replace(/_/g, " ")}</span> },
+                { key: "action", header: "Action", width: "15%", cell: (entry) => titleCase(entry.action) },
+                { key: "admin", header: "Administrator", width: "20%", cell: (entry) => <span className="font-mono text-xs text-[#55617F]" title={entry.actor_id}>{entry.actor_id.slice(0, 8)}</span> },
+                {
+                  key: "changes", header: "Changes", width: "25%",
+                  cell: (entry) => (
+                    <details>
+                      <summary className="cursor-pointer text-[13px] font-medium text-[#0B759A] hover:underline">View saved changes</summary>
+                      <pre className="mt-2 max-w-lg overflow-auto whitespace-pre-wrap rounded-lg bg-[#F0F2F5] p-2 text-xs text-[#0C1260]">
+                        {JSON.stringify({ before: entry.old_values, after: entry.new_values }, null, 2)}
+                      </pre>
+                    </details>
                   ),
-                )}
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {data.audit.length === 0 ? (
-                <tr>
-                  <td colSpan={5}>
-                    <EmptyState
-                      icon={History}
-                      title="No rule changes recorded yet"
-                      description="Edits to alert rules will be logged here."
-                    />
-                  </td>
-                </tr>
-              ) : (
-                data.audit.map((entry) => (
-                  <tr key={entry.audit_id}>
-                    <td className="px-4 py-3">
-                      {formatTime(entry.changed_at)}
-                    </td>
-                    <td className="px-4 py-3">
-                      {String(entry.new_values.rule_name ?? entry.rule_id)}
-                    </td>
-                    <td className="px-4 py-3">{entry.action}</td>
-                    <td className="px-4 py-3 text-xs">{entry.actor_id}</td>
-                    <td className="px-4 py-3">
-                      <details>
-                        <summary className="cursor-pointer text-primary">
-                          View saved changes
-                        </summary>
-                        <pre className="mt-2 max-w-lg overflow-auto whitespace-pre-wrap text-xs">
-                          {JSON.stringify(
-                            {
-                              before: entry.old_values,
-                              after: entry.new_values,
-                            },
-                            null,
-                            2,
-                          )}
-                        </pre>
-                      </details>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                },
+              ]}
+            />
+          </section>
         </div>
       )}
       </TabPanel>
@@ -889,9 +758,9 @@ function AlertsWorkspace() {
           title="Resolve assigned alert"
           subtitle={resolveTarget.alert_message}
           bodyClassName="space-y-4"
-          footer={<Button disabled={!resolutionReviewed} loading={resolving} onClick={() => void resolveAlert()}>{resolving ? "Resolving…" : "Confirm Resolution"}</Button>}
+          footer={<Button disabled={!resolutionReviewed} loading={resolving} onClick={() => void resolveAlert()}>{resolving ? "Resolving…" : "Confirm resolution"}</Button>}
         >
-            <label className="flex items-start gap-2 text-sm">
+            <label className="flex items-start gap-2 text-sm text-[#1E2A55]">
               <input
                 type="checkbox"
                 checked={resolutionReviewed}
@@ -907,7 +776,7 @@ function AlertsWorkspace() {
               </span>
             </label>
             {error && (
-              <p role="alert" className="text-sm text-red-600">
+              <p role="alert" className="text-sm text-[#C42B2B]">
                 {error}
               </p>
             )}
@@ -916,7 +785,7 @@ function AlertsWorkspace() {
       {draft && data?.canConfigure && (
         <Modal
           open
-          size="lg"
+          size="form"
           onClose={() => { setDraft(null); setReview(false); }}
           busy={saving}
           title={review ? "Confirm rule changes" : draft.ruleId ? "Edit alert rule" : "Add inventory rule"}
@@ -935,14 +804,14 @@ function AlertsWorkspace() {
             {error && (
               <p
                 role="alert"
-                className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-800"
+                className="mb-4 rounded-lg bg-[#FFF5F5] p-3 text-sm text-[#C42B2B]"
               >
                 {error}
               </p>
             )}
             {review ? (
               <>
-                <dl className="space-y-2 rounded-xl bg-muted p-4 text-sm">
+                <dl className="space-y-2 rounded-[10px] border border-[#EAF0F4] bg-[#F9FBFC] p-4 text-sm">
                   <div>
                     <dt className="font-semibold">Rule</dt>
                     <dd>{draft.ruleName}</dd>

@@ -45,6 +45,13 @@ const REQUEST_STATUS_COLORS: Record<string, { backgroundColor: string; color: st
   active: { backgroundColor: '#DDF1E8', color: '#17694C' },
   inactive: { backgroundColor: '#F0F2F5', color: '#55617F' },
   suspended: { backgroundColor: '#FEE2E2', color: '#C42B2B' },
+  // Alert severity and alert status (Alerts).
+  critical: { backgroundColor: '#FEE2E2', color: '#C42B2B' },
+  warning: { backgroundColor: '#FEF3C7', color: '#92610E' },
+  info: { backgroundColor: '#DFF3F9', color: '#0B759A' },
+  unread: { backgroundColor: '#FEF3C7', color: '#92610E' },
+  read: { backgroundColor: '#F0F2F5', color: '#55617F' },
+  resolved: { backgroundColor: '#DDF1E8', color: '#17694C' },
 }
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/[\s_]+/g, '-')

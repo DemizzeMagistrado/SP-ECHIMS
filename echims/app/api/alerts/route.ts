@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     // Server-side paging and filters (NIP-REV01): pages of 6 like the rest of the app; 50 is the
     // old batch size, still the default for older clients.
     const pageSize = Number(params.get("pageSize") ?? "50");
-    if (![6, 50].includes(pageSize)) return errorResponse("pageSize must be 6 or 50.", 400);
+    if (![5, 6, 50].includes(pageSize)) return errorResponse("pageSize must be 5, 6 or 50.", 400);
     const filter = params.get("filter") ?? "all";
     if (!["all", "unresolved", "critical", "warning", "info", "resolved"].includes(filter))
       return errorResponse("Invalid filter.", 400);
