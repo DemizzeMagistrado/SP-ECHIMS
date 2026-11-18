@@ -165,6 +165,115 @@ type Data = {
 
 type Form = OfflineForm;
 
+/**
+ * Split action button: primary click runs the main action (Record administration);
+ * the chevron opens a menu with the other permitted entry forms. Keeps all four
+ * supplementation workflows reachable (manuscript §4.3.9) without crowding the
+ * page header with four separate pills.
+ */
+function RecordEntryMenu({
+  primary,
+  secondary,
+}: {
+  primary: { label: string; onClick: () => void } | null;
+  secondary: { key: string; label: string; onClick: () => void }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: Event) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+  // Nothing to show — e.g. a role with no supplementation permissions at all.
+  if (!primary && secondary.length === 0) return null;
+  // Only one action to show — just a plain button, no menu.
+  if (primary && secondary.length === 0) {
+    return (
+      <Button onClick={primary.onClick}>
+        <Plus size={17} aria-hidden="true" /> {primary.label}
+      </Button>
+    );
+  }
+  // Only secondary actions (no primary — e.g. PHN who only has supply plans).
+  if (!primary && secondary.length === 1) {
+    const only = secondary[0];
+    return (
+      <Button onClick={only.onClick}>
+        <Plus size={17} aria-hidden="true" /> {only.label}
+      </Button>
+    );
+  }
+  return (
+    <div ref={wrapRef} className="relative inline-flex">
+      {primary ? (
+        <>
+          {/* Primary half: direct click fires the main action. */}
+          <button
+            type="button"
+            onClick={primary.onClick}
+            className={cn(buttonVariants({ variant: 'primary' }), 'rounded-r-none pr-3')}
+          >
+            <Plus size={17} aria-hidden="true" /> {primary.label}
+          </button>
+          {/* Chevron half: opens the menu for other entry forms. */}
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-haspopup="menu"
+            aria-expanded={open}
+            aria-label="More entry types"
+            className={cn(
+              buttonVariants({ variant: 'primary' }),
+              'rounded-l-none border-l border-white/25 px-2.5',
+            )}
+          >
+            <ChevronDown size={17} aria-hidden="true" className={cn('transition-transform', open && 'rotate-180')} />
+          </button>
+        </>
+      ) : (
+        // No primary: render a single button whose click opens the menu.
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          className={buttonVariants({ variant: 'primary' })}
+        >
+          <Plus size={17} aria-hidden="true" /> New entry
+          <ChevronDown size={16} aria-hidden="true" className={cn('transition-transform', open && 'rotate-180')} />
+        </button>
+      )}
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-[calc(100%+6px)] z-30 min-w-[260px] overflow-hidden rounded-xl border border-brand-line bg-white shadow-xl"
+        >
+          {secondary.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              role="menuitem"
+              onClick={() => { setOpen(false); item.onClick(); }}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-semibold text-brand-navy transition-colors hover:bg-brand-ice focus-visible:bg-brand-ice focus-visible:outline-none"
+            >
+              <Plus size={16} aria-hidden="true" className="text-brand-blue" /> {item.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function commodityDisplayName(value: string) {
   return value
     .replace(/\bfor\s+children\b/gi, "")
@@ -1479,30 +1588,21 @@ export default function SupplementsPage() {
       Refresh
     </Button>
   );
-  // Primary action first in importance: Record administration (recorders) or Register supply plan (PHN).
+  // Split-button menu: the main click fires Record administration (the most common
+  // field action); the chevron lists the other three permitted entry forms.
+  // Register supply plan / Record dispensing / Record clinical supplementation are
+  // all required by the manuscript (§4.3.9 Micronutrient Supplementation user stories)
+  // for the authorized roles, so they stay reachable — just not crowding the header.
+  const secondaryEntries = [
+    canDispense && { key: 'DISPENSE', label: 'Record dispensing', onClick: () => open('DISPENSE') },
+    canPlan && { key: 'PLAN', label: 'Register supply plan', onClick: () => open('PLAN') },
+    clinicalAllowed && { key: 'CLINICAL', label: 'Record clinical supplementation', onClick: () => open('CLINICAL') },
+  ].filter((entry): entry is { key: string; label: string; onClick: () => void } => Boolean(entry));
   const recordActions = activeTab === "records" && (
-    <>
-      {clinicalAllowed && (
-        <Button variant="secondary" onClick={() => open("CLINICAL")}>
-          <Plus size={17} aria-hidden="true" /> Record clinical supplementation
-        </Button>
-      )}
-      {canPlan && (
-        <Button variant={canRecord ? "secondary" : "primary"} onClick={() => open("PLAN")}>
-          <Plus size={17} aria-hidden="true" /> Register supply plan
-        </Button>
-      )}
-      {canDispense && (
-        <Button variant="secondary" onClick={() => open("DISPENSE")}>
-          <Plus size={17} aria-hidden="true" /> Record dispensing
-        </Button>
-      )}
-      {canRecord && (
-        <Button onClick={() => open("RECORD")}>
-          <Plus size={17} aria-hidden="true" /> Record administration
-        </Button>
-      )}
-    </>
+    <RecordEntryMenu
+      primary={canRecord ? { label: 'Record administration', onClick: () => open('RECORD') } : null}
+      secondary={secondaryEntries}
+    />
   );
   const head = "px-4 py-3 text-left align-bottom text-[13px] font-semibold text-brand-navy";
   const cell = "px-4 py-3.5 align-top";
