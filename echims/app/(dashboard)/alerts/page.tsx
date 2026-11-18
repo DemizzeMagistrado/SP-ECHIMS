@@ -1,5 +1,5 @@
 "use client";
-import { StatCard } from '@/components/ui/stat-card'
+import { CountsStrip, REPORT_CARD } from '@/components/ui/report-parts'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, AlertCircle, Info, CheckCircle, Plus, RefreshCw, Settings, History } from "lucide-react";
@@ -581,13 +581,8 @@ function AlertsWorkspace() {
       )}
       {data && tab === "ALERTS" && (
         <>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <StatCard label="Total Alerts" value={summary?.total ?? 0} />
-            <StatCard label="Critical" value={summary?.critical ?? 0} tone="danger" />
-            <StatCard label="Warning" value={summary?.warning ?? 0} tone="warn" />
-            <StatCard label="Resolved" value={summary?.resolved ?? 0} tone="good" />
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <section aria-label="Filters" className={REPORT_CARD}>
+          <div className="flex flex-wrap items-center gap-3 p-4">
             <FilterChips
               label="Filter alerts"
               value={filter}
@@ -608,8 +603,15 @@ function AlertsWorkspace() {
               ))}
             </Select>
           </div>
+          <CountsStrip label="Alert counts" items={[
+            { label: 'Total alerts', value: summary?.total ?? 0 },
+            { label: 'Critical', value: summary?.critical ?? 0, tone: 'severe' },
+            { label: 'Warning', value: summary?.warning ?? 0, tone: 'review' },
+            { label: 'Resolved', value: summary?.resolved ?? 0 },
+          ]} />
+          </section>
           <p className="text-xs text-muted-foreground">
-            Cards count all alerts you can access. Filters apply to the current
+            Counts cover all alerts you can access. Filters apply to the current
             page of 50 alerts. High and medium severity appear under Warning.
           </p>
           <div className="scroll-mt-4 space-y-3">

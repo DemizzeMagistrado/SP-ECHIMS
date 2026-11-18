@@ -1,5 +1,4 @@
 'use client'
-import { StatCard } from '@/components/ui/stat-card'
 import { FilterBar } from '@/components/ui/filter-bar'
 import { CatalogSection } from '@/components/vaccination/vaccine-catalog'
 import { NextDose, vaccinationProfileHref } from '@/components/vaccination/next-dose'
@@ -20,7 +19,7 @@ import { vaccinationKeyMatches } from '@/lib/vaccination-cache'
 import { VaccinationOfflineTools, VaccinationSnapshotNotice } from '@/components/vaccination/vaccination-offline-tools'
 import Link from 'next/link'
 import { usePathname, useRouter } from '@/lib/offline/navigation'
-import { Plus, AlertCircle, CalendarClock, CheckCircle2, Syringe, ArrowRight, Search, Download, CalendarX, HandHelping, MessageSquare, Undo2 } from 'lucide-react'
+import { Plus, CalendarClock, CheckCircle2, Syringe, ArrowRight, Search, Download, CalendarX, MessageSquare, Undo2 } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { toast } from '@/components/ui/toast'
@@ -30,7 +29,7 @@ import { LogoLoader } from '@/components/brand/logo-loader'
 import { TabPanel } from '@/components/brand/page-gate'
 import { FilterChips, TabBar } from '@/components/ui/module-tabs'
 import { EmptyState } from '@/components/ui/empty-state'
-import { PageHeader } from '@/components/ui/page-header'
+import { CountsStrip, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
 import { LoadError } from '@/components/ui/load-error'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
@@ -239,9 +238,9 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
   const reviewChild = reviewing ? one(reviewing.row.child) : null
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <VaccinationSnapshotNotice savedAt={savedAt} readOnly={readOnly} />
-      <PageHeader
+      <SectionHeader
         title="Vaccination: Records"
         subtitle="Administered vaccines awaiting PHN approval or already logged."
         actions={<>
@@ -648,9 +647,9 @@ function ScheduleSection() {
   const chipLabel: Record<StatusChip, string> = { all: 'All', pending: 'Pending', missed: 'Defaulters (Missed)', assist: 'BHW to assist' }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <VaccinationSnapshotNotice savedAt={doses.savedAt} readOnly={readOnly} />
-      <PageHeader
+      <SectionHeader
         title="Vaccination: Schedule"
         subtitle="Each child's next dose, Missed doses with their new dates, schedule requests and guardian reminders."
         actions={<>
@@ -664,17 +663,9 @@ function ScheduleSection() {
       ) : doses.error && !doses.data ? (
         <LoadError what="the vaccination schedule" error={doses.error} onRetry={() => void doses.mutate()} />
       ) : (<>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <StatCard icon={<AlertCircle size={16} aria-hidden="true" />} label="Missed doses" value={counts?.overdue ?? 0} tone="danger"
-            hint={worstOverall ? <>Longest missed: <span className="font-semibold text-brand-navy">{worstOverall.vaccine_type} {worstOverall.dose_number}</span> · {days(worstOverall.days_overdue)} · {worstOverall.child_name}</> : undefined}
-            onClick={() => setChip(chip === 'missed' ? 'all' : 'missed')} pressed={chip === 'missed'} />
-          <StatCard icon={<CalendarClock size={16} aria-hidden="true" />} label="Children with a pending dose" value={chipCount.pending} tone="info" onClick={() => setChip(chip === 'pending' ? 'all' : 'pending')} pressed={chip === 'pending'} />
-          <StatCard icon={<HandHelping size={16} aria-hidden="true" />} label="BHW to assist" value={chipCount.assist} onClick={() => setChip(chip === 'assist' ? 'all' : 'assist')} pressed={chip === 'assist'} />
-          <StatCard icon={<CheckCircle2 size={16} aria-hidden="true" />} label="Requests awaiting approval" value={awaiting} tone="warn" onClick={() => setRequestFilter(requestFilter === 'PENDING' ? '' : 'PENDING')} pressed={requestFilter === 'PENDING'} />
-        </div>
-
-        <fieldset disabled={readOnly} className="rounded-2xl border border-border bg-white p-4">
+        <fieldset disabled={readOnly} className={REPORT_CARD}>
           <FilterBar
+            className="p-4"
             chips={<FilterChips label="Show" value={chip} onChange={setChip} options={CHIPS.map((c) => ({ value: c, label: chipLabel[c], count: chipCount[c] }))} />}
             search={
               <div className="relative">
@@ -696,6 +687,19 @@ function ScheduleSection() {
             <DateInput value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} aria-label="Next date from" placeholder="Next date from (MM/DD/YYYY)" />
             <DateInput value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} aria-label="Next date to" placeholder="Next date to (MM/DD/YYYY)" />
           </FilterBar>
+          {/* Counts strip (Nutritional Assessment's): each cell toggles its filter. */}
+          <CountsStrip
+            label="Schedule counts"
+            selected={[chip, requestFilter === 'PENDING' ? 'awaiting' : '']}
+            onSelect={(key) => (key === 'awaiting' ? setRequestFilter(requestFilter === 'PENDING' ? '' : 'PENDING') : setChip(chip === key ? 'all' : key as StatusChip))}
+            items={[
+              { key: 'missed', label: 'Missed doses', value: counts?.overdue ?? 0, tone: 'severe',
+                hint: worstOverall && <>Longest missed: <span className="font-semibold text-brand-navy">{worstOverall.vaccine_type} {worstOverall.dose_number}</span> · {days(worstOverall.days_overdue)} · {worstOverall.child_name}</> },
+              { key: 'pending', label: 'Pending', value: chipCount.pending },
+              { key: 'assist', label: 'BHW to assist', value: chipCount.assist },
+              { key: 'awaiting', label: 'Awaiting approval', value: awaiting, tone: 'review' },
+            ]}
+          />
         </fieldset>
 
         <div key={`${chip}|${vaccineFilter}|${requestFilter}`} className={`animate-in fade-in duration-150 motion-reduce:animate-none ${doses.refreshing ? 'opacity-60 transition-opacity' : ''}`}>
@@ -867,8 +871,9 @@ export default function VaccinationPage() {
   const active: TabId = visible.some((t) => t.id === tab) ? tab : visible[0].id
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <TabBar
+        className="pb-5"
         label="Vaccination sections"
         group="vaccination"
         value={active}

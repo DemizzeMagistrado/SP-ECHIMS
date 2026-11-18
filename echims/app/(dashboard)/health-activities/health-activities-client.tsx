@@ -1,6 +1,6 @@
 'use client'
 import { Select, DateInput } from '@/components/ui/form'
-import { StatCard } from '@/components/ui/stat-card'
+import { CountsStrip } from '@/components/ui/report-parts'
 import { FilterChips, TabBar } from '@/components/ui/module-tabs'
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineScope } from '@/lib/offline/fetch'
@@ -8,7 +8,7 @@ import { submitSafeDraft } from '@/lib/offline/safe-submit'
 import { listActivityDrafts,saveActivityDraft,deleteActivityDraft,type ActivityDraft } from '@/lib/activity-drafts'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
-import { AlertTriangle, CalendarDays, CheckCircle2, Clock3, Plus, RefreshCw, Search, XCircle } from 'lucide-react'
+import { AlertTriangle, CalendarDays, CheckCircle2, Plus, RefreshCw, Search, XCircle } from 'lucide-react'
 
 import {
   FormEvent,
@@ -509,34 +509,6 @@ function ActivityWorkspace() {
 
         <ActivityDraftPanel onUploaded={() => void loadActivities()}/>
 
-        {/* SUMMARY */}
-
-        <div className="grid gap-4 sm:grid-cols-3">
-          <SummaryCard
-            title={canReview ? 'Pending review' : 'Pending'}
-            value={pendingCount}
-            note="Requests waiting for action"
-            icon={Clock3}
-            iconClass="text-amber-700"
-          />
-
-          <SummaryCard
-            title="Approved activities"
-            value={approvedCount}
-            note="Ready for implementation"
-            icon={CheckCircle2}
-            iconClass="text-emerald-700"
-          />
-
-          <SummaryCard
-            title="Schedule conflicts"
-            value={conflictCount}
-            note="Overlapping schedules detected"
-            icon={AlertTriangle}
-            iconClass="text-[#087db9]"
-          />
-        </div>
-
         {/* RULE RESULT */}
 
         {ruleEvaluation?.hasConflict && (
@@ -641,7 +613,7 @@ function ActivityWorkspace() {
         {/* REQUESTS SECTION */}
 
         <section className="overflow-hidden rounded-2xl border border-border bg-white">
-          <div className="border-b border-slate-200 px-5 pt-5 sm:px-7">
+          <div className="px-5 pt-5 sm:px-7">
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
               <div>
                 <h2 className="text-lg font-bold text-brand-navy">
@@ -682,6 +654,12 @@ function ActivityWorkspace() {
               items={[{ value: 'Requests', label: 'Requests' }, { value: 'Calendar', label: 'Calendar' }]}
             />
           </div>
+          {/* Request counts; its top line doubles as the tab underline. */}
+          <CountsStrip label="Request counts" items={[
+            { label: canReview ? 'Pending review' : 'Pending', value: pendingCount, tone: 'review' },
+            { label: 'Approved activities', value: approvedCount },
+            { label: 'Schedule conflicts', value: conflictCount, tone: 'severe' },
+          ]} />
 
           {loading ? (
             <LogoLoader size="section" label="Loading activities…" />
@@ -907,21 +885,6 @@ function ActivityWorkspace() {
       )}
     </div>
   )
-}
-
-/* =========================================================
-   SUMMARY CARD
-========================================================= */
-
-function SummaryCard({ title, value, note, icon: Icon, iconClass }: {
-  title: string
-  value: number
-  note: string
-  icon: typeof Clock3
-  iconClass: string
-}) {
-  const tone = iconClass.includes('amber') ? 'warn' : iconClass.includes('emerald') ? 'good' : iconClass.match(/red|rose/) ? 'danger' : 'default'
-  return <StatCard label={title} value={value} hint={note} tone={tone} icon={<Icon size={16} aria-hidden="true" className={iconClass} />} />
 }
 
 /* =========================================================

@@ -19,7 +19,7 @@ import { VaccineFormModal, type VaccineCatalogRow } from '@/components/vaccinati
 import { LogoLoader } from '@/components/brand/logo-loader'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
-import { PageHeader } from '@/components/ui/page-header'
+import { SectionHeader } from '@/components/ui/report-parts'
 import { LoadError } from '@/components/ui/load-error'
 import { Button } from '@/components/ui/button'
 import { BatchFormatPanel, CompanionMedicinesPanel } from '@/components/vaccination/vaccine-settings-panels'
@@ -136,9 +136,9 @@ export function CatalogSection() {
   })
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <VaccinationSnapshotNotice savedAt={savedAt} readOnly={readOnly} />
-      <PageHeader
+      <SectionHeader
         title="Vaccination: Vaccines"
         subtitle="The DOH immunization catalog and schedule rules. Open a vaccine for eligibility and guidelines; every change is logged."
         actions={(isAdmin || canManage) && <>
