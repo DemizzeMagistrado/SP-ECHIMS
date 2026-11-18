@@ -105,8 +105,9 @@ export function SectionHeader({ title, subtitle, about, actions }: { title: Reac
   )
 }
 
-/** Sub-views inside a tab (the Summary "Overview / List UW …" pills): one row at every width that
- *  scrolls sideways when narrow, the active pill kept in view; optional count badges. */
+/** Sub-views inside a tab (the Summary "Overview / List UW …" pills), styled as sub-tabs (TabBar
+ *  variant="sub"): gray strip, solid navy active pill. One row that scrolls sideways when narrow, the
+ *  active pill kept in view; optional count badges. */
 export function ViewSwitch<T extends string>({ label, value, onChange, items }: {
   label: string
   value: T
@@ -124,7 +125,7 @@ export function ViewSwitch<T extends string>({ label, value, onChange, items }: 
     else if (list.scrollLeft < right) list.scrollLeft = right
   }, [value])
   return (
-    <div ref={row} role="group" aria-label={label} className="-m-1 flex min-w-0 max-w-full flex-nowrap gap-2 overflow-x-auto p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div ref={row} role="group" aria-label={label} className="flex w-fit min-w-0 max-w-full flex-nowrap gap-1 overflow-x-auto rounded-[10px] bg-[#F0F2F5] p-[3px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {items.map((item) => {
         const active = item.value === value
         return (
@@ -134,13 +135,13 @@ export function ViewSwitch<T extends string>({ label, value, onChange, items }: 
             aria-pressed={active}
             onClick={() => onChange(item.value)}
             className={cn(
-              'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/40',
-              active ? 'border-transparent bg-primary text-white' : 'border-border bg-white text-foreground shadow-sm hover:bg-muted',
+              'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-1.5 text-[13px] outline-none transition-all duration-150 focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-1 focus-visible:outline-link',
+              active ? 'bg-[#07075F] font-semibold text-white shadow-[0_1px_3px_rgba(12,18,96,0.10)]' : 'font-medium text-[#55617F] hover:bg-[rgba(7,7,95,0.06)] hover:text-[#0C1260]',
             )}
           >
             {item.label}
             {item.count != null && (
-              <span className={cn('rounded-full px-1.5 text-[11px] font-semibold tabular-nums', active ? 'bg-white/20' : 'bg-muted text-muted-foreground')}>
+              <span className={cn('rounded-full px-1.5 text-[11px] font-semibold tabular-nums', active ? 'bg-white/20' : 'bg-white text-[#55617F]')}>
                 {item.count}
               </span>
             )}

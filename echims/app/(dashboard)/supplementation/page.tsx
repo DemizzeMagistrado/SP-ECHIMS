@@ -1680,7 +1680,7 @@ export default function SupplementsPage() {
             {/* Sub-tabs and filters: one tight block (12px), like Vaccination's toolbar. */}
             <div className="space-y-3">
             <TabBar
-              className="border-b-0 pb-0"
+              variant="sub"
               label="Record views"
               group="supplementation-records"
               value={recordView}
@@ -1896,7 +1896,7 @@ export default function SupplementsPage() {
               />}
             />
             <TabBar
-              className="border-b-0 pb-0"
+              variant="sub"
               label="Supplement views"
               group="supplementation-supplements"
               value={supplyView}

@@ -14,29 +14,30 @@ export type TabItem<T extends string = string> = {
 }
 
 /**
- * The module tab row (INV-REV01): a gray segmented control (#F0F2F5, 10px radius, 3px inset); a white
- * pill with a soft shadow slides under the active tab (#07075F, 600); inactive tabs are #55617F, 500.
- * Scrolls sideways on small screens instead of wrapping.
+ * Tab rows, two levels that must look different at a glance:
+ *  - main (default): page-level tabs under the title. Outlined pills on the page, no strip: active =
+ *    #07075F border + text on a #F0F4FF tint; inactive = white with a #D5E2EA border. Wraps on phones.
+ *  - sub: tabs nested in a section, card or dialog. A gray #F0F2F5 strip; a solid #07075F pill slides
+ *    under the active tab (white text); inactive tabs are transparent, no border. 13px, smaller.
  * State tabs: pass onChange and wrap the content in <TabPanel tabKey={value}> for the fade.
  */
-export function TabBar<T extends string>({ items, value, onChange, label, group, idBase, className, variant = 'pill' }: {
+export function TabBar<T extends string>({ items, value, onChange, label, group, idBase, className, variant = 'main' }: {
   items: readonly TabItem<T>[]
   value: T
   onChange?: (value: T) => void
   /** Accessible name, e.g. "Vaccination sections". */
   label: string
-  /** Keeps the slide position across remounts (route tabs); defaults to label. */
+  /** Keeps the slide position across remounts (sub tabs); defaults to label. */
   group?: string
   /** Gives tabs ids `${idBase}-tab-${value}` and aria-controls `${idBase}-panel-${value}`. */
   idBase?: string
   className?: string
-  /** underline: 44px text tabs on a 1px control-border line, active = navy text + 3px navy bar. */
-  variant?: 'pill' | 'underline'
+  variant?: 'main' | 'sub'
 }) {
   const row = useRef<HTMLDivElement>(null)
-  const underline = variant === 'underline'
+  const sub = variant === 'sub'
 
-  // Keep the active tab in view when the row scrolls (phones).
+  // Sub strips scroll sideways on phones: keep the active tab in view.
   useEffect(() => {
     const list = row.current
     const tab = list?.querySelector<HTMLElement>('[aria-selected="true"], [aria-current="page"]')
@@ -47,24 +48,26 @@ export function TabBar<T extends string>({ items, value, onChange, label, group,
     else if (list.scrollLeft < right) list.scrollLeft = right
   }, [value])
 
-  const tabClass = (active: boolean) => underline
+  const tabClass = (active: boolean) => sub
     ? cn(
-      'inline-flex h-11 shrink-0 items-center whitespace-nowrap border-b-[3px] px-4 text-sm font-semibold outline-none transition-colors focus-visible:outline-3 focus-visible:outline-solid focus-visible:-outline-offset-3 focus-visible:outline-link disabled:cursor-not-allowed disabled:opacity-60',
-      active ? 'border-brand-navy text-brand-navy' : 'border-transparent text-brand-muted hover:text-brand-navy',
+      'relative z-10 shrink-0 whitespace-nowrap rounded-lg px-4 py-1.5 text-[13px] transition-all duration-150 outline-none focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-1 focus-visible:outline-link disabled:cursor-not-allowed disabled:opacity-60',
+      active ? 'font-semibold text-white' : 'font-medium text-[#55617F] hover:bg-[rgba(7,7,95,0.06)] hover:text-[#0C1260]',
     )
     : cn(
-      'relative z-10 shrink-0 whitespace-nowrap rounded-lg px-[18px] py-[7px] text-sm transition-colors outline-none focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-1 focus-visible:outline-link disabled:cursor-not-allowed disabled:opacity-60',
-      active ? 'font-semibold text-[#07075F]' : 'font-medium text-[#55617F] hover:text-[#0C1260]',
+      'shrink-0 whitespace-nowrap rounded-lg border px-[18px] py-[7px] text-sm transition-all duration-150 outline-none focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-link disabled:cursor-not-allowed disabled:opacity-60',
+      active ? 'border-[#07075F] bg-[#F0F4FF] font-semibold text-[#07075F]' : 'border-[#D5E2EA] bg-white font-medium text-[#55617F] hover:border-[#8896B0] hover:bg-[#F5F8FA]',
     )
   const links = items.some((i) => i.href)
 
   return (
-    <div className={cn(underline ? 'border-b border-control-line' : 'border-b border-border pb-3', className)}>
+    <div className={cn(!sub && 'border-b border-border pb-3', className)}>
       <div
         ref={row}
         role={links ? undefined : 'tablist'}
         aria-label={links ? undefined : label}
-        className={underline ? 'scroll-subtle flex gap-1 overflow-x-auto overflow-y-hidden' : 'relative flex w-fit max-w-full gap-1 overflow-x-auto rounded-[10px] bg-[#F0F2F5] p-[3px]'}
+        className={sub
+          ? 'relative flex w-fit max-w-full gap-1 overflow-x-auto rounded-[10px] bg-[#F0F2F5] p-[3px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+          : 'flex flex-wrap gap-1.5'}
       >
         {links ? (
           <nav aria-label={label} data-arrow-nav className="contents">
@@ -90,7 +93,7 @@ export function TabBar<T extends string>({ items, value, onChange, label, group,
             {item.label}
           </button>
         ))}
-        {!underline && <TabIndicator group={group ?? label} activeKey={value} className="rounded-lg bg-white shadow-[0_1px_3px_rgba(12,18,96,0.10)]" />}
+        {sub && <TabIndicator group={group ?? label} activeKey={value} className="rounded-lg bg-[#07075F] shadow-[0_1px_3px_rgba(12,18,96,0.10)]" />}
       </div>
     </div>
   )

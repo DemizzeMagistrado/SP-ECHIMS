@@ -194,8 +194,8 @@ export function ScoresDialog({ item, childName, meta, recommendation, canEdit, o
       hideCancel
       belowHeader={editing ? undefined : (
         <TabBar
-          variant="underline"
-          className="px-5 sm:px-6"
+          variant="sub"
+          className="px-5 pb-3 sm:px-6"
           label="Scores views"
           idBase={idBase}
           value={tab}

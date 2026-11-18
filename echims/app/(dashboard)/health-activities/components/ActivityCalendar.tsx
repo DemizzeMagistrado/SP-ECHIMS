@@ -93,14 +93,14 @@ export function ActivityCalendar({ activities, onOpen }: { activities: Activity[
               </button>
             ))}
           </div>
-          <div role="group" aria-label="Calendar view" className="inline-flex rounded-lg border border-[#BFD3DE] bg-white p-0.5">
+          <div role="group" aria-label="Calendar view" className="inline-flex gap-1 rounded-[10px] bg-[#F0F2F5] p-[3px]">
             {(['MONTH', 'WEEK'] as const).map((option) => (
               <button
                 key={option}
                 type="button"
                 aria-pressed={view === option}
                 onClick={() => setView(option)}
-                className={cn('h-8 rounded-md px-3 text-[13px] font-medium transition-colors duration-150 focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-[#0B759A]', view === option ? 'bg-[#07075F] text-white' : 'text-[#0C1260] hover:bg-[#E6F1F7]')}
+                className={cn('rounded-lg px-4 py-1.5 text-[13px] transition-all duration-150 focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-[#0B759A]', view === option ? 'bg-[#07075F] font-semibold text-white shadow-[0_1px_3px_rgba(12,18,96,0.10)]' : 'font-medium text-[#55617F] hover:bg-[rgba(7,7,95,0.06)] hover:text-[#0C1260]')}
               >
                 {option === 'MONTH' ? 'Month' : 'Week'}
               </button>
