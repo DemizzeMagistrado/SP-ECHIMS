@@ -68,6 +68,7 @@ export function AllocationSection({ canAllocate, canTrace, onTrace, first }: { c
       ) : (
         <GridTable
           caption="Allocations"
+          pageSize={5}
           rows={rows}
           rowKey={(m) => m.id}
           empty={{ icon: Send, title: search ? 'No allocations match this search' : 'No allocations yet', description: canAllocate ? 'Use "New allocation" to move a batch to another barangay.' : 'Batch moves to and from your barangays appear here.' }}

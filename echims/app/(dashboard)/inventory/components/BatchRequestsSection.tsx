@@ -84,6 +84,7 @@ export function BatchRequestsSection({ userId, canTrace, onTrace, first }: { use
       ) : (
         <GridTable
           caption="Vaccine batch requests"
+          pageSize={5}
           rows={rows}
           rowKey={(r) => r.stock_request_id}
           onRowClick={readOnly ? undefined : setReviewing}

@@ -75,6 +75,7 @@ export function ReplenishmentSection({ userId, canRequest, canReview, first }: {
       ) : (
         <GridTable
           caption="Replenishment requests"
+          pageSize={5}
           rows={rows}
           rowKey={(r) => r.stock_request_id}
           onRowClick={setReviewing}

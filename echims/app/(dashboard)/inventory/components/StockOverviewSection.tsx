@@ -112,6 +112,7 @@ export function StockOverviewSection({ canStockIn, first }: { canStockIn: boolea
       ) : (
         <GridTable
           caption="Stock levels"
+          pageSize={5}
           rows={rows}
           rowKey={(r) => r.inventory_id}
           onRowClick={setOpen}
@@ -167,7 +168,7 @@ export function StockOverviewSection({ canStockIn, first }: { canStockIn: boolea
               rows={open.batches}
               rowKey={(b) => b.batch_id}
               minWidth={520}
-              pageSize={6}
+              pageSize={5}
               empty={{ icon: Layers, title: 'No batches recorded yet', description: 'Batches appear here after a stock-in.' }}
               columns={[
                 { key: 'batch', header: 'Batch', cell: (b) => <span className="font-mono text-xs text-[#0C1260]">{b.batch_number}</span> },

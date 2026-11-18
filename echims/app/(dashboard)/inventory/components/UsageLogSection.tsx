@@ -105,6 +105,7 @@ export function UsageLogSection({ canLog, canTrace, onTrace, first }: { canLog: 
       ) : (
         <GridTable
           caption="Usage and waste"
+          pageSize={5}
           rows={rows}
           rowKey={(e) => e.id}
           empty={{ icon: PackageMinus, title: search || kind ? 'No entries match these filters' : 'No usage logged yet', description: canLog ? 'Use "Log usage/waste" after a session.' : 'Usage and waste logged by midwives appear here.' }}

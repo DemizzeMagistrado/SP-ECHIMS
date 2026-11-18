@@ -125,6 +125,7 @@ export function BatchTraceSection({ first }: { first?: boolean }) {
             <h3 className={subTitle}><MapPin size={14} aria-hidden="true" /> Barangay distribution</h3>
             <GridTable
               caption="Barangays holding this batch"
+              pageSize={5}
               rows={data.batches}
               rowKey={(b) => b.batch_id}
               minWidth={600}
@@ -143,6 +144,7 @@ export function BatchTraceSection({ first }: { first?: boolean }) {
             <h3 className={subTitle}><Clock size={14} aria-hidden="true" /> Transactions</h3>
             <GridTable
               caption="Batch transactions"
+              pageSize={5}
               rows={data.transactions}
               rowKey={(t) => t.transaction_id}
               minWidth={720}
@@ -162,6 +164,7 @@ export function BatchTraceSection({ first }: { first?: boolean }) {
             <h3 className={subTitle}><Users size={14} aria-hidden="true" /> Children who received this batch</h3>
             <GridTable
               caption="Children who received this batch"
+              pageSize={5}
               rows={children}
               rowKey={(c) => c.key}
               minWidth={720}
