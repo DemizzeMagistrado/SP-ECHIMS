@@ -1,7 +1,6 @@
 "use client";
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
-import { useRouter } from "next/navigation";
-import { Fragment, useEffect, useRef, useState, type MouseEvent } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { AlertTriangle, ChevronDown, HeartPulse, RefreshCw, Search } from "lucide-react";
 import { CountsStrip, FilterCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
 import { InfoContent } from '@/components/ui/info-tip'
@@ -9,7 +8,7 @@ import { cn } from '@/lib/utils'
 import { Pagination, usePagination } from '@/components/ui/pagination'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { toast } from '@/components/ui/toast'
-import { nutritionLabel, nutritionProfileHref, nutritionTone } from '@/lib/nutrition-status'
+import { nutritionLabel, nutritionTone } from '@/lib/nutrition-status'
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -164,7 +163,6 @@ export function NutritionAdmissionPanel({
   const [data, setData] = useState<Data | null>(null),
     [loading, setLoading] = useState(true),
     [error, setError] = useState("");
-  const router = useRouter();
   usePageLoading(loading)
   const [reload, setReload] = useState(0),
     [filter, setFilter] = useState("OPEN"),
@@ -292,10 +290,6 @@ export function NutritionAdmissionPanel({
     (r) => filter === "ALL" || (filter === "OPEN" ? r.status !== "DONE" : r.status === filter),
   );
   const { visible: pageRows, bindList, listStyle, props: pager } = usePagination(rows);
-  // The whole row opens the profile; buttons keep their own action.
-  const openRow = (event: MouseEvent, childId: number) => {
-    if (!(event.target as HTMLElement).closest("a,button")) router.push(nutritionProfileHref(childId));
-  };
   const toggle = (id: number) =>
     setExpanded((list) => (list.includes(id) ? list.filter((v) => v !== id) : [...list, id]));
   // Same table styling as All assessments (.data-grid lines, zebra, hover with a navy bar, pinned Action column).
@@ -403,7 +397,7 @@ export function NutritionAdmissionPanel({
                     const recordedBy = r.updated_by_name || r.confirmed_by_name;
                     return (
                       <Fragment key={r.admission_id}>
-                        <tr onClick={(event) => openRow(event, r.child_id)} data-zebra={i % 2 === 1 || undefined} className="group cursor-pointer">
+                        <tr data-zebra={i % 2 === 1 || undefined} className="group">
                           <td className={cn(cell, "min-w-52 transition-[box-shadow,background-color] duration-[120ms] group-hover:shadow-[inset_3px_0_0_var(--brand-navy)]")}>
                             <span className="font-semibold">{r.child_name}</span>
                             <span className="block text-xs text-brand-muted">

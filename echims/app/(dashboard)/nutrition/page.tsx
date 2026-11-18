@@ -1,7 +1,6 @@
 "use client";
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
-import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import useSWR from "swr";
 import { useAuth } from "@/components/auth/auth-provider";
 import Link from "next/link";
@@ -27,7 +26,7 @@ import { FilterCard, REPORT_CARD, ViewSwitch } from '@/components/ui/report-part
 import { TabBar } from '@/components/ui/module-tabs'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
-import { Checkbox, Select, DateInput } from '@/components/ui/form'
+import { Checkbox, Select, DateInput, controlClass } from '@/components/ui/form'
 import { InfoContent, InfoTip } from '@/components/ui/info-tip'
 import { Pagination, usePagination, useStableHeight } from '@/components/ui/pagination'
 import { LoadError } from '@/components/ui/load-error'
@@ -123,6 +122,8 @@ type Draft = {
 const endpoint = "/api/nutrition";
 const inputClass =
   "mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 font-normal text-foreground";
+// Read-only server-calculated fields: muted shared control, no hover, not editable.
+const computedClass = cn(controlClass, "mt-1 h-10 cursor-default bg-brand-ice font-normal text-brand-muted");
 const alertClass =
   "rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800";
 type SyncReviewRow = {
@@ -1043,7 +1044,6 @@ export default function NutritionPage() {
   const [selected, setSelected] = useState<Assessment | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
-  const router = useRouter();
   const confirm = useConfirm();
   const role = sharedAuth.user?.role as UserRole | undefined;
   // Print is the export of this page (PHN monitors and exports; BNS and Admin too).
@@ -1092,10 +1092,6 @@ export default function NutritionPage() {
   usePageLoading(!authReady || Boolean(ownerId && online && !data && !error));
   const { visible: queuePage, bindList: bindQueue, listStyle: queueStyle, props: queuePager } = usePagination(queued);
   const tab = reportView === "Assessments" || reportView === "Risk" || reportView === "Admissions" ? reportView : "Summary";
-  // The whole row opens the profile at Nutrition history; links and buttons inside keep their own action.
-  const openRow = (event: MouseEvent, childId: number) => {
-    if (!(event.target as HTMLElement).closest("a,button")) router.push(childRecordUrl(childId));
-  };
   const savingRef = useRef(false);
   const children = data?.children ?? [];
   const scopedRecords = useMemo(
@@ -2292,10 +2288,9 @@ export default function NutritionPage() {
                         return (
                           <tr
                             key={item.assessment_id}
-                            onClick={(event) => openRow(event, item.child_id)}
                             data-zebra={i % 2 === 1 || undefined}
                             data-urgent={flagged || undefined}
-                            className="group cursor-pointer"
+                            className="group"
                           >
                             {recordCells(item, recordPage * recordPager.pageSize + i + 1).map((cell, c) => (
                               <td
@@ -2726,7 +2721,7 @@ export default function NutritionPage() {
                       <input
                         readOnly
                         value="Calculated by the server after saving"
-                        className={inputClass}
+                        className={computedClass}
                       />
                     </label>
                   ))}
@@ -2775,7 +2770,7 @@ export default function NutritionPage() {
                     <input
                       readOnly
                       value="Calculated by the server after saving"
-                      className={inputClass}
+                      className={computedClass}
                     />
                   </label>
                 </div>
