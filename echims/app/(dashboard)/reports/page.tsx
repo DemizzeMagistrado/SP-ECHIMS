@@ -27,6 +27,10 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 import { Pagination } from '@/components/ui/pagination'
+import { FilterCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { TabPanel } from '@/components/brand/page-gate'
+import { cn } from '@/lib/utils'
 type Options = {
   currentUserId: string;
   role: string;
@@ -342,6 +346,11 @@ export default function ReportsPage() {
   const isBhw = options?.role === "BHW";
   return (
     <div className="space-y-6">
+      {/* Title first, then the section tabs (same order as the other modules). */}
+      <PageHeader
+        title={<>Reports & Analytics</>}
+        subtitle={<>{options?.role === "Administrator" ? "System-wide report viewing." : options?.role === "PHN" ? "Review and validate reports within your RHU." : options?.role === "BNS" ? "Generate nutrition reports within assigned barangays." : isBhw ? "Approved child, vaccination and supplementation reports for your barangay. View, print or download." : "Generate reports within assigned barangays."}</>}
+      />
       <TabBar
         label="Report workflow"
         group="reports"
@@ -355,10 +364,6 @@ export default function ReportsPage() {
           // BHW: read-only approved reports only (no live preview / generate; migration 13).
           ...(isBhw ? [] : [{ value: "PREVIEW" as const, label: "Report Preview", disabled: busy }]),
         ]}
-      />
-      <PageHeader
-        title={<>Reports & Analytics</>}
-        subtitle={<>{options?.role === "Administrator" ? "System-wide report viewing." : options?.role === "PHN" ? "Review and validate reports within your RHU." : options?.role === "BNS" ? "Generate nutrition reports within assigned barangays." : isBhw ? "Approved child, vaccination and supplementation reports for your barangay. View, print or download." : "Generate reports within assigned barangays."}</>}
       />
       {error && (
         <p
@@ -378,7 +383,7 @@ export default function ReportsPage() {
       )}
       {!options && (
         <section
-          className="space-y-3 rounded-2xl border bg-white p-5"
+          className={cn(REPORT_CARD, "space-y-3 p-5")}
           aria-live="polite"
         >
           <p className="text-sm">
@@ -398,19 +403,21 @@ export default function ReportsPage() {
           </p>
         </section>
       )}
+      {/* Section content fades in with the previous section's height held (same as other modules). */}
+      <TabPanel tabKey={section} className="space-y-6">
       {section === "SAVED" && options && (
-        <section className="space-y-4 rounded-2xl border bg-white p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold">
-              Saved report versions ({options.total})
-            </h2>
-            <Button variant="secondary"
-              disabled={busy || loading}
-              onClick={() => setReload((v) => v + 1)}
-            >
-              Refresh
-            </Button>
-          </div>
+        <section className={cn(REPORT_CARD, "space-y-4 p-5")}>
+          <SectionHeader
+            title={<>Saved report versions ({options.total})</>}
+            actions={
+              <Button variant="secondary"
+                disabled={busy || loading}
+                onClick={() => setReload((v) => v + 1)}
+              >
+                Refresh
+              </Button>
+            }
+          />
           <div className="scroll-mt-4 overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-muted/50">
@@ -446,7 +453,7 @@ export default function ReportsPage() {
                       {r.generated_by_name}
                       <p className="text-xs">{stamp(r.generated_at)}</p>
                     </td>
-                    <td className="p-3">{r.status.replace(/_/g, " ")}</td>
+                    <td className="p-3"><StatusBadge status={r.status} label={r.status.replace(/_/g, " ")} /></td>
                     <td className="p-3">
                       {r.validated_by_name ?? "Not validated"}
                       {r.validated_at && (
@@ -454,14 +461,14 @@ export default function ReportsPage() {
                       )}
                     </td>
                     <td className="p-3">
-                      <button
-                        type="button"
+                      <Button
+                        variant="row"
+                        size="row"
                         disabled={busy || loading}
-                        className="text-primary underline"
                         onClick={() => void loadView(r.report_id)}
                       >
                         View
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -479,24 +486,58 @@ export default function ReportsPage() {
         </section>
       )}
       {section === "PREVIEW" && options && !isBhw && (
-        <section className="space-y-4 rounded-2xl border bg-white p-5">
-          <nav aria-label="Report modules" className="flex flex-wrap border-b">
-            {options.modules.map((m) => (
-              <button
-                type="button"
-                disabled={busy}
-                key={m}
-                className={`border-b-2 px-4 py-2 ${m === module ? "border-primary text-primary" : "border-transparent"}`}
-                onClick={() => {
-                  clear();
-                  setModule(m);
-                }}
+        <div className="space-y-4">
+          <TabBar
+            variant="sub"
+            label="Report modules"
+            group="report-modules"
+            value={module}
+            onChange={(m) => {
+              clear();
+              setModule(m);
+            }}
+            items={options.modules.map((m) => ({ value: m, label: labels[m], disabled: busy }))}
+          />
+          <FilterCard
+            wide
+            refresh={
+              <Button variant="secondary"
+                disabled={loading || busy || !range.start || !range.end}
+                onClick={() => void loadView()}
               >
-                {labels[m]}
-              </button>
-            ))}
-          </nav>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                View Preview
+              </Button>
+            }
+            below={module === "INVENTORY" && (
+              <div className="flex flex-wrap gap-3 border-t border-brand-line p-4">
+                <Select
+                  disabled={busy}
+                  aria-label="Inventory view"
+                  value={inventoryView}
+                  onChange={(e) => {
+                    clear();
+                    setInventoryView(e.target.value);
+                  }}
+                >
+                  <option value="STOCK">Current stock</option>
+                  <option value="TRANSACTIONS">Transactions in period</option>
+                </Select>
+                <Select
+                  disabled={busy}
+                  aria-label="Item type"
+                  value={itemType}
+                  onChange={(e) => {
+                    clear();
+                    setItemType(e.target.value);
+                  }}
+                >
+                  <option value="ALL">Vaccines and supplements</option>
+                  <option value="VACCINE">Vaccines</option>
+                  <option value="SUPPLEMENT">Supplements</option>
+                </Select>
+              </div>
+            )}
+          >
             <label className="text-sm">
               Period
               <Select
@@ -567,44 +608,9 @@ export default function ReportsPage() {
                 ))}
               </Select>
             </label>
-          </div>
-          {module === "INVENTORY" && (
-            <div className="flex gap-3">
-              <Select
-                disabled={busy}
-                aria-label="Inventory view"
-                value={inventoryView}
-                onChange={(e) => {
-                  clear();
-                  setInventoryView(e.target.value);
-                }}
-              >
-                <option value="STOCK">Current stock</option>
-                <option value="TRANSACTIONS">Transactions in period</option>
-              </Select>
-              <Select
-                disabled={busy}
-                aria-label="Item type"
-                value={itemType}
-                onChange={(e) => {
-                  clear();
-                  setItemType(e.target.value);
-                }}
-              >
-                <option value="ALL">Vaccines and supplements</option>
-                <option value="VACCINE">Vaccines</option>
-                <option value="SUPPLEMENT">Supplements</option>
-              </Select>
-            </div>
-          )}
-          <Button variant="secondary"
-            disabled={loading || busy || !range.start || !range.end}
-            onClick={() => void loadView()}
-          >
-            View Preview
-          </Button>
+          </FilterCard>
           {options.canGenerate && preview && (
-            <div className="flex flex-wrap items-end gap-3">
+            <section aria-label="Generate report" className={cn(REPORT_CARD, "flex flex-wrap items-end gap-3 p-5")}>
               <label className="text-sm">
                 Report title
                 <Input
@@ -622,25 +628,24 @@ export default function ReportsPage() {
               >
                 Generate and Submit to PHN
               </Button>
-            </div>
+            </section>
           )}
-        </section>
+        </div>
       )}
+      </TabPanel>
       {loading && <LogoLoader size="section" label="Loading reports…" />}
       {shown && (
-        <section className="space-y-4 rounded-2xl border bg-white p-5">
-          <header>
-            <h2 className="text-lg font-semibold">
-              {detail?.report.title ?? `${labels[shown.module]} preview`}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {detail
+        <section className={cn(REPORT_CARD, "space-y-4 p-5")}>
+          <header className="space-y-1">
+            <SectionHeader
+              title={detail?.report.title ?? `${labels[shown.module]} preview`}
+              subtitle={detail
                 ? `Generated by ${detail.report.generated_by_name} · ${stamp(detail.report.generated_at)}`
                 : `Preview by ${shown.generatedBy} · ${stamp(shown.generatedAt)}`}
-            </p>
-            <p className="text-sm">
+            />
+            <p className="flex flex-wrap items-center gap-x-2 text-sm text-brand-navy">
               {detail
-                ? detail.report.status.replace(/_/g, " ")
+                ? <StatusBadge status={detail.report.status} label={detail.report.status.replace(/_/g, " ")} />
                 : "Live preview — not saved"}{" "}
               · {shown.rowCount} rows · {shown.start} to {shown.end}
             </p>
@@ -747,7 +752,7 @@ export default function ReportsPage() {
             />
           )}
           {detail?.canValidate && (
-            <div className="space-y-3 rounded-lg border p-4">
+            <div className="space-y-3 border-t border-brand-line pt-4">
               <label className="block text-sm">
                 Review remarks
                 <Textarea
