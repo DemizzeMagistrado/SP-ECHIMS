@@ -5,9 +5,9 @@ import { createClient } from '@/lib/supabase/server'
    TYPES
 ========================================================= */
 
+// The PHN approves, or returns the request to its creator (RESCHEDULE → NEEDS_REVISION).
 type ReviewAction =
   | 'APPROVE'
-  | 'REJECT'
   | 'RESCHEDULE'
 
 type RouteContext = {
@@ -43,7 +43,6 @@ function isReviewAction(
 ): value is ReviewAction {
   return [
     'APPROVE',
-    'REJECT',
     'RESCHEDULE',
   ].includes(value)
 }
@@ -258,21 +257,6 @@ export async function PATCH(
         ? body.reviewRemarks.trim()
         : ''
 
-    if (
-      action === 'REJECT' &&
-      !reviewRemarks
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            'A reason is required when rejecting an activity request.',
-        },
-        {
-          status: 400,
-        }
-      )
-    }
-
     /* -----------------------------------------------------
        5. LOAD REQUEST
     ----------------------------------------------------- */
@@ -371,82 +355,6 @@ export async function PATCH(
           status: 409,
         }
       )
-    }
-
-    /* =====================================================
-       REJECT
-       SCH-R009
-    ===================================================== */
-
-    if (action === 'REJECT') {
-      const reviewedAt =
-        new Date().toISOString()
-
-      const {
-        data,
-        error,
-      } = await supabase
-        .from(
-          'health_activity_schedule'
-        )
-        .update({
-          status:
-            'REJECTED',
-
-          reviewed_by:
-            user.id,
-
-          /*
-           * A rejected activity was
-           * reviewed, not approved.
-           */
-          approved_by:
-            null,
-
-          reviewed_at:
-            reviewedAt,
-
-          review_remarks:
-            reviewRemarks,
-        })
-        .eq(
-          'schedule_id',
-          numericScheduleId
-        )
-        .eq(
-          'status',
-          'PENDING'
-        )
-        .select()
-        .single()
-
-      if (error) {
-        console.error(
-          'Reject activity error:',
-          error
-        )
-
-        return NextResponse.json(
-          {
-            error:
-              'Unable to reject health activity request.',
-          },
-          {
-            status: 500,
-          }
-        )
-      }
-
-      return NextResponse.json({
-        message:
-          'Health activity request rejected.',
-
-        rule:
-          'SCH-R009',
-
-        activity:
-          data,
-      })
     }
 
     /* =====================================================

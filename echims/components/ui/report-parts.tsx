@@ -12,11 +12,15 @@ export const REPORT_CARD = 'overflow-hidden rounded-2xl border border-brand-line
 /** Filter card: Child Profiling's filter container, one row of controls on a shared bottom edge
  *  (gap 16px), Refresh (and any toolbar buttons) pushed right at the select height. The optional
  *  row below holds the counts. */
-export function FilterCard({ children, refresh, extra, below }: { children: ReactNode; refresh?: ReactNode; extra?: ReactNode; below?: ReactNode }) {
+export function FilterCard({ children, refresh, extra, below, wide }: {
+  children: ReactNode; refresh?: ReactNode; extra?: ReactNode; below?: ReactNode
+  /** Four controls on one row at wide screens (search + three selects). */
+  wide?: boolean
+}) {
   return (
     <section aria-label="Filters" className={cn(REPORT_CARD, 'nutrition-no-print')}>
       <div className="flex flex-wrap items-end gap-4 p-4">
-        <div className="grid min-w-0 flex-[1_1_28rem] gap-4 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
+        <div className={cn('grid min-w-0 flex-[1_1_28rem] gap-4 sm:grid-cols-2 lg:grid-cols-3', wide && 'xl:grid-cols-4')}>{children}</div>
         {extra && <div className="flex h-10 items-center">{extra}</div>}
         {refresh && <div className="ml-auto flex flex-wrap items-center gap-2">{refresh}</div>}
       </div>
@@ -25,7 +29,8 @@ export function FilterCard({ children, refresh, extra, below }: { children: Reac
   )
 }
 
-type CountItem = { label: string; value: number | string; tone?: 'severe' | 'review'; key?: string; hint?: ReactNode }
+const COUNT_TONE = { severe: 'text-severe', review: 'text-review', good: 'text-good', info: 'text-[#035C8C]', muted: 'text-brand-muted' } as const
+type CountItem = { label: string; value: number | string; tone?: keyof typeof COUNT_TONE; key?: string; hint?: ReactNode }
 const COUNT_GRID: Record<number, string> = {
   3: 'grid-cols-1 sm:grid-cols-3',
   5: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5',
@@ -44,7 +49,7 @@ export function CountsStrip({ label, items, selected, onSelect }: {
   const isOn = (key: string) => (Array.isArray(selected) ? selected.includes(key) : selected === key)
   // Secondary line under the number and label (e.g. Vaccination's "Longest missed").
   const hint = (item: CountItem) => item.hint && <span className="basis-full text-xs text-brand-muted">{item.hint}</span>
-  const number = (item: CountItem) => cn('text-2xl font-bold tabular-nums', item.value === 0 ? 'text-zero' : item.tone === 'severe' ? 'text-severe' : item.tone === 'review' ? 'text-review' : 'text-brand-navy')
+  const number = (item: CountItem) => cn('text-2xl font-bold tabular-nums', item.value === 0 ? 'text-zero' : item.tone ? COUNT_TONE[item.tone] : 'text-brand-navy')
   const span = (i: number) => items.length === 5 && i === 4 && 'col-span-2 lg:col-span-1'
   const grid = cn('grid gap-px border-t border-brand-line/70 bg-brand-line/70', COUNT_GRID[items.length] ?? 'grid-cols-2 sm:grid-cols-4')
   if (onSelect) {

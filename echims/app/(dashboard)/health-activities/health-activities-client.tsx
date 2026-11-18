@@ -1,14 +1,15 @@
 'use client'
-import { Select, DateInput } from '@/components/ui/form'
-import { CountsStrip } from '@/components/ui/report-parts'
-import { FilterChips, TabBar } from '@/components/ui/module-tabs'
+import { Select, DateInput, Input } from '@/components/ui/form'
+import { CountsStrip, FilterCard, GuidanceCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
+import { TabBar } from '@/components/ui/module-tabs'
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineScope } from '@/lib/offline/fetch'
 import { submitSafeDraft } from '@/lib/offline/safe-submit'
 import { listActivityDrafts,saveActivityDraft,deleteActivityDraft,type ActivityDraft } from '@/lib/activity-drafts'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
+import { cn } from '@/lib/utils'
 
-import { AlertTriangle, CalendarDays, CheckCircle2, Plus, RefreshCw, Search, XCircle } from 'lucide-react'
+import { AlertTriangle, CalendarDays, CheckCircle2, ChevronRight, Info, PencilLine, Plus, RefreshCw, Search, SearchX, XCircle } from 'lucide-react'
 
 import {
   FormEvent,
@@ -20,8 +21,9 @@ import {
 } from 'react'
 
 import HealthActivityCalendar from './health-activity-calendar'
+import { ACTIVITY_STATUSES, ACTIVITY_TYPE_META, ACTIVITY_TYPES as TYPE_KEYS, statusMeta, typeMeta, type ActivityStatus, type ActivityType } from './activity-meta'
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
-import { usePageLoading } from '@/components/brand/page-gate'
+import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
@@ -40,20 +42,6 @@ import { LoadError } from '@/components/ui/load-error'
 type Role = 'Administrator' | 'PHN' | 'RHM' | 'BHW' | 'BNS'
 
 type HealthWorkerRole = 'PHN' | 'RHM' | 'BHW' | 'BNS'
-
-type ActivityType =
-  | 'VACCINATION'
-  | 'NUTRITIONAL_ASSESSMENT'
-  | 'SUPPLEMENTATION'
-
-type ActivityStatus =
-  | 'PENDING'
-  | 'APPROVED'
-  | 'REJECTED'
-  | 'ONGOING'
-  | 'COMPLETED'
-  | 'CANCELLED'
-  | 'NEEDS_REVISION'
 
 type ConflictStatus = 'NONE' | 'DETECTED' | 'RESOLVED'
 
@@ -119,11 +107,7 @@ type RuleEvaluation = {
    ACTIVITY CONFIGURATION
 ========================================================= */
 
-const ACTIVITY_TYPES: { value: ActivityType; label: string }[] = [
-  { value: 'VACCINATION', label: 'Vaccination' },
-  { value: 'NUTRITIONAL_ASSESSMENT', label: 'Nutritional Assessment' },
-  { value: 'SUPPLEMENTATION', label: 'Supplementation' },
-]
+const ACTIVITY_TYPES: { value: ActivityType; label: string }[] = TYPE_KEYS.map((value) => ({ value, label: ACTIVITY_TYPE_META[value].label }))
 
 const ACTIVITY_TYPES_BY_ROLE: Record<HealthWorkerRole, ActivityType[]> = {
   PHN: ['VACCINATION', 'NUTRITIONAL_ASSESSMENT', 'SUPPLEMENTATION'],
@@ -132,15 +116,7 @@ const ACTIVITY_TYPES_BY_ROLE: Record<HealthWorkerRole, ActivityType[]> = {
   BNS: ['NUTRITIONAL_ASSESSMENT', 'SUPPLEMENTATION'],
 }
 
-const STATUS_LABELS: Record<ActivityStatus, string> = {
-  PENDING: 'Pending',
-  APPROVED: 'Approved',
-  REJECTED: 'Rejected',
-  ONGOING: 'Ongoing',
-  COMPLETED: 'Completed',
-  CANCELLED: 'Cancelled',
-  NEEDS_REVISION: 'Needs revision',
-}
+const STATUS_LABELS = Object.fromEntries(ACTIVITY_STATUSES.map((s) => [s, statusMeta(s).label])) as Record<ActivityStatus, string>
 
 type RequesterStatus = 'ONGOING' | 'COMPLETED' | 'CANCELLED'
 
@@ -153,26 +129,25 @@ const REQUESTER_STATUS_TRANSITIONS: Partial<
   ONGOING: ['COMPLETED', 'CANCELLED'],
 }
 
-const STATUS_FILTERS: { value: string; label: string }[] = [
-  { value: 'ALL', label: 'All requests' },
-  { value: 'PENDING', label: 'Pending' },
-  { value: 'APPROVED', label: 'Approved' },
-  { value: 'NEEDS_REVISION', label: 'Needs revision' },
-  { value: 'REJECTED', label: 'Rejected' },
-  { value: 'ONGOING', label: 'Ongoing' },
-  { value: 'COMPLETED', label: 'Completed' },
-  { value: 'CANCELLED', label: 'Cancelled' },
-]
+type Tab = 'requests' | 'calendar' | 'upcoming'
 
-// NIP-USR012 — Activity type filter. Vaccination activities now live only here
-// (no separate Vaccination Calendar tab). Default is 'ALL' so the consolidated
-// view is the first thing a user sees.
-const TYPE_FILTERS: { value: string; label: string }[] = [
-  { value: 'ALL', label: 'All types' },
-  { value: 'VACCINATION', label: 'Vaccinations' },
-  { value: 'NUTRITIONAL_ASSESSMENT', label: 'Nutritional assessment' },
-  { value: 'SUPPLEMENTATION', label: 'Supplementation' },
-]
+const SECTIONS: Record<Tab, { title: string; subtitle: string; about: string }> = {
+  requests: {
+    title: 'Activity requests',
+    subtitle: 'All health activity requests filed by BHWs, BNSs, and health staff. PHN reviews and approves.',
+    about: 'Every request in your scope, newest schedule first. Counts follow the type, barangay and search filters; select a count to show only that status. Open a request for its details and the actions you can take on it.',
+  },
+  calendar: {
+    title: 'Activity calendar',
+    subtitle: 'Scheduled activities by month, week or day, colour-coded by type.',
+    about: 'The same requests as the list, placed on their scheduled dates. Filters apply here too. Select a day number to open that day, or an activity to see its details.',
+  },
+  upcoming: {
+    title: 'Upcoming activities',
+    subtitle: 'Approved and ongoing activities that have not ended yet, soonest first.',
+    about: 'Only approved or ongoing activities whose date and end time are still ahead. Pending requests appear once the PHN approves them.',
+  },
+}
 
 /* =========================================================
    HELPERS
@@ -189,10 +164,7 @@ function getBarangayName(activity: Activity) {
 }
 
 function formatActivityType(value: string) {
-  return (
-    ACTIVITY_TYPES.find((item) => item.value === value)?.label ??
-    value.replaceAll('_', ' ')
-  )
+  return typeMeta(value).label
 }
 
 function formatTime(value: string | null) {
@@ -208,8 +180,14 @@ function formatTime(value: string | null) {
   })
 }
 
+function formatTimeRange(activity: Pick<Activity, 'start_time' | 'end_time'>) {
+  return activity.start_time || activity.end_time
+    ? `${formatTime(activity.start_time)} – ${formatTime(activity.end_time)}`
+    : 'Time not specified'
+}
+
 function formatDate(value: string) {
-  const date = new Date(`${value}T00:00:00`)
+  const date = new Date(`${value.slice(0, 10)}T00:00:00`)
 
   return date.toLocaleDateString([], {
     month: 'short',
@@ -228,108 +206,133 @@ function getTodayString() {
   ].join('-')
 }
 
-/* =========================================================
-   STATUS BADGE
-========================================================= */
+function initials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || '?'
+}
 
+/** Approved or ongoing, and not ended yet (today's activity counts until its end time). */
+function isUpcoming(activity: Activity, today: string, nowTime: string) {
+  if (activity.status !== 'APPROVED' && activity.status !== 'ONGOING') return false
+  if (activity.schedule_date !== today) return activity.schedule_date > today
+  if (!activity.end_time) return true
+  const end = activity.end_time.length === 5 ? `${activity.end_time}:00` : activity.end_time
+  return end > nowTime
+}
+
+function TypePill({ type }: { type: string }) {
+  const meta = typeMeta(type)
+  return <span className={cn('inline-flex h-6 items-center whitespace-nowrap rounded-full px-2.5 text-xs font-semibold', meta.pill)}>{meta.short}</span>
+}
+
+function ActivityStatusBadge({ status }: { status: string }) {
+  const meta = statusMeta(status)
+  return <StatusBadge status={status} tone={meta.tone} label={meta.label} />
+}
 
 /* =========================================================
    DETAILS MODAL
 ========================================================= */
 
+type DetailAction = 'approve' | 'revise' | 'edit' | 'status' | 'complete' | 'cancel'
+
 function ActivityDetailsModal({
   activity,
-  canReview,
+  actions,
   onClose,
-  onReview,
+  onAction,
 }: {
   activity: Activity
-  canReview: boolean
+  actions: DetailAction[]
   onClose: () => void
-  onReview: () => void
+  onAction: (action: DetailAction) => void
 }) {
   const barangay = getBarangay(activity)
+  const people = activity.responsible_personnel ?? []
 
-  const details = [
-    { label: 'Activity', value: formatActivityType(activity.activity_type) },
-    { label: 'Date', value: formatDate(activity.schedule_date) },
-    {
-      label: 'Time',
-      value:
-        activity.start_time || activity.end_time
-          ? `${formatTime(activity.start_time)} – ${formatTime(activity.end_time)}`
-          : 'Time not specified',
-    },
-    {
-      label: 'Location / Barangay',
-      value: [
-        barangay?.barangay_name ?? `Barangay ${activity.barangay_id}`,
-        barangay?.municipality,
-        barangay?.province,
-      ]
-        .filter(Boolean)
-        .join(', '),
-    },
-    {
-      label: 'Conflict Status',
-      value: activity.conflict_status.replaceAll('_', ' '),
-    },
-    {
-      label: 'Requested by',
-      value: activity.requested_by_name ?? 'Name unavailable',
-    },
-    {
-      label: 'Responsible personnel',
-      value:
-        activity.responsible_personnel
-          ?.map((person) => person.full_name)
-          .join(', ') || 'Not assigned yet',
-    },
-    {
-      label: 'Approved by',
-      value: activity.approved_by_name ?? 'Not available',
-    },
+  const info: { label: string; value: React.ReactNode }[] = [
+    { label: 'Type', value: <TypePill type={activity.activity_type} /> },
+    { label: 'Requested by', value: activity.requested_by_name ?? 'Name unavailable' },
+    { label: 'Schedule', value: <>{formatDate(activity.schedule_date)}<span className="block text-[13px] font-normal text-brand-muted">{formatTimeRange(activity)}</span></> },
+    { label: 'Barangay', value: barangay?.barangay_name ?? `Barangay ${activity.barangay_id}` },
+    { label: 'Location', value: [barangay?.municipality, barangay?.province].filter(Boolean).join(', ') || '—' },
+    { label: 'Date requested', value: formatDate(activity.created_at) },
+    ...(activity.approved_by_name ? [{ label: 'Approved by', value: activity.approved_by_name }] : []),
   ]
 
+  // Primary action last (right-most), outline actions before it.
+  const buttons: Record<DetailAction, React.ReactNode> = {
+    revise: <Button key="revise" variant="outline" onClick={() => onAction('revise')}><PencilLine size={16} aria-hidden="true" />Return for revision</Button>,
+    approve: <Button key="approve" onClick={() => onAction('approve')}><CheckCircle2 size={16} aria-hidden="true" />Approve activity</Button>,
+    edit: <Button key="edit" onClick={() => onAction('edit')}><PencilLine size={16} aria-hidden="true" />Edit and resubmit</Button>,
+    cancel: <Button key="cancel" variant="outline" onClick={() => onAction('cancel')}>Cancel request</Button>,
+    status: <Button key="status" variant="outline" onClick={() => onAction('status')}>Update status</Button>,
+    complete: <Button key="complete" onClick={() => onAction('complete')}><CheckCircle2 size={16} aria-hidden="true" />Mark as completed</Button>,
+  }
+
   return (
-    <ModalShell title="Health Activity Details" onClose={onClose} cancelLabel="Close" footer={canReview && activity.status === 'PENDING' ? <Button onClick={onReview}>Review Request</Button> : null}>
+    <Modal
+      open
+      size="form"
+      onClose={onClose}
+      cancelLabel="Close"
+      hideCancel={actions.length > 0}
+      aboveTitle={
+        <span className="mb-1.5 flex items-center gap-2">
+          <ActivityStatusBadge status={activity.status} />
+          <span className="text-xs text-brand-muted">Activity #{activity.schedule_id}</span>
+        </span>
+      }
+      title={`${formatActivityType(activity.activity_type)} · ${barangay?.barangay_name ?? `Barangay ${activity.barangay_id}`}`}
+      footer={actions.length > 0 ? <>{actions.map((a) => buttons[a])}</> : null}
+    >
       <div className="space-y-5">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#087db9]">
-            Schedule #{activity.schedule_id}
+        {activity.conflict_status === 'DETECTED' && (
+          <p role="status" className="flex gap-2 rounded-xl border border-review-line/40 bg-review-soft p-3 text-sm text-review">
+            <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+            Another activity overlaps this schedule. Scheduling rules are checked again before approval.
           </p>
+        )}
 
-          <StatusBadge status={activity.status} label={STATUS_LABELS[activity.status] ?? activity.status} dot />
-        </div>
-
-        <dl className="grid gap-4 rounded-xl bg-slate-50 p-4 sm:grid-cols-2">
-          {details.map(({ label, value }) => (
-            <div key={label}>
-              <dt className="text-xs text-slate-500">{label}</dt>
-              <dd className="mt-1 break-words text-sm font-bold text-brand-navy">
-                {value}
-              </dd>
+        <dl className="grid gap-4 sm:grid-cols-2">
+          {info.map(({ label, value }) => (
+            <div key={label} className="min-w-0">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-brand-muted">{label}</dt>
+              <dd className="mt-1 break-words text-sm font-medium text-brand-navy">{value}</dd>
             </div>
           ))}
         </dl>
 
-        <div>
-          <p className="text-sm font-bold text-brand-navy">Activity Remarks</p>
-          <p className="mt-1 whitespace-pre-wrap break-words text-sm text-slate-600">
+        <section className="border-t border-brand-line/70 pt-4">
+          <h3 className="text-sm font-semibold text-brand-navy">Assigned personnel</h3>
+          {people.length === 0 ? (
+            <p className="mt-1.5 text-sm text-brand-muted">Not assigned yet.</p>
+          ) : (
+            <ul className="mt-2.5 space-y-2">
+              {people.map((person) => (
+                <li key={person.user_id} className="flex items-center gap-2.5">
+                  <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-ice text-xs font-semibold text-brand-navy">{initials(person.full_name)}</span>
+                  <span className="text-sm font-medium text-brand-navy">{person.full_name}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="border-t border-brand-line/70 pt-4">
+          <h3 className="text-sm font-semibold text-brand-navy">Remarks</h3>
+          <p className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-relaxed text-brand-muted">
             {activity.remarks?.trim() || 'No remarks provided.'}
           </p>
-        </div>
+        </section>
 
         {activity.review_remarks?.trim() && (
-          <div>
-            <p className="text-sm font-bold text-brand-navy">PHN Review Remarks</p>
-            <p className="mt-1 whitespace-pre-wrap break-words text-sm text-slate-600">
-              {activity.review_remarks}
-            </p>
-          </div>
+          <section className="border-t border-brand-line/70 pt-4">
+            <h3 className="text-sm font-semibold text-brand-navy">{activity.status === 'NEEDS_REVISION' ? 'What the PHN asked to change' : 'PHN review remarks'}</h3>
+            <p className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-relaxed text-brand-muted">{activity.review_remarks}</p>
+          </section>
         )}
       </div>
-    </ModalShell>
+    </Modal>
   )
 }
 
@@ -352,27 +355,29 @@ function ActivityWorkspace() {
   const [cached] = useState(() => readPageCache<ActivitiesCache>(user?.id, cacheKey))
   const [currentUserId, setCurrentUserId] = useState<string | null>(cached?.currentUserId ?? null)
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null)
-  const [statusActivity, setStatusActivity] = useState<Activity | null>(null)
-  const [activeTab, setActiveTab] = useState<'Requests' | 'Calendar'>('Requests')
-  // NIP-USR012 — Type filter persists across Requests ↔ Calendar so switching
-  // tabs never surprises the user with different data.
+  const [statusActivity, setStatusActivity] = useState<{ activity: Activity; initial?: RequesterStatus } | null>(null)
+  const [activeTab, setActiveTab] = useState<Tab>('requests')
+  // Filters persist across the three tabs so switching never changes the data underneath.
   const [typeFilter, setTypeFilter] = useState<string>('ALL')
+  const [barangayFilter, setBarangayFilter] = useState<string>('ALL')
   const [activities, setActivities] = useState<Activity[]>(cached?.activities ?? [])
   const [role, setRole] = useState<Role | null>(cached?.role ?? null)
   const [loading, setLoading] = useState(!cached)
+  const [refreshing, setRefreshing] = useState(false)
   usePageLoading(loading)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [showRequestModal, setShowRequestModal] = useState(false)
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
-  const [reviewActivity, setReviewActivity] = useState<Activity | null>(null)
+  const [reviewing, setReviewing] = useState<{ activity: Activity; action: ReviewAction } | null>(null)
   const [ruleEvaluation, setRuleEvaluation] = useState<RuleEvaluation | null>(null)
 
   /* LOAD ACTIVITIES */
 
   const loadActivities = useCallback(async () => {
     if (!readPageCache(user?.id, cacheKey)) setLoading(true)
+    setRefreshing(true)
     setError('')
 
     try {
@@ -397,6 +402,7 @@ function ActivityWorkspace() {
       )
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }, [user?.id, cacheKey])
 
@@ -413,42 +419,37 @@ function ActivityWorkspace() {
 
   /* FILTER */
 
-  const filteredActivities = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase()
+  const barangayOptions = useMemo(() => {
+    const seen = new Map<number, string>()
+    for (const activity of activities) seen.set(activity.barangay_id, getBarangayName(activity))
+    return [...seen].sort((a, b) => a[1].localeCompare(b[1]))
+  }, [activities])
 
-    return activities.filter((activity) => {
-      const matchesStatus =
-        statusFilter === 'ALL' || activity.status === statusFilter
+  // Everything but status: the counts strip counts these, so a count always matches its filter.
+  const scopedActivities = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return activities.filter((activity) =>
+      (typeFilter === 'ALL' || activity.activity_type === typeFilter)
+      && (barangayFilter === 'ALL' || String(activity.barangay_id) === barangayFilter)
+      && (!q || [formatActivityType(activity.activity_type), getBarangayName(activity), activity.requested_by_name, `#${activity.schedule_id}`, String(activity.schedule_id)]
+        .some((value) => value?.toLowerCase().includes(q))),
+    )
+  }, [activities, search, typeFilter, barangayFilter])
 
-      // NIP-USR012 — Applies to both Requests and Calendar views.
-      const matchesType =
-        typeFilter === 'ALL' || activity.activity_type === typeFilter
-
-      const matchesSearch =
-        !normalizedSearch ||
-        formatActivityType(activity.activity_type)
-          .toLowerCase()
-          .includes(normalizedSearch) ||
-        getBarangay(activity)
-          ?.barangay_name?.toLowerCase()
-          .includes(normalizedSearch)
-
-      return matchesStatus && matchesType && matchesSearch
-    })
-  }, [activities, search, statusFilter, typeFilter])
+  const filteredActivities = useMemo(
+    () => scopedActivities
+      .filter((activity) => statusFilter === 'ALL' || activity.status === statusFilter)
+      .sort((a, b) => b.schedule_date.localeCompare(a.schedule_date) || (b.start_time ?? '').localeCompare(a.start_time ?? '') || b.schedule_id - a.schedule_id),
+    [scopedActivities, statusFilter],
+  )
   const { visible: pagedActivities, props: activityPager } = usePagination(filteredActivities)
 
-  /* COUNTS */
-
-  const pendingCount = activities.filter((i) => i.status === 'PENDING').length
-  const approvedCount = activities.filter((i) => i.status === 'APPROVED').length
-  const conflictCount = activities.filter(
-    (i) => i.conflict_status === 'DETECTED',
-  ).length
+  const countOf = (status: ActivityStatus) => scopedActivities.filter((activity) => activity.status === status).length
 
   function handleCreated(evaluation?: RuleEvaluation) {
     setShowRequestModal(false)
     setRuleEvaluation(evaluation ?? null)
+    toast.success('Activity request submitted for PHN review.')
     void loadActivities()
   }
 
@@ -456,353 +457,240 @@ function ActivityWorkspace() {
 
   const now = new Date()
   const today = getTodayString()
-  const currentTime = [
-    String(now.getHours()).padStart(2, '0'),
-    String(now.getMinutes()).padStart(2, '0'),
-    String(now.getSeconds()).padStart(2, '0'),
-  ].join(':')
+  const currentTime = [now.getHours(), now.getMinutes(), now.getSeconds()].map((n) => String(n).padStart(2, '0')).join(':')
 
   const upcomingActivities = filteredActivities
-    .filter((activity) => {
-      if (activity.status !== 'APPROVED') return false
-      if (activity.schedule_date > today) return true
-      if (activity.schedule_date < today) return false
-      if (!activity.end_time) return true
-
-      const endTime =
-        activity.end_time.length === 5
-          ? `${activity.end_time}:00`
-          : activity.end_time
-
-      return endTime > currentTime
-    })
+    .filter((activity) => isUpcoming(activity, today, currentTime))
     .sort(
       (a, b) =>
         a.schedule_date.localeCompare(b.schedule_date) ||
         (a.start_time ?? '99:99').localeCompare(b.start_time ?? '99:99') ||
         a.schedule_id - b.schedule_id,
     )
-    .slice(0, 5)
+
+  /* DETAIL ACTIONS: what this user can do with this request, primary action last. */
+
+  function actionsFor(activity: Activity): DetailAction[] {
+    if (canReview && activity.status === 'PENDING') return ['revise', 'approve']
+    if (activity.created_by !== currentUserId) return []
+    if (activity.status === 'NEEDS_REVISION') return ['edit']
+    if (activity.status === 'PENDING') return ['cancel']
+    if (activity.status === 'APPROVED') return ['status']
+    if (activity.status === 'ONGOING') return ['status', 'complete']
+    return []
+  }
+
+  function runAction(activity: Activity, action: DetailAction) {
+    setSelectedActivity(null)
+    if (action === 'approve') setReviewing({ activity, action: 'APPROVE' })
+    else if (action === 'revise') setReviewing({ activity, action: 'RESCHEDULE' })
+    else if (action === 'edit') setEditingActivity(activity)
+    else if (action === 'complete') setStatusActivity({ activity, initial: 'COMPLETED' })
+    else if (action === 'cancel') setStatusActivity({ activity, initial: 'CANCELLED' })
+    else setStatusActivity({ activity })
+  }
+
+  const section = SECTIONS[activeTab]
+  const filtersKey = `${typeFilter}|${barangayFilter}|${statusFilter}`
+
+  const counts = (
+    <CountsStrip
+      label="Activity counts"
+      selected={statusFilter}
+      onSelect={(key) => setStatusFilter(statusFilter === key ? 'ALL' : key)}
+      items={[
+        { key: 'PENDING', label: 'Pending', value: countOf('PENDING') },
+        { key: 'NEEDS_REVISION', label: 'Needs revision', value: countOf('NEEDS_REVISION'), tone: 'review' },
+        { key: 'APPROVED', label: 'Approved', value: countOf('APPROVED'), tone: 'good' },
+        { key: 'ONGOING', label: 'Ongoing', value: countOf('ONGOING'), tone: 'info' },
+        { key: 'COMPLETED', label: 'Completed', value: countOf('COMPLETED'), tone: 'muted' },
+      ]}
+    />
+  )
+
+  const head = 'whitespace-nowrap px-4 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-brand-muted'
+  const cell = 'px-4 py-3.5 align-top'
+  const pinned = 'relative sm:sticky right-0 border-l-brand-line sm:shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]'
 
   return (
-    <div>
-      <div className="space-y-6">
-        {/* HEADER */}
-
+    <div className="space-y-5">
+      {/* Header block: title and subtitle, then the view tabs; one divider below. */}
+      <div className="space-y-4">
         <PageHeader
           title="Health Activities"
-          subtitle="Request, review, and monitor community health activities."
-          actions={<>
-            {canRequest && (
-              <Button
-                onClick={() => {
-                  setRuleEvaluation(null)
-                  setShowRequestModal(true)
-                }}
-              >
-                <Plus size={18} />
-                Request activity
-              </Button>
-            )}
-          </>}
+          subtitle="Activity requests, scheduling, and community health event tracking"
+          actions={canRequest && (
+            <Button
+              onClick={() => {
+                setRuleEvaluation(null)
+                setShowRequestModal(true)
+              }}
+            >
+              <Plus size={17} aria-hidden="true" />
+              New request
+            </Button>
+          )}
         />
+        <TabBar
+          className="pb-5"
+          label="Health activity views"
+          group="health-activities"
+          value={activeTab}
+          onChange={setActiveTab}
+          items={[
+            { value: 'requests', label: 'Activity requests' },
+            { value: 'calendar', label: 'Calendar' },
+            { value: 'upcoming', label: <>Upcoming<span className="ml-1.5 rounded-full bg-brand-ice px-1.5 text-[11px] font-semibold tabular-nums text-brand-navy">{upcomingActivities.length}</span></> },
+          ]}
+        />
+      </div>
 
-        <ActivityDraftPanel onUploaded={() => void loadActivities()}/>
+      <ActivityDraftPanel onUploaded={() => void loadActivities()}/>
 
-        {/* RULE RESULT */}
+      {/* RULE RESULT */}
 
-        {ruleEvaluation?.hasConflict && (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-            <div className="flex gap-3">
-              <AlertTriangle
-                className="mt-0.5 shrink-0 text-amber-700"
-                size={20}
-              />
-
-              <div>
-                <p className="font-semibold text-amber-900">
-                  Scheduling rule triggered
-                </p>
-
-                <p className="mt-1 text-sm text-amber-800">
-                  {ruleEvaluation.hasHardConflict
-                    ? 'A health worker time conflict was detected. The request must be rescheduled before PHN approval.'
-                    : 'Another activity overlaps in the same barangay. The PHN may review and approve the overlap if intentional.'}
-                </p>
-
-                {ruleEvaluation.suggestions?.length > 0 && (
-                  <div className="mt-3">
-                    <p className="text-sm font-semibold text-amber-900">
-                      Suggested alternatives
-                    </p>
-
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {ruleEvaluation.suggestions.map((suggestion, index) => (
-                        <span
-                          key={index}
-                          className="rounded-lg bg-white px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200"
-                        >
-                          {formatDate(suggestion.suggested_date)} ·{' '}
-                          {formatTime(suggestion.suggested_start_time)}
-                          {' – '}
-                          {formatTime(suggestion.suggested_end_time)}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* UPCOMING */}
-
-        {!loading && !error && (
-          <section className="rounded-2xl border border-border bg-white p-5">
-            <div className="flex items-center gap-2">
-              <CalendarDays size={20} className="text-[#087db9]" />
-              <h2 className="text-lg font-bold text-brand-navy">
-                Upcoming activities
-              </h2>
-            </div>
-
-            <p className="mt-1 text-sm text-slate-500">
-              Next five approved activities matching your filters.
+      {ruleEvaluation?.hasConflict && (
+        <div role="status" className="flex gap-3 rounded-2xl border border-review-line/40 bg-review-soft p-4">
+          <AlertTriangle className="mt-0.5 shrink-0 text-review" size={20} aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-review">Scheduling rule triggered</p>
+            <p className="mt-1 text-sm text-brand-navy">
+              {ruleEvaluation.hasHardConflict
+                ? 'A health worker time conflict was detected. The request must be rescheduled before PHN approval.'
+                : 'Another activity overlaps in the same barangay. The PHN may review and approve the overlap if intentional.'}
             </p>
-
-            {upcomingActivities.length === 0 ? (
-              <EmptyState icon={CalendarDays} title="No upcoming approved activities" description="None match your current filters." />
-            ) : (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {upcomingActivities.map((activity) => (
-                  <button
-                    key={activity.schedule_id}
-                    type="button"
-                    onClick={() => setSelectedActivity(activity)}
-                    className="rounded-xl border border-slate-200 p-4 text-left transition hover:border-[#087db9] hover:bg-[#f1fbfd]"
-                  >
-                    <p className="text-sm font-bold text-brand-navy">
-                      {formatActivityType(activity.activity_type)}
-                    </p>
-
-                    <p className="mt-2 text-sm font-semibold text-slate-700">
-                      {formatDate(activity.schedule_date)}
-                    </p>
-
-                    <p className="mt-1 text-xs text-slate-500">
-                      {formatTime(activity.start_time)}
-                      {' – '}
-                      {formatTime(activity.end_time)}
-                    </p>
-
-                    <p className="mt-2 text-xs font-medium text-slate-600">
-                      {getBarangayName(activity)}
-                    </p>
-
-                    <div className="mt-3">
-                      <StatusBadge status={activity.status} label={STATUS_LABELS[activity.status] ?? activity.status} dot />
-                    </div>
-                  </button>
-                ))}
+            {ruleEvaluation.suggestions?.length > 0 && (
+              <div className="mt-3">
+                <p className="text-sm font-semibold text-brand-navy">Suggested alternatives</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {ruleEvaluation.suggestions.map((suggestion, index) => (
+                    <span key={index} className="rounded-lg bg-white px-3 py-2 text-xs text-brand-navy ring-1 ring-review-line/40">
+                      {formatDate(suggestion.suggested_date)} · {formatTime(suggestion.suggested_start_time)} – {formatTime(suggestion.suggested_end_time)}
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
-          </section>
-        )}
-
-        {/* REQUESTS SECTION */}
-
-        <section className="overflow-hidden rounded-2xl border border-border bg-white">
-          <div className="px-5 pt-5 sm:px-7">
-            <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-              <div>
-                <h2 className="text-lg font-bold text-brand-navy">
-                  Activity requests
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Review and manage submitted health activity requests.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <label className="relative">
-                  <Search
-                    size={16}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
-                  />
-                  <input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search activity or barangay"
-                    className="h-10 w-48 rounded-full bg-slate-100 pl-9 pr-3 text-sm outline-none ring-1 ring-slate-200 focus:ring-[#087db9] sm:w-64"
-                  />
-                </label>
-
-                <Button variant="tonal" size="sm" onClick={() => void loadActivities()}>
-                  <RefreshCw size={15} />
-                  Refresh
-                </Button>
-              </div>
-            </div>
-
-            <TabBar
-              className="mt-5 border-b-0"
-              label="Activity views"
-              group="health-activities"
-              value={activeTab}
-              onChange={setActiveTab}
-              items={[{ value: 'Requests', label: 'Requests' }, { value: 'Calendar', label: 'Calendar' }]}
-            />
           </div>
-          {/* Request counts; its top line doubles as the tab underline. */}
-          <CountsStrip label="Request counts" items={[
-            { label: canReview ? 'Pending review' : 'Pending', value: pendingCount, tone: 'review' },
-            { label: 'Approved activities', value: approvedCount },
-            { label: 'Schedule conflicts', value: conflictCount, tone: 'severe' },
-          ]} />
+          <Button variant="ghost" size="icon" aria-label="Dismiss" onClick={() => setRuleEvaluation(null)}><XCircle size={16} aria-hidden="true" /></Button>
+        </div>
+      )}
 
-          {loading ? (
-            <LogoLoader size="section" label="Loading activities…" />
-          ) : error ? (
-            <div className="m-5"><LoadError what="health activities" error={new Error(error)} onRetry={() => void loadActivities()} /></div>
-          ) : activeTab === 'Calendar' ? (
-            <>
-              {/* NIP-USR012 — Type filter above the Calendar lets staff slice
-                  by activity type. Vaccination events already appear here as
-                  blue tiles (color coded by activity_type in the calendar). */}
-              <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 py-4 sm:px-7">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  Type:
-                </span>
-                <FilterChips label="Filter by type" value={typeFilter} onChange={setTypeFilter} options={TYPE_FILTERS} />
-              </div>
-              <div className="p-4 sm:p-7">
-                <HealthActivityCalendar
-                  activities={filteredActivities}
-                  onSelectActivity={(activity) => setSelectedActivity(activity)}
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              {/* NIP-USR012 — Type filter mirrors the one on Calendar so the
-                  same filter persists when the user switches tabs. */}
-              <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 py-3 sm:px-7">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  Type:
-                </span>
-                <FilterChips label="Filter by type" value={typeFilter} onChange={setTypeFilter} options={TYPE_FILTERS} />
-              </div>
+      <TabPanel tabKey={activeTab} className="space-y-4">
+        <SectionHeader title={section.title} subtitle={section.subtitle} about={section.about} />
 
-              {/* STATUS PILLS */}
+        <FilterCard
+          wide
+          refresh={
+            <Button variant="outline" size="icon" className="size-10" aria-label="Refresh activities" title="Refresh" disabled={refreshing} onClick={() => void loadActivities()}>
+              <RefreshCw size={16} aria-hidden="true" className={cn(refreshing && 'animate-spin motion-reduce:animate-none')} />
+            </Button>
+          }
+          below={activeTab === 'requests' ? counts : undefined}
+        >
+          <div className="relative">
+            <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input aria-label="Search activities" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search activities…" className="pl-9" />
+          </div>
+          <Select aria-label="Activity type" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+            <option value="ALL">All types</option>
+            {ACTIVITY_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+          </Select>
+          <Select aria-label="Status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+            <option value="ALL">All statuses</option>
+            {ACTIVITY_STATUSES.map((status) => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}
+          </Select>
+          <Select aria-label="Barangay" value={barangayFilter} onChange={(event) => setBarangayFilter(event.target.value)}>
+            <option value="ALL">All barangays</option>
+            {barangayOptions.map(([id, name]) => <option key={id} value={String(id)}>{name}</option>)}
+          </Select>
+        </FilterCard>
 
-              <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 py-4 sm:px-7">
-                <FilterChips label="Filter by status" value={statusFilter} onChange={setStatusFilter} options={STATUS_FILTERS} />
-              </div>
-
-              {filteredActivities.length === 0 ? (
-                <EmptyState size="page" icon={CalendarDays} title="No health activities found" description="Scheduled health activities will appear here." />
+        {loading ? (
+          <LogoLoader size="section" label="Loading activities…" />
+        ) : error ? (
+          <LoadError what="health activities" error={new Error(error)} retrying={refreshing} onRetry={() => void loadActivities()} />
+        ) : (
+          // Re-keyed on filter changes so the new result fades in instead of snapping.
+          <div key={filtersKey} className={cn('animate-in fade-in duration-150 motion-reduce:animate-none', refreshing && 'opacity-60 transition-opacity')}>
+            {activeTab === 'calendar' ? (
+              <HealthActivityCalendar activities={filteredActivities} onSelectActivity={(activity) => setSelectedActivity(activity)} />
+            ) : activeTab === 'upcoming' ? (
+              upcomingActivities.length === 0 ? (
+                <EmptyState icon={CalendarDays} title="No upcoming activities" description="Approved activities that match your filters will appear here." className={REPORT_CARD} />
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[940px] text-left">
-                    <thead className="bg-[#f7fafb] text-xs uppercase tracking-wide text-slate-500">
+                <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {upcomingActivities.map((activity) => (
+                    <li key={activity.schedule_id}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedActivity(activity)}
+                        className="flex h-full w-full flex-col gap-2 rounded-2xl border border-brand-line bg-white p-4 text-left shadow-sm transition-colors duration-150 hover:border-brand-navy/40 hover:bg-brand-ice focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-link"
+                      >
+                        <span className="flex flex-wrap items-center justify-between gap-2">
+                          <TypePill type={activity.activity_type} />
+                          <ActivityStatusBadge status={activity.status} />
+                        </span>
+                        <span className="text-sm font-semibold text-brand-navy">{formatDate(activity.schedule_date)}<span className="ml-1.5 font-normal text-brand-muted">{formatTimeRange(activity)}</span></span>
+                        <span className="text-sm text-brand-muted">{getBarangayName(activity)}</span>
+                        <span className="mt-auto inline-flex items-center gap-1 pt-1 text-[13px] font-semibold text-brand-navy">View details <ChevronRight size={14} aria-hidden="true" /></span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )
+            ) : (
+              <section aria-label="Activity requests" className={REPORT_CARD}>
+                <div className="scroll-subtle overflow-x-auto">
+                  <table className="data-grid data-grid--hover w-full min-w-[960px] text-sm text-brand-navy">
+                    <thead>
                       <tr>
-                        <th className="px-7 py-4 font-semibold">Request</th>
-                        <th className="px-4 py-4 font-semibold">Schedule</th>
-                        <th className="px-4 py-4 font-semibold">Location</th>
-                        <th className="px-4 py-4 font-semibold">Requested by</th>
-                        <th className="px-4 py-4 font-semibold">Status</th>
-                        <th className="px-7 py-4 text-right font-semibold">
-                          Action
-                        </th>
+                        {['Request', 'Type', 'Schedule', 'Location', 'Requested by', 'Status'].map((h) => <th key={h} scope="col" className={head}>{h}</th>)}
+                        <th scope="col" className={cn(head, pinned, 'z-[2]')}>Actions</th>
                       </tr>
                     </thead>
-
-                    <tbody className="divide-y divide-slate-100">
-                      {pagedActivities.map((activity) => {
-                        const canEdit =
-                          activity.status === 'NEEDS_REVISION' &&
-                          activity.created_by === currentUserId
-
-                        const canUpdateStatus =
-                          activity.created_by === currentUserId &&
-                          (REQUESTER_STATUS_TRANSITIONS[activity.status]
-                            ?.length ?? 0) > 0
-
+                    <tbody>
+                      {filteredActivities.length === 0 ? (
+                        <tr>
+                          <td colSpan={7}>
+                            <EmptyState icon={activities.length === 0 ? CalendarDays : SearchX} title={activities.length === 0 ? 'No health activities yet' : 'No requests match these filters'} description={activities.length === 0 ? 'New activity requests will appear here.' : 'Try another status, type, barangay or search.'} />
+                          </td>
+                        </tr>
+                      ) : pagedActivities.map((activity, i) => {
+                        const barangay = getBarangay(activity)
                         return (
-                          <tr
-                            key={activity.schedule_id}
-                            className="group hover:bg-[#fafdfe]"
-                          >
-                            <td className="px-7 py-4">
-                              <button
-                                type="button"
-                                onClick={() => setSelectedActivity(activity)}
-                                className="text-left"
-                              >
-                                <p className="font-bold text-brand-navy group-hover:text-[#087db9]">
-                                  {formatActivityType(activity.activity_type)}
-                                </p>
-                                <p className="mt-1 text-xs text-slate-500">
-                                  Schedule #{activity.schedule_id}
-                                </p>
-                              </button>
+                          <tr key={activity.schedule_id} data-zebra={i % 2 === 1 || undefined} className="group cursor-pointer" onClick={() => setSelectedActivity(activity)}>
+                            <td className={cn(cell, 'min-w-40 transition-[box-shadow,background-color] duration-[120ms] group-hover:shadow-[inset_3px_0_0_var(--brand-navy)]')}>
+                              <span className="block font-semibold">{formatActivityType(activity.activity_type)}</span>
+                              <span className="mt-0.5 block text-xs text-brand-muted">#{activity.schedule_id} · Requested {formatDate(activity.created_at)}</span>
                             </td>
-
-                            <td className="px-4 py-4">
-                              <p className="text-sm font-semibold text-slate-700">
-                                {formatDate(activity.schedule_date)}
-                              </p>
-                              <p className="mt-1 text-xs text-slate-500">
-                                {formatTime(activity.start_time)}
-                                {' – '}
-                                {formatTime(activity.end_time)}
-                              </p>
+                            <td className={cell}><TypePill type={activity.activity_type} /></td>
+                            <td className={cn(cell, 'whitespace-nowrap')}>
+                              <span className="block font-medium">{formatDate(activity.schedule_date)}</span>
+                              <span className="mt-0.5 block text-xs text-brand-muted">{formatTimeRange(activity)}</span>
                             </td>
-
-                            <td className="px-4 py-4 text-sm font-medium text-slate-700">
-                              {getBarangayName(activity)}
+                            <td className={cn(cell, 'min-w-40')}>
+                              <span className="block">{barangay?.barangay_name ?? `Barangay ${activity.barangay_id}`}</span>
+                              {barangay?.municipality && <span className="mt-0.5 block text-xs text-brand-muted">{barangay.municipality}</span>}
                             </td>
-
-                            <td className="px-4 py-4 text-sm font-semibold text-slate-700">
-                              {activity.requested_by_name ?? '—'}
-                            </td>
-
-                            <td className="px-4 py-4">
-                              <StatusBadge status={activity.status} label={STATUS_LABELS[activity.status] ?? activity.status} dot />
-
+                            <td className={cn(cell, 'min-w-36')}>{activity.requested_by_name ?? <span className="text-brand-muted">—</span>}</td>
+                            <td className={cell}>
+                              <ActivityStatusBadge status={activity.status} />
                               {activity.conflict_status === 'DETECTED' && (
-                                <p className="mt-2 flex items-center gap-1 text-xs font-medium text-amber-700">
-                                  <AlertTriangle size={13} />
-                                  Conflict detected
-                                </p>
+                                <span className="mt-1.5 flex items-center gap-1 text-xs font-medium text-review">
+                                  <AlertTriangle size={12} aria-hidden="true" />Conflict
+                                </span>
                               )}
                             </td>
-
-                            <td className="px-7 py-4 text-right">
-                              <div className="flex justify-end gap-2">
-                                {canReview && activity.status === 'PENDING' && (
-                                  <Button size="sm" onClick={() => setReviewActivity(activity)}>
-                                    Review
-                                  </Button>
-                                )}
-
-                                {canEdit && (
-                                  <Button size="sm" onClick={() => setEditingActivity(activity)}>
-                                    Edit &amp; Resubmit
-                                  </Button>
-                                )}
-
-                                {canUpdateStatus && (
-                                  <Button variant="tonal" size="sm" onClick={() => setStatusActivity(activity)}>
-                                    Update status
-                                  </Button>
-                                )}
-
-                                <Button variant="secondary" size="sm" onClick={() => setSelectedActivity(activity)}>
-                                  View details
-                                </Button>
-                              </div>
+                            <td className={cn(cell, pinned, 'z-[1]')}>
+                              <Button
+                                variant="row"
+                                size="row"
+                                aria-label={`View details for activity #${activity.schedule_id}`}
+                                onClick={(event) => { event.stopPropagation(); setSelectedActivity(activity) }}
+                              >
+                                View details <ChevronRight aria-hidden="true" />
+                              </Button>
                             </td>
                           </tr>
                         )
@@ -810,13 +698,21 @@ function ActivityWorkspace() {
                     </tbody>
                   </table>
                 </div>
-              )}
+                <Pagination {...activityPager} label="Request pages" />
+              </section>
+            )}
+          </div>
+        )}
+      </TabPanel>
 
-              <Pagination {...activityPager} label="Request pages" />
-            </>
-          )}
-        </section>
-      </div>
+      <GuidanceCard title="How activity requests and approvals work" icon={<Info size={16} aria-hidden="true" className="shrink-0 text-brand-blue" />}>
+        <ul className="list-disc space-y-1.5 pl-5 text-brand-muted">
+          <li><span className="font-semibold text-brand-navy">Request:</span> a BHW, BNS, RHM or PHN files a request for a barangay they cover, with a date and time. Scheduling rules check it for overlaps when it is submitted.</li>
+          <li><span className="font-semibold text-brand-navy">Review:</span> the PHN approves the request, or returns it for revision with a note on what to change. A returned request is not refused: the requester edits and resubmits it, and it goes back to Pending.</li>
+          <li><span className="font-semibold text-brand-navy">Statuses:</span> Pending → Approved (or Needs revision → Pending again) → Ongoing → Completed. A request can be cancelled at any point before it is completed, with a reason.</li>
+          <li><span className="font-semibold text-brand-navy">Conflicts:</span> a worker booked at the same time blocks approval until the schedule changes; an overlap in the same barangay is a warning the PHN may accept.</li>
+        </ul>
+      </GuidanceCard>
 
       {/* REQUEST MODAL */}
 
@@ -832,13 +728,11 @@ function ActivityWorkspace() {
 
       {selectedActivity && (
         <ActivityDetailsModal
+          key={selectedActivity.schedule_id}
           activity={selectedActivity}
-          canReview={canReview}
+          actions={actionsFor(selectedActivity)}
           onClose={() => setSelectedActivity(null)}
-          onReview={() => {
-            setReviewActivity(selectedActivity)
-            setSelectedActivity(null)
-          }}
+          onAction={(action) => runAction(selectedActivity, action)}
         />
       )}
 
@@ -851,6 +745,7 @@ function ActivityWorkspace() {
           onClose={() => setEditingActivity(null)}
           onUpdated={() => {
             setEditingActivity(null)
+            toast.success('Request resubmitted for PHN review.')
             void loadActivities()
           }}
         />
@@ -860,11 +755,13 @@ function ActivityWorkspace() {
 
       {statusActivity && (
         <UpdateStatusModal
-          key={statusActivity.schedule_id}
-          activity={statusActivity}
+          key={statusActivity.activity.schedule_id}
+          activity={statusActivity.activity}
+          initialStatus={statusActivity.initial}
           onClose={() => setStatusActivity(null)}
           onUpdated={() => {
             setStatusActivity(null)
+            toast.success('Activity status updated.')
             void loadActivities()
           }}
         />
@@ -872,13 +769,15 @@ function ActivityWorkspace() {
 
       {/* PHN REVIEW MODAL */}
 
-      {reviewActivity && canReview && (
+      {reviewing && canReview && (
         <ReviewActivityModal
-          key={reviewActivity.schedule_id}
-          activity={reviewActivity}
-          onClose={() => setReviewActivity(null)}
-          onUpdated={() => {
-            setReviewActivity(null)
+          key={reviewing.activity.schedule_id}
+          activity={reviewing.activity}
+          action={reviewing.action}
+          onClose={() => setReviewing(null)}
+          onUpdated={(message) => {
+            setReviewing(null)
+            toast.success(message)
             void loadActivities()
           }}
         />
@@ -1053,10 +952,13 @@ function EditActivityModal({
 ========================================================= */
 function UpdateStatusModal({
   activity,
+  initialStatus,
   onClose,
   onUpdated,
 }: {
   activity: Activity
+  /** Preselects a status (Mark as completed, Cancel request). */
+  initialStatus?: RequesterStatus
   onClose: () => void
   onUpdated: () => void
 }) {
@@ -1064,7 +966,7 @@ function UpdateStatusModal({
     REQUESTER_STATUS_TRANSITIONS[activity.status] ?? []
 
   const [status, setStatus] =
-    useState<RequesterStatus | ''>(options[0] ?? '')
+    useState<RequesterStatus | ''>(initialStatus && options.includes(initialStatus) ? initialStatus : options[0] ?? '')
 
   const [reason, setReason] = useState('')
   const [completionDate, setCompletionDate] =
@@ -1170,7 +1072,7 @@ function UpdateStatusModal({
           </p>
 
           <div className="mt-3">
-            <StatusBadge status={activity.status} label={STATUS_LABELS[activity.status] ?? activity.status} dot />
+            <ActivityStatusBadge status={activity.status} />
           </div>
         </div>
 
@@ -1248,7 +1150,6 @@ function UpdateStatusModal({
 
 /* =========================================================
    REQUEST ACTIVITY MODAL
-   Paste this above "PHN REVIEW MODAL" in health-activities-client.tsx
 ========================================================= */
 
 function RequestActivityModal({
@@ -1487,34 +1388,38 @@ function RequestActivityModal({
 }
 /* =========================================================
    PHN REVIEW MODAL
+   Approve, or return for revision (the requester edits and resubmits).
 ========================================================= */
+
+type ReviewAction = 'APPROVE' | 'RESCHEDULE'
 
 function ReviewActivityModal({
   activity,
+  action,
   onClose,
   onUpdated,
 }: {
   activity: Activity
+  action: ReviewAction
   onClose: () => void
-  onUpdated: () => void
+  onUpdated: (message: string) => void
 }) {
   const [remarks, setRemarks] = useState('')
-  const [date, setDate] = useState(activity.schedule_date)
-  const [startTime, setStartTime] = useState(activity.start_time ?? '')
-  const [endTime, setEndTime] = useState(activity.end_time ?? '')
-  const [loadingAction, setLoadingAction] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
+  const approving = action === 'APPROVE'
 
-  const minDate = getTodayString()
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (submitting) return
 
-  async function review(action: 'APPROVE' | 'REJECT' | 'RESCHEDULE') {
-    if (action === 'REJECT' && !remarks.trim()) {
-      setError('A reason is required when rejecting an activity request.')
+    if (!approving && !remarks.trim()) {
+      setError('Say what the requester needs to change.')
       return
     }
 
-    setLoadingAction(action)
+    setSubmitting(true)
     setError('')
     setSuggestions([])
 
@@ -1524,13 +1429,7 @@ function ReviewActivityModal({
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action,
-            reviewRemarks: remarks,
-            scheduleDate: date,
-            startTime,
-            endTime,
-          }),
+          body: JSON.stringify({ action, reviewRemarks: remarks }),
         },
       )
 
@@ -1541,156 +1440,72 @@ function ReviewActivityModal({
         throw new Error(data.error ?? 'Unable to review activity.')
       }
 
-      /*
-       * RESCHEDULE may succeed while still returning warnings or a
-       * hard conflict. Keep the modal open so the PHN can see and
-       * choose an alternative.
-       */
-      if (action === 'RESCHEDULE' && data.ruleEvaluation?.hasConflict) {
-        setSuggestions(data.ruleEvaluation.suggestions ?? [])
-        setError(data.message)
-        return
-      }
-
-      onUpdated()
+      onUpdated(data.message ?? (approving ? 'Activity approved.' : 'Returned to the requester for revision.'))
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Unable to review activity.',
       )
     } finally {
-      setLoadingAction(null)
+      setSubmitting(false)
     }
   }
 
   return (
-    <ModalShell title="Review Health Activity" onClose={onClose} busy={loadingAction !== null} footer={<>
-          <ActionButton
-            label="Reject"
-            icon={XCircle}
-            loading={loadingAction === 'REJECT'}
-            disabled={loadingAction !== null}
-            onClick={() => void review('REJECT')}
-            variant="danger"
-          />
-
-          <ActionButton
-            label="Reschedule"
-            icon={CalendarDays}
-            loading={loadingAction === 'RESCHEDULE'}
-            disabled={loadingAction !== null}
-            onClick={() => void review('RESCHEDULE')}
-            variant="tonal"
-          />
-
-          <ActionButton
-            label="Approve"
-            icon={CheckCircle2}
-            loading={loadingAction === 'APPROVE'}
-            disabled={loadingAction !== null}
-            onClick={() => void review('APPROVE')}
-            variant="primary"
-          />
-      </>}>
+    <ModalShell
+      title={approving ? 'Approve activity' : 'Return for revision'}
+      subtitle={approving ? 'Scheduling rules are checked again before the approval is saved.' : 'The requester edits the request and resubmits it for your review.'}
+      size="form"
+      onClose={onClose}
+      busy={submitting}
+      dirty={Boolean(remarks.trim())}
+      onSubmit={handleSubmit}
+      footer={
+        <Button type="submit" loading={submitting}>
+          {approving ? <CheckCircle2 size={16} aria-hidden="true" /> : <PencilLine size={16} aria-hidden="true" />}
+          {approving ? 'Approve activity' : 'Return for revision'}
+        </Button>
+      }
+    >
       <div className="space-y-5">
-        <div className="rounded-xl bg-slate-50 p-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className="font-bold text-brand-navy">
-                {formatActivityType(activity.activity_type)}
-              </p>
-              <p className="mt-2 text-sm text-slate-500">
-                {getBarangayName(activity)}
-              </p>
-            </div>
-
-            <StatusBadge status={activity.status} label={STATUS_LABELS[activity.status] ?? activity.status} dot />
+        <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-brand-line/70 bg-[var(--row-zebra)] p-4">
+          <div className="min-w-0">
+            <p className="font-semibold text-brand-navy">{formatActivityType(activity.activity_type)} · {getBarangayName(activity)}</p>
+            <p className="mt-1 text-sm text-brand-muted">{formatDate(activity.schedule_date)} · {formatTimeRange(activity)}</p>
+            {activity.requested_by_name && <p className="mt-0.5 text-sm text-brand-muted">Requested by {activity.requested_by_name}</p>}
           </div>
+          <TypePill type={activity.activity_type} />
         </div>
 
         {activity.conflict_status === 'DETECTED' && (
-          <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-            <AlertTriangle size={18} className="shrink-0" />
-            <span>
-              This request has a scheduling conflict. The rule engine will
-              evaluate it again before approval.
-            </span>
-          </div>
+          <p className="flex gap-2 rounded-xl border border-review-line/40 bg-review-soft p-3 text-sm text-review">
+            <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+            This request has a scheduling conflict. A worker double-booking blocks approval; a same-barangay overlap does not.
+          </p>
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Field label="Date">
-            <DateInput
-              min={minDate}
-              value={date}
-              onChange={(event) => setDate(event.target.value)}
-             
-            />
-          </Field>
-
-          <Field label="Start">
-            <input
-              type="time"
-              value={startTime}
-              onChange={(event) => setStartTime(event.target.value)}
-              className={inputClass}
-            />
-          </Field>
-
-          <Field label="End">
-            <input
-              type="time"
-              value={endTime}
-              onChange={(event) => setEndTime(event.target.value)}
-              className={inputClass}
-            />
-          </Field>
-        </div>
-
-        <Field label="PHN Remarks">
+        <Field label={approving ? 'Remarks (optional)' : 'What needs to change'}>
           <textarea
             rows={4}
+            required={!approving}
             value={remarks}
             onChange={(event) => setRemarks(event.target.value)}
-            placeholder="Approval, rescheduling, or rejection remarks"
+            disabled={submitting}
+            placeholder={approving ? 'Notes for the requester' : 'For example: move to a morning slot, or pick another date'}
             className={textareaClass}
           />
         </Field>
 
-        <p className="text-xs text-slate-500">
-          Rejection requires a reason. Approval remarks are optional.
-        </p>
-
         {suggestions.length > 0 && (
           <div>
-            <p className="text-sm font-bold text-brand-navy">
-              Suggested available schedules
-            </p>
-
-            <p className="mt-1 text-xs text-slate-500">
-              Select an alternative to copy it into the reschedule fields.
-            </p>
-
-            <div className="mt-2 space-y-2">
+            <p className="text-sm font-semibold text-brand-navy">Available times you can suggest</p>
+            <p className="mt-1 text-xs text-brand-muted">Return the request for revision and mention one of these.</p>
+            <ul className="mt-2 flex flex-wrap gap-2">
               {suggestions.map((suggestion, index) => (
-                <button
-                  type="button"
-                  key={index}
-                  onClick={() => {
-                    setDate(suggestion.suggested_date)
-                    setStartTime(suggestion.suggested_start_time)
-                    setEndTime(suggestion.suggested_end_time)
-                    setError('')
-                  }}
-                  className="w-full rounded-xl border border-slate-200 p-3 text-left text-sm hover:border-[#087db9] hover:bg-[#f1fbfd]"
-                >
-                  {formatDate(suggestion.suggested_date)}
-                  {' · '}
-                  {formatTime(suggestion.suggested_start_time)}
-                  {' – '}
-                  {formatTime(suggestion.suggested_end_time)}
-                </button>
+                <li key={index} className="rounded-lg border border-brand-line bg-white px-3 py-2 text-xs text-brand-navy">
+                  {formatDate(suggestion.suggested_date)} · {formatTime(suggestion.suggested_start_time)} – {formatTime(suggestion.suggested_end_time)}
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
         )}
 
@@ -1764,26 +1579,6 @@ function ModalShell({ title, children, onClose, ...rest }: {
   return <Modal open title={title} onClose={onClose} {...rest}>{children}</Modal>
 }
 
-/* =========================================================
-   ACTION BUTTON
-========================================================= */
-
-/** Review footer action: the shared Button with a leading icon (spinner while it runs). */
-function ActionButton({ label, icon: Icon, loading, disabled, onClick, variant }: {
-  label: string
-  icon: typeof CheckCircle2
-  loading: boolean
-  disabled: boolean
-  onClick: () => void
-  variant: 'primary' | 'tonal' | 'danger'
-}) {
-  return (
-    <Button variant={variant} disabled={disabled} onClick={onClick}>
-      {loading ? <Spinner /> : <Icon size={16} aria-hidden="true" />}
-      {label}
-    </Button>
-  )
-}
 function ActivityDraftPanel({onUploaded}:{onUploaded:()=>void}){
  const {user}=useAuth(),scope=user?offlineScope(user):'',confirm=useConfirm()
  const [online,setOnline]=useState(true),[showReview,setShowReview]=useState(false)

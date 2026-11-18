@@ -1,7 +1,12 @@
 'use client'
 
 import { useState } from 'react'
+import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { REPORT_CARD } from '@/components/ui/report-parts'
+import { cn } from '@/lib/utils'
+import { ACTIVITY_TYPES, ACTIVITY_TYPE_META, statusMeta, typeMeta } from './activity-meta'
 
 type CalendarView = 'MONTH' | 'WEEK' | 'DAY'
 
@@ -25,6 +30,11 @@ type Props<T extends CalendarActivity> = {
 }
 
 const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const VIEWS: { value: CalendarView; label: string }[] = [
+  { value: 'MONTH', label: 'Month' },
+  { value: 'WEEK', label: 'Week' },
+  { value: 'DAY', label: 'Day' },
+]
 
 function dateKey(date: Date) {
   const year = date.getFullYear()
@@ -57,67 +67,6 @@ function formatTime(value: string | null) {
   return `${hour % 12 || 12}:${String(minute).padStart(2, '0')} ${suffix}`
 }
 
-function activityLabel(value: string) {
-  return value
-    .toLowerCase()
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
-}
-
-// NIP-USR012 — Centralized activity type → color mapping. Used by both the
-// per-event tile styles and the legend below the calendar header. Each type
-// gets a distinct hue so staff can scan a dense month view and tell apart
-// vaccinations, nutritional assessments, and supplementation at a glance.
-const ACTIVITY_TYPE_COLORS: Record<string, {
-  label: string
-  tile: string           // tailwind classes for the event tile
-  dot: string            // small dot in the legend
-}> = {
-  VACCINATION: {
-    label: 'Vaccination',
-    tile: 'border-sky-300 bg-sky-50 text-sky-900',
-    dot: 'bg-sky-500',
-  },
-  NUTRITIONAL_ASSESSMENT: {
-    label: 'Nutritional assessment',
-    tile: 'border-emerald-300 bg-emerald-50 text-emerald-900',
-    dot: 'bg-emerald-500',
-  },
-  SUPPLEMENTATION: {
-    label: 'Supplementation',
-    tile: 'border-violet-300 bg-violet-50 text-violet-900',
-    dot: 'bg-violet-500',
-  },
-}
-
-const DEFAULT_ACTIVITY_STYLE = {
-  tile: 'border-slate-200 bg-slate-50 text-slate-900',
-  dot: 'bg-slate-500',
-}
-
-function activityStyle(value: string) {
-  return ACTIVITY_TYPE_COLORS[value]?.tile ?? DEFAULT_ACTIVITY_STYLE.tile
-}
-
-function statusStyle(value: string) {
-  switch (value) {
-    case 'APPROVED':
-      return 'bg-green-100 text-green-800'
-    case 'PENDING':
-      return 'bg-amber-100 text-amber-800'
-    case 'ONGOING':
-      return 'bg-blue-100 text-blue-800'
-    case 'COMPLETED':
-      return 'bg-slate-200 text-slate-800'
-    case 'REJECTED':
-    case 'CANCELLED':
-      return 'bg-red-100 text-red-800'
-    default:
-      return 'bg-slate-100 text-slate-700'
-  }
-}
-
 export default function HealthActivityCalendar<T extends CalendarActivity>({
   activities,
   onSelectActivity,
@@ -128,65 +77,31 @@ export default function HealthActivityCalendar<T extends CalendarActivity>({
   const today = dateKey(new Date())
   const weekStart = startOfWeek(currentDate)
 
-  const monthStart = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth(),
-    1,
-  )
-
-  const monthEnd = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth() + 1,
-    0,
-  )
+  const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+  const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
 
   const gridStart = startOfWeek(monthStart)
-  const monthCellCount =
-    Math.ceil((monthStart.getDay() + monthEnd.getDate()) / 7) * 7
+  const monthCellCount = Math.ceil((monthStart.getDay() + monthEnd.getDate()) / 7) * 7
 
   const visibleDates =
     view === 'MONTH'
-      ? Array.from({ length: monthCellCount }, (_, index) =>
-          addDays(gridStart, index),
-        )
+      ? Array.from({ length: monthCellCount }, (_, index) => addDays(gridStart, index))
       : view === 'WEEK'
-        ? Array.from({ length: 7 }, (_, index) =>
-            addDays(weekStart, index),
-          )
+        ? Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
         : [currentDate]
 
   const heading =
     view === 'MONTH'
-      ? currentDate.toLocaleDateString('en-PH', {
-          month: 'long',
-          year: 'numeric',
-        })
+      ? currentDate.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })
       : view === 'WEEK'
-        ? `${weekStart.toLocaleDateString('en-PH', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-          })} – ${addDays(weekStart, 6).toLocaleDateString('en-PH', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-          })}`
-        : currentDate.toLocaleDateString('en-PH', {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric',
-            year: 'numeric',
-          })
+        ? `${weekStart.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })} – ${addDays(weekStart, 6).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}`
+        : currentDate.toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 
   function navigate(direction: number) {
     setCurrentDate((previous) => {
       if (view === 'MONTH') {
         // Use day 1 so navigating from the 31st cannot skip a month.
-        return new Date(
-          previous.getFullYear(),
-          previous.getMonth() + direction,
-          1,
-        )
+        return new Date(previous.getFullYear(), previous.getMonth() + direction, 1)
       }
 
       return addDays(previous, direction * (view === 'WEEK' ? 7 : 1))
@@ -194,127 +109,87 @@ export default function HealthActivityCalendar<T extends CalendarActivity>({
   }
 
   function renderActivity(activity: T) {
-    const barangay = Array.isArray(activity.barangay)
-      ? activity.barangay[0]
-      : activity.barangay
-
+    const barangay = Array.isArray(activity.barangay) ? activity.barangay[0] : activity.barangay
     const start = formatTime(activity.start_time)
     const end = formatTime(activity.end_time)
     const time = start && end ? `${start} – ${end}` : start || end
+    const type = typeMeta(activity.activity_type)
+    const status = statusMeta(activity.status)
 
     return (
       <button
         key={activity.schedule_id}
         type="button"
         onClick={() => onSelectActivity(activity)}
-        className={`w-full rounded-lg border p-2 text-left transition hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${activityStyle(
-          activity.activity_type,
-        )}`}
+        className="w-full rounded-[10px] border border-brand-line bg-white p-2 text-left shadow-[0_1px_2px_rgba(12,18,96,0.06)] transition-colors duration-150 hover:border-brand-navy/40 hover:bg-brand-ice focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-link"
       >
-        <p className="break-words text-xs font-semibold">
+        <span className="flex items-center gap-1.5 text-xs font-semibold text-brand-navy">
+          <span aria-hidden="true" className={cn('size-2 shrink-0 rounded-full', type.dot)} />
+          <span className="min-w-0 break-words">{type.short}</span>
           {activity.conflict_status === 'DETECTED' && (
-            <span aria-label="Scheduling conflict" title="Scheduling conflict">
-              ⚠{' '}
-            </span>
+            <AlertTriangle size={12} className="ml-auto shrink-0 text-review" aria-label="Scheduling conflict" />
           )}
-          {activityLabel(activity.activity_type)}
-        </p>
-
-        <p className="mt-1 text-xs">{time || 'Time not specified'}</p>
-
-        <p className="mt-1 break-words text-xs">
-          {barangay?.barangay_name ?? 'Barangay not specified'}
-        </p>
-
-        <span
-          className={`mt-2 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${statusStyle(
-            activity.status,
-          )}`}
-        >
-          {activityLabel(activity.status)}
         </span>
+        <span className="mt-1 block text-xs text-brand-muted">{time || 'Time not specified'}</span>
+        <span className="mt-0.5 block break-words text-xs text-brand-muted">{barangay?.barangay_name ?? 'Barangay not specified'}</span>
+        <StatusBadge status={activity.status} tone={status.tone} label={status.label} className="mt-1.5 px-2 py-0.5 text-[11px]" />
       </button>
     )
   }
 
   return (
-    <section
-      aria-label="Health activity calendar"
-      className="overflow-hidden rounded-xl border border-slate-200 bg-white"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
+    <section aria-label="Health activity calendar" className={REPORT_CARD}>
+      {/* Toolbar: navigation left, period centre, view switch right; wraps on a phone. */}
+      <div className="flex flex-wrap items-center gap-3 border-b border-brand-line/70 p-4">
         <div className="flex items-center gap-2">
-          <Button variant="secondary"
-            aria-label={`Previous ${view.toLowerCase()}`}
-            onClick={() => navigate(-1)}
-          >
-            ‹
+          <Button variant="outline" size="icon" aria-label={`Previous ${view.toLowerCase()}`} onClick={() => navigate(-1)}>
+            <ChevronLeft size={16} aria-hidden="true" />
           </Button>
-
-          <Button variant="secondary"
-            onClick={() => setCurrentDate(new Date())}
-          >
-            Today
-          </Button>
-
-          <Button variant="secondary"
-            aria-label={`Next ${view.toLowerCase()}`}
-            onClick={() => navigate(1)}
-          >
-            ›
+          <Button variant="outline" onClick={() => setCurrentDate(new Date())}>Today</Button>
+          <Button variant="outline" size="icon" aria-label={`Next ${view.toLowerCase()}`} onClick={() => navigate(1)}>
+            <ChevronRight size={16} aria-hidden="true" />
           </Button>
         </div>
 
-        <h2 aria-live="polite" className="text-lg font-semibold text-slate-900">
+        <h3 aria-live="polite" className="min-w-0 flex-1 text-base font-semibold text-brand-navy sm:text-center">
           {heading}
-        </h2>
+        </h3>
 
-        <div
-          role="group"
-          aria-label="Calendar view"
-          className="flex gap-1 rounded-lg bg-slate-100 p-1"
-        >
-          {(['MONTH', 'WEEK', 'DAY'] as const).map((option) => (
+        <div role="group" aria-label="Calendar view" className="inline-flex rounded-[10px] border border-control-line bg-white p-0.5">
+          {VIEWS.map((option) => (
             <button
-              key={option}
+              key={option.value}
               type="button"
-              aria-pressed={view === option}
-              onClick={() => setView(option)}
-              className={`rounded-md px-3 py-2 text-sm font-medium ${
-                view === option
-                  ? 'bg-white text-blue-700 shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-200'
-              }`}
+              aria-pressed={view === option.value}
+              onClick={() => setView(option.value)}
+              className={cn(
+                'h-9 rounded-lg px-3.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-link',
+                view === option.value ? 'bg-primary text-white' : 'text-brand-navy hover:bg-brand-ice',
+              )}
             >
-              {activityLabel(option)}
+              {option.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* NIP-USR012 — Color legend so staff can tell apart activity types at a
-          glance when a dense month view is on screen. */}
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b bg-slate-50/40 px-4 py-2.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-          Legend:
-        </span>
-        {Object.entries(ACTIVITY_TYPE_COLORS).map(([type, meta]) => (
-          <span key={type} className="inline-flex items-center gap-1.5 text-xs text-slate-700">
-            <span className={`inline-block size-2.5 rounded-full ${meta.dot}`} aria-hidden="true" />
-            {meta.label}
+      {/* Legend: the same type colours as the table pills. */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-brand-line/70 px-4 py-2.5">
+        {ACTIVITY_TYPES.map((type) => (
+          <span key={type} className="inline-flex items-center gap-1.5 text-xs text-brand-muted">
+            <span aria-hidden="true" className={cn('size-2.5 rounded-full', ACTIVITY_TYPE_META[type].dot)} />
+            {ACTIVITY_TYPE_META[type].label}
           </span>
         ))}
       </div>
 
-      <div className="overflow-x-auto">
-        <div className={view === 'DAY' ? '' : 'min-w-[840px]'}>
+      <div className="scroll-subtle overflow-x-auto">
+        {/* Re-keyed per period and view so each change fades in instead of snapping. */}
+        <div key={`${view}|${dateKey(view === 'MONTH' ? monthStart : view === 'WEEK' ? weekStart : currentDate)}`} className={cn('animate-in fade-in duration-200 motion-reduce:animate-none', view !== 'DAY' && 'min-w-[840px]')}>
           {view !== 'DAY' && (
-            <div className="grid grid-cols-7 border-b bg-slate-50">
+            <div className="grid grid-cols-7 border-b border-brand-line/70 bg-[var(--group-a)]">
               {weekdays.map((day) => (
-                <div
-                  key={day}
-                  className="p-3 text-center text-xs font-semibold text-slate-600"
-                >
+                <div key={day} className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-brand-muted">
                   {day}
                 </div>
               ))}
@@ -322,69 +197,49 @@ export default function HealthActivityCalendar<T extends CalendarActivity>({
           )}
 
           <div className={view === 'DAY' ? '' : 'grid grid-cols-7'}>
-            {visibleDates.map((date) => {
+            {visibleDates.map((date, index) => {
               const key = dateKey(date)
               const isToday = key === today
-              const isOutsideMonth =
-                view === 'MONTH' &&
-                date.getMonth() !== currentDate.getMonth()
+              const isOutsideMonth = view === 'MONTH' && date.getMonth() !== currentDate.getMonth()
 
               const dayActivities = activities
                 .filter((activity) => activity.schedule_date === key)
-                .sort(
-                  (a, b) =>
-                    (a.start_time ?? '99:99').localeCompare(
-                      b.start_time ?? '99:99',
-                    ) || a.schedule_id - b.schedule_id,
-                )
+                .sort((a, b) => (a.start_time ?? '99:99').localeCompare(b.start_time ?? '99:99') || a.schedule_id - b.schedule_id)
 
               return (
                 <div
                   key={key}
-                  className={`border-b border-r p-2 ${
-                    view === 'MONTH' ? 'min-h-[160px]' : 'min-h-[300px]'
-                  } ${isOutsideMonth ? 'bg-slate-50' : 'bg-white'}`}
+                  className={cn(
+                    'border-brand-line/70 p-2',
+                    view !== 'DAY' && 'border-b',
+                    view !== 'DAY' && index % 7 !== 6 && 'border-r',
+                    view === 'MONTH' ? 'min-h-[140px]' : 'min-h-[300px]',
+                    isOutsideMonth ? 'bg-[var(--row-zebra)]' : 'bg-white',
+                  )}
                 >
                   <div className="mb-2">
                     <button
                       type="button"
-                      aria-label={`View activities for ${date.toLocaleDateString(
-                        'en-PH',
-                        {
-                          month: 'long',
-                          day: 'numeric',
-                          year: 'numeric',
-                        },
-                      )}`}
+                      aria-label={`View activities for ${date.toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })}`}
                       aria-current={isToday ? 'date' : undefined}
                       onClick={() => {
                         setCurrentDate(new Date(date))
                         setView('DAY')
                       }}
-                      className={`inline-flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-sm font-semibold ${
-                        isToday
-                          ? 'bg-blue-600 text-white'
-                          : isOutsideMonth
-                            ? 'text-slate-500 hover:bg-slate-200'
-                            : 'text-slate-700 hover:bg-slate-100'
-                      }`}
+                      className={cn(
+                        'inline-flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-sm font-semibold transition-colors duration-150 focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-link',
+                        isToday ? 'bg-primary text-white' : isOutsideMonth ? 'text-brand-muted hover:bg-brand-ice' : 'text-brand-navy hover:bg-brand-ice',
+                      )}
                     >
-                      {view === 'MONTH'
-                        ? date.getDate()
-                        : date.toLocaleDateString('en-PH', {
-                            month: 'short',
-                            day: 'numeric',
-                          })}
+                      {view === 'MONTH' ? date.getDate() : date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}
                     </button>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {dayActivities.map(renderActivity)}
 
                     {dayActivities.length === 0 && view !== 'MONTH' && (
-                      <p className="p-2 text-xs text-slate-500">
-                        No activities.
-                      </p>
+                      <p className="p-2 text-xs text-brand-muted">No activities.</p>
                     )}
                   </div>
                 </div>
