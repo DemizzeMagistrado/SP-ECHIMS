@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { RefreshCw, SearchX, CalendarClock, FileText, Search } from 'lucide-react'
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
+import { useRefreshSignal } from '@/components/brand/loader-state'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { StatusBadge, type StatusTone } from '@/components/ui/status-badge'
@@ -89,8 +90,9 @@ export function SupplementationMonitoringPanel({
   const [status, setStatus] = useState<Status | 'ALL'>('MISSED')
   const [search, setSearch] = useState('')
   const refresh = useCallback(() => setReload((value) => value + 1), [])
+  useRefreshSignal(loading && Boolean(result))
   useEffect(() => {
-    setResult(null)
+    // The list stays on screen while it reloads (the panel remounts for another account).
     setError('')
     if (!online) {
       setLoading(false)

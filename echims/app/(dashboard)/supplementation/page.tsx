@@ -27,6 +27,8 @@ import { SupplementStockRequestsPanel } from "@/components/supplementation/suppl
 import { SupplementationSmsPanel } from "@/components/supplementation/supplementation-sms-panel";
 import { LogoLoader } from '@/components/brand/logo-loader'
 import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
+import { useRefreshSignal } from '@/components/brand/loader-state'
+import { LoadError } from '@/components/ui/load-error'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
@@ -34,12 +36,12 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { StatusBadge, type StatusTone } from '@/components/ui/status-badge'
-import { CountsStrip, FilterCard, GuidanceCard, REPORT_CARD, SectionHeader, ViewSwitch } from '@/components/ui/report-parts'
+import { CountsStrip, FilterCard, GuidanceCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
 import { formatChildId } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
 import { nutritionLabel } from '@/lib/nutrition-status'
 import { Modal } from '@/components/ui/modal'
-import { Input, Select, DateInput } from '@/components/ui/form'
+import { Input, Select, DateInput, controlClass } from '@/components/ui/form'
 import { Pagination, usePagination } from '@/components/ui/pagination'
 
 type Child = {
@@ -381,8 +383,9 @@ async function read(response: Response) {
   return data;
 }
 
-const input =
-  "mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm";
+// Modal form controls: the shared control style (form.tsx) under a Field-style label.
+const input = `${controlClass} mt-1.5 block min-h-10 py-2`;
+const fieldLabel = "block text-sm font-semibold text-brand-navy";
 
 /** Tier pill for an entry: the saved tier, or Supply issue / Legacy for entries without one. */
 const TIER_PILL: Record<string, { label: string; tone: StatusTone }> = {
@@ -405,6 +408,7 @@ export default function SupplementsPage() {
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
   usePageLoading(loading);
+  useRefreshSignal(loading && Boolean(data));
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [online, setOnline] = useState(true);
@@ -844,9 +848,10 @@ export default function SupplementsPage() {
     ) : null;
 
   const assessmentSelector = (
-    <label className="text-sm font-medium">
+    <label className={fieldLabel}>
       Saved nutrition assessment
       <Select
+        className="mt-1.5"
        
         value={form.assessmentId}
         onChange={(e) => change("assessmentId", e.target.value)}
@@ -1243,9 +1248,10 @@ export default function SupplementsPage() {
     key: keyof Form,
     options: { value: string; label: string }[],
   ) => (
-    <label className="text-sm font-medium">
+    <label className={fieldLabel}>
       {label}
       <Select
+        className="mt-1.5"
         required
        
         value={String(form[key])}
@@ -1274,12 +1280,12 @@ export default function SupplementsPage() {
     type = "text",
     required = true,
   ) => (
-    <label className="text-sm font-medium">
+    <label className={fieldLabel}>
       {label}
       {type === "date" ? (
         <DateInput
           required={required}
-          className="mt-1"
+          className="mt-1.5"
           value={String(form[key])}
           onChange={(e) => change(key, e.target.value as never)}
         />
@@ -1627,7 +1633,10 @@ export default function SupplementsPage() {
           outdated. Reconnection never submits drafts automatically.
         </p>
       )}
-      {error && !modal && (
+      {error && !modal && !data && (
+        <LoadError what="supplementation records" error={error} retrying={loading} onRetry={() => void load()} />
+      )}
+      {error && !modal && data && (
         <div role="alert" className="flex flex-wrap items-center gap-3 rounded-2xl border border-danger/20 bg-danger-soft p-4 text-sm text-brand-navy">
           <span className="min-w-0 flex-1">{error}</span>
           <Button variant="secondary" size="sm" onClick={() => void load()}>Refresh</Button>
@@ -1639,7 +1648,7 @@ export default function SupplementsPage() {
         </p>
       )}
 
-      <TabPanel tabKey={activeTab} className="space-y-5">
+      <TabPanel tabKey={activeTab} className="space-y-4">
         {activeTab === "records" && (
           <>
             <SectionHeader
@@ -1647,13 +1656,17 @@ export default function SupplementsPage() {
               subtitle="Saved administrations, supply issues and supply plans for children in your scope."
               about="Entries are saved administrations and supply issues. Clinical-tier entries are recorded by assigned RHMs against a verified clinical protocol and documented order. Supply plans register authorized quantities for a period; issuing supplies does not prove administration or course completion."
             />
-            <ViewSwitch
+            {/* Sub-tabs and filters: one tight block (12px), like Vaccination's toolbar. */}
+            <div className="space-y-3">
+            <TabBar
+              className="border-b-0 pb-0"
               label="Record views"
+              group="supplementation-records"
               value={recordView}
               onChange={setRecordView}
               items={[
-                { value: "entries", label: "Entries", count: data?.records.length ?? 0 },
-                { value: "plans", label: "Supply plans", count: data?.plans.length ?? 0 },
+                { value: "entries", label: <>Entries<span className="ml-1.5 rounded-full bg-brand-ice px-1.5 text-[11px] font-semibold tabular-nums text-brand-navy">{data?.records.length ?? 0}</span></> },
+                { value: "plans", label: <>Supply plans<span className="ml-1.5 rounded-full bg-brand-ice px-1.5 text-[11px] font-semibold tabular-nums text-brand-navy">{data?.plans.length ?? 0}</span></> },
               ]}
             />
             <FilterCard
@@ -1698,7 +1711,10 @@ export default function SupplementsPage() {
                 </Select>
               )}
             </FilterCard>
+            </div>
 
+            {/* Same fade as the module tabs when switching Entries / Supply plans. */}
+            <TabPanel tabKey={recordView}>
             {loading && !data ? (
               <LogoLoader size="section" label="Loading supplementation data…" />
             ) : data && recordView === "entries" ? (
@@ -1842,6 +1858,7 @@ export default function SupplementsPage() {
                 </p>
               </section>
             ) : null}
+            </TabPanel>
           </>
         )}
 
@@ -1852,8 +1869,10 @@ export default function SupplementsPage() {
               subtitle="Stock and batches for your barangays, and the catalog's age limits and administration rules."
               about="Stock arrives through PHN-approved batch requests. Expired batches with stock and batches that need reconciliation are flagged. The guidelines come from the active system catalog and protocols; they support staff review and do not select treatment or prescribe a dose."
             />
-            <ViewSwitch
+            <TabBar
+              className="border-b-0 pb-0"
               label="Supplement views"
+              group="supplementation-supplements"
               value={supplyView}
               onChange={setSupplyView}
               items={[
@@ -1861,6 +1880,7 @@ export default function SupplementsPage() {
                 { value: "guidelines", label: "Guidelines & eligibility" },
               ]}
             />
+            <TabPanel tabKey={supplyView} className="space-y-4">
             {loading && !data ? (
               <LogoLoader size="section" label="Loading supplementation data…" />
             ) : supplyView === "guidelines" ? (
@@ -1931,6 +1951,7 @@ export default function SupplementsPage() {
                 {owner && <SupplementStockRequestsPanel key={owner} ownerId={owner} online={online} />}
               </>
             )}
+            </TabPanel>
           </>
         )}
 
@@ -2055,7 +2076,7 @@ export default function SupplementsPage() {
                     "quantity",
                     "number",
                   )}
-                  <label className="text-sm font-medium sm:col-span-2">
+                  <label className={cn(fieldLabel, "sm:col-span-2")}>
                     Remarks (optional)
                     <textarea
                       rows={3}
@@ -2206,7 +2227,7 @@ export default function SupplementsPage() {
                   )}
                   {modal === "CLINICAL" && (
                     <>
-                      <label className="text-sm font-medium">
+                      <label className={fieldLabel}>
                         Clinical indication
                         <input
                           readOnly
@@ -2265,7 +2286,7 @@ export default function SupplementsPage() {
                         </div>
                       )}
                       {field("Actual dose", "clinicalDoseValue", "number")}
-                      <label className="text-sm font-medium">
+                      <label className={fieldLabel}>
                         Dose unit
                         <input
                           readOnly

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Package, Plus, RefreshCw } from "lucide-react";
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
+import { useRefreshSignal } from '@/components/brand/loader-state'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -70,6 +71,7 @@ export function SupplementStockRequestsPanel({
   const [reload, setReload] = useState(0);
   const [loading, setLoading] = useState(true);
   usePageLoading(loading)
+  useRefreshSignal(loading && Boolean(data))
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [open, setOpen] = useState(false);
@@ -109,7 +111,7 @@ export function SupplementStockRequestsPanel({
       setLoading(false);
       return () => controller.abort();
     }
-    setData(null);
+    // The list stays on screen while it reloads (the panel remounts for another account).
     setOpen(false);
     setReject(null);
     setApprove(null);
