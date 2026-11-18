@@ -115,7 +115,7 @@ export function InfoTip({ label, children, className, align = 'start', text }: {
 }
 
 export type InfoSection = {
-  label: 'Format' | 'Example' | 'Values' | 'Tip'
+  label: 'Scope' | 'Format' | 'Example' | 'Values' | 'Tip'
   /** One value, or several lines (Values: one per line). */
   value: ReactNode | ReactNode[]
 }
