@@ -580,10 +580,15 @@ html[data-navigating] .page-gate { opacity: 0; transition: opacity 120ms var(--e
   }
   /* The card (pager, footnote or totals row) closes the table; a detail row joins its parent. */
   .data-grid > tbody > tr:last-child > *,
-  .data-grid > tbody > tr:has(+ tr[data-detail]) > * { border-bottom-width: 0; }
+  .data-grid > tbody > tr:has(+ tr[data-detail]:not([data-detail="closed"])) > *,
+  .data-grid > tbody > tr:has(+ tr[data-detail="closed"]:last-child) > *,
+  .data-grid > tbody > tr[data-detail="closed"] > * { border-bottom-width: 0; }
   .data-grid > tbody > tr[data-zebra] > * { background-color: var(--row-zebra); }
   .data-grid > tbody > tr[data-current] > * { background-color: var(--brand-ice); }
   .data-grid > tbody > tr[data-urgent] > * { background-color: var(--tone-severe-row); }
+  /* Row whose details are open (single-open accordion): tinted, navy accent on the first cell. */
+  .data-grid > tbody > tr[data-open] > * { background-color: var(--brand-ice); }
+  .data-grid > tbody > tr[data-open] > :first-child { box-shadow: inset 3px 0 0 var(--brand-navy); }
   .data-grid--hover > tbody > tr:not([data-detail]):hover > * { background-color: var(--brand-ice); }
 
   /* Totals row: 2px rule above so it reads as a total. */

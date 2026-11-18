@@ -37,6 +37,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { StatusBadge, type StatusTone } from '@/components/ui/status-badge'
 import { CountsStrip, FilterCard, GuidanceCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
+import { useSingleOpen } from '@/components/ui/accordion-card'
 import { formatChildId } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
 import { nutritionLabel } from '@/lib/nutrition-status'
@@ -419,7 +420,8 @@ export default function SupplementsPage() {
   const [recordView, setRecordView] = useState<"entries" | "plans">("entries");
   const [supplyView, setSupplyView] = useState<"stock" | "guidelines">("stock");
   const [tierFilter, setTierFilter] = useState("ALL");
-  const [expanded, setExpanded] = useState<string[]>([]);
+  // One detail open at a time across Entries and Supply plans (the Vaccines tab accordion).
+  const { isOpen, toggle } = useSingleOpen<string>();
   const [smsOpen, setSmsOpen] = useState(false);
   const router = useRouter();
   const [modal, setModal] = useState<
@@ -1466,7 +1468,6 @@ export default function SupplementsPage() {
   const canPlan = Boolean(data?.permissions.stock);
   const showFollowUp = Boolean(data?.permissions.monitor && (data.role === "PHN" || data.role === "Administrator"));
   const activeTab = tab === "followup" && !showFollowUp ? "records" : tab;
-  const toggle = (key: string) => setExpanded((list) => (list.includes(key) ? list.filter((k) => k !== key) : [...list, key]));
   const openChild = (event: MouseEvent, childId: number) => {
     if (!(event.target as HTMLElement).closest("a,button")) router.push(`/child-profiling/children/${childId}`);
   };
@@ -1524,30 +1525,41 @@ export default function SupplementsPage() {
         <Button
           variant="row"
           size="row"
-          className="w-9 shrink-0 px-0"
-          aria-expanded={expanded.includes(key)}
+          className={cn("w-9 shrink-0 px-0", isOpen(key) && "border-brand-navy bg-rowbtn-active")}
+          aria-expanded={isOpen(key)}
           aria-controls={detailId}
           aria-label={`Details for ${what}`}
           onClick={() => toggle(key)}
         >
-          <ChevronDown aria-hidden="true" className={cn("transition-transform duration-200 motion-reduce:transition-none", expanded.includes(key) && "rotate-180")} />
+          <ChevronDown aria-hidden="true" className={cn("transition-transform duration-200 ease-out motion-reduce:transition-none", isOpen(key) && "rotate-180")} />
         </Button>
       )}
     </div>
   );
-  const detailRow = (id: string, fields: [string, ReactNode][], extra?: ReactNode) => (
-    <tr id={id} data-detail>
-      <td colSpan={99} className="bg-group-a px-4 py-4 sm:px-6">
-        <div className="sticky left-4 max-w-[calc(100vw-4.5rem)] sm:static sm:max-w-none">
-          <dl className="grid max-w-[90ch] gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
-            {fields.map(([label, value]) => (
-              <div key={label} className="min-w-0">
-                <dt className="text-xs font-semibold text-brand-muted">{label}</dt>
-                <dd className="whitespace-pre-wrap text-brand-navy">{value}</dd>
+  // Expanded details (AccordionCard look): light panel, white card, height + opacity animate
+  // (~220ms ease-out, instant with reduced motion). Closed content is inert.
+  const detailRow = (id: string, open: boolean, title: string, fields: [string, ReactNode][], extra?: ReactNode) => (
+    <tr id={id} data-detail={open ? "open" : "closed"}>
+      <td colSpan={99} className="bg-slate-50 p-0">
+        <div className={cn("grid transition-[grid-template-rows,opacity] duration-[220ms] ease-out motion-reduce:transition-none", open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
+          <div className="overflow-hidden" inert={!open}>
+            <div className={cn("border-t border-primary/15 px-4 py-4 sm:px-6", !open && "border-t-0")}>
+              <div className="sticky left-4 max-w-[calc(100vw-4.5rem)] sm:static sm:max-w-[100ch]">
+                <section aria-label={title} className="rounded-xl border border-brand-line bg-white p-4 shadow-[0_1px_2px_rgba(12,18,96,0.06)]">
+                  <h3 className="mb-3 text-[13px] font-semibold text-brand-navy">{title}</h3>
+                  <dl className="grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                    {fields.map(([label, value]) => (
+                      <div key={label} className="min-w-0">
+                        <dt className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">{label}</dt>
+                        <dd className="mt-0.5 whitespace-pre-wrap break-words text-brand-navy">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  {extra}
+                </section>
               </div>
-            ))}
-          </dl>
-          {extra}
+            </div>
+          </div>
         </div>
       </td>
     </tr>
@@ -1745,7 +1757,7 @@ export default function SupplementsPage() {
                           const c = childOf(r.child_id);
                           return (
                             <Fragment key={key}>
-                              <tr data-zebra={i % 2 === 1 || undefined} className="group cursor-pointer" onClick={(e) => openChild(e, r.child_id)}>
+                              <tr data-zebra={i % 2 === 1 || undefined} data-open={isOpen(key) || undefined} className="group cursor-pointer" onClick={(e) => openChild(e, r.child_id)}>
                                 <td className={cn(cell, firstCell, "min-w-44")}>{childCell(r.child_id)}</td>
                                 <td className={cn(cell, "whitespace-nowrap")}>{r.supplementation_date}</td>
                                 <td className={cell}>
@@ -1773,7 +1785,7 @@ export default function SupplementsPage() {
                                   {rowActions(r.child_id, key, detailId, hasDetail, `${c ? name(c) : `child ${r.child_id}`}, ${r.supplementation_date}`)}
                                 </td>
                               </tr>
-                              {hasDetail && expanded.includes(key) && detailRow(detailId, [
+                              {hasDetail && detailRow(detailId, isOpen(key), clinical ? "Clinical details" : "Entry details", [
                                 ...(r.order_reference ? [["Order reference", r.order_reference] as [string, ReactNode]] : []),
                                 ...(clinical
                                   ? ([
@@ -1822,7 +1834,7 @@ export default function SupplementsPage() {
                           const detailId = `plan-${p.plan_id}-detail`;
                           return (
                             <Fragment key={key}>
-                              <tr data-zebra={i % 2 === 1 || undefined} className="group cursor-pointer" onClick={(e) => openChild(e, p.child_id)}>
+                              <tr data-zebra={i % 2 === 1 || undefined} data-open={isOpen(key) || undefined} className="group cursor-pointer" onClick={(e) => openChild(e, p.child_id)}>
                                 <td className={cn(cell, firstCell, "whitespace-nowrap font-semibold")}>Plan #{p.plan_id}</td>
                                 <td className={cn(cell, "min-w-44")}>{childCell(p.child_id)}</td>
                                 <td className={cn(cell, "min-w-48")}>
@@ -1836,7 +1848,7 @@ export default function SupplementsPage() {
                                 <td className={cn(cell, pinned, "z-[1]")}>{rowActions(p.child_id, key, detailId, true, `plan ${p.plan_id}`)}</td>
                               </tr>
                               {/* Plan details; room for per-month monitoring rows (e.g. LNS-SQ Month 1–3) later. */}
-                              {expanded.includes(key) && detailRow(detailId, [
+                              {detailRow(detailId, isOpen(key), "Plan details", [
                                 ["Directions", p.directions ?? notRecorded],
                                 ["Authorization reference", p.authorization_reference ?? notRecorded],
                                 ["Indication", p.indication ?? notRecorded],
