@@ -523,7 +523,6 @@ function ScheduleSection() {
     }
   }
   const { isOpen, toggle: toggleOpen } = useSingleOpen<number>()
-  const router = useRouter()
   const [reviewing, setReviewing] = useState<ScheduleRow | null>(null)
   const [reviewAction, setReviewAction] = useState<'APPROVE' | 'REVISE'>('APPROVE')
   const [reviewRemarks, setReviewRemarks] = useState('')
@@ -725,13 +724,8 @@ function ScheduleSection() {
                       header={<>
                         {/* 12rem basis: on a phone the status line wraps below the name instead of squeezing it. */}
                         <span className="min-w-0 flex-[1_1_12rem]">
-                          {/* The name opens the profile's NIP section (the full dose breakdown); the rest of the
-                              header toggles the card. Keyboard users reach the same page with "View". */}
-                          <span
-                            onClick={(e) => { e.stopPropagation(); router.push(vaccinationProfileHref(c.child_id)) }}
-                            title="Open the child's vaccination profile"
-                            className="font-semibold text-brand-navy underline-offset-4 hover:text-brand-blue hover:underline"
-                          >{c.child_name}</span>
+                          {/* Plain text: the header toggles the card; "View" inside it is the only way to the profile. */}
+                          <span className="font-semibold text-brand-navy">{c.child_name}</span>
                           <span className="mt-0.5 block text-xs text-muted-foreground">{c.child_code ?? `#${c.child_id}`} · {c.barangay_name ?? '—'}{c.date_of_birth ? ` · Born ${formatYmd(c.date_of_birth)}` : ''}</span>
                         </span>
                         {/* Status summary: the next dose (compact), a missed count only when more than one,
