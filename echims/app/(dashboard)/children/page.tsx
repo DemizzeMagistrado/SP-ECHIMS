@@ -211,15 +211,14 @@ export default function ChildHealthPage() {
             sections={[
               { label: 'Scope', value: 'Filtered to your authorized barangays or RHU. Transfers in / out are handled in Transfer Inbox, not here.' },
               { label: 'Values', value: view === 'archived'
-                ? ['Record remains Active at the receiving location after transfer', 'Age-out is separate from Inactive, Moved, Lost or Deceased statuses']
-                : ['Status reflects the registry state (Active, Inactive, Moved, Lost, Deceased)', 'Monitoring status comes from the latest service rules']
+                ? ['Age-out is not an Inactive status', 'History stays available']
+                : ['Status = registry state', 'Monitoring = latest service rules']
               },
               { label: 'Tip', value: view === 'archived'
-                ? 'Switch back to Active to register a new child or upload a masterlist. Age-out does not mark a child inactive or lost to follow-up.'
-                : 'Switch to Archived (age-out) to review children who reached their fifth birthday. Use Transfer Inbox for incoming or outgoing transfer requests.'
+                ? 'Switch to Active to register a child.'
+                : 'Switch to Archived (age-out) for children past age five.'
               },
             ]}
-            note="Search and filters apply to the current view. Offline results use the last saved view for your assigned scope."
           />
         </InfoTip>
       </div>
