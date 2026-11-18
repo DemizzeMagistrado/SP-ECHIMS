@@ -1,6 +1,6 @@
 'use client'
 import { Select, DateInput, Input } from '@/components/ui/form'
-import { CountsStrip, FilterCard, GuidanceCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
+import { CountsStrip, FilterCard, GuidanceCard, SectionHeader } from '@/components/ui/report-parts'
 import { TabBar } from '@/components/ui/module-tabs'
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineScope } from '@/lib/offline/fetch'
@@ -9,7 +9,7 @@ import { listActivityDrafts,saveActivityDraft,deleteActivityDraft,type ActivityD
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { cn } from '@/lib/utils'
 
-import { AlertTriangle, CalendarDays, CheckCircle2, ChevronRight, Info, PencilLine, Plus, RefreshCw, Search, SearchX, XCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Info, PencilLine, Plus, RefreshCw, Search, XCircle } from 'lucide-react'
 
 import {
   FormEvent,
@@ -20,19 +20,22 @@ import {
   useRef,
 } from 'react'
 
-import HealthActivityCalendar from './health-activity-calendar'
-import { ACTIVITY_STATUSES, ACTIVITY_TYPE_META, ACTIVITY_TYPES as TYPE_KEYS, statusMeta, typeMeta, type ActivityStatus, type ActivityType } from './activity-meta'
+import { ACTIVITY_STATUSES, ACTIVITY_STATUS_META, type ActivityStatus } from '@/lib/constants/activity-statuses'
+import { ACTIVITY_TYPES as TYPE_KEYS, ACTIVITY_TYPE_META, type ActivityType } from '@/lib/constants/activity-types'
+import { type Activity, type Barangay, activityCode, formatActivityType, formatDate, formatTime, formatTimeRange, getBarangayName, getTodayString } from './components/activity-utils'
+import { ActivityRequestsTab } from './components/ActivityRequestsTab'
+import { CalendarUpcomingTab } from './components/CalendarUpcomingTab'
+import { ActivityDetailModal, type DetailAction } from './components/ActivityDetailModal'
+import { ActivityStatusBadge } from './components/StatusBadge'
+import { TypePill } from './components/TypePill'
 import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
 import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
-import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
-import { StatusBadge } from '@/components/ui/status-badge'
-import { Pagination, usePagination } from '@/components/ui/pagination'
 import { LoadError } from '@/components/ui/load-error'
 
 /* =========================================================
@@ -42,44 +45,6 @@ import { LoadError } from '@/components/ui/load-error'
 type Role = 'Administrator' | 'PHN' | 'RHM' | 'BHW' | 'BNS'
 
 type HealthWorkerRole = 'PHN' | 'RHM' | 'BHW' | 'BNS'
-
-type ConflictStatus = 'NONE' | 'DETECTED' | 'RESOLVED'
-
-type Barangay = {
-  barangay_id: number
-  barangay_name: string
-  municipality?: string | null
-  province?: string | null
-  rhu_id?: number | null
-}
-
-type Activity = {
-  schedule_id: number
-  activity_type: string
-  schedule_date: string
-  start_time: string | null
-  end_time: string | null
-  status: ActivityStatus
-  remarks: string | null
-  conflict_status: ConflictStatus
-  review_remarks: string | null
-  reviewed_at: string | null
-  reviewed_by?: string | null
-  created_at: string
-  updated_at: string
-  created_by: string
-  approved_by: string | null
-  barangay_id: number
-  barangay: Barangay | Barangay[] | null
-  requested_by_name?: string | null
-  requested_by_role?: string | null
-  approved_by_name?: string | null
-  responsible_personnel?: {
-    user_id: string
-    full_name: string
-    role?: string | null
-  }[]
-}
 
 type Suggestion = {
   suggested_date: string
@@ -118,7 +83,7 @@ const ACTIVITY_TYPES_BY_ROLE: Record<HealthWorkerRole, ActivityType[]> = {
   BNS: ['NUTRITIONAL_ASSESSMENT', 'SUPPLEMENTATION'],
 }
 
-const STATUS_LABELS = Object.fromEntries(ACTIVITY_STATUSES.map((s) => [s, statusMeta(s).label])) as Record<ActivityStatus, string>
+const STATUS_LABELS = Object.fromEntries(ACTIVITY_STATUSES.map((s) => [s, ACTIVITY_STATUS_META[s].label])) as Record<ActivityStatus, string>
 
 type RequesterStatus = 'ONGOING' | 'COMPLETED' | 'CANCELLED'
 
@@ -131,214 +96,19 @@ const REQUESTER_STATUS_TRANSITIONS: Partial<
   ONGOING: ['COMPLETED', 'CANCELLED'],
 }
 
-type Tab = 'requests' | 'calendar' | 'upcoming'
+type Tab = 'requests' | 'calendar'
 
 const SECTIONS: Record<Tab, { title: string; subtitle: string; about: string }> = {
   requests: {
     title: 'Activity requests',
     subtitle: 'All health activity requests filed by BHWs, BNSs, and health staff. PHN reviews and approves.',
-    about: 'Every request in your scope, newest schedule first. Counts follow the type, barangay and search filters; select a count to show only that status. Open a request for its details and the actions you can take on it.',
+    about: 'Every request in your scope, latest schedule first. Counts follow the type, barangay and search filters; select a count to show only that status. Open a request for its details and the actions you can take on it.',
   },
   calendar: {
-    title: 'Activity calendar',
-    subtitle: 'Scheduled activities by month, week or day, colour-coded by type.',
-    about: 'The same requests as the list, placed on their scheduled dates. Filters apply here too. Select a day number to open that day, or an activity to see its details.',
+    title: 'Calendar & upcoming',
+    subtitle: 'Scheduled activities by month or week, and what is coming up in the next 14 days.',
+    about: 'The same requests as the list, on their scheduled dates; the filters apply here too. Dashed activities are still awaiting approval and faded ones were cancelled. Select a day to see everything on it, or an activity for its details. Upcoming lists approved and ongoing activities, soonest first.',
   },
-  upcoming: {
-    title: 'Upcoming activities',
-    subtitle: 'Approved and ongoing activities that have not ended yet, soonest first.',
-    about: 'Only approved or ongoing activities whose date and end time are still ahead. Pending requests appear once the PHN approves them.',
-  },
-}
-
-/* =========================================================
-   HELPERS
-========================================================= */
-
-function getBarangay(activity: Activity): Barangay | null {
-  if (!activity.barangay) return null
-  if (Array.isArray(activity.barangay)) return activity.barangay[0] ?? null
-  return activity.barangay
-}
-
-function getBarangayName(activity: Activity) {
-  return getBarangay(activity)?.barangay_name ?? `Barangay ${activity.barangay_id}`
-}
-
-function formatActivityType(value: string) {
-  return typeMeta(value).label
-}
-
-function formatTime(value: string | null) {
-  if (!value) return '—'
-
-  const [hours, minutes] = value.split(':')
-  const date = new Date()
-  date.setHours(Number(hours), Number(minutes), 0, 0)
-
-  return date.toLocaleTimeString([], {
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-}
-
-function formatTimeRange(activity: Pick<Activity, 'start_time' | 'end_time'>) {
-  return activity.start_time || activity.end_time
-    ? `${formatTime(activity.start_time)} – ${formatTime(activity.end_time)}`
-    : 'Time not specified'
-}
-
-function formatDate(value: string) {
-  const date = new Date(`${value.slice(0, 10)}T00:00:00`)
-
-  return date.toLocaleDateString([], {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
-function getTodayString() {
-  const today = new Date()
-
-  return [
-    today.getFullYear(),
-    String(today.getMonth() + 1).padStart(2, '0'),
-    String(today.getDate()).padStart(2, '0'),
-  ].join('-')
-}
-
-function initials(name: string) {
-  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || '?'
-}
-
-/** Approved or ongoing, and not ended yet (today's activity counts until its end time). */
-function isUpcoming(activity: Activity, today: string, nowTime: string) {
-  if (activity.status !== 'APPROVED' && activity.status !== 'ONGOING') return false
-  if (activity.schedule_date !== today) return activity.schedule_date > today
-  if (!activity.end_time) return true
-  const end = activity.end_time.length === 5 ? `${activity.end_time}:00` : activity.end_time
-  return end > nowTime
-}
-
-function TypePill({ type }: { type: string }) {
-  const meta = typeMeta(type)
-  return <span className={cn('inline-flex h-6 items-center whitespace-nowrap rounded-full px-2.5 text-xs font-semibold', meta.pill)}>{meta.short}</span>
-}
-
-function ActivityStatusBadge({ status }: { status: string }) {
-  const meta = statusMeta(status)
-  return <StatusBadge status={status} tone={meta.tone} label={meta.label} />
-}
-
-/* =========================================================
-   DETAILS MODAL
-========================================================= */
-
-type DetailAction = 'approve' | 'revise' | 'edit' | 'status' | 'complete' | 'cancel'
-
-function ActivityDetailsModal({
-  activity,
-  actions,
-  onClose,
-  onAction,
-}: {
-  activity: Activity
-  actions: DetailAction[]
-  onClose: () => void
-  onAction: (action: DetailAction) => void
-}) {
-  const barangay = getBarangay(activity)
-  const people = activity.responsible_personnel ?? []
-
-  const info: { label: string; value: React.ReactNode }[] = [
-    { label: 'Type', value: <TypePill type={activity.activity_type} /> },
-    { label: 'Requested by', value: <>{activity.requested_by_name ?? 'Name unavailable'}{activity.requested_by_role && <span className="font-normal text-brand-muted"> · {activity.requested_by_role}</span>}</> },
-    { label: 'Schedule', value: <>{formatDate(activity.schedule_date)}<span className="block text-[13px] font-normal text-brand-muted">{formatTimeRange(activity)}</span></> },
-    { label: 'Barangay', value: barangay?.barangay_name ?? `Barangay ${activity.barangay_id}` },
-    { label: 'Location', value: [barangay?.municipality, barangay?.province].filter(Boolean).join(', ') || '—' },
-    { label: 'Date requested', value: formatDate(activity.created_at) },
-    ...(activity.approved_by_name ? [{ label: 'Approved by', value: activity.approved_by_name }] : []),
-  ]
-
-  // Primary action last (right-most), outline actions before it.
-  const buttons: Record<DetailAction, React.ReactNode> = {
-    revise: <Button key="revise" variant="outline" onClick={() => onAction('revise')}><PencilLine size={16} aria-hidden="true" />Return for revision</Button>,
-    approve: <Button key="approve" onClick={() => onAction('approve')}><CheckCircle2 size={16} aria-hidden="true" />Approve activity</Button>,
-    edit: <Button key="edit" onClick={() => onAction('edit')}><PencilLine size={16} aria-hidden="true" />Edit and resubmit</Button>,
-    cancel: <Button key="cancel" variant="outline" onClick={() => onAction('cancel')}>Cancel request</Button>,
-    status: <Button key="status" variant="outline" onClick={() => onAction('status')}>Update status</Button>,
-    complete: <Button key="complete" onClick={() => onAction('complete')}><CheckCircle2 size={16} aria-hidden="true" />Mark as completed</Button>,
-  }
-
-  return (
-    <Modal
-      open
-      size="form"
-      onClose={onClose}
-      cancelLabel="Close"
-      hideCancel={actions.length > 0}
-      aboveTitle={
-        <span className="mb-1.5 flex items-center gap-2">
-          <ActivityStatusBadge status={activity.status} />
-          <span className="text-xs text-brand-muted">Activity #{activity.schedule_id}</span>
-        </span>
-      }
-      title={`${formatActivityType(activity.activity_type)} · ${barangay?.barangay_name ?? `Barangay ${activity.barangay_id}`}`}
-      footer={actions.length > 0 ? <>{actions.map((a) => buttons[a])}</> : null}
-    >
-      <div className="space-y-5">
-        {activity.conflict_status === 'DETECTED' && (
-          <p role="status" className="flex gap-2 rounded-xl border border-review-line/40 bg-review-soft p-3 text-sm text-review">
-            <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
-            Another activity overlaps this schedule. Scheduling rules are checked again before approval.
-          </p>
-        )}
-
-        <dl className="grid gap-4 sm:grid-cols-2">
-          {info.map(({ label, value }) => (
-            <div key={label} className="min-w-0">
-              <dt className="text-xs font-semibold uppercase tracking-wide text-brand-muted">{label}</dt>
-              <dd className="mt-1 break-words text-sm font-medium text-brand-navy">{value}</dd>
-            </div>
-          ))}
-        </dl>
-
-        <section className="border-t border-brand-line/70 pt-4">
-          <h3 className="text-sm font-semibold text-brand-navy">Assigned personnel</h3>
-          {people.length === 0 ? (
-            <p className="mt-1.5 text-sm text-brand-muted">Not assigned yet.</p>
-          ) : (
-            <ul className="mt-2.5 space-y-2">
-              {people.map((person) => (
-                <li key={person.user_id} className="flex items-center gap-2.5">
-                  <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-ice text-xs font-semibold text-brand-navy">{initials(person.full_name)}</span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-medium text-brand-navy">{person.full_name}</span>
-                    {person.role && <span className="block text-xs text-brand-muted">{person.role}</span>}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section className="border-t border-brand-line/70 pt-4">
-          <h3 className="text-sm font-semibold text-brand-navy">Remarks</h3>
-          <p className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-relaxed text-brand-muted">
-            {activity.remarks?.trim() || 'No remarks provided.'}
-          </p>
-        </section>
-
-        {activity.review_remarks?.trim() && (
-          <section className="border-t border-brand-line/70 pt-4">
-            <h3 className="text-sm font-semibold text-brand-navy">{activity.status === 'NEEDS_REVISION' ? 'What the PHN asked to change' : 'PHN review remarks'}</h3>
-            <p className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-relaxed text-brand-muted">{activity.review_remarks}</p>
-          </section>
-        )}
-      </div>
-    </Modal>
-  )
 }
 
 /* =========================================================
@@ -362,7 +132,7 @@ function ActivityWorkspace() {
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null)
   const [statusActivity, setStatusActivity] = useState<{ activity: Activity; initial?: RequesterStatus } | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('requests')
-  // Filters persist across the three tabs so switching never changes the data underneath.
+  // Filters persist across both tabs so switching never changes the data underneath.
   const [typeFilter, setTypeFilter] = useState<string>('ALL')
   const [barangayFilter, setBarangayFilter] = useState<string>('ALL')
   const [activities, setActivities] = useState<Activity[]>(cached?.activities ?? [])
@@ -436,7 +206,7 @@ function ActivityWorkspace() {
     return activities.filter((activity) =>
       (typeFilter === 'ALL' || activity.activity_type === typeFilter)
       && (barangayFilter === 'ALL' || String(activity.barangay_id) === barangayFilter)
-      && (!q || [formatActivityType(activity.activity_type), getBarangayName(activity), activity.requested_by_name, `#${activity.schedule_id}`, String(activity.schedule_id)]
+      && (!q || [formatActivityType(activity.activity_type), getBarangayName(activity), activity.requested_by_name, activityCode(activity), String(activity.schedule_id)]
         .some((value) => value?.toLowerCase().includes(q))),
     )
   }, [activities, search, typeFilter, barangayFilter])
@@ -447,7 +217,6 @@ function ActivityWorkspace() {
       .sort((a, b) => b.schedule_date.localeCompare(a.schedule_date) || (b.start_time ?? '').localeCompare(a.start_time ?? '') || b.schedule_id - a.schedule_id),
     [scopedActivities, statusFilter],
   )
-  const { visible: pagedActivities, props: activityPager } = usePagination(filteredActivities)
 
   const countOf = (status: ActivityStatus) => scopedActivities.filter((activity) => activity.status === status).length
 
@@ -457,21 +226,6 @@ function ActivityWorkspace() {
     toast.success('Activity request submitted for PHN review.')
     void loadActivities()
   }
-
-  /* UPCOMING */
-
-  const now = new Date()
-  const today = getTodayString()
-  const currentTime = [now.getHours(), now.getMinutes(), now.getSeconds()].map((n) => String(n).padStart(2, '0')).join(':')
-
-  const upcomingActivities = filteredActivities
-    .filter((activity) => isUpcoming(activity, today, currentTime))
-    .sort(
-      (a, b) =>
-        a.schedule_date.localeCompare(b.schedule_date) ||
-        (a.start_time ?? '99:99').localeCompare(b.start_time ?? '99:99') ||
-        a.schedule_id - b.schedule_id,
-    )
 
   /* DETAIL ACTIONS: what this user can do with this request, primary action last. */
 
@@ -498,25 +252,6 @@ function ActivityWorkspace() {
   const section = SECTIONS[activeTab]
   const filtersKey = `${typeFilter}|${barangayFilter}|${statusFilter}`
 
-  const counts = (
-    <CountsStrip
-      label="Activity counts"
-      selected={statusFilter}
-      onSelect={(key) => setStatusFilter(statusFilter === key ? 'ALL' : key)}
-      items={[
-        { key: 'PENDING', label: 'Pending', value: countOf('PENDING') },
-        { key: 'NEEDS_REVISION', label: 'Needs revision', value: countOf('NEEDS_REVISION'), tone: 'review' },
-        { key: 'APPROVED', label: 'Approved', value: countOf('APPROVED'), tone: 'good' },
-        { key: 'ONGOING', label: 'Ongoing', value: countOf('ONGOING'), tone: 'info' },
-        { key: 'COMPLETED', label: 'Completed', value: countOf('COMPLETED'), tone: 'muted' },
-      ]}
-    />
-  )
-
-  const head = 'whitespace-nowrap px-4 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-brand-muted'
-  const cell = 'px-4 py-3.5 align-top'
-  const pinned = 'relative sm:sticky right-0 border-l-brand-line sm:shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]'
-
   return (
     <div className="space-y-5">
       {/* Header block: title and subtitle, then the view tabs; one divider below. */}
@@ -533,8 +268,7 @@ function ActivityWorkspace() {
           onChange={setActiveTab}
           items={[
             { value: 'requests', label: 'Activity requests' },
-            { value: 'calendar', label: 'Calendar' },
-            { value: 'upcoming', label: <>Upcoming<span className="ml-1.5 rounded-full bg-brand-ice px-1.5 text-[11px] font-semibold tabular-nums text-brand-navy">{upcomingActivities.length}</span></> },
+            { value: 'calendar', label: 'Calendar & upcoming' },
           ]}
         />
       </div>
@@ -581,6 +315,7 @@ function ActivityWorkspace() {
             </Button>
             {canRequest && (
               <Button
+                className="bg-[#07075F] hover:bg-[#1A1A80]"
                 onClick={() => {
                   setRuleEvaluation(null)
                   setShowRequestModal(true)
@@ -591,7 +326,20 @@ function ActivityWorkspace() {
               </Button>
             )}
           </>}
-          below={activeTab === 'requests' ? counts : undefined}
+          below={activeTab === 'requests' ? (
+            <CountsStrip
+              label="Activity counts"
+              selected={statusFilter}
+              onSelect={(key) => setStatusFilter(statusFilter === key ? 'ALL' : key)}
+              items={[
+                { key: 'PENDING', label: 'Pending', value: countOf('PENDING') },
+                { key: 'NEEDS_REVISION', label: 'Needs revision', value: countOf('NEEDS_REVISION'), tone: 'review' },
+                { key: 'APPROVED', label: 'Approved', value: countOf('APPROVED'), tone: 'good' },
+                { key: 'ONGOING', label: 'Ongoing', value: countOf('ONGOING'), tone: 'info' },
+                { key: 'COMPLETED', label: 'Completed', value: countOf('COMPLETED'), tone: 'muted' },
+              ]}
+            />
+          ) : undefined}
         >
           <div className="relative">
             <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -618,97 +366,9 @@ function ActivityWorkspace() {
         ) : (
           // Re-keyed on filter changes so the new result fades in instead of snapping.
           <div key={filtersKey} className={cn('animate-in fade-in duration-150 motion-reduce:animate-none', refreshing && 'opacity-60 transition-opacity')}>
-            {activeTab === 'calendar' ? (
-              <HealthActivityCalendar activities={filteredActivities} onSelectActivity={(activity) => setSelectedActivity(activity)} />
-            ) : activeTab === 'upcoming' ? (
-              upcomingActivities.length === 0 ? (
-                <EmptyState icon={CalendarDays} title="No upcoming activities" description="Approved activities that match your filters will appear here." className={REPORT_CARD} />
-              ) : (
-                <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {upcomingActivities.map((activity) => (
-                    <li key={activity.schedule_id}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedActivity(activity)}
-                        className="flex h-full w-full flex-col gap-2 rounded-2xl border border-brand-line bg-white p-4 text-left shadow-sm transition-colors duration-150 hover:border-brand-navy/40 hover:bg-brand-ice focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-link"
-                      >
-                        <span className="flex flex-wrap items-center justify-between gap-2">
-                          <TypePill type={activity.activity_type} />
-                          <ActivityStatusBadge status={activity.status} />
-                        </span>
-                        <span className="text-sm font-semibold text-brand-navy">{formatDate(activity.schedule_date)}<span className="ml-1.5 font-normal text-brand-muted">{formatTimeRange(activity)}</span></span>
-                        <span className="text-sm text-brand-muted">{getBarangayName(activity)}</span>
-                        <span className="mt-auto inline-flex items-center gap-1 pt-1 text-[13px] font-semibold text-brand-navy">View details <ChevronRight size={14} aria-hidden="true" /></span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )
-            ) : (
-              <section aria-label="Activity requests" className={REPORT_CARD}>
-                <div className="scroll-subtle overflow-x-auto">
-                  <table className="data-grid data-grid--hover w-full min-w-[960px] text-sm text-brand-navy">
-                    <thead>
-                      <tr>
-                        {['Request', 'Type', 'Schedule', 'Location', 'Requested by', 'Status'].map((h) => <th key={h} scope="col" className={head}>{h}</th>)}
-                        <th scope="col" className={cn(head, pinned, 'z-[2]')}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredActivities.length === 0 ? (
-                        <tr>
-                          <td colSpan={7}>
-                            <EmptyState icon={activities.length === 0 ? CalendarDays : SearchX} title={activities.length === 0 ? 'No health activities yet' : 'No requests match these filters'} description={activities.length === 0 ? 'New activity requests will appear here.' : 'Try another status, type, barangay or search.'} />
-                          </td>
-                        </tr>
-                      ) : pagedActivities.map((activity, i) => {
-                        const barangay = getBarangay(activity)
-                        return (
-                          <tr key={activity.schedule_id} data-zebra={i % 2 === 1 || undefined} className="group cursor-pointer" onClick={() => setSelectedActivity(activity)}>
-                            <td className={cn(cell, 'min-w-40 transition-[box-shadow,background-color] duration-[120ms] group-hover:shadow-[inset_3px_0_0_var(--brand-navy)]')}>
-                              <span className="block font-semibold">{formatActivityType(activity.activity_type)}</span>
-                              <span className="mt-0.5 block text-xs text-brand-muted">#{activity.schedule_id} · Requested {formatDate(activity.created_at)}</span>
-                            </td>
-                            <td className={cell}><TypePill type={activity.activity_type} /></td>
-                            <td className={cn(cell, 'whitespace-nowrap')}>
-                              <span className="block font-medium">{formatDate(activity.schedule_date)}</span>
-                              <span className="mt-0.5 block text-xs text-brand-muted">{formatTimeRange(activity)}</span>
-                            </td>
-                            <td className={cn(cell, 'min-w-40')}>
-                              <span className="block">{barangay?.barangay_name ?? `Barangay ${activity.barangay_id}`}</span>
-                              {barangay?.municipality && <span className="mt-0.5 block text-xs text-brand-muted">{barangay.municipality}</span>}
-                            </td>
-                            <td className={cn(cell, 'min-w-36')}>
-                              <span className="block">{activity.requested_by_name ?? <span className="text-brand-muted">—</span>}</span>
-                              {activity.requested_by_role && <span className="mt-0.5 block text-xs text-brand-muted">{activity.requested_by_role}</span>}
-                            </td>
-                            <td className={cell}>
-                              <ActivityStatusBadge status={activity.status} />
-                              {activity.conflict_status === 'DETECTED' && (
-                                <span className="mt-1.5 flex items-center gap-1 text-xs font-medium text-review">
-                                  <AlertTriangle size={12} aria-hidden="true" />Conflict
-                                </span>
-                              )}
-                            </td>
-                            <td className={cn(cell, pinned, 'z-[1]')}>
-                              <Button
-                                variant="row"
-                                size="row"
-                                aria-label={`View details for activity #${activity.schedule_id}`}
-                                onClick={(event) => { event.stopPropagation(); setSelectedActivity(activity) }}
-                              >
-                                View details <ChevronRight aria-hidden="true" />
-                              </Button>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <Pagination {...activityPager} label="Request pages" />
-              </section>
-            )}
+            {activeTab === 'calendar'
+              ? <CalendarUpcomingTab activities={filteredActivities} onOpen={setSelectedActivity} />
+              : <ActivityRequestsTab activities={filteredActivities} empty={activities.length === 0} onOpen={setSelectedActivity} />}
           </div>
         )}
       </TabPanel>
@@ -736,7 +396,7 @@ function ActivityWorkspace() {
       {/* DETAILS MODAL */}
 
       {selectedActivity && (
-        <ActivityDetailsModal
+        <ActivityDetailModal
           key={selectedActivity.schedule_id}
           activity={selectedActivity}
           actions={actionsFor(selectedActivity)}
