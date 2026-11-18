@@ -37,8 +37,8 @@ import { StatusBadge, type StatusTone } from '@/components/ui/status-badge'
 import { CountsStrip, FilterCard, GuidanceCard, REPORT_CARD, SectionHeader, ViewSwitch } from '@/components/ui/report-parts'
 import { formatChildId } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
+import { nutritionLabel } from '@/lib/nutrition-status'
 import { Modal } from '@/components/ui/modal'
-import { BatchNumberField } from '@/components/inventory/batch-number-field'
 import { Input, Select, DateInput } from '@/components/ui/form'
 import { Pagination, usePagination } from '@/components/ui/pagination'
 
@@ -182,7 +182,7 @@ function catalogDetails(product: Product | undefined) {
     name: product.item?.item_name || "Product name unavailable",
 
     formulation:
-      product.formulation?.replaceAll("_", " ") || "Not stored in catalog",
+      (product.formulation ? nutritionLabel(product.formulation) : "") || "Not stored in catalog",
 
     unit: product.item?.unit || "Unit unavailable",
 
@@ -419,7 +419,7 @@ export default function SupplementsPage() {
   const [smsOpen, setSmsOpen] = useState(false);
   const router = useRouter();
   const [modal, setModal] = useState<
-    "RECORD" | "RECEIVE" | "PLAN" | "DISPENSE" | "CLINICAL" | null
+    "RECORD" | "PLAN" | "DISPENSE" | "CLINICAL" | null
   >(null);
   const [form, setForm] = useState<Form>(initial);
   const [saving, setSaving] = useState(false);
@@ -640,7 +640,7 @@ export default function SupplementsPage() {
     }));
   }
 
-  function open(kind: "RECORD" | "RECEIVE" | "PLAN" | "DISPENSE" | "CLINICAL") {
+  function open(kind: "RECORD" | "PLAN" | "DISPENSE" | "CLINICAL") {
     setEditingDraft(null);
     setDraftConfirmed(false);
     const id = new URLSearchParams(routeSearch()).get("childId");
@@ -798,14 +798,14 @@ export default function SupplementsPage() {
   const review = nutritionReview(basis);
 
   const nutritionPanel =
-    child && modal !== "RECEIVE" ? (
+    child ? (
       <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm sm:col-span-2">
         <h3 className="font-semibold">Nutrition basis · {review.title}</h3>
         <p className="mt-1">{review.detail}</p>
         <p className="mt-2 text-xs text-muted-foreground">
           {review.rule} ·{" "}
           {basis
-            ? `Assessment #${basis.assessment_id} · ${basis.assessment_date} · ${basis.nutritional_status ?? "Not evaluated"}`
+            ? `Assessment #${basis.assessment_id} · ${basis.assessment_date} · ${basis.nutritional_status ? nutritionLabel(basis.nutritional_status) : "Not evaluated"}`
             : "No saved assessment for this date"}
         </p>
         {basis && (
@@ -818,7 +818,7 @@ export default function SupplementsPage() {
             ].map(([label, value]) => (
               <div key={label}>
                 <dt className="text-xs text-muted-foreground">{label}</dt>
-                <dd>{value?.replaceAll("_", " ") ?? "Unavailable"}</dd>
+                <dd>{value ? nutritionLabel(value) : "Unavailable"}</dd>
               </div>
             ))}
           </dl>
@@ -859,7 +859,7 @@ export default function SupplementsPage() {
         {availableAssessments.map((a) => (
           <option key={a.assessment_id} value={a.assessment_id}>
             #{a.assessment_id} · {a.assessment_date} ·{" "}
-            {a.nutritional_status ?? "Not evaluated"}
+            {a.nutritional_status ? nutritionLabel(a.nutritional_status) : "Not evaluated"}
           </option>
         ))}
       </Select>
@@ -1111,19 +1111,7 @@ export default function SupplementsPage() {
                 remarks: form.remarks,
                 requestId: requestId.current,
               }
-            : modal === "RECEIVE"
-              ? {
-                  action: modal,
-                  supplementId: form.supplementId,
-                  barangayId: form.barangayId,
-                  batchNumber: form.batchNumber,
-                  receivedDate: form.receivedDate,
-                  expiryDate: form.expiryDate,
-                  quantity: form.quantity,
-                  allocateExisting: form.allocateExisting,
-                  requestId: requestId.current,
-                }
-              : {
+            : {
                   action: modal,
                   childId: form.childId,
                   supplementId: form.supplementId,
@@ -1367,7 +1355,7 @@ export default function SupplementsPage() {
                     {matching.map((r) => (
                       <div key={r.protocol_id} className="rounded-xl border border-brand-line/70 bg-group-a p-3 text-sm text-brand-navy">
                         <p className="font-semibold">
-                          {r.tier ?? r.purpose} tier · {r.age_min_months}–
+                          {nutritionLabel(r.tier ?? r.purpose)} tier · {r.age_min_months}–
                           {r.age_max_months} months · {r.purpose.toLowerCase()}
                         </p>
                         <p>
@@ -1377,7 +1365,7 @@ export default function SupplementsPage() {
                         {r.tier === "CLINICAL" && (
                           <p>
                             Indication:{" "}
-                            {r.clinical_indication?.replaceAll("_", " ") ??
+                            {r.clinical_indication ? nutritionLabel(r.clinical_indication) :
                               "Not configured"}{" "}
                             · Course days:{" "}
                             {r.clinical_dose_offsets_days?.join(", ") ??
@@ -1438,7 +1426,8 @@ export default function SupplementsPage() {
           </li>
           <li>
             Assigned RHM/PHN register plans and receive batches. Assigned
-            BHW/BNS record routine/targeted administration or dispensing.
+            BHW record routine/targeted administration; assigned BNS also
+            record dispensing.
             Assigned RHM record clinical-tier administration against a verified
             clinical protocol and documented order.
           </li>
@@ -1464,6 +1453,10 @@ export default function SupplementsPage() {
   const { visible: pagedRecords, props: recordPager } = usePagination(records);
   const { visible: pagedPlans, props: planPager } = usePagination(plans);
   const canRecord = Boolean(data?.permissions.record || data?.role === "RHM");
+  // BHW: record administration only (docs/permissions.md); dispensing stays with RHM / BNS.
+  const canDispense = canRecord && data?.role !== "BHW";
+  // Only the roles the SMS API lets send (RHM, BHW) get the reminders button.
+  const canSendReminders = data?.role === "RHM" || data?.role === "BHW";
   const canPlan = Boolean(data?.permissions.stock);
   const showFollowUp = Boolean(data?.permissions.monitor && (data.role === "PHN" || data.role === "Administrator"));
   const activeTab = tab === "followup" && !showFollowUp ? "records" : tab;
@@ -1491,7 +1484,7 @@ export default function SupplementsPage() {
           <Plus size={17} aria-hidden="true" /> Register supply plan
         </Button>
       )}
-      {canRecord && (
+      {canDispense && (
         <Button variant="secondary" onClick={() => open("DISPENSE")}>
           <Plus size={17} aria-hidden="true" /> Record dispensing
         </Button>
@@ -1610,7 +1603,7 @@ export default function SupplementsPage() {
                   · {d.form.date}
                 </p>
                 <p className="text-xs text-brand-muted">
-                  {d.status} · Saved {new Date(d.savedAt).toLocaleString()}
+                  {nutritionLabel(d.status)} · Saved {new Date(d.savedAt).toLocaleString()}
                 </p>
                 {d.lastError && <p className="mt-1 text-sm text-danger">{d.lastError}</p>}
               </div>
@@ -1666,7 +1659,7 @@ export default function SupplementsPage() {
             <FilterCard
               refresh={
                 <>
-                  {owner && (
+                  {owner && canSendReminders && (
                     <Button variant="secondary" onClick={() => setSmsOpen(true)}>
                       <Send size={16} aria-hidden="true" /> Send reminders
                     </Button>
@@ -1768,7 +1761,7 @@ export default function SupplementsPage() {
                                 ...(r.order_reference ? [["Order reference", r.order_reference] as [string, ReactNode]] : []),
                                 ...(clinical
                                   ? ([
-                                      ["Indication", r.clinical_indication?.replaceAll("_", " ") ?? notRecorded],
+                                      ["Indication", r.clinical_indication ? nutritionLabel(r.clinical_indication) : notRecorded],
                                       ["Clinical dose", r.dose_value == null ? notRecorded : `${r.dose_value} ${r.dose_unit ?? ""}${r.clinical_dose_number ? ` · dose ${r.clinical_dose_number} of the course` : ""}`],
                                       ["Course reference", r.course_reference ?? notRecorded],
                                       ["Course start", r.course_start_date ?? notRecorded],
@@ -1980,9 +1973,7 @@ export default function SupplementsPage() {
                     ? "Record Actual Administration"
                     : modal === "PLAN"
                       ? "Register Supply Plan"
-                      : modal === "DISPENSE"
-                        ? "Record Supply Dispensing"
-                        : "Receive / Allocate Batch"}
+                      : "Record Supply Dispensing"}
           onSubmit={save}
           footer={<Button type="submit" loading={saving} disabled={
                   saving ||
@@ -2121,38 +2112,6 @@ export default function SupplementsPage() {
                     not save an administered dose or mark the course completed.
                   </p>
                 </>
-              ) : modal === "RECEIVE" ? (
-                <>
-                  {select("Product", "supplementId", productOptions)}
-                  {productPanel}
-                  {select(
-                    "Barangay",
-                    "barangayId",
-                    data?.barangays.map((b) => ({
-                      value: String(b.barangay_id),
-                      label: b.barangay_name,
-                    })) ?? [],
-                  )}
-                  <BatchNumberField required value={String(form.batchNumber)} onChange={(v) => change("batchNumber", v as never)} />
-                  {field(
-                    `Quantity Received (${catalog?.unit ?? "stock units"})`,
-                    "quantity",
-                    "number",
-                  )}
-                  {field("Receipt Date", "receivedDate", "date")}
-                  {field("Expiry Date", "expiryDate", "date")}
-                  <label className="text-sm sm:col-span-2">
-                    <input
-                      type="checkbox"
-                      checked={form.allocateExisting}
-                      onChange={(e) =>
-                        change("allocateExisting", e.target.checked)
-                      }
-                    />{" "}
-                    Allocate existing unbatched stock instead of adding new
-                    stock
-                  </label>
-                </>
               ) : (
                 <>
                   {select(
@@ -2181,7 +2140,7 @@ export default function SupplementsPage() {
                           ...new Set(clinicalProtocols.map((p) => p.purpose)),
                         ].map((value) => ({
                           value,
-                          label: value.replaceAll("_", " "),
+                          label: nutritionLabel(value),
                         })),
                       )
                     : select("Purpose", "purpose", [
@@ -2254,7 +2213,7 @@ export default function SupplementsPage() {
                           required
                           className={input}
                           value={
-                            form.clinicalIndication?.replaceAll("_", " ") ?? ""
+                            form.clinicalIndication ? nutritionLabel(form.clinicalIndication) : ""
                           }
                         />
                       </label>
@@ -2298,7 +2257,7 @@ export default function SupplementsPage() {
                               className="mt-1"
                             >
                               {r.course_reference} ·{" "}
-                              {r.clinical_indication?.replaceAll("_", " ")} ·
+                              {r.clinical_indication ? nutritionLabel(r.clinical_indication) : "Indication not recorded"} ·
                               started{" "}
                               {r.course_start_date ?? r.supplementation_date}
                             </p>

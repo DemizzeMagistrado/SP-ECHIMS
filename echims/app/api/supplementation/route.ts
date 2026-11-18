@@ -434,8 +434,9 @@ export async function POST(request: Request) {
         p_assessment_id: sourceId,
       })
     } else if (b.action === 'DISPENSE') {
-      if (!a.permissions.record)
-        return json({ error: 'Only assigned BHW/BNS record dispensing.' }, 403)
+      // BHW records administration only (docs/permissions.md); dispensing is RHM / BNS.
+      if (!a.permissions.record || a.role === 'BHW')
+        return json({ error: 'Only assigned RHM/BNS record dispensing.' }, 403)
       const planId = id(b.planId),
         batchId = id(b.batchId),
         quantity = positive(b.quantity)

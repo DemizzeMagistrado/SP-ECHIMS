@@ -12,6 +12,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { StatusBadge, type StatusTone } from '@/components/ui/status-badge'
 import { CountsStrip, FilterCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
 import { cn } from '@/lib/utils'
+import { nutritionLabel } from '@/lib/nutrition-status'
 import { Pagination, usePagination } from '@/components/ui/pagination'
 
 type Status =
@@ -160,6 +161,8 @@ export function SupplementationMonitoringPanel({
   )
   const { visible: pagedRows, props: rowPager } = usePagination(filtered)
   const statuses = Object.keys(labels) as Status[]
+  // A supplement type is shown as its product name (codes like VITAMIN_A would read "Vitamin a").
+  const typeName = (type: string) => readable(rows.find((row) => row.supplement_type === type && row.supplement_name)?.supplement_name ?? type)
   const head = 'px-4 py-3 text-left align-bottom text-[13px] font-semibold text-brand-navy whitespace-nowrap'
   const cell = 'px-4 py-3.5 align-top'
   return (
@@ -214,13 +217,13 @@ export function SupplementationMonitoringPanel({
               <Select aria-label="Supplement type" value={type} onChange={(e) => setType(e.target.value)}>
                 <option value="ALL">All types</option>
                 {options.types.map((value) => (
-                  <option key={value} value={value}>{readable(value)}</option>
+                  <option key={value} value={value}>{typeName(value)}</option>
                 ))}
               </Select>
               <Select aria-label="Tier" value={tier} onChange={(e) => setTier(e.target.value)}>
                 <option value="ALL">All tiers</option>
                 {options.tiers.map((value) => (
-                  <option key={value} value={value}>{readable(value)}</option>
+                  <option key={value} value={value}>{nutritionLabel(value)}</option>
                 ))}
               </Select>
               <Select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value as Status | 'ALL')}>
@@ -269,9 +272,9 @@ export function SupplementationMonitoringPanel({
                           </td>
                           <td className={cell}>{row.barangay_name}</td>
                           <td className={cn(cell, 'min-w-44')}>
-                            {readable(row.supplement_name || row.supplement_type)}
+                            {row.supplement_name ? readable(row.supplement_name) : typeName(row.supplement_type)}
                             <span className="mt-0.5 block text-xs text-brand-muted">
-                              {readable(row.tier)} · {row.protocol_code ?? 'Saved protocol unavailable'}
+                              {nutritionLabel(row.tier)} · {row.protocol_code ?? 'Saved protocol unavailable'}
                             </span>
                           </td>
                           <td className={cn(cell, 'whitespace-nowrap')}>
