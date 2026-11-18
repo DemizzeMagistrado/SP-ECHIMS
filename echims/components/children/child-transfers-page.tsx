@@ -1,5 +1,6 @@
 'use client'
 import {InfoContent, InfoTip} from '@/components/ui/info-tip'
+import {PageHeader} from '@/components/ui/page-header'
 import {useSWRConfig} from 'swr'
 import {useAuth} from '@/components/auth/auth-provider'
 import {ModuleTabs} from '@/components/dashboard/module-tabs'
@@ -20,14 +21,11 @@ export function ChildTransfersPage() {
   return (
     <div className="space-y-5">
       <ModuleTabs parent="Child Profiling" role={user.role} />
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-primary">Transfer Inbox</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Incoming and outgoing requests, including completed transfers.
-          </p>
-        </div>
-        {/* FINAL-POLISH: structured About this view, matching Supplementation and Inventory. */}
+      <PageHeader
+        title="Transfer Inbox"
+        subtitle="Incoming and outgoing requests, including completed transfers."
+        // FINAL-POLISH: structured About this view, matching Supplementation and Inventory.
+        actions={
         <InfoTip label="About this view" text="About this view" align="end">
           <InfoContent
             title="Transfer Inbox"
@@ -54,7 +52,8 @@ export function ChildTransfersPage() {
             note="Offline actions remain drafts until the server confirms them. Search filters the current page; use Older transfers to review earlier requests."
           />
         </InfoTip>
-      </div>
+        }
+      />
       <ChildChangeDraftPanel
         onUploaded={() => {
           void mutate((key) => JSON.stringify(key)?.includes('child-transfers') ?? false)
