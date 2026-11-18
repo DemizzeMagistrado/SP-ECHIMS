@@ -18,6 +18,7 @@ export function ActivityRequestsTab({ activities, empty, onOpen }: {
       rows={activities}
       rowKey={(a) => a.schedule_id}
       onRowClick={onOpen}
+      pageSize={5}
       minWidth={960}
       empty={empty
         ? { icon: CalendarDays, title: 'No health activities yet', description: 'New activity requests will appear here.' }
