@@ -17,7 +17,9 @@ const focusRing =
 export function AuthShell({
   children,
   scrollable = false,
+  audience = 'staff',
 }: {
+  audience?: 'staff' | 'guardian'
   children: ReactNode
   /** Long forms scroll inside the card on large screens instead of stretching it. */
   scrollable?: boolean
@@ -46,10 +48,10 @@ export function AuthShell({
                 Early Child Health Information and Monitoring System
               </h1>
               <p className="mt-4 max-w-[40ch] font-serif text-lg italic leading-7 text-[#CAF0F8] animate-in fade-in slide-in-from-bottom-3 fill-mode-both duration-700 [animation-delay:400ms]">
-                Health management for rural health units and barangay health workers.
+                {audience === 'guardian' ? 'Your children’s health records, connected to your BHS and RHU.' : 'Health management for rural health units and barangay health workers.'}
               </p>
               <ul className="mt-10 space-y-4">
-                {points.map((p, i) => (
+                {(audience === 'guardian' ? ['View your linked children in one place', 'See recorded vaccinations, nutrition, and supplementation', 'Sign in securely using a mobile login code'] : points).map((p, i) => (
                   <li
                     key={p}
                     style={{ animationDelay: `${500 + i * 110}ms` }}

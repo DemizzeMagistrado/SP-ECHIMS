@@ -36,6 +36,11 @@ self.addEventListener('fetch', event => {
  if(request.method!=='GET'||url.origin!==self.location.origin)return;
  // No API caching, mutation replay, authentication caching, or RSC response caching.
  if(url.pathname.startsWith('/api/')||request.headers.get('RSC')==='1'||url.searchParams.has('_rsc'))return;
+ // Guardian profiles are online-only and must never open the worker offline shell.
+ if(url.pathname==='/guardian'||url.pathname.startsWith('/guardian/')){
+  event.respondWith(fetch(request).catch(()=>new Response('Guardian access requires an internet connection. Reconnect, then reload this page.',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}})));return;
+ }
+
  if(urls.has(url.pathname)&&url.pathname!=='/offline'){
   event.respondWith(caches.open(CACHE).then(async cache=>(await cache.match(url.pathname))||fetch(request)));return;
  }

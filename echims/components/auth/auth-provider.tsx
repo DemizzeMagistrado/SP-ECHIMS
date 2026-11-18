@@ -406,6 +406,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       let verifiedUser: AuthUser | null = null;
       const apply = (next: AuthUser | null) => { if (mounted && turn === generation) setUser(isOfflineLocked() ? null : next); };
       try {
+        // Guardian phone sessions have no staff profile or staff offline identity.
+        // This is a UI separation only; guardian RPCs enforce authorization.
+        if (authUser?.user_metadata?.account_type === 'guardian' && authUser.phone) {
+          await clearActiveIdentity(); apply(null); return;
+        }
         if (isOfflineLocked()) { apply(null); return; }
         if (!navigator.onLine) {
           const cached = await loadActiveIdentity();
