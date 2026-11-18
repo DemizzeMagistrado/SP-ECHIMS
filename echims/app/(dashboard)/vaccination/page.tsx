@@ -792,7 +792,6 @@ type ChildGroup = {
   barangay_name: string | null
   overdue_count: number
   due_count: number
-  worst_days_overdue: number     // max days overdue across the child's doses — drives sort order
   doses: Defaulter[]
 }
 
@@ -830,7 +829,6 @@ function DefaultersSection() {
           barangay_name: r.barangay_name,
           overdue_count: 0,
           due_count: 0,
-          worst_days_overdue: 0,
           doses: [],
         }
         byChild.set(r.child_id, g)
@@ -838,13 +836,8 @@ function DefaultersSection() {
       g.doses.push(r)
       if (r.status === 'OVERDUE') g.overdue_count++
       else g.due_count++
-      if (r.days_overdue > g.worst_days_overdue) g.worst_days_overdue = r.days_overdue
     }
-    // Sort groups: worst-overdue first, then by name
-    return [...byChild.values()].sort((a, b) => {
-      if (a.worst_days_overdue !== b.worst_days_overdue) return b.worst_days_overdue - a.worst_days_overdue
-      return a.child_name.localeCompare(b.child_name)
-    })
+    return Array.from(byChild.values())
   }, [data])
 
   function toggleRow(childId: number) {
@@ -961,7 +954,6 @@ function DefaultersSection() {
                   <th className="px-5 py-4 font-semibold">Child</th>
                   <th className="px-5 py-4 font-semibold">Barangay</th>
                   <th className="px-5 py-4 font-semibold">Missed doses</th>
-                  <th className="px-5 py-4 font-semibold">Worst overdue</th>
                   <th className="px-5 py-4 font-semibold">Action</th>
                 </tr>
               </thead>
@@ -1011,11 +1003,6 @@ function DefaultersSection() {
                           </div>
                         </td>
                         <td className="px-5 py-4">
-                          <span className={`font-semibold ${g.worst_days_overdue > 60 ? 'text-rose-700' : g.worst_days_overdue > 30 ? 'text-amber-700' : 'text-muted-foreground'}`}>
-                            {g.worst_days_overdue} {g.worst_days_overdue === 1 ? 'day' : 'days'}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4">
                           <Link
                             href={`/child-profiling/children/${g.child_id}`}
                             onClick={(e) => e.stopPropagation()}
@@ -1029,7 +1016,7 @@ function DefaultersSection() {
                       {/* Expanded detail — per-dose rows under this child */}
                       {isOpen && (
                         <tr className="bg-slate-50/70">
-                          <td colSpan={6} className="px-6 py-4">
+                          <td colSpan={5} className="px-6 py-4">
                             <div className="overflow-hidden rounded-xl border border-border bg-white">
                               <table className="w-full text-left text-xs">
                                 <thead className="bg-muted/60 text-[10px] uppercase tracking-wide text-muted-foreground">

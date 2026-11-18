@@ -1,0 +1,20 @@
+const fs = require('node:fs'); const assert = require('node:assert/strict'); const path = require('node:path');
+const ts = require(process.env.ECHIMS_TYPESCRIPT || 'typescript');
+const source = fs.readFileSync(path.join(__dirname,'project/lib/child-program-eligibility.ts'),'utf8');
+const compiled = ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},reportDiagnostics:true});
+assert.equal((compiled.diagnostics || []).length,0);
+const mod = {exports:{}}; new Function('module','exports',compiled.outputText)(mod,mod.exports);
+const {childProgramEligibility:e,manilaDate}=mod.exports;
+assert.equal(e('2021-11-11','ACTIVE','2026-11-10').ageScope,'UNDER_FIVE');
+assert.equal(e('2021-11-11','ACTIVE','2026-11-11').ageScope,'AGED_OUT');
+assert.equal(e('2021-11-11','ACTIVE','2026-11-12').ageScope,'AGED_OUT');
+assert.equal(e('2020-02-29','ACTIVE','2025-02-27').underFive,true);
+assert.equal(e('2020-02-29','ACTIVE','2025-02-28').underFive,false);
+for(const birth of [null,'bad','2025-02-29','2024-04-31','0000-01-01','2027-01-01']) assert.equal(e(birth,'ACTIVE','2026-11-11').ageScope,'NEEDS_REVIEW');
+for(const status of ['ACTIVE','MOVED','LOST','DECEASED','INACTIVE']) {const r=e('2021-11-11',status,'2026-11-11'); assert.equal(r.registryStatus,status); assert.equal(r.changesRegistryStatus,false); assert.equal(r.patientRecordRetained,true);}
+assert.equal(manilaDate(new Date('2026-11-10T15:59:59Z')),'2026-11-10');
+assert.equal(manilaDate(new Date('2026-11-10T16:00:00Z')),'2026-11-11');
+assert.throws(()=>e('2020-01-01','ACTIVE','2026-02-30'));
+assert.equal(e('2021-11-11','ACTIVE','2026-11-11').archiveStatus,'ARCHIVED');
+assert.equal(e('2021-11-11','ACTIVE','2026-11-11').programAction,'ARCHIVED');
+console.log('PASS: eligibility and automatic archive boundary logic.');

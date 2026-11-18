@@ -1,5 +1,7 @@
 'use client'
 
+// ECHIMS_TRANSFER_INBOX_TAB_V1
+import {withTransferInbox} from '@/lib/child-profiling-tabs'
 import Link from 'next/link'
 import { usePathname } from '@/lib/offline/navigation'
 import {
@@ -27,6 +29,12 @@ export function ModuleTabs({
       ),
   )
 
+  // ECHIMS_ARCHIVED_CHILDREN_TAB
+  if(parent === 'Child Profiling' && ['Public Health Nurse','Rural Health Midwife','Barangay Health Worker'].includes(role) && !existingTabs.some(tab=>tab.href==='/child-profiling/archived')) {
+    existingTabs.push({label:'Archived Children',href:'/child-profiling/archived',module:'Child Profiling'})
+  }
+
+  if(parent==='Child Profiling'){const ordered=withTransferInbox(existingTabs,role);existingTabs.splice(0,existingTabs.length,...ordered)}
   const tabs = [
     ...existingTabs,
     ...(parent === 'Vaccination'

@@ -41,7 +41,7 @@ export async function GET() {
     const context = await authorize();
     if (context instanceof NextResponse) return context;
     const { supabase, userId } = context;
-    const [listResult, countResult] = await Promise.all([
+    const [listResult, countResult, transferList, transferCount] = await Promise.all([
       supabase
         .from("alert_notification_feed")
         .select(
@@ -60,8 +60,10 @@ export async function GET() {
         .select("alert_id", { count: "exact", head: true })
         .eq("recipient_id", userId)
         .eq("status", "UNREAD"),
+      supabase.from('child_worker_notice_feed').select('alert_id,alert_type,alert_message,severity,status,created_at,read_at,source_module,child_id').eq('recipient_id',userId).neq('status','RESOLVED').order('created_at',{ascending:false}).order('alert_id',{ascending:false}).limit(50),
+      supabase.from('child_worker_notice_feed').select('alert_id',{count:'exact',head:true}).eq('recipient_id',userId).eq('status','UNREAD'),
     ]);
-    if (listResult.error || countResult.error) {
+    if (listResult.error || countResult.error || transferList.error || transferCount.error) {
       console.error(
         "Notification load error:",
         listResult.error ?? countResult.error,
@@ -73,8 +75,8 @@ export async function GET() {
     }
     return NextResponse.json(
       {
-        notifications: listResult.data ?? [],
-        unreadCount: countResult.count ?? 0,
+        notifications: [...(listResult.data??[]),...(transferList.data??[])].sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)) || b.alert_id-a.alert_id).slice(0,50),
+        unreadCount: (countResult.count??0)+(transferCount.count??0),
       },
       { headers: { "Cache-Control": "private, no-store" } },
     );
@@ -109,6 +111,23 @@ export async function PATCH(request: Request) {
       );
     }
     const body = payload as Record<string, unknown>;
+    if(typeof body.alertId==='number' && Number.isSafeInteger(body.alertId) && body.alertId>0){
+      const notice=await supabase.from('child_worker_notice_feed').select('alert_id,source_module').eq('alert_id',body.alertId).eq('recipient_id',userId).maybeSingle();
+      if(notice.error)return NextResponse.json({error:'Unable to inspect notification.'},{status:500});
+      if(notice.data?.source_module==='CHILD_AGE_ARCHIVE'){
+        if(body.action==='RESOLVE' || (body.status!=='READ' && body.status!=='UNREAD'))return NextResponse.json({error:'Age-out is automatic. Use READ or UNREAD; review continuing care in the child profile.'},{status:400});
+        const changed=await supabase.rpc('echims_mark_age_archive_notice',{p_alert_id:body.alertId,p_status:body.status});
+        if(changed.error)return NextResponse.json({error:'Unable to update this age-archive notification.'},{status:403});
+        return NextResponse.json({message:'Notification updated.',notification:{alert_id:body.alertId,status:body.status}},{headers:{'Cache-Control':'private, no-store'}});
+      }
+      if(notice.data){
+        if(body.action==='RESOLVE')return NextResponse.json({error:'Accept, reject or cancel through the transfer inbox. Marking a notification read does not complete the transfer.'},{status:400});
+        if(body.status!=='READ' && body.status!=='UNREAD')return NextResponse.json({error:'Use READ or UNREAD.'},{status:400});
+        const changed=await supabase.rpc('echims_mark_transfer_notice',{p_alert_id:body.alertId,p_status:body.status});
+        if(changed.error)return NextResponse.json({error:'Unable to update this transfer notification.'},{status:403});
+        return NextResponse.json({message:'Notification updated.',notification:{alert_id:body.alertId,status:body.status}},{headers:{'Cache-Control':'private, no-store'}});
+      }
+    }
     if (body.action === "RESOLVE") {
       if (
         typeof body.alertId !== "number" ||
@@ -174,6 +193,12 @@ export async function PATCH(request: Request) {
           { status: 500 },
         );
       }
+      const visible=await supabase.from('child_worker_notice_feed').select('alert_id').eq('recipient_id',userId).eq('status','UNREAD').eq('source_module','CHILD_TRANSFER').limit(1);
+      if(visible.error)return NextResponse.json({error:'Unable to load transfer notices.'},{status:500});
+      if(visible.data?.length){const extra=await supabase.rpc('echims_mark_transfer_notice',{p_alert_id:null,p_status:'READ'});if(extra.error)return NextResponse.json({error:'Unable to mark transfer notices read.'},{status:500});}
+      const ageVisible=await supabase.from('child_age_archive_notice').select('alert_id').eq('recipient_id',userId).eq('status','UNREAD').limit(1);
+      if(ageVisible.error)return NextResponse.json({error:'Unable to inspect age archive notices.'},{status:500});
+      if(ageVisible.data?.length){const extra=await supabase.rpc('echims_mark_age_archive_notice',{p_alert_id:null,p_status:'READ'});if(extra.error)return NextResponse.json({error:'Unable to mark age archive notices read.'},{status:500});}
       return NextResponse.json({ message: "Notifications marked as read." });
     }
     if (

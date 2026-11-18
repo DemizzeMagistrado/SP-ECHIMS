@@ -34,6 +34,12 @@ type Notification = {
 }
 
 function notificationTarget(item: Notification): { href: string; label: string } | null {
+  // ECHIMS_TRANSFER_NOTIFICATION_LINK
+  if(item.source_module === 'CHILD_TRANSFER') return {href:'/child-profiling/transfers',label:'Review transfer'}
+
+  // ECHIMS_AGE_ARCHIVE_LINK
+  if(item.source_module === 'CHILD_AGE_ARCHIVE') return {href:'/child-profiling/archived',label:'View archived children'}
+
   if (item.source_module === 'SUPPLEMENTATION' && typeof item.child_id === 'number' && item.child_id > 0) {
     return { href: `/child-profiling/children/${item.child_id}`, label: 'View child record' }
   }

@@ -1,4 +1,9 @@
 "use client";
+import {buildEditChanges,type EditSnapshot} from '@/lib/offline/child-edit-model'
+import {saveChildChangeDraft,type ChildChangeDraft} from '@/lib/offline/child-change-drafts'
+
+import {childProgramEligibility,manilaDate} from '@/lib/child-program-eligibility';
+import {TransferredHouseholdRegistration} from '@/components/children/transferred-household-registration'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 // Shared Child registration + edit modal.
@@ -42,6 +47,8 @@ const emptyForm: FormState = {
   middle_name: "",
   last_name: "",
   date_of_birth: "",
+  birth_weight_kg: "",
+  birth_length_cm: "",
   sex: "",
   birth_place: "",
   address: "",
@@ -335,7 +342,9 @@ export function ChildFormModal({
   onError,
   draft,
   onDraftSaved,
+  localEditDraft,
 }: {
+  localEditDraft?: ChildChangeDraft;
   draft?: ChildRegistrationDraft;
   onDraftSaved?: () => void;
   mode: Mode;
@@ -345,8 +354,11 @@ export function ChildFormModal({
   onError?: (message: string) => void;
 }) {
   const { user } = useAuth()
+  const editBaseline=useRef<EditSnapshot|null>(localEditDraft?.baseline??null)
+  const editRequestId=useRef(localEditDraft?.requestId??'')
+  const usedOffline=useRef(false)
   const [online,setOnline]=useState(true)
-  useEffect(()=>{const update=()=>setOnline(navigator.onLine);update();window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update)}},[])
+  useEffect(()=>{const update=()=>{setOnline(navigator.onLine);if(!navigator.onLine)usedOffline.current=true};update();window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update)}},[])
   const draftId=useRef(draft?.requestId ?? '')
   const [reviewed,setReviewed]=useState(false)
   const [form, setForm] = useState<FormState>({ ...emptyForm, ...draft?.form });
@@ -380,14 +392,16 @@ export function ChildFormModal({
     let cancelled = false;
     (async () => {
       try {
-        const r = await fetch(`/api/children?childId=${childId}`);
-        const d = await r.json();
-        if (!r.ok) throw new Error(d.error || "Unable to load child record.");
+        const response = localEditDraft?.baseline ? null : await fetch(`/api/children/${childId}/edit-snapshot`);
+        const d:EditSnapshot = localEditDraft?.baseline ?? await response!.json();
+        if (response && !response.ok) throw new Error((d as unknown as {error?:string}).error || "Unable to prepare child edit snapshot.");
+        if(d.currentUserId!==user?.id || !Number.isSafeInteger(d.revision) || d.revision<1)throw Error('Open this profile online once to prepare the current edit version.');
+        editBaseline.current=d;
         if (cancelled) return;
-        const child = d.child ?? {};
-        const guardian = d.guardian ?? null;
-        const profile = d.profile ?? {};
-        const household = d.household ?? null;
+        const child = d.child as Record<string, any>;
+        const guardian = d.guardian as Record<string, any>|null;
+        const profile = (d.profile ?? {}) as Record<string, any>;
+        const household = d.household as Record<string, any>|null;
         setHouseholdQuery(
           household
             ? `${household.household_no ?? `HH-${household.household_id}`}${household.household_address ? ` — ${household.household_address}` : ""}`
@@ -405,6 +419,8 @@ export function ChildFormModal({
           middle_name: child.middle_name ?? "",
           last_name: child.last_name ?? "",
           date_of_birth: child.date_of_birth ?? "",
+          birth_weight_kg: child.birth_weight_kg == null ? "" : String(child.birth_weight_kg),
+          birth_length_cm: child.birth_length_cm == null ? "" : String(child.birth_length_cm),
           sex:
             child.sex === "MALE"
               ? "Male"
@@ -428,8 +444,9 @@ export function ChildFormModal({
           philhealth_category: profile.philhealth_category ?? "",
           medical_history_notes: profile.medical_history ?? "",
           last_menstrual_period: profile.last_menstrual_period ?? "",
-          water_source_type: profile.water_source_type ?? "",
-          toilet_facility_type: profile.toilet_facility_type ?? "",
+          water_source_type: household?.water_source_type ?? "",
+          toilet_facility_type: household?.toilet_facility_type ?? "",
+          ...localEditDraft?.form,
         });
       } catch (e) {
         if (!cancelled)
@@ -488,9 +505,25 @@ export function ChildFormModal({
     } finally {setSaving(false)}
   }
 
+  async function saveEditDraft(){
+    if(saving)return;
+    setSaving(true);setMessage('');
+    try{
+      if(!user || !childId || !editBaseline.current)throw Error('Open this child profile online once before preparing an offline edit.');
+      const changes=buildEditChanges(form,resolveOthers(form),editBaseline.current);
+      if(!editRequestId.current)editRequestId.current=crypto.randomUUID();
+      await saveChildChangeDraft({requestId:editRequestId.current,ownerId:user.id,scope:offlineScope(user),childId,kind:'EDIT',title:[form.first_name,form.last_name].join(' '),savedAt:new Date().toISOString(),status:'DRAFT',baseline:editBaseline.current,form:{...form},payload:{childId,expectedRevision:editBaseline.current.revision,changes}});
+      setMessage('Edit draft saved on this device. Review and sync it from Child changes & movement drafts after reconnecting.');onDraftSaved?.();
+    }catch(e){setMessage(e instanceof Error?e.message:'Unable to save edit draft.')}finally{setSaving(false)}
+  }
+
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (saving) return;
+    // Drafts may be incomplete. Browser required fields must not block local saves.
+    if (mode === 'edit' && (!navigator.onLine || usedOffline.current || localEditDraft)) {await saveEditDraft();return;}
     if(mode==='create' && !navigator.onLine){await saveLocalDraft();return}
+    if (!(e.currentTarget as HTMLFormElement).reportValidity()) return;
     setMessage("");
     const months = ageInMonths(String(form.date_of_birth));
     if (
@@ -507,8 +540,8 @@ export function ChildFormModal({
       onError?.(msg);
       return;
     }
-    if (!Number.isFinite(months) || months < 0 || months > 59 || String(form.date_of_birth) > new Date().toISOString().slice(0,10)) {
-      const msg = "Child must be between 0 and 59 months old.";
+    if (!Number.isFinite(months) || months < 0 || (mode === "create" && childProgramEligibility(String(form.date_of_birth), "ACTIVE", manilaDate()).underFive !== true) || String(form.date_of_birth) > new Date().toISOString().slice(0,10)) {
+      const msg = mode === "create" ? "Child must be between 0 and 59 months old at registration." : "Enter a valid date of birth that is not in the future.";
       setMessage(msg);
       onError?.(msg);
       return;
@@ -615,6 +648,7 @@ export function ChildFormModal({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/30 p-4">
       <form
+        noValidate
         onSubmit={submit}
         className="mx-auto max-w-5xl space-y-7 rounded-2xl bg-white p-6 shadow-xl"
       >
@@ -709,9 +743,18 @@ export function ChildFormModal({
               ))}
             </select>
           </label>
-        </Section>
+        {/* ECHIMS_BIRTH_FIELDS_V1 */}
+<label className="grid gap-1 text-sm"><span>Birth weight (kg) — optional</span><input className="rounded-lg border border-border p-2" type="number" step="any" min="0" value={String(form.birth_weight_kg ?? '')} onChange={e=>set('birth_weight_kg',e.target.value)}/></label>
+<label className="grid gap-1 text-sm"><span>Birth length / height (cm) — optional</span><input className="rounded-lg border border-border p-2" type="number" step="any" min="0" value={String(form.birth_length_cm ?? '')} onChange={e=>set('birth_length_cm',e.target.value)}/></label>
+<p className="text-xs text-muted-foreground sm:col-span-3">Measurements at birth only. Leave blank if unknown; later nutritional assessments are recorded separately.</p>
+</Section>
 
         <Section title="Household">
+{/* ECHIMS_TRANSFER_HOUSEHOLD_INLINE_V1 */}
+{mode==='edit' && childId && !form.household_id && <TransferredHouseholdRegistration childId={childId} onSaved={()=>{
+ void globalThis.fetch('/api/children?childId='+childId,{cache:'no-store'}).then(async response=>{if(!response.ok)throw Error('Refresh the profile to see the saved household.');return response.json()}).then(d=>{if(!d.child || d.child.child_id!==childId)return;setForm(previous=>({...previous,household_id:d.child.household_id?String(d.child.household_id):'',address:d.child.address??previous.address}));setHouseholdQuery(d.household?.household_address??'');}).catch(()=>setMessage('Household was saved. Close and reopen this form to refresh its link.'));
+}}/>}
+
           <div className="relative grid gap-1 text-sm sm:col-span-3">
             <span className="font-medium">Existing household</span>
             <input
@@ -1085,7 +1128,8 @@ export function ChildFormModal({
         </Section>
 
         <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-5">
-          {mode==='create' && <button type="button" disabled={saving} onClick={saveLocalDraft} className="rounded-lg border border-primary px-4 py-2 font-semibold text-primary hover:bg-sky-50 disabled:opacity-60">{saving?'Saving...':'Save Draft on Device'}</button>}
+          {mode==='edit' && online && <button type="button" disabled={saving} onClick={()=>void saveEditDraft()} className="rounded-lg border px-4 py-2">Save edit draft on device</button>}
+          {mode==='create' && online && <button type="button" disabled={saving} onClick={saveLocalDraft} className="rounded-lg border border-primary px-4 py-2 font-semibold text-primary hover:bg-sky-50 disabled:opacity-60">{saving?'Saving...':'Save Draft on Device'}</button>}
           <button
             type="button"
             onClick={onClose}
@@ -1095,14 +1139,14 @@ export function ChildFormModal({
           </button>
           <button
             type="submit"
-            hidden={mode==='create' && !online}
+
             disabled={saving || Boolean(draft && online && !reviewed)}
             className="rounded-lg bg-primary px-5 py-2 text-white disabled:opacity-60"
           >
             {saving
               ? "Saving..."
               : mode === "edit"
-                ? "Save Changes"
+                ? (!online || usedOffline.current || localEditDraft ? "Save edit draft on device" : "Save Changes")
                 : !online ? "Save Draft on Device" : draft ? "Upload Reviewed Draft" : "Save Child Record"}
           </button>
         </div>

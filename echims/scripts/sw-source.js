@@ -18,6 +18,16 @@ self.addEventListener('install', event => {
  })());
  // Do not skipWaiting: keep an open form on its current application version.
 });
+self.addEventListener('message', event => {
+ if(event.data?.type!=='ECHIMS_ACTIVATE_UPDATE')return;
+ event.waitUntil((async()=>{
+  const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+  if(windows.some(client=>client.id!==event.source?.id)){
+   event.source?.postMessage({type:'ECHIMS_UPDATE_BLOCKED',message:'Close other eCHIMS tabs/windows, save this form as a draft, then retry the update.'});return;
+  }
+  await self.skipWaiting();
+ })());
+});
 self.addEventListener('activate', event => {
  event.waitUntil((async()=>{for(const name of await caches.keys())if(name.startsWith('echims-public-')&&name!==CACHE)await caches.delete(name);await self.clients.claim()})());
 });

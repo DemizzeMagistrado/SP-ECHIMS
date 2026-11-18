@@ -1,4 +1,7 @@
 'use client'
+// ECHIMS_UNDER_FIVE_ROSTER
+import {ChildChangeDraftPanel} from '@/components/children/child-change-draft-panel'
+import {childProgramEligibility as ageArchiveEligibility,manilaDate as ageArchiveToday} from '@/lib/child-program-eligibility'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 // Children list page. Register uses the shared ChildFormModal.
@@ -77,7 +80,7 @@ export default function ChildHealthPage() {
   const isApproved = user?.accountStatus === 'APPROVED'
   const canRegister = Boolean(role && isApproved && canPerform(role, 'Child Profiling', 'create'))
 
-  const { data: children, error, isLoading, mutate } = useSWR<Child[]>('/api/children', fetcher)
+  const { data: children, error, isLoading, mutate } = useSWR<Child[]>('/api/children', fetcher, {refreshInterval:60000})
   const { data: barangays } = useSWR<Barangay[]>('/api/barangays', fetcher)
 
   // Filters — all independent, combined with AND. 'all' / '' means no filter.
@@ -89,7 +92,7 @@ export default function ChildHealthPage() {
   const [registerOpen, setRegisterOpen] = useState(false)
   const { showToast } = useToast()
 
-  const records = children ?? []
+  const records = (children ?? []).filter(c=>ageArchiveEligibility(c.dob,c.status,ageArchiveToday()).underFive===true)
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     const ageMatcher = ageBands.find((b) => b.value === ageFilter)?.matches ?? (() => true)
@@ -123,6 +126,7 @@ export default function ChildHealthPage() {
   return (
     <div className="space-y-6">
       <ModuleTabs parent="Child Profiling" role={role} />
+      <ChildChangeDraftPanel onUploaded={()=>{void mutate()}}/>
       {canRegister && <ChildDraftPanel onUploaded={() => mutate()} />}
 
       <header className="flex flex-wrap items-center justify-between gap-4">

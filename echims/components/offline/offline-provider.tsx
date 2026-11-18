@@ -2,6 +2,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { SWRConfig, useSWRConfig } from 'swr'
 import { useAuth } from '@/components/auth/auth-provider'
+import {OfflineUpdateNotice} from '@/components/offline/offline-update-notice'
 import { AutomaticPreparation } from '@/components/offline/automatic-preparation'
 import { offlineScope } from '@/lib/offline/fetch'
 function AccountRevalidation({children}: {children: ReactNode}) {
@@ -42,10 +43,6 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     window.addEventListener('echims-offline-snapshot', saved)
     window.addEventListener('echims-offline-storage-error', storageError)
     document.addEventListener('click', navigate, true)
-    if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
-      void navigator.serviceWorker.register('/offline-worker', { scope: '/', updateViaCache: 'none' })
-        .catch(() => setError('Offline page preparation failed. Retry while online.'))
-    }
     return () => {
       window.removeEventListener('online', update); window.removeEventListener('offline', update)
       window.removeEventListener('echims-offline-snapshot', saved); window.removeEventListener('echims-offline-storage-error', storageError)
@@ -53,7 +50,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     }
   }, [])
   const accountKey = user ? user.id + ':' + offlineScope(user) : 'signed-out'
-  return <>{(offline || snapshot) && <div role="status" className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+  return <><OfflineUpdateNotice/>{(offline || snapshot) && <div role="status" className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
     {offline ? 'Offline' : 'Connection interrupted'} — saved views may be out of date. Vaccination, nutrition, and supplementation entries use their draft queues. Other changes and actual SMS delivery require a connection.
     {snapshot && <> Saved view: {new Date(snapshot).toLocaleString('en-PH')}.</>}
   </div>}{error && <div role="alert" className="bg-rose-50 p-2 text-sm text-rose-700">{error}</div>}

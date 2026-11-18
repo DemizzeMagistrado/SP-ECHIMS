@@ -149,7 +149,7 @@ export async function GET(request: Request) {
           dose_volume,
           route,
           target_age,
-          item:item(item_id, item_name)
+          item:item!fk_vaccine_item(item_id, item_name)
         )
       `)
       .eq('child_id', childId)

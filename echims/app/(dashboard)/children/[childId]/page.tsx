@@ -1,4 +1,7 @@
 "use client";
+import {ChildChangeDraftPanel} from '@/components/children/child-change-draft-panel'
+import {ChildBirthMeasurements} from '@/components/children/child-birth-measurements'
+import { ChildCareSections } from '@/components/children/child-care-sections'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 // CHILD-USR003 — View Child Profile
 // Centralized profile view that pulls the child record, their linked guardian,
@@ -28,7 +31,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { canPerform, type UserRole } from "@/lib/echims-data";
 import { formatChildId } from "@/lib/formatters";
 import { ChildFormModal } from "@/components/children/child-form-modal";
-import { ChangeStatusModal } from "@/components/children/change-status-modal";
+import { CheckupAppointmentsSection } from '@/components/children/checkup-appointments-section'
 import { VaccinationScheduleSection } from "@/components/children/vaccination-schedule-section";
 import { ImmunizationHistorySection } from "@/components/children/immunization-history-section";
 import { useToast } from "@/components/ui/toast";
@@ -66,7 +69,6 @@ type Profile = {
   profiling_date: string | null;
   relationship_to_household_head: string | null;
   civil_status: string | null;
-  educational_attainment: string | null;
   religion: string | null;
   ethnicity: string | null;
   philhealth_id_number: string | null;
@@ -562,14 +564,6 @@ export function ChildProfileView({childId}: {childId: string}) {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => setStatusOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-white px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
-            >
-              <ArrowRightLeft size={16} />
-              Change status
-            </button>
-            <button
-              type="button"
               onClick={() => setEditOpen(true)}
               className="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary hover:bg-primary/5"
             >
@@ -627,6 +621,7 @@ export function ChildProfileView({childId}: {childId: string}) {
             />
             <InfoRow label="Sex" value={titleCase(child.sex)} />
             <InfoRow label="Birth place" value={child.birth_place || "—"} />
+            <ChildBirthMeasurements child={child}/>
             <InfoRow
               label="Registration date"
               value={formatDate(child.registration_date)}
@@ -678,10 +673,6 @@ export function ChildProfileView({childId}: {childId: string}) {
             {profile && (
               <>
                 <InfoRow label="Civil status" value={profile.civil_status} />
-                <InfoRow
-                  label="Educational attainment"
-                  value={profile.educational_attainment}
-                />
                 <InfoRow label="Religion" value={profile.religion} />
                 <InfoRow label="Ethnicity" value={profile.ethnicity} />
                 <InfoRow
@@ -762,67 +753,26 @@ export function ChildProfileView({childId}: {childId: string}) {
       {/* NIP-USR001 — Vaccination Schedule request + preview. Computed from DOB + NIP
           catalog, already-administered doses excluded. BHW/RHM can request, PHN reviews. */}
       <VaccinationScheduleSection childId={child.child_id} />
-
+      
       {/* Nutritional assessment history */}
       <NutritionHistorySection assessments={assessments ?? []} />
       {/* Full saved administration, dispensing, plans and due dates. */}
       <SupplementationHistorySection childId={child.child_id} />
+        
+      <ChildChangeDraftPanel childId={child.child_id} onUploaded={()=>{void mutate()}}/>
+      <ChildCareSections
+        childId={child.child_id}
+        householdId={child.household_id}
+        barangayId={child.barangay_id}
+        dateOfBirth={child.date_of_birth}
+        registryStatus={child.status ?? ''}
+        canEdit={canEdit}
+        onSaved={() => { void mutate() }}
+      />
 
       {/* Movement history — only renders when at least one movement is on file.
           Shows chronological audit trail of status changes (MOVED/LOST/RETURNED/TRANSFERRED). */}
-      {movements && movements.length > 0 && (
-        <SectionCard
-          title="Movement History"
-          subtitle={`${movements.length} record${movements.length === 1 ? "" : "s"}`}
-          icon={<History size={18} />}
-        >
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-muted/60">
-                <tr>
-                  {[
-                    "Date",
-                    "Type",
-                    "Status",
-                    "Reason",
-                    "New address",
-                    "Remarks",
-                  ].map((heading) => (
-                    <th
-                      key={heading}
-                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-                    >
-                      {heading}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {movements.map((record) => (
-                  <tr key={record.movement_id}>
-                    <td className="px-4 py-3 text-sm">
-                      {formatDate(record.movement_date)}
-                    </td>
-                    <td className="px-4 py-3 text-sm font-medium">
-                      {record.movement_type}
-                    </td>
-                    <td className="px-4 py-3 text-sm">{record.status}</td>
-                    <td className="px-4 py-3 text-sm">
-                      {record.reason ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      {record.new_address ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {record.remarks ?? "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </SectionCard>
-      )}
+      
       {editOpen && canEdit && (
         <ChildFormModal
           mode="edit"
@@ -838,22 +788,7 @@ export function ChildProfileView({childId}: {childId: string}) {
           onError={(message) => showToast({ type: "error", message })}
         />
       )}
-      {statusOpen && canEdit && (
-        <ChangeStatusModal
-          childId={parsedId}
-          currentStatus={child.status ?? "ACTIVE"}
-          childName={fullName}
-          onClose={() => setStatusOpen(false)}
-          onSaved={() => {
-            setStatusOpen(false);
-            // Refetch both the profile (status chip updates) and movement history (new row).
-            mutate();
-            mutateMovements();
-            showToast({ type: "success", message: "Status updated" });
-          }}
-          onError={(message) => showToast({ type: "error", message })}
-        />
-      )}
+      
     </div>
   );
 }
