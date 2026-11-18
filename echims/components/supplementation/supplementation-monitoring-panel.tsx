@@ -1,14 +1,19 @@
 'use client'
-import { Select } from '@/components/ui/form'
+import { Input, Select } from '@/components/ui/form'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { RefreshCw, SearchX, CalendarClock } from 'lucide-react'
+import { RefreshCw, SearchX, CalendarClock, FileText, Search } from 'lucide-react'
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
+import { useRefreshSignal } from '@/components/brand/loader-state'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { StatusBadge, type StatusTone } from '@/components/ui/status-badge'
+import { CountsStrip, FilterCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
+import { cn } from '@/lib/utils'
+import { nutritionLabel } from '@/lib/nutrition-status'
 import { Pagination, usePagination } from '@/components/ui/pagination'
 
 type Status =
@@ -52,13 +57,13 @@ const labels: Record<Status, string> = {
   NOT_ELIGIBLE: 'Not Eligible',
 }
 
-const tones: Record<Status, string> = {
-  UPCOMING: 'bg-sky-50 text-sky-800',
-  DUE_TODAY: 'bg-amber-50 text-amber-800',
-  MISSED: 'bg-red-50 text-red-800',
-  NEEDS_REVIEW: 'bg-orange-50 text-orange-800',
-  COURSE_COMPLETED: 'bg-emerald-50 text-emerald-800',
-  NOT_ELIGIBLE: 'bg-slate-100 text-slate-600',
+const tones: Record<Status, StatusTone> = {
+  UPCOMING: 'info',
+  DUE_TODAY: 'review',
+  MISSED: 'danger',
+  NEEDS_REVIEW: 'review',
+  COURSE_COMPLETED: 'good',
+  NOT_ELIGIBLE: 'neutral',
 }
 
 const readable = (value: string) =>
@@ -85,8 +90,9 @@ export function SupplementationMonitoringPanel({
   const [status, setStatus] = useState<Status | 'ALL'>('MISSED')
   const [search, setSearch] = useState('')
   const refresh = useCallback(() => setReload((value) => value + 1), [])
+  useRefreshSignal(loading && Boolean(result))
   useEffect(() => {
-    setResult(null)
+    // The list stays on screen while it reloads (the panel remounts for another account).
     setError('')
     if (!online) {
       setLoading(false)
@@ -157,242 +163,152 @@ export function SupplementationMonitoringPanel({
   )
   const { visible: pagedRows, props: rowPager } = usePagination(filtered)
   const statuses = Object.keys(labels) as Status[]
-  const input =
-    'mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm'
-
+  // A supplement type is shown as its product name (codes like VITAMIN_A would read "Vitamin a").
+  const typeName = (type: string) => readable(rows.find((row) => row.supplement_type === type && row.supplement_name)?.supplement_name ?? type)
+  const head = 'px-4 py-3 text-left align-bottom text-[13px] font-semibold text-brand-navy whitespace-nowrap'
+  const cell = 'px-4 py-3.5 align-top'
   return (
-    <section className="space-y-4 rounded-2xl border border-border bg-white p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold">
-            Supplementation Compliance Monitoring
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Missed means a valid saved tracking date has passed. No grace period
-            applies.
-          </p>
-        </div>
-        <Button variant="tonal"
-          disabled={loading || !online}
-          onClick={refresh}
-        >
-          {loading ? <Spinner /> : <RefreshCw size={16} />}
-          Refresh
-        </Button>
-      </div>
+    <section aria-label="Compliance monitoring" className="space-y-5">
+      <SectionHeader
+        title="Supplementation compliance monitoring"
+        subtitle="Missed means a valid saved tracking date has passed. No grace period applies."
+        about="Monitoring uses saved administrations only. Dispensing is not proof of administration. Children without a saved schedule are not assumed to have missed a dose. Clinical results require RHM review. Counts represent tracked schedules/courses, not unique children."
+      />
       {!online ? (
-        <p
-          role="status"
-          className="rounded-lg bg-amber-50 p-4 text-sm text-amber-800"
-        >
+        <p role="status" className="rounded-2xl border border-review-line/40 bg-review-soft p-4 text-sm text-review">
           Monitoring requires an online connection. Cached data is not used to
           label children as missed.
         </p>
-      ) : loading ? (
+      ) : loading && !result ? (
         <Spinner showLabel label="Loading supplementation monitoring…" className="w-full justify-center py-6 text-sm text-muted-foreground" />
       ) : error ? (
-        <div
-          role="alert"
-          className="rounded-lg bg-red-50 p-4 text-sm text-red-700"
-        >
-          {error}
-          <button type="button" onClick={refresh} className="ml-3 underline">
-            Retry
-          </button>
+        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-2xl border border-danger/20 bg-danger-soft p-4 text-sm text-brand-navy">
+          <span className="min-w-0 flex-1">{error}</span>
+          <Button variant="secondary" size="sm" onClick={refresh}>Retry</Button>
         </div>
       ) : (
         result && (
           <>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              <label className="text-xs font-medium">
-                Barangay
-                <Select
-                 
-                  value={barangay}
-                  onChange={(e) => setBarangay(e.target.value)}
-                >
-                  <option value="ALL">All barangays</option>
-                  {options.barangays.map(([id, name]) => (
-                    <option key={id} value={id}>
-                      {name}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-              <label className="text-xs font-medium">
-                Supplement type
-                <Select
-                 
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                >
-                  <option value="ALL">All types</option>
-                  {options.types.map((value) => (
-                    <option key={value} value={value}>
-                      {readable(value)}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-              <label className="text-xs font-medium">
-                Tier
-                <Select
-                 
-                  value={tier}
-                  onChange={(e) => setTier(e.target.value)}
-                >
-                  <option value="ALL">All tiers</option>
-                  {options.tiers.map((value) => (
-                    <option key={value} value={value}>
-                      {readable(value)}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-              <label className="text-xs font-medium">
-                Status
-                <Select
-                 
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as Status | 'ALL')}
-                >
-                  <option value="ALL">All statuses</option>
-                  {statuses.map((value) => (
-                    <option key={value} value={value}>
-                      {labels[value]}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-              <label className="text-xs font-medium">
-                Child
-                <input
-                  className={input}
+            <FilterCard
+              refresh={
+                <Button variant="secondary" loading={loading} disabled={!online} onClick={refresh}>
+                  {!loading && <RefreshCw size={16} aria-hidden="true" />}
+                  Refresh
+                </Button>
+              }
+              below={
+                <CountsStrip
+                  label="Schedules by status"
+                  selected={status}
+                  onSelect={(key) => setStatus(status === key ? 'ALL' : (key as Status))}
+                  items={statuses.map((value) => ({
+                    key: value,
+                    label: labels[value],
+                    value: scoped.filter((row) => row.status === value).length,
+                    tone: value === 'MISSED' ? 'severe' : value === 'DUE_TODAY' || value === 'NEEDS_REVIEW' ? 'review' : undefined,
+                  }))}
+                />
+              }
+            >
+              <Select aria-label="Barangay" value={barangay} onChange={(e) => setBarangay(e.target.value)}>
+                <option value="ALL">All barangays</option>
+                {options.barangays.map(([id, name]) => (
+                  <option key={id} value={id}>{name}</option>
+                ))}
+              </Select>
+              <Select aria-label="Supplement type" value={type} onChange={(e) => setType(e.target.value)}>
+                <option value="ALL">All types</option>
+                {options.types.map((value) => (
+                  <option key={value} value={value}>{typeName(value)}</option>
+                ))}
+              </Select>
+              <Select aria-label="Tier" value={tier} onChange={(e) => setTier(e.target.value)}>
+                <option value="ALL">All tiers</option>
+                {options.tiers.map((value) => (
+                  <option key={value} value={value}>{nutritionLabel(value)}</option>
+                ))}
+              </Select>
+              <Select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value as Status | 'ALL')}>
+                <option value="ALL">All statuses</option>
+                {statuses.map((value) => (
+                  <option key={value} value={value}>{labels[value]}</option>
+                ))}
+              </Select>
+              <div className="relative sm:col-span-2 lg:col-span-2">
+                <Search size={18} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="search"
+                  aria-label="Child"
+                  className="pl-10"
                   value={search}
                   placeholder="Name or database ID"
                   onChange={(e) => setSearch(e.target.value)}
                 />
-              </label>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              {statuses.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={status === value}
-                  onClick={() => setStatus(value)}
-                  className={`rounded-xl border p-3 text-left ${status === value ? 'border-primary ring-1 ring-primary' : 'border-border'} ${tones[value]}`}
-                >
-                  <p className="text-xs font-medium">{labels[value]}</p>
-                  <p className="mt-1 text-2xl font-bold">
-                    {scoped.filter((row) => row.status === value).length}
-                  </p>
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Counts represent tracked schedules/courses, not unique children.{' '}
-              {
-                new Set(
-                  scoped
-                    .filter((row) => row.status === 'MISSED')
-                    .map((row) => row.child_id),
-                ).size
-              }{' '}
-              children have missed tracking dates. Evaluated on{' '}
-              {result.evaluatedOn} (Asia/Manila).
-            </p>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/60">
-                  <tr>
-                    {[
-                      'Child',
-                      'Barangay',
-                      'Supplement / Tier',
-                      'Due Date',
-                      'Status',
-                      'Review / Action',
-                    ].map((title) => (
-                      <th
-                        key={title}
-                        className="whitespace-nowrap px-3 py-3 text-left text-xs font-semibold"
-                      >
-                        {title}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {!filtered.length ? (
+              </div>
+            </FilterCard>
+            <section aria-label="Tracked schedules" className={REPORT_CARD}>
+              <div className="scroll-subtle overflow-x-auto">
+                <table className="data-grid w-full text-sm text-brand-navy">
+                  <thead>
                     <tr>
-                      <td colSpan={6}>
-                        {rows.length
-                          ? <EmptyState icon={SearchX} title="No tracked schedules match these filters" description="Try a different status or barangay." />
-                          : <EmptyState icon={CalendarClock} title="No schedules to monitor yet" description="Saved administration schedules will be tracked here." />}
-                      </td>
+                      {['Child', 'Barangay', 'Supplement / Tier', 'Due Date', 'Status', 'Review / Action'].map((title) => (
+                        <th key={title} scope="col" className={head}>{title}</th>
+                      ))}
                     </tr>
-                  ) : (
-                    pagedRows.map((row) => (
-                      <tr key={row.tracking_key}>
-                        <td className="px-3 py-3">
-                          <Link
-                            href={`/child-profiling/children/${row.child_id}`}
-                            className="font-medium text-primary underline"
-                          >
-                            {row.child_name}
-                          </Link>
-                          <p className="text-xs text-muted-foreground">
-                            Child #{row.child_id}
-                          </p>
-                        </td>
-                        <td className="px-3 py-3">{row.barangay_name}</td>
-                        <td className="px-3 py-3">
-                          {readable(row.supplement_name || row.supplement_type)}
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {readable(row.tier)} ·{' '}
-                            {row.protocol_code ?? 'Saved protocol unavailable'}
-                          </p>
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-3">
-                          {row.due_date ?? 'Unavailable'}
-                          {row.next_dose != null && (
-                            <p className="text-xs text-muted-foreground">
-                              Course dose {row.next_dose}
-                            </p>
-                          )}
-                        </td>
-                        <td className="px-3 py-3">
-                          <span
-                            className={`inline-block whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium ${tones[row.status]}`}
-                          >
-                            {labels[row.status]}
-                          </span>
-                        </td>
-                        <td className="min-w-[240px] px-3 py-3">
-                          <p className="text-xs text-muted-foreground">
-                            {row.detail}
-                          </p>
-                          <Link
-                            href={`/child-profiling/children/${row.child_id}`}
-                            className="mt-2 inline-block text-xs font-semibold text-primary underline"
-                          >
-                            View child record
-                          </Link>
+                  </thead>
+                  <tbody>
+                    {!filtered.length ? (
+                      <tr>
+                        <td colSpan={6}>
+                          {rows.length
+                            ? <EmptyState icon={SearchX} title="No tracked schedules match these filters" description="Try a different status or barangay." />
+                            : <EmptyState icon={CalendarClock} title="No schedules to monitor yet" description="Saved administration schedules will be tracked here." />}
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <Pagination {...rowPager} label="Schedule pages" />
-            <p className="text-xs text-muted-foreground">
-              Monitoring uses saved administrations only. Dispensing is not
-              proof of administration. Children without a saved schedule are not
-              assumed to have missed a dose. Clinical results require RHM
-              review.
-            </p>
+                    ) : (
+                      pagedRows.map((row, i) => (
+                        <tr key={row.tracking_key} data-zebra={i % 2 === 1 || undefined}>
+                          <td className={cn(cell, 'min-w-44')}>
+                            <span className="font-semibold">{row.child_name}</span>
+                            <span className="block text-xs text-brand-muted">Child #{row.child_id}</span>
+                          </td>
+                          <td className={cell}>{row.barangay_name}</td>
+                          <td className={cn(cell, 'min-w-44')}>
+                            {row.supplement_name ? readable(row.supplement_name) : typeName(row.supplement_type)}
+                            <span className="mt-0.5 block text-xs text-brand-muted">
+                              {nutritionLabel(row.tier)} · {row.protocol_code ?? 'Saved protocol unavailable'}
+                            </span>
+                          </td>
+                          <td className={cn(cell, 'whitespace-nowrap')}>
+                            {row.due_date ?? <span className="text-brand-muted">Unavailable</span>}
+                            {row.next_dose != null && (
+                              <span className="block text-xs text-brand-muted">Course dose {row.next_dose}</span>
+                            )}
+                          </td>
+                          <td className={cell}>
+                            <StatusBadge status={row.status} tone={tones[row.status]} label={labels[row.status]} />
+                          </td>
+                          <td className={cn(cell, 'min-w-[240px]')}>
+                            <p className="text-xs text-brand-muted">{row.detail}</p>
+                            <Link
+                              href={`/child-profiling/children/${row.child_id}`}
+                              className={cn(buttonVariants({ variant: 'row', size: 'row' }), 'mt-2')}
+                            >
+                              <FileText aria-hidden="true" />View child record
+                            </Link>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <Pagination {...rowPager} label="Schedule pages" />
+              <p className="border-t border-brand-line/70 px-4 py-3 text-[13px] text-brand-muted">
+                {new Set(scoped.filter((row) => row.status === 'MISSED').map((row) => row.child_id)).size}{' '}
+                children have missed tracking dates. Evaluated on {result.evaluatedOn} (Asia/Manila).
+              </p>
+            </section>
           </>
         )
       )}

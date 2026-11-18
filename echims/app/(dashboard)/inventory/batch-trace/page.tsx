@@ -7,13 +7,13 @@
 //
 // Export: CSV download of the children + transactions tables.
 
-import { StatCard } from '@/components/ui/stat-card'
+import { CountsStrip, REPORT_CARD } from '@/components/ui/report-parts'
 import { useState, useSyncExternalStore } from 'react'
 import { normalizeBatchNumber } from '@/lib/vaccination-config'
 import useSWR from 'swr'
 import {
-  Search, Package, Hash, MapPin, CalendarClock, Download, Users, Syringe, Pill,
-  CheckCircle2, Clock, Send,
+  Search, Package, Hash, MapPin, CalendarClock, Download, Users,
+  CheckCircle2, Clock,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
@@ -127,7 +127,8 @@ export default function BatchTracePage() {
         subtitle="PHN/Admin only. Enter a batch number to see where it was received, allocated, used, and which children received doses from it. Essential for recall or defect investigations."
       />
 
-      <form onSubmit={doSearch} className="flex flex-col gap-2 rounded-2xl border border-border bg-white p-4 md:flex-row md:items-end">
+      <section aria-label="Search" className={REPORT_CARD}>
+      <form onSubmit={doSearch} className="flex flex-col gap-2 p-4 md:flex-row md:items-end">
         <div className="flex-1">
           <label htmlFor="bt-q" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Batch number</label>
           <div className="relative">
@@ -146,6 +147,15 @@ export default function BatchTracePage() {
           </Button>
         )}
       </form>
+      {data && (
+        <CountsStrip label="Batch counts" items={[
+          { label: 'Barangays holding', value: data.counts.batches.toLocaleString() },
+          { label: 'Transactions', value: data.counts.transactions.toLocaleString() },
+          { label: 'Children vaccinated', value: data.counts.children_vaccinated.toLocaleString() },
+          { label: 'Children supplemented', value: data.counts.children_supplemented.toLocaleString() },
+        ]} />
+      )}
+      </section>
 
       {!submitted && (
         <div className="flex min-h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-sky-200 bg-white p-10 text-center text-muted-foreground">
@@ -163,14 +173,6 @@ export default function BatchTracePage() {
 
       {data && (
         <>
-          {/* Counts */}
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <StatTile icon={<Package size={14} />} label="Barangays holding" value={data.counts.batches} />
-            <StatTile icon={<Send size={14} />} label="Transactions" value={data.counts.transactions} />
-            <StatTile icon={<Syringe size={14} />} label="Children vaccinated" value={data.counts.children_vaccinated} />
-            <StatTile icon={<Pill size={14} />} label="Children supplemented" value={data.counts.children_supplemented} />
-          </div>
-
           {/* Barangay distribution */}
           <section className="rounded-2xl border border-border bg-white p-6">
             <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
@@ -313,8 +315,4 @@ export default function BatchTracePage() {
       )}
     </div>
   )
-}
-
-function StatTile({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
-  return <StatCard icon={icon} label={label} value={value.toLocaleString()} />
 }

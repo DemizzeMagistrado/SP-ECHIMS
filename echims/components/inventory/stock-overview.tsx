@@ -1,6 +1,6 @@
 'use client'
 
-import { StatCard } from '@/components/ui/stat-card'
+import { CountsStrip, REPORT_CARD } from '@/components/ui/report-parts'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, ChevronDown, ChevronRight, PackagePlus, X, SearchX, Package } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
@@ -230,18 +230,8 @@ export function StockOverview() {
       )}
       {loadError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{loadError}</div>}
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        {[
-          ['Stock lines', summary.lines],
-          ['Low stock', summary.low],
-          [`Expiring within ${t.nearExpiryDays} days`, summary.expiring],
-          ['Expired batches', summary.expired],
-        ].map(([label, value], i) => (
-          <StatCard key={label as string} label={label} value={data ? value : '–'} tone={(['default', 'warn', 'warn', 'danger'] as const)[i]} />
-        ))}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
+      <section aria-label="Filters" className={REPORT_CARD}>
+      <div className="flex flex-wrap items-center gap-3 p-4">
         <Select value={itemFilter} onChange={(e) => setItemFilter(e.target.value)} aria-label="Filter by item"
           className="min-w-56">
           <option value="all">All items</option>
@@ -259,6 +249,13 @@ export function StockOverview() {
           <button type="button" onClick={() => { setItemFilter('all'); setBarangayFilter('all') }} className="text-sm font-semibold text-[#0077B6] hover:underline">Clear filters</button>
         )}
       </div>
+      <CountsStrip label="Stock counts" items={[
+        { label: 'Stock lines', value: data ? summary.lines : '–' },
+        { label: 'Low stock', value: data ? summary.low : '–', tone: 'review' },
+        { label: `Expiring within ${t.nearExpiryDays} days`, value: data ? summary.expiring : '–', tone: 'review' },
+        { label: 'Expired batches', value: data ? summary.expired : '–', tone: 'severe' },
+      ]} />
+      </section>
 
       <div className="overflow-x-auto rounded-xl border border-[#E5E7EB] bg-white shadow-sm">
         <table className="w-full min-w-[760px] text-left text-sm">

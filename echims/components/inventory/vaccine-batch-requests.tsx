@@ -1,5 +1,4 @@
 'use client'
-import { StatCard } from '@/components/ui/stat-card'
 
 // (moved out of the Vaccination page)
 // Sections: Records · Schedule · Defaulters · SMS Reminders · NIP Catalog · Batch Requests.
@@ -118,14 +117,6 @@ export function BatchRequestsSection() {
       ) : error && !data ? (
         <LoadError what="batch requests" error={error} retrying={refreshing} onRetry={() => void mutate()} />
       ) : (<>
-        {!statusFilter && (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <StatCard label="Requests" value={allRows.length} />
-            <StatCard label="Pending review" value={count('PENDING')} tone="warn" />
-            <StatCard label="Approved" value={count('APPROVED')} tone="good" />
-            <StatCard label="Rejected" value={count('REJECTED')} tone="danger" />
-          </div>
-        )}
         <DataTable
           rows={rows}
           rowKey={(r) => r.stock_request_id}
@@ -140,7 +131,7 @@ export function BatchRequestsSection() {
                 label="Filter by status"
                 value={statusFilter}
                 onChange={setStatusFilter}
-                options={(['', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((st) => ({ value: st, label: st === '' ? 'All' : BATCH_STATUS_META[st]?.label ?? st }))}
+                options={(['', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((st) => ({ value: st, label: st === '' ? 'All' : BATCH_STATUS_META[st]?.label ?? st, count: st === '' ? allRows.length : count(st) }))}
               />
               <div className="relative lg:w-72">
                 <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} aria-hidden="true" />

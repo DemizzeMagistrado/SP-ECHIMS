@@ -23,7 +23,7 @@ import { AlertCircle, BarChart3, ChevronDown, FileText, Plus, RefreshCw, Printer
 import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
-import { FilterCard, REPORT_CARD } from '@/components/nutrition/report-parts'
+import { FilterCard, REPORT_CARD, ViewSwitch } from '@/components/ui/report-parts'
 import { TabBar } from '@/components/ui/module-tabs'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
@@ -780,48 +780,23 @@ function SummaryReport({
     </>
   );
 }
-/** Overview / List UW … List SW: the module-tab pill at a smaller size (aria-pressed), counts in badges. */
+/** Overview / List UW … List SW: the shared view switcher (one row, counts in badges). */
 function SummaryViews({ value, onChange, counts }: {
   value: "Summary" | ListCode;
   onChange: (view: "Summary" | ListCode) => void;
   counts: Record<ListCode, number>;
 }) {
-  const row = useRef<HTMLDivElement>(null);
-  // One row at every width; it scrolls sideways when narrow. Keep the active pill in view (on load and on change).
-  useEffect(() => {
-    const list = row.current;
-    const pill = list?.querySelector<HTMLElement>('[aria-pressed="true"]');
-    if (!list || !pill || list.scrollWidth <= list.clientWidth) return;
-    const left = pill.offsetLeft - list.offsetLeft - 16;
-    const right = pill.offsetLeft - list.offsetLeft + pill.offsetWidth + 16 - list.clientWidth;
-    if (list.scrollLeft > left) list.scrollLeft = left;
-    else if (list.scrollLeft < right) list.scrollLeft = right;
-  }, [value]);
   return (
-    <div ref={row} role="group" aria-label="Summary views" className="-m-1 flex min-w-0 max-w-full flex-nowrap gap-2 overflow-x-auto p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      {(["Summary", ...listCodes] as Array<"Summary" | ListCode>).map((view) => {
-        const active = view === value;
-        return (
-          <button
-            key={view}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onChange(view)}
-            className={cn(
-              "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/40",
-              active ? "border-transparent bg-primary text-white" : "border-border bg-white text-foreground shadow-sm hover:bg-muted",
-            )}
-          >
-            {view === "Summary" ? "Overview" : `List ${view}`}
-            {view !== "Summary" && (
-              <span className={cn("rounded-full px-1.5 text-[11px] font-semibold tabular-nums", active ? "bg-white/20" : "bg-muted text-muted-foreground")}>
-                {counts[view]}
-              </span>
-            )}
-          </button>
-        );
-      })}
-    </div>
+    <ViewSwitch
+      label="Summary views"
+      value={value}
+      onChange={onChange}
+      items={(["Summary", ...listCodes] as Array<"Summary" | ListCode>).map((view) => ({
+        value: view,
+        label: view === "Summary" ? "Overview" : `List ${view}`,
+        count: view === "Summary" ? undefined : counts[view],
+      }))}
+    />
   );
 }
 // List UW … List SW table: client-verified columns, in this exact order with these exact labels.

@@ -3,7 +3,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useRef, useState, type MouseEvent } from "react";
 import { AlertTriangle, ChevronDown, HeartPulse, RefreshCw, Search } from "lucide-react";
-import { CountsStrip, FilterCard, REPORT_CARD, SectionHeader } from '@/components/nutrition/report-parts'
+import { CountsStrip, FilterCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
 import { cn } from '@/lib/utils'
 import { Pagination, usePagination } from '@/components/ui/pagination'
 import { StatusBadge } from '@/components/ui/status-badge'

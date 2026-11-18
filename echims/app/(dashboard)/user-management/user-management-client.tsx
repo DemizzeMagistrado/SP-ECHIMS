@@ -1,5 +1,5 @@
 'use client'
-import { StatCard } from '@/components/ui/stat-card'
+import { CountsStrip, REPORT_CARD } from '@/components/ui/report-parts'
 import { Modal } from '@/components/ui/modal'
 import { UserX } from 'lucide-react'
 import { UserActions } from '@/components/user-management/user-actions'
@@ -585,25 +585,11 @@ export default function UserManagementClient({
         subtitle="Manage registered personnel, account verification, and workplace assignments."
       />
 
-      {/* SUMMARY CARDS */}
-
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-
-        <StatCard label="Pending" value={pendingCount} hint="Awaiting verification" tone="warn" />
-
-        <StatCard label="Active" value={activeCount} hint="Authorized accounts" tone="good" />
-
-        <StatCard label="Inactive" value={inactiveCount} hint="Deactivated accounts" />
-
-        <StatCard label="Suspended" value={suspendedCount} hint="Suspended accounts" tone="danger" />
-
-      </div>
-
       {/* FILTERS */}
 
-      <div className="rounded-2xl bg-white p-5 shadow-sm">
+      <section aria-label="Filters" className={REPORT_CARD}>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-3">
 
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-700">
@@ -709,7 +695,20 @@ export default function UserManagementClient({
           </div>
 
         </div>
-      </div>
+
+        {/* Account counts; each one filters by that status. */}
+        <CountsStrip
+          label="Account counts"
+          selected={statusFilter}
+          onSelect={(key) => setStatusFilter(statusFilter === key ? 'ALL' : key)}
+          items={[
+            { key: 'PENDING', label: 'Pending', value: pendingCount, tone: 'review' },
+            { key: 'ACTIVE', label: 'Active', value: activeCount },
+            { key: 'INACTIVE', label: 'Inactive', value: inactiveCount },
+            { key: 'SUSPENDED', label: 'Suspended', value: suspendedCount, tone: 'severe' },
+          ]}
+        />
+      </section>
 
       {/* MESSAGES */}
 

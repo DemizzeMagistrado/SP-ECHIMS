@@ -18,7 +18,7 @@ import { LogoLoader } from '@/components/brand/logo-loader'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/form'
-import { StatCard } from '@/components/ui/stat-card'
+import { CountsStrip, REPORT_CARD } from '@/components/ui/report-parts'
 import { EmptyState } from '@/components/ui/empty-state'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { toast } from '@/components/ui/toast'
@@ -180,22 +180,8 @@ export default function GeospatialMapPage() {
         />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <StatCard label="Children mapped" value={`${mapped.length} / ${filtered.length}`} hint="Household location recorded" />
-            <StatCard label="Barangays covered" value={`${brgyCovered} / ${brgyTotal}`} tone="info" hint="With registered children" />
-            <StatCard label="Without coordinates" value={unmapped.length} tone={unmapped.length ? 'warn' : 'good'} hint="Household location missing" />
-            <StatCard
-              label="Need follow-up"
-              value={needFollowUp.length}
-              tone={needFollowUp.length ? 'danger' : 'good'}
-              hint={[
-                canSeeVaccination && `${needFollowUp.filter((c) => c.follow_up === 'missed').length} missed doses`,
-                canSeeNutrition && `${needFollowUp.filter((c) => c.follow_up === 'at_risk').length} nutrition at risk`,
-              ].filter(Boolean).join(' · ')}
-            />
-          </div>
-
-          <div className="grid gap-3 rounded-2xl border border-border bg-white p-4 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr]">
+          <section aria-label="Filters" className={REPORT_CARD}>
+          <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr]">
             <div className="relative sm:col-span-2 lg:col-span-1">
               <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input aria-label="Search children on the map" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, Child ID or FSN" className="pl-9 pr-9" />
@@ -222,6 +208,19 @@ export default function GeospatialMapPage() {
               </p>
             )}
           </div>
+          <CountsStrip label="Map counts" items={[
+            { label: 'Children mapped', value: `${mapped.length} / ${filtered.length}` },
+            { label: 'Barangays covered', value: `${brgyCovered} / ${brgyTotal}` },
+            { label: 'Without coordinates', value: unmapped.length, tone: 'review' },
+            {
+              label: 'Need follow-up', value: needFollowUp.length, tone: 'severe',
+              hint: [
+                canSeeVaccination && `${needFollowUp.filter((c) => c.follow_up === 'missed').length} missed doses`,
+                canSeeNutrition && `${needFollowUp.filter((c) => c.follow_up === 'at_risk').length} nutrition at risk`,
+              ].filter(Boolean).join(' · '),
+            },
+          ]} />
+          </section>
 
           <div className="grid gap-6 lg:grid-cols-3">
             <section aria-label="Map" className="space-y-3 rounded-2xl border border-border bg-white p-3 sm:p-4 lg:col-span-2">
