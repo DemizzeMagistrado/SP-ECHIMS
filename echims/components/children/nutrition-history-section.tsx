@@ -124,6 +124,7 @@ export function NutritionHistorySection({ assessments, loading = false, error, o
       {actions && <div className="flex flex-wrap items-center gap-2 print:hidden">{actions}</div>}
     </div>
     <TabBar
+      variant="sub"
       className="border-b p-3"
       label="Nutrition record sections"
       group="nutrition-history"

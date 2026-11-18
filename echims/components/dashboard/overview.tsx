@@ -87,13 +87,13 @@ const quickActions: Record<UserRole, (QuickAction & { module: string })[]> = {
   Administrator: [
     { label: 'Review accounts', href: '/user-management', module: 'User Management', icon: <Users size={17} strokeWidth={1.75} /> },
     { label: 'Children', href: '/child-profiling/children', module: 'Child Profiling', icon: <Baby size={17} strokeWidth={1.75} /> },
-    { label: 'Stock overview', href: '/inventory/stock-overview', module: 'Inventory', icon: <Boxes size={17} strokeWidth={1.75} /> },
+    { label: 'Stock overview', href: '/inventory', module: 'Inventory', icon: <Boxes size={17} strokeWidth={1.75} /> },
     { label: 'Reports', href: '/reports', module: 'Reports', icon: <FileText size={17} strokeWidth={1.75} /> },
   ],
   'Public Health Nurse': [
     { label: 'Health activities', href: '/health-activities', module: 'Health Activities', icon: <ClipboardCheck size={17} strokeWidth={1.75} /> },
     { label: 'Missed doses', href: '/vaccination/schedule?status=missed', module: 'Vaccination', icon: <AlertTriangle size={17} strokeWidth={1.75} /> },
-    { label: 'Stock overview', href: '/inventory/stock-overview', module: 'Inventory', icon: <Boxes size={17} strokeWidth={1.75} /> },
+    { label: 'Stock overview', href: '/inventory', module: 'Inventory', icon: <Boxes size={17} strokeWidth={1.75} /> },
     { label: 'Reports', href: '/reports', module: 'Reports', icon: <FileText size={17} strokeWidth={1.75} /> },
   ],
   'Rural Health Midwife': [
@@ -162,7 +162,7 @@ export function DashboardOverview() {
     can('Vaccination') && { label: 'Missed vaccinations', value: (x) => x.vaccinations_overdue, note: () => 'Past their due date', href: '/vaccination/schedule?status=missed', tone: 'danger', icon: <AlertTriangle size={19} strokeWidth={1.75} /> },
     can('Vaccination') && { label: 'Due in 14 days', value: (x) => x.vaccinations_due_soon, note: () => 'Remind guardians early', href: '/vaccination/schedule', tone: 'warn', icon: <CalendarClock size={19} strokeWidth={1.75} /> },
     can('Nutritional Assessment') && { label: 'At nutritional risk', value: (x) => x.at_risk_children, note: (x) => x.children > 0 ? `${Math.round((x.at_risk_children / x.children) * 100)}% of registered children` : 'From latest assessments', href: '/nutrition', tone: 'nutrition', icon: <Apple size={19} strokeWidth={1.75} /> },
-    can('Inventory') && { label: 'Low-stock items', value: (x) => x.low_stock_items, note: () => '10 or fewer on hand', href: '/inventory/stock-overview', tone: 'neutral', icon: <Boxes size={19} strokeWidth={1.75} /> },
+    can('Inventory') && { label: 'Low-stock items', value: (x) => x.low_stock_items, note: () => '10 or fewer on hand', href: '/inventory', tone: 'neutral', icon: <Boxes size={19} strokeWidth={1.75} /> },
   ] as (AttentionItem | false)[]).filter(Boolean) as AttentionItem[]
   // Roles with fewer than four follow-up cards get period counts from modules they use.
   const fillers = ([

@@ -1,4 +1,4 @@
-// INV-USR005 — PHN decides on a replenishment request.
+// INV-USR005 — PHN decides on a replenishment request: APPROVE, or RETURN for revision (INV-REV01).
 // POST /api/inventory/replenishment-decision
 //
 // Flat route (no [param] folder) per the project preference; the request id
@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase/server'
 
 type Body = {
   stock_request_id?: number | string
-  decision?: 'APPROVE' | 'REJECT' | string
+  decision?: 'APPROVE' | 'RETURN' | string
   reason?: string
 }
 
@@ -28,8 +28,8 @@ export async function POST(request: Request) {
   const reason = String(body.reason ?? '').trim()
 
   if (!Number.isSafeInteger(id) || id <= 0) return NextResponse.json({ error: 'stock_request_id is required.' }, { status: 400 })
-  if (decision !== 'APPROVE' && decision !== 'REJECT') return NextResponse.json({ error: 'decision must be APPROVE or REJECT.' }, { status: 400 })
-  if (decision === 'REJECT' && !reason) return NextResponse.json({ error: 'reason is required when rejecting.' }, { status: 400 })
+  if (decision !== 'APPROVE' && decision !== 'RETURN') return NextResponse.json({ error: 'decision must be APPROVE or RETURN.' }, { status: 400 })
+  if (decision === 'RETURN' && !reason) return NextResponse.json({ error: 'Say what the requester needs to change.' }, { status: 400 })
 
   const { data, error } = await supabase.rpc('inv_decide_replenishment', {
     p_stock_request_id: id,

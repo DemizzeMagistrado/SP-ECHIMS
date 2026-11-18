@@ -2,11 +2,11 @@
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 // NIP-USR010 — PHN review modal for a single batch request.
-// Shows the full request detail and gives Approve / Reject buttons.
-// Reject prompts for a reason inline before confirming.
+// Shows the full request detail and gives Approve / Return for revision (INV-REV01).
+// Return asks what to change; the RHM edits and resubmits the request.
 
 import { useState } from 'react'
-import { AlertCircle, CheckCircle2, XCircle, Package, Hash, MapPin, FileText, User, Calendar } from 'lucide-react'
+import { AlertCircle, CheckCircle2, PencilLine, Package, Hash, MapPin, FileText, User, Calendar } from 'lucide-react'
 import { toast } from '@/components/ui/toast'
 
 import { Button } from '@/components/ui/button'
@@ -51,8 +51,8 @@ function formatDate(ts: string | null | undefined): string {
   return new Date(ts).toLocaleString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-export function BatchRequestDecisionModal({ open, onClose, onDecided, request }: Props) {
-  const [mode, setMode] = useState<'review' | 'reject'>('review')
+export function BatchRequestDecisionModal({ open, onClose, onDecided, request, canDecide = true }: Props & { canDecide?: boolean }) {
+  const [mode, setMode] = useState<'review' | 'return'>('review')
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
@@ -66,10 +66,10 @@ export function BatchRequestDecisionModal({ open, onClose, onDecided, request }:
   const requester = one(request.requester)
   const requesterEmail = requester ? one(requester.user)?.full_name ?? one(requester.user)?.email ?? requester.user_id : '—'
 
-  async function send(decision: 'APPROVE' | 'REJECT') {
+  async function send(decision: 'APPROVE' | 'RETURN') {
     setFormError('')
-    if (decision === 'REJECT' && !reason.trim()) {
-      return setFormError('A reason is required when rejecting.')
+    if (decision === 'RETURN' && !reason.trim()) {
+      return setFormError('Say what the requester needs to change.')
     }
     setSaving(true)
     try {
@@ -79,14 +79,14 @@ export function BatchRequestDecisionModal({ open, onClose, onDecided, request }:
         body: JSON.stringify({
           stock_request_id: request!.stock_request_id,
           decision,
-          reason: decision === 'REJECT' ? reason.trim() : undefined,
+          reason: decision === 'RETURN' ? reason.trim() : undefined,
         }),
       })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(d.error || `Decision failed (HTTP ${r.status}).`)
       const msg = decision === 'APPROVE'
         ? `Request #${request!.stock_request_id} approved. ${d.warning ?? 'Inventory updated.'}`
-        : `Request #${request!.stock_request_id} rejected.`
+        : `Request #${request!.stock_request_id} returned for revision.`
       toast.success(msg)
       onDecided?.()
       // Reset local UI
@@ -99,7 +99,7 @@ export function BatchRequestDecisionModal({ open, onClose, onDecided, request }:
     }
   }
 
-  const isPending = request.status === 'PENDING'
+  const isPending = request.status === 'PENDING' && canDecide
 
   return (
     <Modal
@@ -113,13 +113,13 @@ export function BatchRequestDecisionModal({ open, onClose, onDecided, request }:
       cancelLabel={isPending ? 'Cancel' : 'Close'}
       footer={!isPending ? null : mode === 'review' ? (
         <>
-          <Button variant="secondary" className="text-danger" onClick={() => setMode('reject')} disabled={saving}><XCircle size={14} aria-hidden="true" /> Reject</Button>
+          <Button variant="outline" onClick={() => setMode('return')} disabled={saving}><PencilLine size={14} aria-hidden="true" /> Return for revision</Button>
           <Button onClick={() => send('APPROVE')} loading={saving}>{!saving && <CheckCircle2 size={14} aria-hidden="true" />}{saving ? 'Approving…' : 'Approve'}</Button>
         </>
       ) : (
         <>
           <Button variant="secondary" onClick={() => { setMode('review'); setReason(''); setFormError('') }} disabled={saving}>Back</Button>
-          <Button variant="danger" onClick={() => send('REJECT')} loading={saving} disabled={!reason.trim()}>{!saving && <XCircle size={14} aria-hidden="true" />}{saving ? 'Rejecting…' : 'Confirm reject'}</Button>
+          <Button onClick={() => send('RETURN')} loading={saving} disabled={!reason.trim()}>{!saving && <PencilLine size={14} aria-hidden="true" />}{saving ? 'Returning…' : 'Return for revision'}</Button>
         </>
       )}
     >
@@ -139,7 +139,7 @@ export function BatchRequestDecisionModal({ open, onClose, onDecided, request }:
             )}
             {request.reason && (
               <div className="md:col-span-2">
-                <DetailRow icon={<FileText size={13} />} label="Decision reason" value={request.reason} />
+                <DetailRow icon={<FileText size={13} />} label={request.status === 'NEEDS_REVISION' ? 'What the PHN asked to change' : 'PHN note'} value={request.reason} />
               </div>
             )}
             {request.approved_at && (
@@ -160,20 +160,20 @@ export function BatchRequestDecisionModal({ open, onClose, onDecided, request }:
             </div>
           )}
 
-          {/* Reject reason input */}
-          {isPending && mode === 'reject' && (
+          {/* What to change, for Return for revision */}
+          {isPending && mode === 'return' && (
             <div>
               <label htmlFor="br-reason" className="mb-1 block text-sm font-semibold text-foreground">
-                Reason for rejection *
+                What needs to change *
               </label>
               <Textarea
                 id="br-reason"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={3}
-                placeholder="e.g. Batch already allocated / insufficient central stock / duplicate request"
+                placeholder="e.g. The batch number does not match the label / reduce the quantity to 50"
               />
-              <p className="mt-1 text-xs text-muted-foreground">Shown to the RHM in their requests list.</p>
+              <p className="mt-1 text-xs text-muted-foreground">The RHM sees this, edits the request and resubmits it.</p>
             </div>
           )}
 

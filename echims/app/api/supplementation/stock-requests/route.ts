@@ -108,7 +108,7 @@ export async function POST(request: Request) {
         p_remarks: body.remarks,
         p_request_id: body.requestId,
       });
-    } else if (body.action === "REJECT") {
+    } else if (body.action === "RETURN") {
       if (
         !id(body.stockRequestId) ||
         typeof body.reason !== "string" ||
@@ -116,14 +116,14 @@ export async function POST(request: Request) {
         body.reason.length > 2000
       )
         return json(
-          { error: "Choose a request and provide a rejection reason." },
+          { error: "Choose a request and say what needs to change." },
           400,
         );
-      result = await auth.db.rpc("reject_supplement_stock_request", {
+      result = await auth.db.rpc("return_supplement_stock_request", {
         p_stock_request_id: body.stockRequestId,
         p_reason: body.reason.trim(),
       });
-    } else return json({ error: "Choose REQUEST, APPROVE or REJECT." }, 400);
+    } else return json({ error: "Choose REQUEST, APPROVE or RETURN." }, 400);
     if (result.error) return databaseError(result.error);
     return json(
       {
@@ -133,7 +133,7 @@ export async function POST(request: Request) {
             ? "Request saved for PHN review. No stock has been reserved or allocated."
             : body.action === "APPROVE"
               ? "Request approved. Barangay batch stock was increased. Refresh Supplement Inventory to see it. RHU source stock was not deducted."
-              : "Request rejected. Stock is unchanged.",
+              : "Returned to the requester for revision. Stock is unchanged.",
       },
       body.action === "REQUEST" && !result.data?.replayed ? 201 : 200,
     );

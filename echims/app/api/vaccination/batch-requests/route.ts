@@ -57,7 +57,7 @@ export async function GET(request: Request) {
     .eq('request_type', 'VACCINE_BATCH')
     .order('request_date', { ascending: false })
 
-  if (statusFilter && ['PENDING', 'APPROVED', 'REJECTED', 'COMPLETED', 'CANCELLED'].includes(statusFilter)) {
+  if (statusFilter && ['PENDING', 'APPROVED', 'NEEDS_REVISION', 'COMPLETED', 'CANCELLED'].includes(statusFilter)) {
     query = query.eq('status', statusFilter)
   }
 

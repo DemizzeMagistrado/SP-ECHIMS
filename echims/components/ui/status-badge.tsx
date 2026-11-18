@@ -32,6 +32,17 @@ const STATUS_TONE: Record<string, StatusTone> = {
   cancelled: 'neutral', canceled: 'neutral', skipped: 'neutral', inactive: 'neutral', unknown: 'neutral', closed: 'neutral',
 }
 
+// The six request statuses use one exact palette in every module (ACT-REV01 / INV-REV01), unless a
+// caller passes its own tone.
+const REQUEST_STATUS_COLORS: Record<string, { backgroundColor: string; color: string }> = {
+  pending: { backgroundColor: '#FEF3C7', color: '#92610E' },
+  approved: { backgroundColor: '#DDF1E8', color: '#17694C' },
+  'needs-revision': { backgroundColor: '#FFF4DB', color: '#9C6B10' },
+  ongoing: { backgroundColor: '#DFF3F9', color: '#0B759A' },
+  completed: { backgroundColor: '#F0F2F5', color: '#55617F' },
+  cancelled: { backgroundColor: '#FEE2E2', color: '#C42B2B' },
+}
+
 const norm = (s: string) => s.trim().toLowerCase().replace(/[\s_]+/g, '-')
 const titleCase = (s: string) => s.replace(/[-_]+/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase())
 
@@ -49,8 +60,12 @@ export function StatusBadge({ status, label, tone, dot = false, icon, className 
   icon?: ReactNode
   className?: string
 }) {
+  const exact = tone ? undefined : REQUEST_STATUS_COLORS[norm(status)]
   return (
-    <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset', TONES[tone ?? statusTone(status)], className)}>
+    <span
+      className={cn('inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset', TONES[tone ?? statusTone(status)], exact && 'ring-0', className)}
+      style={exact}
+    >
       {dot && <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />}
       {icon}
       {label ?? titleCase(status)}

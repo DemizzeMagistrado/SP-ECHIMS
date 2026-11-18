@@ -64,7 +64,7 @@ export function SupplementationHistorySection({childId}:{childId:number}){
         <Link className={buttonVariants({variant:'secondary',size:'sm'})} href={reviewHref}>{data?.permissions?.record||data?.permissions?.clinical?'Review / Record':'Review supplementation'}</Link>
       </div>
     </div>
-    <TabBar className="border-b p-3" label="Supplementation sections" group="supplementation-history" value={tab} onChange={setTab}
+    <TabBar variant="sub" className="border-b p-3" label="Supplementation sections" group="supplementation-history" value={tab} onChange={setTab}
       items={(Object.keys(labels) as Array<keyof typeof labels>).map((key) => ({ value: key, label: labels[key] }))} />
     <TabPanel tabKey={tab}>
     <div role="tabpanel" aria-label={labels[tab]}>

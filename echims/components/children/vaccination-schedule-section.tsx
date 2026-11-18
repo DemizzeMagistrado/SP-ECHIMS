@@ -306,6 +306,7 @@ export function VaccinationScheduleSection({ childId }: { childId: number }) {
         <p className="mt-1 text-sm text-muted-foreground">Saved immunization records, dose status and vaccination schedule requests</p>
       </div>
       <TabBar
+        variant="sub"
         className="border-b p-3 print:hidden"
         label="NIP record sections"
         group="nip-records"

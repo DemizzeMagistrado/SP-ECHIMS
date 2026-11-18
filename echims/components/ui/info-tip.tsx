@@ -4,15 +4,17 @@
 // tap (touch screens), closes on Esc, blur or a tap elsewhere.
 //   <InfoTip label="About Child ID">A unique ID the system gives every registered child…</InfoTip>
 // The bubble is rendered in a portal on <body>, so table headers (uppercase, nowrap, overflow)
-// never clip or restyle it: fixed 312px width (max 100vw − 32px), normal wrapping, below the
+// never clip or restyle it: fixed 320px width (max 100vw − 32px), normal wrapping, below the
 // icon or above when there is no room, shifted to stay on screen, with an arrow at the icon.
+// Content follows the system format (INV-REV01): use <InfoContent> (bold title, one-line
+// description, FORMAT / EXAMPLE / VALUES / TIP sections, optional bullets and a footer note).
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const WIDTH = 312
+const WIDTH = 320
 const MARGIN = 16
 
 export function InfoTip({ label, children, className, align = 'start', text }: {
@@ -98,11 +100,11 @@ export function InfoTip({ label, children, className, align = 'start', text }: {
           id={id}
           role="tooltip"
           style={pos?.style ?? { position: 'fixed', left: 0, top: 0, width: Math.min(WIDTH, window.innerWidth - MARGIN * 2), visibility: 'hidden' }}
-          className="z-[90] block whitespace-normal break-words rounded-xl border border-border bg-white p-4 text-left text-xs font-normal normal-case leading-5 tracking-normal text-brand-navy shadow-lg [overflow-wrap:anywhere] animate-in fade-in duration-100"
+          className="z-[90] block whitespace-normal break-words rounded-xl border border-[#D5E2EA] bg-white p-4 text-left text-[13px] font-normal normal-case leading-[1.5] tracking-normal text-[#1E2A55] shadow-[0_4px_16px_rgba(12,18,96,0.12)] [overflow-wrap:anywhere] animate-in fade-in duration-100"
         >
           {pos && (
             <span aria-hidden="true" style={{ left: pos.arrowLeft }}
-              className={cn('absolute size-2.5 -translate-x-1/2 rotate-45 border-border bg-white', pos.up ? '-bottom-[6px] border-b border-r' : '-top-[6px] border-l border-t')} />
+              className={cn('absolute size-2.5 -translate-x-1/2 rotate-45 border-[#D5E2EA] bg-white', pos.up ? '-bottom-[6px] border-b border-r' : '-top-[6px] border-l border-t')} />
           )}
           {children}
         </span>,
@@ -112,23 +114,60 @@ export function InfoTip({ label, children, className, align = 'start', text }: {
   )
 }
 
-/** Labeled explanation of a generated code: title, description, format, example, note. */
-export function CodeHelp({ title, description, format, example, note }: {
-  title: string; description: ReactNode; format: string; example: string; note: ReactNode
+export type InfoSection = {
+  label: 'Format' | 'Example' | 'Values' | 'Tip'
+  /** One value, or several lines (Values: one per line). */
+  value: ReactNode | ReactNode[]
+}
+
+/** The system info-popup format: bold title, a one-line description, labeled sections (FORMAT and
+ *  EXAMPLE as mono chips; VALUES and TIP as a gray box), optional bullets, then a footer note. Use it
+ *  as InfoTip / SectionHeader `about` content. A one-liner is just title + description. */
+export function InfoContent({ title, description, sections = [], bullets = [], note }: {
+  title: ReactNode
+  description: ReactNode
+  sections?: InfoSection[]
+  bullets?: ReactNode[]
+  note?: ReactNode
 }) {
-  const label = 'block text-[11px] font-semibold uppercase tracking-wide text-brand-muted'
-  const chip = 'mt-0.5 inline-block rounded-md bg-brand-ice px-1.5 py-0.5 font-mono text-[11px] text-brand-navy ring-1 ring-inset ring-brand-line'
   return (
-    <span className="block space-y-2.5">
-      <span className="block text-sm font-bold text-brand-navy">{title}</span>
-      <span className="block text-brand-navy/90">{description}</span>
-      <span className="block"><span className={label}>Format</span><code className={chip}>{format}</code></span>
-      <span className="block"><span className={label}>Example</span><code className={chip}>{example}</code></span>
-      <span className="block border-t border-border pt-2 text-brand-muted">{note}</span>
+    <span className="block">
+      <span className="mb-1.5 block text-sm font-bold text-[#0C1260]">{title}</span>
+      <span className="block text-[#55617F]">{description}</span>
+      {sections.map((section) => {
+        const lines = Array.isArray(section.value) ? section.value : [section.value]
+        const code = section.label === 'Format' || section.label === 'Example'
+        return (
+          <span key={section.label} className="block">
+            <span className="mb-1 mt-2.5 block text-[11px] font-bold uppercase tracking-[0.5px] text-[#8896B0]">{section.label}</span>
+            {code ? (
+              <code className="inline-block rounded-md bg-[#F0F2F5] px-2.5 py-1 font-mono text-xs text-[#0C1260] [font-family:'SF_Mono','Fira_Code',ui-monospace,monospace]">{lines[0]}</code>
+            ) : (
+              <span className="block rounded-md bg-[#F0F2F5] px-2.5 py-1.5 text-xs text-[#0C1260]">
+                {lines.map((line, i) => <span key={i} className="block">{line}</span>)}
+              </span>
+            )}
+          </span>
+        )
+      })}
+      {bullets.length > 0 && (
+        <span className="mt-2.5 block space-y-1 text-[#55617F]">
+          {bullets.map((bullet, i) => (
+            <span key={i} className="flex gap-1.5"><span aria-hidden="true" className="text-[#8896B0]">•</span><span>{bullet}</span></span>
+          ))}
+        </span>
+      )}
+      {note && <span className="mt-2.5 block border-t border-[#EAF0F4] pt-2 text-xs text-[#8896B0]">{note}</span>}
     </span>
   )
 }
 
+/** Labeled explanation of a generated code: title, description, format, example, note. */
+export function CodeHelp({ title, description, format, example, note }: {
+  title: string; description: ReactNode; format: string; example: string; note: ReactNode
+}) {
+  return <InfoContent title={title} description={description} sections={[{ label: 'Format', value: format }, { label: 'Example', value: example }]} note={note} />
+}
 /** The two explanations used across Child Profiling. */
 export const CHILD_ID_HELP = (
   <CodeHelp

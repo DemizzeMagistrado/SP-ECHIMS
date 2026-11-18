@@ -27,10 +27,11 @@ assert.ok(canPerform(RHM, 'Vaccination', 'create') && canPerform(BHW, 'Vaccinati
 assert.ok(!hasPermission('PHN', 'vaccination.create') && hasPermission('BHW', 'vaccination.create'))
 
 // Inventory: RHM views, requests and logs usage; no receiving / allocation
-assert.ok(canAccess(RHM, '/inventory/stock-overview') && canAccess(RHM, '/inventory/usage') && canAccess(RHM, '/inventory/batch-requests'))
-assert.ok(!canAccess(RHM, '/inventory/stock-allocation') && !canPerform(RHM, 'Inventory', 'create'))
+// (INV-REV01: one /inventory page; each section shows when its module allows 'view'.)
+assert.ok(canAccess(RHM, '/inventory') && canPerform(RHM, 'Inventory Transactions', 'view') && canPerform(RHM, 'Vaccine Batch Requests', 'view'))
+assert.ok(!canPerform(RHM, 'Stock Allocation', 'view') && !canPerform(RHM, 'Batch Trace', 'view') && !canPerform(RHM, 'Inventory', 'create'))
 assert.ok(canPerform(RHM, 'Inventory', 'request') && canPerform(RHM, 'Inventory Transactions', 'create'))
-assert.ok(!canAccess(BHW, '/inventory/batch-requests') && !canAccess(BHW, '/inventory/stock-overview'))
+assert.ok(!canPerform(BHW, 'Vaccine Batch Requests', 'view') && !canAccess(BHW, '/inventory'))
 
 // Settings: BHW Profile / Security only; vaccines tab for every Vaccination role
 assert.ok(!canPerform(BHW, 'Organization', 'view') && canPerform(PHN, 'Organization', 'view'))

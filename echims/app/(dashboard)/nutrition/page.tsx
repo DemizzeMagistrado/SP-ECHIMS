@@ -28,7 +28,7 @@ import { TabBar } from '@/components/ui/module-tabs'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { Checkbox, Select, DateInput } from '@/components/ui/form'
-import { InfoTip } from '@/components/ui/info-tip'
+import { InfoContent, InfoTip } from '@/components/ui/info-tip'
 import { Pagination, usePagination, useStableHeight } from '@/components/ui/pagination'
 import { LoadError } from '@/components/ui/load-error'
 import { ScoresDialog } from '@/components/nutrition/assessment-scores-dialog'
@@ -2027,8 +2027,11 @@ export default function NutritionPage() {
                 {online ? "Pending offline drafts" : "Offline"} ·{" "}
                 {queued.length} local draft{queued.length === 1 ? "" : "s"}
                 <InfoTip label="About offline drafts">
-                  Drafts stay on this device until you review and confirm upload.
-                  Eligible drafts sync automatically when online. Conflicts remain for recorder review.
+                  <InfoContent
+                    title="Offline drafts"
+                    description="Drafts stay on this device until you review and confirm the upload."
+                    bullets={["Eligible drafts sync automatically when you are online", "Conflicts stay here for the recorder to review"]}
+                  />
                 </InfoTip>
               </h2>
               <p className="mt-1 text-xs text-muted-foreground">Saved on this device until uploaded</p>
@@ -2223,11 +2226,12 @@ export default function NutritionPage() {
               <h2 className="flex items-center gap-1.5 text-lg font-semibold text-brand-navy">
                 {history ? "Assessment history" : "Latest assessments"}
                 <InfoTip label="About this table">
-                  Profile information comes from the linked child record. View
-                  child record opens the centralized profile and health history;
-                  Scores shows this assessment’s calculated results. Counts use the
-                  latest loaded assessment per child in the selected year and
-                  barangay; categories can overlap.
+                  <InfoContent
+                    title={history ? "Assessment history" : "Latest assessments"}
+                    description="Profile details come from the linked child record."
+                    sections={[{ label: "Tip", value: "View child record opens the profile and health history; Scores shows this assessment’s calculated results." }]}
+                    note="Counts use the latest loaded assessment per child in the selected year and barangay; categories can overlap."
+                  />
                 </InfoTip>
               </h2>
               <p className="mt-0.5 text-sm text-brand-muted">
@@ -2356,10 +2360,11 @@ export default function NutritionPage() {
             <p className="flex items-center gap-1.5 border-t border-brand-line bg-white px-4 py-3 text-xs text-brand-muted">
               Profile columns show the child&rsquo;s current record. Measurements are as recorded on the date measured. Flagged values are shown in color.
               <InfoTip label="About these columns">
-                IP membership comes from the latest child profile’s Ethnicity
-                field. Disability and region are not present in the supplied
-                profile fields. All accessible assessment records are loaded in
-                pages.
+                <InfoContent
+                  title="Profile columns"
+                  description="IP membership comes from the latest child profile’s Ethnicity field."
+                  bullets={["Disability and region are not in the profile fields", "All accessible assessment records load in pages"]}
+                />
               </InfoTip>
             </p>
           </section>

@@ -20,7 +20,14 @@ const nextConfig = {
     return [
       { source: '/vaccination/defaulters', destination: '/vaccination/schedule?status=missed', permanent: true },
       { source: '/vaccination/sms', destination: '/vaccination/schedule', permanent: true },
-      { source: '/vaccination/batch-requests', destination: '/inventory/batch-requests', permanent: true },
+      { source: '/vaccination/batch-requests', destination: '/inventory?tab=batches#batch-requests', permanent: false },
+      // INV-REV01: Inventory is one page with two tabs; the old section pages land on their section.
+      { source: '/inventory/stock-overview', destination: '/inventory?tab=stock#stock-overview', permanent: false },
+      { source: '/inventory/stock-allocation', destination: '/inventory?tab=stock#allocation', permanent: false },
+      { source: '/inventory/usage', destination: '/inventory?tab=stock#usage-log', permanent: false },
+      { source: '/inventory/replenishment', destination: '/inventory?tab=batches#replenishment', permanent: false },
+      { source: '/inventory/batch-trace', destination: '/inventory?tab=batches#batch-trace', permanent: false },
+      { source: '/inventory/batch-requests', destination: '/inventory?tab=batches#batch-requests', permanent: false },
       // Vaccines tab (NIP-REV01). Not permanent: these moved twice, so browsers must not cache them.
       { source: '/vaccination/catalog', destination: '/vaccination/vaccines', permanent: false },
       { source: '/settings/vaccine-catalog', destination: '/vaccination/vaccines', permanent: false },

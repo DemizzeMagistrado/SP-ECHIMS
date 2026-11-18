@@ -15,6 +15,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { Pagination, usePagination } from '@/components/ui/pagination'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { CountsStrip, FilterCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
+import { InfoContent } from '@/components/ui/info-tip'
 
 const PRIORITY_TONE = { CRITICAL: 'severe', HIGH: 'review', MEDIUM: 'neutral', LOW: 'neutral' } as const
 // Same table styling as All assessments (.data-grid lines, zebra, hover with a navy bar, pinned Action column).
@@ -43,7 +44,13 @@ export function NutritionRiskMonitor({ monitoring, error, loading, offline, refr
     <SectionHeader
       title="Nutritional risk monitoring"
       subtitle="Children whose latest saved assessment shows a nutritional risk. One row per active child."
-      about="Current risks use the latest saved assessment per active child across all years. Counts cover your full accessible scope. Needs review includes unavailable risk flags or incomplete latest evaluations; those children are not assumed to be normal."
+      about={<InfoContent
+        title="Nutritional risk monitoring"
+        description="Uses each active child's latest saved assessment, across all years."
+        sections={[{ label: 'Values', value: ['Needs review = risk flags unavailable or the latest evaluation is incomplete'] }]}
+        bullets={['Counts cover your full accessible scope']}
+        note="Children needing review are not assumed to be normal."
+      />}
     />
     {offline && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Offline: this is the last account-specific snapshot. Reconnect and refresh to verify current risks and assignments.</p>}
     {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}{monitoring && ' Showing the last available results; refresh successfully before treating them as current.'}</p>}

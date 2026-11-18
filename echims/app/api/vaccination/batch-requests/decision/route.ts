@@ -1,7 +1,7 @@
-// NIP-USR010 — PHN approve/reject a vaccine batch request.
+// NIP-USR010 — PHN approves a vaccine batch request or returns it for revision (INV-REV01).
 // POST /api/vaccination/batch-requests/decision
 //
-// Body: { stock_request_id, decision: 'APPROVE' | 'REJECT', reason?: string }
+// Body: { stock_request_id, decision: 'APPROVE' | 'RETURN', reason?: string }
 //
 // On APPROVE:
 //   1. Update stock_request → status='APPROVED', approved_by, approved_at
@@ -12,9 +12,9 @@
 //   4. INSERT inventory_transaction with transaction_type='STOCK_IN',
 //      reference_number='SR-{stock_request_id}' — full audit trail.
 //
-// On REJECT:
-//   1. Update stock_request → status='REJECTED', approved_by, approved_at
-//   2. Save the reason text so RHM knows why
+// On RETURN:
+//   1. Update stock_request → status='NEEDS_REVISION', approved_by, approved_at
+//   2. Save the note so the RHM knows what to change; they edit and resubmit it
 //   3. No inventory side-effects.
 //
 // Role gate: canPerform(role, 'Vaccine Batch Requests', 'approve') — Admin / PHN only.
@@ -43,7 +43,7 @@ function invalid(message: string, status = 400) {
 
 type Body = {
   stock_request_id?: number | string
-  decision?: 'APPROVE' | 'REJECT' | string
+  decision?: 'APPROVE' | 'RETURN' | string
   reason?: string
 }
 
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
 
   const role = await trustedRole(supabase)
   if (!role || !canPerform(role, 'Vaccine Batch Requests', 'approve')) {
-    return invalid('Only PHN or Admin can approve/reject batch requests.', 403)
+    return invalid('Only PHN or Admin can review batch requests.', 403)
   }
 
   const body = await request.json().catch(() => null) as Body | null
@@ -66,13 +66,13 @@ export async function POST(request: Request) {
   }
 
   const decision = String(body.decision ?? '').toUpperCase()
-  if (decision !== 'APPROVE' && decision !== 'REJECT') {
-    return invalid('decision must be APPROVE or REJECT.')
+  if (decision !== 'APPROVE' && decision !== 'RETURN') {
+    return invalid('decision must be APPROVE or RETURN.')
   }
 
   const reason = String(body.reason ?? '').trim()
-  if (decision === 'REJECT' && !reason) {
-    return invalid('A reason is required when rejecting a batch request.')
+  if (decision === 'RETURN' && !reason) {
+    return invalid('Say what the requester needs to change.')
   }
 
   // Load the request. Must be PENDING, must be a VACCINE_BATCH.
@@ -90,11 +90,11 @@ export async function POST(request: Request) {
     return invalid(`Request is already ${String(existing.data.status).toLowerCase()}.`, 409)
   }
 
-  // ─── REJECT branch ─────────────────────────────────────────────────────
-  if (decision === 'REJECT') {
+  // ─── RETURN branch ─────────────────────────────────────────────────────
+  if (decision === 'RETURN') {
     const upd = await supabase.from('stock_request')
       .update({
-        status: 'REJECTED',
+        status: 'NEEDS_REVISION',
         approved_by: user.id,
         approved_at: new Date().toISOString(),
         reason: reason,
@@ -103,9 +103,9 @@ export async function POST(request: Request) {
       .eq('status', 'PENDING') // race-condition guard
       .select('stock_request_id')
       .maybeSingle()
-    if (upd.error) return invalid(`Unable to reject. ${upd.error.message ?? ''}`.trim(), 500)
+    if (upd.error) return invalid(`Unable to return the request. ${upd.error.message ?? ''}`.trim(), 500)
     if (!upd.data) return invalid('Request was already acted upon by someone else.', 409)
-    return NextResponse.json({ stock_request_id: stockRequestId, status: 'REJECTED' })
+    return NextResponse.json({ stock_request_id: stockRequestId, status: 'NEEDS_REVISION' })
   }
 
   // ─── APPROVE branch ────────────────────────────────────────────────────
