@@ -6,7 +6,19 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 20
 const fail = (status: number) => guardianJson({ error: { http_code: status, message: 'Unable to send a login code. Wait before trying again.' } }, status)
-export async function POST(request: Request) {
+  export async function POST(request: Request) {
+  const hookSecret = process.env.GUARDIAN_SMS_HOOK_SECRET
+
+  if (!hookSecret) {
+    return guardianJson({
+      error: {
+        http_code: 503,
+        message: 'GUARDIAN_SMS_HOOK_SECRET is missing',
+      },
+    }, 503)
+  }
+
+  // Keep your remaining configuration checks below.
   const config = smsConfiguration()
 
 console.info('Guardian hook configuration', {
@@ -17,7 +29,32 @@ console.info('Guardian hook configuration', {
   tokenPresent: Boolean(config.token),
   configurationValid: config.configured,
 })
-  if (process.env.GUARDIAN_PORTAL_ENABLED !== 'true' || !smsConfiguration().ready || !process.env.GUARDIAN_SMS_HOOK_SECRET) return fail(503)
+  const smsCheck = smsConfiguration()
+
+const missingSettings = [
+  process.env.GUARDIAN_PORTAL_ENABLED !== 'true'
+    ? 'GUARDIAN_PORTAL_ENABLED must equal true'
+    : null,
+  !process.env.GUARDIAN_SMS_HOOK_SECRET
+    ? 'GUARDIAN_SMS_HOOK_SECRET is missing'
+    : null,
+  smsCheck.mode !== 'live'
+    ? 'SMS_MODE must equal live'
+    : null,
+  !smsCheck.configured
+    ? 'Check IPROG_SMS_API_TOKEN, SMS_PROVIDER=iprogsms, and IPROG_SMS_PROVIDER=0'
+    : null,
+].filter(Boolean)
+
+if (missingSettings.length) {
+  return guardianJson({
+    error: {
+      http_code: 503,
+      message: 'SMS configuration incomplete',
+    },
+    missingSettings,
+  }, 503)
+}
   try {
     // Bounded streaming read before verification; never log the OTP or payload.
     const reader = request.body?.getReader()
@@ -32,7 +69,11 @@ console.info('Guardian hook configuration', {
     }
     const body = Buffer.concat(chunks).toString('utf8')
     let verified: ReturnType<typeof verifyGuardianHook>
-    try { verified = verifyGuardianHook(body, request.headers, process.env.GUARDIAN_SMS_HOOK_SECRET) } catch { return fail(401) }
+    try {
+      verified = verifyGuardianHook(body, request.headers, hookSecret)
+    } catch {
+      return fail(401)
+    }    
     const payload = JSON.parse(body)
     const phone = String(payload?.user?.phone ?? '').replace(/^\+/, '')
     const otp = payload?.sms?.otp
