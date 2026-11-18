@@ -492,6 +492,8 @@ function AlertsWorkspace() {
   const alertPagerProps = { page: page - 1, pageCount: Math.max(1, Math.ceil(matched / ALERT_PAGE_SIZE)), total: matched, pageSize: ALERT_PAGE_SIZE, onChange: (p: number) => setPage(p + 1) };
   const programs = data?.programs ?? [...new Set(alerts.map((alert) => alert.source_module ?? alert.alert_type))].sort();
   const summary = data?.summary;
+  // ?tab=SMS / ?tab=RULES only apply to roles that can configure alerts; everyone else gets the list.
+  const view = data?.canConfigure ? tab : "ALERTS";
   const inputClass =
     "mt-1 w-full rounded-lg border border-[#D5E2EA] bg-white px-3 py-2 text-sm";
   return (
@@ -513,7 +515,7 @@ function AlertsWorkspace() {
             className="pb-5"
             label="Alert sections"
             group="alerts"
-            value={tab}
+            value={view}
             onChange={setTab}
             items={[
               { value: "ALERTS", label: "Alerts & evaluation monitoring" },
@@ -539,13 +541,13 @@ function AlertsWorkspace() {
         <p>Please sign in to access alerts.</p>
       ) : null}
       {/* Tab content fades in with the previous tab's height held, so the page below does not jump. */}
-      <TabPanel tabKey={tab}>
-      {data?.canConfigure && tab === "SMS" && (
+      <TabPanel tabKey={view}>
+      {data?.canConfigure && view === "SMS" && (
         <div role="tabpanel" aria-label="SMS overview">
           <SmsSimulationPanel key={data.currentUserId} ownerId={data.currentUserId} />
         </div>
       )}
-      {data && tab === "ALERTS" && (
+      {data && view === "ALERTS" && (
         <div role="tabpanel" aria-label="Alerts and evaluation monitoring">
           {data.canConfigure && <EvaluationMonitoring monitoring={data.monitoring} />}
           <section aria-labelledby="alerts-title" className={data.canConfigure ? "mt-8 space-y-4 border-t-2 border-[#EAF0F4] pt-6" : "space-y-4"}>
@@ -676,7 +678,7 @@ function AlertsWorkspace() {
           </section>
         </div>
       )}
-      {data?.canConfigure && tab === "RULES" && (
+      {data?.canConfigure && view === "RULES" && (
         <div role="tabpanel" aria-label="Rules and change history">
           <section aria-labelledby="rules-title" className="space-y-4">
             <SectionHeader
