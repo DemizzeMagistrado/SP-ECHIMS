@@ -550,7 +550,7 @@ function AlertsWorkspace() {
       {data && view === "ALERTS" && (
         <div role="tabpanel" aria-label="Alerts and evaluation monitoring">
           {data.canConfigure && <EvaluationMonitoring monitoring={data.monitoring} />}
-          <section aria-labelledby="alerts-title" className={data.canConfigure ? "mt-8 space-y-4 border-t-2 border-[#EAF0F4] pt-6" : "space-y-4"}>
+          <section aria-labelledby="alerts-title" className={data.canConfigure ? "mt-8 space-y-4 border-t-2 border-[#EAF0F4] pt-6" : "mt-8 space-y-4"}>
             <SectionHeader
               title={<span id="alerts-title">Active alerts</span>}
               subtitle="Alerts for the records and programs you can access."
