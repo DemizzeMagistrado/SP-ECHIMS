@@ -4,9 +4,8 @@ import { routeSearch } from '@/lib/offline/navigation'
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
-import { Fragment, useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Plus, Package, SearchX, ClipboardList, ChevronDown, FileText, RefreshCw, Search, Send } from "lucide-react";
 import {
   latestNutrition,
@@ -533,7 +532,6 @@ export default function SupplementsPage() {
   // One detail open at a time across Entries and Supply plans (the Vaccines tab accordion).
   const { isOpen, toggle } = useSingleOpen<string>();
   const [smsOpen, setSmsOpen] = useState(false);
-  const router = useRouter();
   const [modal, setModal] = useState<
     "RECORD" | "PLAN" | "DISPENSE" | "CLINICAL" | null
   >(null);
@@ -1578,9 +1576,6 @@ export default function SupplementsPage() {
   const canPlan = Boolean(data?.permissions.stock);
   const showFollowUp = Boolean(data?.permissions.monitor && (data.role === "PHN" || data.role === "Administrator"));
   const activeTab = tab === "followup" && !showFollowUp ? "records" : tab;
-  const openChild = (event: MouseEvent, childId: number) => {
-    if (!(event.target as HTMLElement).closest("a,button")) router.push(`/child-profiling/children/${childId}`);
-  };
   const expiredWithStock = data?.batches.filter((b) => b.expiry_date < today() && Number(b.quantity_on_hand) > 0).length ?? 0;
   const refreshButton = (
     <Button variant="secondary" loading={loading && Boolean(data)} disabled={!online} title={online ? undefined : "Reconnect to refresh"} onClick={() => void load()}>
@@ -1866,7 +1861,7 @@ export default function SupplementsPage() {
                           const c = childOf(r.child_id);
                           return (
                             <Fragment key={key}>
-                              <tr data-zebra={i % 2 === 1 || undefined} data-open={isOpen(key) || undefined} className="group cursor-pointer" onClick={(e) => openChild(e, r.child_id)}>
+                              <tr data-zebra={i % 2 === 1 || undefined} data-open={isOpen(key) || undefined} className="group">
                                 <td className={cn(cell, firstCell, "min-w-44")}>{childCell(r.child_id)}</td>
                                 <td className={cn(cell, "whitespace-nowrap")}>{r.supplementation_date}</td>
                                 <td className={cell}>
@@ -1943,7 +1938,7 @@ export default function SupplementsPage() {
                           const detailId = `plan-${p.plan_id}-detail`;
                           return (
                             <Fragment key={key}>
-                              <tr data-zebra={i % 2 === 1 || undefined} data-open={isOpen(key) || undefined} className="group cursor-pointer" onClick={(e) => openChild(e, p.child_id)}>
+                              <tr data-zebra={i % 2 === 1 || undefined} data-open={isOpen(key) || undefined} className="group">
                                 <td className={cn(cell, firstCell, "whitespace-nowrap font-semibold")}>Plan #{p.plan_id}</td>
                                 <td className={cn(cell, "min-w-44")}>{childCell(p.child_id)}</td>
                                 <td className={cn(cell, "min-w-48")}>
