@@ -41,6 +41,10 @@ const REQUEST_STATUS_COLORS: Record<string, { backgroundColor: string; color: st
   ongoing: { backgroundColor: '#DFF3F9', color: '#0B759A' },
   completed: { backgroundColor: '#F0F2F5', color: '#55617F' },
   cancelled: { backgroundColor: '#FEE2E2', color: '#C42B2B' },
+  // Account statuses (User Management).
+  active: { backgroundColor: '#DDF1E8', color: '#17694C' },
+  inactive: { backgroundColor: '#F0F2F5', color: '#55617F' },
+  suspended: { backgroundColor: '#FEE2E2', color: '#C42B2B' },
 }
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/[\s_]+/g, '-')

@@ -1,15 +1,15 @@
 // echims/components/user-management/user-actions.tsx
-// Profile editor + soft-delete behind the shared ConfirmDialog.
+// Profile editor (dialog) and soft-delete (behind the shared ConfirmDialog) for User Management.
 
 'use client'
 
-import { useState } from 'react'
-import { Pencil, Trash2, Save, X, AlertTriangle } from 'lucide-react'
-import { Spinner } from '@/components/brand/logo-loader'
+import { useState, type FormEvent } from 'react'
+import { AlertTriangle, Pencil, Trash2 } from 'lucide-react'
 import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/form'
+import { Field, Input } from '@/components/ui/form'
+import { Modal } from '@/components/ui/modal'
 
 type UserRow = {
   user_id: string
@@ -21,52 +21,76 @@ type UserRow = {
   role: string | null
 }
 
-type Props = {
-  user: UserRow
-  currentUserId: string
-  onChanged?: () => void
-}
-
-export function UserActions({ user, currentUserId, onChanged }: Props) {
-  const [editing, setEditing] = useState(false)
-  const confirm = useConfirm()
-  const [draft, setDraft] = useState({
-    fullName: user.full_name,
-    email: user.email,
-    contactNumber: user.contact_number ?? '',
-  })
+/** Edit full name, email and contact number (PATCH /api/admin/users { profile }). Username is fixed. */
+export function EditProfileDialog({ user, onClose, onSaved }: { user: UserRow; onClose: () => void; onSaved: () => void }) {
+  const initial = { fullName: user.full_name, email: user.email, contactNumber: user.contact_number ?? '' }
+  const [draft, setDraft] = useState(initial)
   const [busy, setBusy] = useState(false)
-  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+  const [error, setError] = useState('')
+  const dirty = draft.fullName !== initial.fullName || draft.email !== initial.email || draft.contactNumber !== initial.contactNumber
 
-  async function save() {
-    setBusy(true); setMsg(null)
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (busy) return
+    if (!draft.fullName.trim() || !draft.email.trim()) return setError('Full name and email are required.')
+    setBusy(true)
+    setError('')
     try {
       const res = await fetch('/api/admin/users', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.user_id,
-          profile: {
-            fullName: draft.fullName,
-            email: draft.email,
-            contactNumber: draft.contactNumber,
-          },
-        }),
+        body: JSON.stringify({ userId: user.user_id, profile: { fullName: draft.fullName.trim(), email: draft.email.trim(), contactNumber: draft.contactNumber.trim() } }),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data?.error ?? 'Unable to save changes.')
       toast.success('Profile updated.')
-      setEditing(false)
-      onChanged?.()
+      onSaved()
     } catch (err) {
-      setMsg({ kind: 'err', text: err instanceof Error ? err.message : 'Save failed.' })
+      setError(`${err instanceof Error ? err.message : 'Unable to save changes.'} Nothing was changed.`)
     } finally {
       setBusy(false)
     }
   }
 
+  return (
+    <Modal
+      open
+      size="form"
+      onClose={onClose}
+      busy={busy}
+      dirty={dirty}
+      onSubmit={save}
+      icon={<Pencil />}
+      title="Edit profile"
+      subtitle={user.full_name}
+      footer={<Button type="submit" loading={busy}>Save changes</Button>}
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Full name" required>
+          <Input value={draft.fullName} onChange={(e) => setDraft({ ...draft, fullName: e.target.value })} disabled={busy} />
+        </Field>
+        <Field label="Username" hint="Usernames cannot be changed.">
+          <Input value={user.username} disabled readOnly />
+        </Field>
+        <Field label="Email" required hint={<span className="inline-flex items-center gap-1 text-[#9C6B10]"><AlertTriangle size={11} aria-hidden="true" /> This is also the sign-in identifier.</span>}>
+          <Input type="email" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} disabled={busy} />
+        </Field>
+        <Field label="Contact number">
+          <Input value={draft.contactNumber} onChange={(e) => setDraft({ ...draft, contactNumber: e.target.value })} disabled={busy} />
+        </Field>
+      </div>
+      {error && <p role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">{error}</p>}
+    </Modal>
+  )
+}
+
+/** Soft delete (account_status = DELETED). Only for inactive accounts, never your own. */
+export function DeleteAccountButton({ user, currentUserId, onDeleted, className }: { user: UserRow; currentUserId: string; onDeleted: () => void; className?: string }) {
+  const confirm = useConfirm()
+  if (user.account_status !== 'INACTIVE') return null
+  if (user.user_id === currentUserId) return <span className="text-xs text-[#8896B0]">You cannot delete your own account.</span>
+
   async function requestDelete() {
-    setMsg(null)
     try {
       const deleted = await confirm({
         title: 'Delete this account?',
@@ -78,7 +102,6 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
             <ul className="mt-3 list-inside list-disc space-y-0.5 rounded-xl bg-warn-soft p-3 text-xs text-warn">
               <li>Account marked as deleted (soft delete).</li>
               <li>History preserved for audit — records they created remain intact.</li>
-              <li>Reversible: toggle &quot;Show deleted accounts&quot; to restore later.</li>
             </ul>
           </>
         ),
@@ -88,128 +111,21 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: user.user_id }),
           })
-          const data = await res.json()
+          const data = await res.json().catch(() => ({}))
           if (!res.ok) throw new Error(data?.error ?? 'Unable to delete account.')
         },
       })
       if (!deleted) return
       toast.success('Account deleted.')
-      onChanged?.()
+      onDeleted()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Delete failed.')
     }
   }
 
-  const isSelf = user.user_id === currentUserId
-  const canDelete = user.account_status === 'INACTIVE' && !isSelf
-
   return (
-    <div className="space-y-4">
-      {msg && (
-        <div
-          className={
-            'rounded-xl border px-3 py-2 text-sm ' +
-            (msg.kind === 'ok'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-              : 'border-rose-200 bg-rose-50 text-rose-800')
-          }
-        >
-          {msg.text}
-        </div>
-      )}
-
-      {editing && (
-        <div className="rounded-2xl border border-border bg-white p-4 shadow-sm">
-          <h3 className="mb-3 text-sm font-semibold text-primary">Edit profile</h3>
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="grid gap-1 text-sm">
-              <span className="font-semibold">Full name</span>
-              <Input
-                value={draft.fullName}
-                onChange={(e) => setDraft({ ...draft, fullName: e.target.value })}
-              />
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span className="font-semibold">Username (read-only)</span>
-              <input
-                disabled
-                className="rounded-lg border border-border bg-muted px-3 py-2 text-muted-foreground"
-                value={user.username}
-              />
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span className="font-semibold">Email</span>
-              <Input
-                type="email"
-                value={draft.email}
-                onChange={(e) => setDraft({ ...draft, email: e.target.value })}
-              />
-              <span className="flex items-center gap-1 text-[11px] text-amber-700">
-                <AlertTriangle size={11} /> This is also the login identifier.
-              </span>
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span className="font-semibold">Contact number</span>
-              <Input
-                value={draft.contactNumber}
-                onChange={(e) => setDraft({ ...draft, contactNumber: e.target.value })}
-              />
-            </label>
-          </div>
-          <div className="mt-4 flex justify-end gap-2">
-            <Button variant="secondary" size="sm"
-              onClick={() => {
-                setEditing(false)
-                setDraft({
-                  fullName: user.full_name,
-                  email: user.email,
-                  contactNumber: user.contact_number ?? '',
-                })
-                setMsg(null)
-              }}
-              disabled={busy}
-            >
-              <X size={14} /> Cancel
-            </Button>
-            <Button size="sm"
-              onClick={save}
-              disabled={busy}
-            >
-              {busy ? <Spinner /> : <Save size={14} />} {busy ? 'Saving...' : 'Save changes'}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {!editing && (
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-4">
-          <Button variant="secondary" size="sm"
-            onClick={() => {
-              setDraft({
-                fullName: user.full_name,
-                email: user.email,
-                contactNumber: user.contact_number ?? '',
-              })
-              setEditing(true)
-              setMsg(null)
-            }}
-           
-          >
-            <Pencil size={14} /> Edit profile
-          </Button>
-
-          {canDelete && (
-            <Button variant="danger" size="sm" onClick={() => void requestDelete()} disabled={busy}>
-              <Trash2 size={14} /> Delete account
-            </Button>
-          )}
-
-          {user.account_status === 'INACTIVE' && isSelf && (
-            <span className="text-xs text-muted-foreground">You cannot delete your own account.</span>
-          )}
-        </div>
-      )}
-
-    </div>
+    <button type="button" onClick={() => void requestDelete()} className={className}>
+      <Trash2 size={14} aria-hidden="true" /> Delete account
+    </button>
   )
 }

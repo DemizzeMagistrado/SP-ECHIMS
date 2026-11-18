@@ -1,21 +1,21 @@
 'use client'
-import { CountsStrip, REPORT_CARD } from '@/components/ui/report-parts'
-import { Modal } from '@/components/ui/modal'
-import { UserX } from 'lucide-react'
-import { UserActions } from '@/components/user-management/user-actions'
+// User Management (USRMGMT-REV01): shared page header, filter card with the account counts, the
+// system table (5 per page) and a User details modal in the Activity-detail style. Admin only
+// (page.tsx). Status changes go through PATCH /api/admin/users and reload the server data.
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Ban, CheckCircle2, Pencil, PowerOff, RefreshCw, RotateCcw, Search, UserX } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
-
-import {
-  useMemo,
-  useEffect,
-  useState,
-} from 'react'
-import { EmptyState } from '@/components/ui/empty-state'
+import { cn } from '@/lib/utils'
+import { CountsStrip, FilterCard } from '@/components/ui/report-parts'
+import { GridTable, RowButton } from '@/components/ui/grid-table'
+import { Modal } from '@/components/ui/modal'
 import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/form'
-import { Pagination, usePagination } from '@/components/ui/pagination'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { toast } from '@/components/ui/toast'
+import { DeleteAccountButton, EditProfileDialog } from '@/components/user-management/user-actions'
 
 /* =========================================================
    TYPES
@@ -27,7 +27,6 @@ type Assignment = {
   barangay_id: number
   assigned_date: string
   status: string
-
   barangay: {
     barangay_id: number
     barangay_name: string
@@ -57,19 +56,54 @@ type UserRow = {
   phn_workplace: PhnWorkplace | null
 }
 
-type UserManagementClientProps = {
-  users: UserRow[]
-  readOnly?: boolean
+type AccountStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED'
+
+const STATUSES = ['PENDING', 'ACTIVE', 'INACTIVE', 'SUSPENDED'] as const
+const ROLES = ['Administrator', 'Public Health Nurse', 'Rural Health Midwife', 'Barangay Health Worker', 'Barangay Nutrition Scholar']
+const PAGE_SIZE = 5
+
+const statusLabel = (status: string) => status.charAt(0) + status.slice(1).toLowerCase()
+const reload = () => window.location.reload()
+
+/* =========================================================
+   WORKPLACE HELPERS
+========================================================= */
+
+function hasWorkplace(user: UserRow) {
+  if (user.role === 'Administrator') return true
+  if (user.role === 'Public Health Nurse') return Boolean(user.phn_workplace)
+  return user.assignments.length > 0
+}
+
+function workplaceIsActive(user: UserRow) {
+  if (user.role === 'Administrator') return user.account_status === 'ACTIVE'
+  if (user.role === 'Public Health Nurse') return Boolean(user.phn_workplace) && user.account_status === 'ACTIVE'
+  return user.assignments.length > 0 && user.assignments.every((a) => a.status === 'ACTIVE')
+}
+
+function hasPendingWorkplace(user: UserRow) {
+  if (user.role === 'Public Health Nurse') return Boolean(user.phn_workplace) && user.account_status === 'PENDING'
+  return user.assignments.some((a) => a.status === 'PENDING')
+}
+
+function workplaceSummary(user: UserRow) {
+  if (user.role === 'Administrator') return 'System-wide'
+  if (user.role === 'Public Health Nurse') return user.phn_workplace?.rhu_name ?? 'Not assigned'
+  if (user.assignments.length === 0) return 'Not assigned'
+  if (user.role === 'Rural Health Midwife') return `${user.assignments.length} ${user.assignments.length === 1 ? 'barangay' : 'barangays'}`
+  return user.assignments[0].barangay.barangay_name
+}
+
+function workplaceRhu(user: UserRow) {
+  if (user.role === 'Public Health Nurse') return user.phn_workplace ? 'Supervises all barangays under this RHU' : null
+  return user.assignments[0]?.barangay.rhu_name ?? null
 }
 
 /* =========================================================
    COMPONENT
 ========================================================= */
 
-export default function UserManagementClient({
-  users,
-  readOnly: savedReadOnly = false,
-}: UserManagementClientProps) {
+export default function UserManagementClient({ users, readOnly: savedReadOnly = false }: { users: UserRow[]; readOnly?: boolean }) {
   const { user: currentUser } = useAuth()
   const [online, setOnline] = useState(true)
   useEffect(() => {
@@ -81,1510 +115,306 @@ export default function UserManagementClient({
   }, [])
   const readOnly = savedReadOnly || !online
 
-  const [
-    selectedUser,
-    setSelectedUser,
-  ] = useState<UserRow | null>(
-    null
-  )
+  const [selected, setSelected] = useState<UserRow | null>(null)
+  const [editing, setEditing] = useState<UserRow | null>(null)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('ALL')
+  const [roleFilter, setRoleFilter] = useState('ALL')
+  const [processing, setProcessing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const [
-    search,
-    setSearch,
-  ] = useState('')
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return users.filter((u) =>
+      (!q || [u.full_name, u.email, u.username].some((v) => v?.toLowerCase().includes(q)))
+      && (statusFilter === 'ALL' || u.account_status === statusFilter)
+      && (roleFilter === 'ALL' || u.role === roleFilter))
+  }, [users, search, statusFilter, roleFilter])
 
-  const [
-    statusFilter,
-    setStatusFilter,
-  ] = useState('ALL')
+  const count = (status: string) => users.filter((u) => u.account_status === status).length
 
-  const [
-    roleFilter,
-    setRoleFilter,
-  ] = useState('ALL')
-
-  const [
-    processingUserId,
-    setProcessingUserId,
-  ] = useState<string | null>(
-    null
-  )
-
-  // Success goes to a toast; this only clears a stale value when a new action starts.
-  const [
-    ,
-    setMessage,
-  ] = useState<string | null>(
-    null
-  )
-
-  const [
-    error,
-    setError,
-  ] = useState<string | null>(
-    null
-  )
-
-  /* =======================================================
-     FILTER USERS
-  ======================================================= */
-
-  const filteredUsers =
-    useMemo(() => {
-      const searchValue =
-        search
-          .trim()
-          .toLowerCase()
-
-      return users.filter(
-        (user) => {
-          const matchesSearch =
-            !searchValue ||
-            user.full_name
-              .toLowerCase()
-              .includes(
-                searchValue
-              ) ||
-            user.email
-              .toLowerCase()
-              .includes(
-                searchValue
-              ) ||
-            user.username
-              .toLowerCase()
-              .includes(
-                searchValue
-              )
-
-          const matchesStatus =
-            statusFilter ===
-              'ALL' ||
-            user.account_status ===
-              statusFilter
-
-          const matchesRole =
-            roleFilter ===
-              'ALL' ||
-            user.role ===
-              roleFilter
-
-          return (
-            matchesSearch &&
-            matchesStatus &&
-            matchesRole
-          )
-        }
-      )
-    }, [
-      users,
-      search,
-      statusFilter,
-      roleFilter,
-    ])
-
-  /* =======================================================
-     SUMMARY COUNTS
-  ======================================================= */
-
-  const pendingCount =
-    users.filter(
-      (user) =>
-        user.account_status ===
-        'PENDING'
-    ).length
-
-  const activeCount =
-    users.filter(
-      (user) =>
-        user.account_status ===
-        'ACTIVE'
-    ).length
-
-  const inactiveCount =
-    users.filter(
-      (user) =>
-        user.account_status ===
-        'INACTIVE'
-    ).length
-
-  const suspendedCount =
-    users.filter(
-      (user) =>
-        user.account_status ===
-        'SUSPENDED'
-    ).length
-
-  /* =======================================================
-     WORKPLACE HELPERS
-  ======================================================= */
-
-  function hasWorkplace(
-    user: UserRow
-  ) {
-    if (
-      user.role ===
-      'Administrator'
-    ) {
-      return true
-    }
-
-    if (
-      user.role ===
-      'Public Health Nurse'
-    ) {
-      return Boolean(
-        user.phn_workplace
-      )
-    }
-
-    return (
-      user.assignments.length >
-      0
-    )
-  }
-
-  function workplaceIsActive(
-    user: UserRow
-  ) {
-    if (
-      user.role ===
-      'Administrator'
-    ) {
-      return (
-        user.account_status ===
-        'ACTIVE'
-      )
-    }
-
-    if (
-      user.role ===
-      'Public Health Nurse'
-    ) {
-      return (
-        Boolean(
-          user.phn_workplace
-        ) &&
-        user.account_status ===
-          'ACTIVE'
-      )
-    }
-
-    if (
-      user.assignments.length ===
-      0
-    ) {
-      return false
-    }
-
-    return user.assignments.every(
-      (assignment) =>
-        assignment.status ===
-        'ACTIVE'
-    )
-  }
-
-  function hasPendingWorkplace(
-    user: UserRow
-  ) {
-    if (
-      user.role ===
-      'Public Health Nurse'
-    ) {
-      return (
-        Boolean(
-          user.phn_workplace
-        ) &&
-        user.account_status ===
-          'PENDING'
-      )
-    }
-
-    return user.assignments.some(
-      (assignment) =>
-        assignment.status ===
-        'PENDING'
-    )
-  }
-
-  function getWorkplaceSummary(
-    user: UserRow
-  ) {
-    if (
-      user.role ===
-      'Administrator'
-    ) {
-      return 'System-wide'
-    }
-
-    if (
-      user.role ===
-      'Public Health Nurse'
-    ) {
-      return (
-        user.phn_workplace
-          ?.rhu_name ??
-        'Not assigned'
-      )
-    }
-
-    if (
-      user.assignments.length ===
-      0
-    ) {
-      return 'Not assigned'
-    }
-
-    if (
-      user.role ===
-      'Rural Health Midwife'
-    ) {
-      const count =
-        user.assignments.length
-
-      return `${count} ${
-        count === 1
-          ? 'barangay'
-          : 'barangays'
-      }`
-    }
-
-    return (
-      user.assignments[0]
-        .barangay
-        .barangay_name
-    )
-  }
-
-  function getRhuName(
-    user: UserRow
-  ) {
-    if (
-      user.role ===
-      'Public Health Nurse'
-    ) {
-      return null
-    }
-
-    return (
-      user.assignments[0]
-        ?.barangay
-        .rhu_name ??
-      null
-    )
-  }
-
-  /* =======================================================
-     UPDATE ACCOUNT STATUS
-  ======================================================= */
-
-  async function updateAccountStatus(
-    user: UserRow,
-    accountStatus:
-      | 'ACTIVE'
-      | 'INACTIVE'
-      | 'SUSPENDED'
-  ) {
-    if (readOnly) return
-    setProcessingUserId(
-      user.user_id
-    )
-
-    setMessage(null)
+  async function updateAccountStatus(user: UserRow, accountStatus: AccountStatus, success: string) {
+    if (readOnly || processing) return
+    setProcessing(true)
     setError(null)
-
     try {
-      const response =
-        await fetch(
-          '/api/admin/users',
-          {
-            method: 'PATCH',
-
-            headers: {
-              'Content-Type':
-                'application/json',
-            },
-
-            body: JSON.stringify({
-              userId:
-                user.user_id,
-
-              accountStatus,
-            }),
-          }
-        )
-
-      const data =
-        await response.json()
-
-      if (!response.ok) {
-        throw new Error(
-          data?.error ??
-            'Unable to update account.'
-        )
-      }
-
-      toast.success(
-        accountStatus ===
-          'ACTIVE'
-          ? 'Account approved successfully.'
-          : accountStatus ===
-              'INACTIVE'
-            ? 'Account deactivated successfully.'
-            : 'Account suspended successfully.'
-      )
-
-      setSelectedUser(
-        (current) => {
-          if (
-            !current ||
-            current.user_id !==
-              user.user_id
-          ) {
-            return current
-          }
-
-          return {
-            ...current,
-
-            account_status:
-              accountStatus,
-
-            assignments:
-              current.assignments.map(
-                (
-                  assignment
-                ) => ({
-                  ...assignment,
-
-                  status:
-                    accountStatus ===
-                    'ACTIVE'
-                      ? 'ACTIVE'
-                      : accountStatus ===
-                          'INACTIVE'
-                        ? 'INACTIVE'
-                        : assignment.status,
-                })
-              ),
-          }
-        }
-      )
-
-      /*
-       * Reload so the Server Component
-       * gets the authoritative DB state.
-       */
-      window.location.reload()
+      const response = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.user_id, accountStatus }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data?.error ?? 'Unable to update account.')
+      toast.success(success)
+      // Reload so the Server Component gets the authoritative DB state.
+      reload()
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Unable to update account.'
-      )
+      setError(`${err instanceof Error ? err.message : 'Unable to update account.'} Nothing was changed.`)
     } finally {
-      setProcessingUserId(
-        null
-      )
+      setProcessing(false)
     }
   }
 
-  /* =======================================================
-     STATUS BADGE
-  ======================================================= */
-
-  function statusBadge(
-    status: string
-  ) {
-    const normalized =
-      status.toUpperCase()
-
-    if (
-      normalized ===
-      'ACTIVE'
-    ) {
-      return (
-        <span className="inline-flex rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-          Active
-        </span>
-      )
-    }
-
-    if (
-      normalized ===
-      'PENDING'
-    ) {
-      return (
-        <span className="inline-flex rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-700">
-          Pending
-        </span>
-      )
-    }
-
-    if (
-      normalized ===
-      'SUSPENDED'
-    ) {
-      return (
-        <span className="inline-flex rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">
-          Suspended
-        </span>
-      )
-    }
-
-    return (
-      <span className="inline-flex rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
-        Inactive
-      </span>
-    )
-  }
-
-  /* =======================================================
-     CLOSE MODAL
-  ======================================================= */
-
-  function closeModal() {
-    if (processingUserId) {
-      return
-    }
-
-    setSelectedUser(null)
-    setMessage(null)
+  function open(user: UserRow) {
     setError(null)
+    setSelected(user)
   }
 
-  /* =======================================================
-     SELECTED USER STATE
-  ======================================================= */
-
-  const selectedUserHasWorkplace =
-    selectedUser
-      ? hasWorkplace(
-          selectedUser
-        )
-      : false
-
-  const selectedUserWorkplaceActive =
-    selectedUser
-      ? workplaceIsActive(
-          selectedUser
-        )
-      : false
-
-  /* =======================================================
-     RENDER
-  ======================================================= */
-
-  const { visible: pagedUsers, props: userPager } = usePagination(filteredUsers)
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      <PageHeader title="User Management" subtitle="Manage registered personnel, account verification, and workplace assignments." />
 
-      {/* HEADER */}
-
-      <PageHeader
-        title="User Management"
-        subtitle="Manage registered personnel, account verification, and workplace assignments."
-      />
-
-      {/* FILTERS */}
-
-      <section aria-label="Filters" className={REPORT_CARD}>
-
-        <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-3">
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">
-              Search
-            </label>
-
-            <Input
-              type="text"
-              value={search}
-              onChange={(
-                event
-              ) =>
-                setSearch(
-                  event.target.value
-                )
-              }
-              placeholder="Search name, username, or email..."
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">
-              Account Status
-            </label>
-
-            <Select
-              value={
-                statusFilter
-              }
-              onChange={(
-                event
-              ) =>
-                setStatusFilter(
-                  event.target.value
-                )
-              }
-             
-            >
-              <option value="ALL">
-                All statuses
-              </option>
-
-              <option value="PENDING">
-                Pending
-              </option>
-
-              <option value="ACTIVE">
-                Active
-              </option>
-
-              <option value="INACTIVE">
-                Inactive
-              </option>
-
-              <option value="SUSPENDED">
-                Suspended
-              </option>
-            </Select>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">
-              Role
-            </label>
-
-            <Select
-              value={
-                roleFilter
-              }
-              onChange={(
-                event
-              ) =>
-                setRoleFilter(
-                  event.target.value
-                )
-              }
-             
-            >
-              <option value="ALL">
-                All roles
-              </option>
-
-              <option value="Administrator">
-                Administrator
-              </option>
-
-              <option value="Public Health Nurse">
-                Public Health Nurse
-              </option>
-
-              <option value="Rural Health Midwife">
-                Rural Health Midwife
-              </option>
-
-              <option value="Barangay Health Worker">
-                Barangay Health Worker
-              </option>
-
-              <option value="Barangay Nutrition Scholar">
-                Barangay Nutrition Scholar
-              </option>
-            </Select>
-          </div>
-
-        </div>
-
-        {/* Account counts; each one filters by that status. */}
-        <CountsStrip
+      <FilterCard
+        refresh={<Button variant="outline" size="icon" className="size-10" aria-label="Refresh users" title="Refresh" onClick={reload}><RefreshCw size={16} aria-hidden="true" /></Button>}
+        below={<CountsStrip
           label="Account counts"
           selected={statusFilter}
           onSelect={(key) => setStatusFilter(statusFilter === key ? 'ALL' : key)}
-          items={[
-            { key: 'PENDING', label: 'Pending', value: pendingCount, tone: 'review' },
-            { key: 'ACTIVE', label: 'Active', value: activeCount },
-            { key: 'INACTIVE', label: 'Inactive', value: inactiveCount },
-            { key: 'SUSPENDED', label: 'Suspended', value: suspendedCount, tone: 'severe' },
-          ]}
+          items={STATUSES.map((s) => ({ key: s, label: statusLabel(s), value: count(s) }))}
+        />}
+      >
+        <div className="relative">
+          <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input aria-label="Search users" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, username or email…" className="pl-9" />
+        </div>
+        <Select aria-label="Account status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="ALL">All statuses</option>
+          {STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
+        </Select>
+        <Select aria-label="Role" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+          <option value="ALL">All roles</option>
+          {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+        </Select>
+      </FilterCard>
+
+      <GridTable
+        caption="Users"
+        rows={filtered}
+        rowKey={(u) => u.user_id}
+        onRowClick={open}
+        pageSize={PAGE_SIZE}
+        minWidth={820}
+        empty={{ icon: UserX, title: 'No users match your search', description: 'Try a different name, role or status.' }}
+        columns={[
+          { key: 'user', header: 'User', width: '30%', cell: (u) => <><span className="block truncate text-sm font-bold text-[#0C1260]">{u.full_name}</span><span className="block truncate text-xs text-[#8896B0]">{u.email}</span></> },
+          { key: 'role', header: 'Role', width: '18%', cell: (u) => u.role },
+          { key: 'account', header: 'Account', width: '13%', cell: (u) => <StatusBadge status={u.account_status} label={statusLabel(u.account_status)} /> },
+          {
+            key: 'workplace', header: 'Workplace', width: '23%',
+            cell: (u) => <>
+              <span className="block truncate">{workplaceSummary(u)}</span>
+              {workplaceRhu(u) && <span className="block truncate text-xs text-[#8896B0]">{workplaceRhu(u)}</span>}
+              {hasPendingWorkplace(u) && <StatusBadge status="pending" label="Pending verification" className="mt-1.5" />}
+            </>,
+          },
+          { key: 'actions', header: 'Actions', width: '16%', sticky: true, cell: (u) => <RowButton aria-label={`View details for ${u.full_name}`} onClick={(e) => { e.stopPropagation(); open(u) }} /> },
+        ]}
+      />
+
+      {selected && (
+        <UserDetailsModal
+          user={selected}
+          currentUserId={currentUser?.id ?? null}
+          readOnly={readOnly}
+          processing={processing}
+          error={error}
+          onClose={() => { if (!processing) { setSelected(null); setError(null) } }}
+          onStatus={(status, success) => void updateAccountStatus(selected, status, success)}
+          onEdit={() => { setEditing(selected); setSelected(null) }}
         />
-      </section>
-
-      {/* MESSAGES */}
-
-
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-          {error}
-        </div>
       )}
 
-      {/* USER TABLE */}
+      {editing && <EditProfileDialog user={editing} onClose={() => setEditing(null)} onSaved={reload} />}
+    </div>
+  )
+}
 
-      <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+/* =========================================================
+   USER DETAILS MODAL
+========================================================= */
 
-        <div className="overflow-x-auto">
+// Destructive actions are outlines: Suspend amber, Deactivate / Decline red. Reactivate / Approve navy.
+const actionBase = 'inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border px-4 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-[#0B759A]'
+const amber = cn(actionBase, 'border-[#D97706] bg-white text-[#D97706] hover:bg-[#FFF8EB]')
+const red = cn(actionBase, 'border-[#C42B2B] bg-white text-[#C42B2B] hover:bg-[#FFF5F5]')
+const navy = cn(actionBase, 'border-[#07075F] bg-[#07075F] text-white hover:bg-[#1A1A80]')
+const navyOutline = cn(actionBase, 'border-[#BFD3DE] bg-white text-[#0C1260] hover:border-[#07075F] hover:bg-[#E6F1F7]')
 
-          <table className="min-w-full">
+function UserDetailsModal({ user, currentUserId, readOnly, processing, error, onClose, onStatus, onEdit }: {
+  user: UserRow
+  currentUserId: string | null
+  readOnly: boolean
+  processing: boolean
+  error: string | null
+  onClose: () => void
+  onStatus: (status: AccountStatus, success: string) => void
+  onEdit: () => void
+}) {
+  const withWorkplace = hasWorkplace(user)
+  const status = user.account_status
+  const first = user.assignments[0]?.barangay
 
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50">
+  return (
+    <Modal
+      open
+      size="form"
+      onClose={onClose}
+      busy={processing}
+      hideCancel
+      aboveTitle={
+        <span className="mb-1.5 flex flex-wrap items-center gap-2">
+          <StatusBadge status={status} label={statusLabel(status)} />
+          <span className="text-xs text-[#8896B0]" title={user.user_id}>User ID {user.user_id.slice(0, 8)}</span>
+        </span>
+      }
+      title={user.full_name}
+      titleClassName="text-xl font-bold text-[#0C1260]"
+      footerStart={!readOnly && (
+        <button type="button" onClick={onEdit} disabled={processing} className={navyOutline}><Pencil size={14} aria-hidden="true" /> Edit profile</button>
+      )}
+      footer={<button type="button" onClick={onClose} disabled={processing} className="h-9 rounded-lg px-3 text-sm font-medium text-[#55617F] hover:bg-[#F5F8FA] hover:text-[#0C1260] disabled:opacity-50">Close</button>}
+    >
+      <div className="space-y-6">
+        {error && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</p>}
 
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  User
-                </th>
+        <DetailSection title="Account information">
+          <InfoGrid>
+            <InfoItem label="Full name" value={user.full_name} />
+            <InfoItem label="Username" value={user.username || '—'} />
+            <InfoItem label="Email" value={user.email} />
+            <InfoItem label="Contact number" value={user.contact_number || '—'} />
+            <InfoItem label="Role" value={user.role || '—'} />
+            <InfoItem label="Account status" value={<StatusBadge status={status} label={statusLabel(status)} />} />
+          </InfoGrid>
+        </DetailSection>
 
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Role
-                </th>
-
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Account
-                </th>
-
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Workplace
-                </th>
-
-                <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Action
-                </th>
-
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-gray-100">
-
-              {filteredUsers.length ===
-              0 ? (
-                <tr>
-                  <td colSpan={5}><EmptyState icon={UserX} title="No users match your search" description="Try a different name, role or status." /></td>
-                </tr>
-              ) : (
-                pagedUsers.map(
-                  (user) => (
-                    <tr
-                      key={
-                        user.user_id
-                      }
-                      className="transition hover:bg-[#CAF0F8]/30"
-                    >
-
-                      <td className="px-6 py-5">
-                        <div>
-                          <p className="font-semibold text-gray-800">
-                            {
-                              user.full_name
-                            }
-                          </p>
-
-                          <p className="mt-1 text-sm text-gray-500">
-                            {
-                              user.email
-                            }
-                          </p>
-                        </div>
-                      </td>
-
-                      <td className="px-6 py-5">
-                        <span className="text-sm text-gray-700">
-                          {
-                            user.role
-                          }
-                        </span>
-                      </td>
-
-                      <td className="px-6 py-5">
-                        {statusBadge(
-                          user.account_status
-                        )}
-                      </td>
-
-                      <td className="px-6 py-5">
-
-                        <div className="max-w-xs">
-
-                          <p className="text-sm font-medium text-gray-700">
-                            {getWorkplaceSummary(
-                              user
-                            )}
-                          </p>
-
-                          {getRhuName(
-                            user
-                          ) && (
-                            <p className="mt-1 text-xs text-gray-500">
-                              {
-                                getRhuName(
-                                  user
-                                )
-                              }
-                            </p>
-                          )}
-
-                          {user.role ===
-                            'Public Health Nurse' &&
-                            user.phn_workplace && (
-                              <p className="mt-1 text-xs text-gray-500">
-                                Supervises all
-                                barangays under
-                                this RHU
-                              </p>
-                            )}
-
-                          {hasPendingWorkplace(
-                            user
-                          ) && (
-                            <span className="mt-2 inline-flex rounded-full bg-yellow-50 px-2 py-1 text-[11px] font-semibold text-yellow-700">
-                              Pending verification
-                            </span>
-                          )}
-
-                        </div>
-                      </td>
-
-                      <td className="px-6 py-5 text-right">
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedUser(
-                              user
-                            )
-
-                            setMessage(
-                              null
-                            )
-
-                            setError(
-                              null
-                            )
-                          }}
-                          className="rounded-xl bg-[#0077B6] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#005F91]"
-                        >
-                          View
-                        </button>
-
-                      </td>
-
-                    </tr>
-                  )
-                )
+        <DetailSection title="Workplace assignment">
+          {user.role === 'Administrator' ? (
+            <InfoGrid><InfoItem label="Access scope" value="System-wide administration" /></InfoGrid>
+          ) : user.role === 'Public Health Nurse' ? (
+            user.phn_workplace ? (
+              <InfoGrid>
+                <InfoItem label="RHU" value={user.phn_workplace.rhu_name} />
+                <InfoItem label="Municipality" value={user.phn_workplace.municipality ?? '—'} />
+                <InfoItem label="Province" value={user.phn_workplace.province ?? '—'} />
+                <InfoItem label="Supervisory scope" value="All barangays under this RHU" />
+              </InfoGrid>
+            ) : <EmptyCard>No RHU assignment has been submitted.</EmptyCard>
+          ) : user.assignments.length > 0 && first ? (
+            <>
+              <InfoGrid>
+                <InfoItem label="RHU" value={first.rhu_name ?? '—'} />
+                <InfoItem label="Municipality" value={first.municipality ?? '—'} />
+                <InfoItem label="Province" value={first.province ?? '—'} />
+                <InfoItem label={user.role === 'Rural Health Midwife' ? 'Assigned barangays' : 'Barangay'} value={user.assignments.map((a) => a.barangay.barangay_name).join(', ')} />
+              </InfoGrid>
+              <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.5px] text-[#55617F]">Barangay assignments</p>
+              <ul>
+                {user.assignments.map((a) => (
+                  <li key={a.assignment_id} className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#EAF0F4] bg-white px-3.5 py-2.5">
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-[#0C1260]">{a.barangay.barangay_name}</span>
+                      <span className="block text-xs text-[#8896B0]">Requested {a.assigned_date ? new Date(a.assigned_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}</span>
+                    </span>
+                    <StatusBadge status={a.status} label={statusLabel(a.status)} />
+                  </li>
+                ))}
+              </ul>
+              {user.assignments.some((a) => a.status === 'PENDING') && (
+                <p className="mt-3 rounded-lg border border-[#F3D9A4] bg-[#FFF4DB] px-3.5 py-2.5 text-sm text-[#9C6B10]">The requested workplace assignments are awaiting administrator verification.</p>
               )}
+            </>
+          ) : <EmptyCard>No workplace assignment has been submitted.</EmptyCard>}
+        </DetailSection>
 
-            </tbody>
+        <DetailSection title="Account verification">
+          <div className="rounded-[10px] border border-[#EAF0F4] bg-[#F9FBFC] p-4">
+            <p className="text-sm leading-relaxed text-[#55617F]">
+              {status === 'PENDING' ? "Review the user's role and requested workplace before approving the account."
+                : status === 'ACTIVE' ? 'This account is active and authorized according to its assigned role and workplace.'
+                : status === 'SUSPENDED' ? 'This account is suspended. Its workplace assignment is kept.'
+                : 'This account is inactive.'}
+            </p>
+            {status === 'PENDING' && !withWorkplace && (
+              <p className="mt-3 rounded-lg border border-[#F5C2C2] bg-[#FFF5F5] px-3.5 py-2.5 text-sm text-[#C42B2B]">This user has no valid workplace assignment. Verify the registration before approving.</p>
+            )}
+            {!readOnly && (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                {status === 'PENDING' && <>
+                  <button type="button" disabled={processing} className={red} onClick={() => onStatus('INACTIVE', 'Registration declined. The account is inactive.')}><Ban size={14} aria-hidden="true" /> Decline registration</button>
+                  <button type="button" disabled={processing || !withWorkplace} className={navy} onClick={() => onStatus('ACTIVE', 'Account approved.')}><CheckCircle2 size={14} aria-hidden="true" /> Approve account</button>
+                </>}
+                {status === 'ACTIVE' && <>
+                  <button type="button" disabled={processing} className={amber} onClick={() => onStatus('SUSPENDED', 'Account suspended.')}><Ban size={14} aria-hidden="true" /> Suspend account</button>
+                  <button type="button" disabled={processing} className={red} onClick={() => onStatus('INACTIVE', 'Account deactivated.')}><PowerOff size={14} aria-hidden="true" /> Deactivate account</button>
+                </>}
+                {status === 'SUSPENDED' && <>
+                  <button type="button" disabled={processing} className={navy} onClick={() => onStatus('ACTIVE', 'Account reactivated.')}><RotateCcw size={14} aria-hidden="true" /> Reactivate account</button>
+                  <button type="button" disabled={processing} className={red} onClick={() => onStatus('INACTIVE', 'Account deactivated.')}><PowerOff size={14} aria-hidden="true" /> Deactivate account</button>
+                </>}
+                {status === 'INACTIVE' && <>
+                  <button type="button" disabled={processing || !withWorkplace} className={navy} onClick={() => onStatus('ACTIVE', 'Account reactivated.')}><RotateCcw size={14} aria-hidden="true" /> Reactivate account</button>
+                  {currentUserId && <DeleteAccountButton user={user} currentUserId={currentUserId} onDeleted={reload} className={red} />}
+                </>}
+                {processing && <span className="text-xs text-[#8896B0]">Saving…</span>}
+              </div>
+            )}
+          </div>
+        </DetailSection>
 
-          </table>
-
-        </div>
-        <Pagination {...userPager} label="User pages" />
+        <DetailSection title="Authorization summary">
+          <div className="flex flex-wrap gap-3">
+            <SummaryChip label="Account" active={status === 'ACTIVE'} />
+            <SummaryChip label="Workplace" active={workplaceIsActive(user)} />
+          </div>
+          <p className="mt-3 text-[13px] leading-relaxed text-[#55617F]">
+            {user.role === 'Public Health Nurse'
+              ? 'A Public Health Nurse receives RHU-wide geographic scope when the account is active and has a valid RHU assignment.'
+              : user.role === 'Administrator'
+                ? 'An Administrator receives system-wide administrative access when the account is active.'
+                : 'A health worker can access assigned geographic records only when both the account and workplace assignments are active.'}
+          </p>
+        </DetailSection>
       </div>
-
-      {/* USER DETAILS MODAL */}
-
-      {selectedUser && (
-        <Modal
-          open
-          size="lg"
-          onClose={closeModal}
-          title="User Details"
-          subtitle="Review account and workplace information."
-          cancelLabel="Close"
-          bodyClassName="space-y-6"
-        >
-            {!readOnly && currentUser && <UserActions user={selectedUser} currentUserId={currentUser.id} onChanged={() => window.location.reload()} />}
-
-              {/* ACCOUNT INFORMATION */}
-
-              <section>
-
-                <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-[#0077B6]">
-                  Account Information
-                </h3>
-
-                <div className="grid grid-cols-1 gap-4 rounded-2xl bg-gray-50 p-5 md:grid-cols-2">
-
-                  <InfoItem
-                    label="Full Name"
-                    value={
-                      selectedUser.full_name
-                    }
-                  />
-
-                  <InfoItem
-                    label="Username"
-                    value={
-                      selectedUser.username ||
-                      '—'
-                    }
-                  />
-
-                  <InfoItem
-                    label="Email"
-                    value={
-                      selectedUser.email
-                    }
-                  />
-
-                  <InfoItem
-                    label="Contact Number"
-                    value={
-                      selectedUser.contact_number ||
-                      '—'
-                    }
-                  />
-
-                  <InfoItem
-                    label="Role"
-                    value={
-                      selectedUser.role
-                    }
-                  />
-
-                  <div>
-                    <p className="text-xs font-medium text-gray-500">
-                      Account Status
-                    </p>
-
-                    <div className="mt-2">
-                      {statusBadge(
-                        selectedUser.account_status
-                      )}
-                    </div>
-                  </div>
-
-                </div>
-              </section>
-
-              {/* WORKPLACE */}
-
-              <section>
-
-                <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-[#0077B6]">
-                  Requested Workplace
-                </h3>
-
-                {/* ADMINISTRATOR */}
-
-                {selectedUser.role ===
-                  'Administrator' && (
-                    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-
-                      <InfoItem
-                        label="Access Scope"
-                        value="System-wide administration"
-                      />
-
-                    </div>
-                  )}
-
-                {/* PHN */}
-
-                {selectedUser.role ===
-                  'Public Health Nurse' && (
-                    <>
-                      {selectedUser.phn_workplace ? (
-                        <div className="rounded-2xl border border-[#CAF0F8] bg-[#CAF0F8]/40 p-5">
-
-                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-
-                            <InfoItem
-                              label="RHU"
-                              value={
-                                selectedUser
-                                  .phn_workplace
-                                  .rhu_name
-                              }
-                            />
-
-                            <InfoItem
-                              label="Municipality"
-                              value={
-                                selectedUser
-                                  .phn_workplace
-                                  .municipality ??
-                                '—'
-                              }
-                            />
-
-                            <InfoItem
-                              label="Province"
-                              value={
-                                selectedUser
-                                  .phn_workplace
-                                  .province ??
-                                '—'
-                              }
-                            />
-
-                            <InfoItem
-                              label="Supervisory Scope"
-                              value="All barangays under this RHU"
-                            />
-
-                          </div>
-
-                          {selectedUser.account_status ===
-                            'PENDING' && (
-                              <div className="mt-4 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-                                This RHU
-                                assignment is
-                                awaiting
-                                administrator
-                                verification.
-                              </div>
-                            )}
-
-                        </div>
-                      ) : (
-                        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-500">
-                          No RHU assignment
-                          has been submitted.
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                {/* RHM / BHW / BNS */}
-
-                {selectedUser.role !==
-                  'Administrator' &&
-                  selectedUser.role !==
-                    'Public Health Nurse' && (
-                    <>
-                      {selectedUser
-                        .assignments
-                        .length > 0 ? (
-                        <div className="rounded-2xl border border-[#CAF0F8] bg-[#CAF0F8]/40 p-5">
-
-                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-
-                            <InfoItem
-                              label="RHU"
-                              value={
-                                selectedUser
-                                  .assignments[0]
-                                  .barangay
-                                  .rhu_name ??
-                                '—'
-                              }
-                            />
-
-                            <InfoItem
-                              label="Municipality"
-                              value={
-                                selectedUser
-                                  .assignments[0]
-                                  .barangay
-                                  .municipality ??
-                                '—'
-                              }
-                            />
-
-                            <InfoItem
-                              label="Province"
-                              value={
-                                selectedUser
-                                  .assignments[0]
-                                  .barangay
-                                  .province ??
-                                '—'
-                              }
-                            />
-
-                            <InfoItem
-                              label={
-                                selectedUser.role ===
-                                'Rural Health Midwife'
-                                  ? 'Assigned Barangays'
-                                  : 'Barangay'
-                              }
-                              value={
-                                selectedUser
-                                  .assignments
-                                  .map(
-                                    (
-                                      assignment
-                                    ) =>
-                                      assignment
-                                        .barangay
-                                        .barangay_name
-                                  )
-                                  .join(
-                                    ', '
-                                  )
-                              }
-                            />
-
-                          </div>
-
-                          {/* EACH ASSIGNMENT */}
-
-                          <div className="mt-5">
-
-                            <p className="mb-3 text-xs font-bold uppercase tracking-wide text-gray-500">
-                              Barangay Assignments
-                            </p>
-
-                            <div className="space-y-2">
-
-                              {selectedUser.assignments.map(
-                                (
-                                  assignment
-                                ) => (
-                                  <div
-                                    key={
-                                      assignment.assignment_id
-                                    }
-                                    className="flex flex-col gap-2 rounded-xl border border-white bg-white/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                                  >
-
-                                    <div>
-                                      <p className="text-sm font-semibold text-gray-700">
-                                        {
-                                          assignment
-                                            .barangay
-                                            .barangay_name
-                                        }
-                                      </p>
-
-                                      <p className="mt-1 text-xs text-gray-500">
-                                        Requested{' '}
-                                        {assignment.assigned_date
-                                          ? new Date(
-                                              assignment.assigned_date
-                                            ).toLocaleDateString(
-                                              'en-PH',
-                                              {
-                                                year: 'numeric',
-                                                month: 'long',
-                                                day: 'numeric',
-                                              }
-                                            )
-                                          : '—'}
-                                      </p>
-                                    </div>
-
-                                    {statusBadge(
-                                      assignment.status
-                                    )}
-
-                                  </div>
-                                )
-                              )}
-
-                            </div>
-                          </div>
-
-                          {selectedUser.assignments.some(
-                            (
-                              assignment
-                            ) =>
-                              assignment.status ===
-                              'PENDING'
-                          ) && (
-                            <div className="mt-4 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-                              The requested
-                              workplace
-                              assignments are
-                              awaiting
-                              administrator
-                              verification.
-                            </div>
-                          )}
-
-                        </div>
-                      ) : (
-                        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-500">
-                          No workplace
-                          assignment has been
-                          submitted.
-                        </div>
-                      )}
-                    </>
-                  )}
-
-              </section>
-
-              {/* ACCOUNT VERIFICATION */}
-
-              <section>
-
-                <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-[#0077B6]">
-                  Account Verification
-                </h3>
-
-                <div className="rounded-2xl border border-gray-200 p-5">
-
-                  {/* PENDING */}
-
-                  {selectedUser.account_status ===
-                    'PENDING' && (
-                    <>
-                      <p className="text-sm leading-6 text-gray-600">
-                        Review the user's role
-                        and requested workplace
-                        before approving the
-                        account.
-                      </p>
-
-                      {!selectedUserHasWorkplace && (
-                        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                          This user has no valid
-                          workplace assignment.
-                          Verify the registration
-                          before approving.
-                        </div>
-                      )}
-
-                      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
-
-                        <button
-                          type="button"
-                          disabled={
-                            readOnly ||
-                            processingUserId ===
-                            selectedUser.user_id
-                          }
-                          onClick={() =>
-                            updateAccountStatus(
-                              selectedUser,
-                              'INACTIVE'
-                            )
-                          }
-                          className="rounded-xl border border-red-200 px-5 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {processingUserId ===
-                          selectedUser.user_id
-                            ? 'Processing...'
-                            : 'Reject Registration'}
-                        </button>
-
-                        <button
-                          type="button"
-                          disabled={
-                            readOnly ||
-                            processingUserId ===
-                              selectedUser.user_id ||
-                            !selectedUserHasWorkplace
-                          }
-                          onClick={() =>
-                            updateAccountStatus(
-                              selectedUser,
-                              'ACTIVE'
-                            )
-                          }
-                          className="rounded-xl bg-[#0077B6] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#005F91] disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {processingUserId ===
-                          selectedUser.user_id
-                            ? 'Processing...'
-                            : 'Approve Account'}
-                        </button>
-
-                      </div>
-                    </>
-                  )}
-
-                  {/* ACTIVE */}
-
-                  {selectedUser.account_status ===
-                    'ACTIVE' && (
-                    <>
-                      <p className="text-sm leading-6 text-gray-600">
-                        This account is
-                        currently active and
-                        authorized according to
-                        its assigned role and
-                        workplace.
-                      </p>
-
-                      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
-
-                        <button
-                          type="button"
-                          disabled={
-                            readOnly ||
-                            processingUserId ===
-                            selectedUser.user_id
-                          }
-                          onClick={() =>
-                            updateAccountStatus(
-                              selectedUser,
-                              'SUSPENDED'
-                            )
-                          }
-                          className="rounded-xl border border-orange-200 px-5 py-3 text-sm font-semibold text-orange-700 transition hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {processingUserId ===
-                          selectedUser.user_id
-                            ? 'Processing...'
-                            : 'Suspend Account'}
-                        </button>
-
-                        <button
-                          type="button"
-                          disabled={
-                            readOnly ||
-                            processingUserId ===
-                            selectedUser.user_id
-                          }
-                          onClick={() =>
-                            updateAccountStatus(
-                              selectedUser,
-                              'INACTIVE'
-                            )
-                          }
-                          className="rounded-xl border border-red-200 px-5 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {processingUserId ===
-                          selectedUser.user_id
-                            ? 'Processing...'
-                            : 'Deactivate Account'}
-                        </button>
-
-                      </div>
-                    </>
-                  )}
-
-                  {/* INACTIVE */}
-
-                  {selectedUser.account_status ===
-                    'INACTIVE' && (
-                    <>
-                      <p className="text-sm leading-6 text-gray-600">
-                        This account is
-                        currently inactive.
-                      </p>
-
-                      {!selectedUserHasWorkplace && (
-                        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                          A valid workplace is
-                          required before this
-                          account can be
-                          reactivated.
-                        </div>
-                      )}
-
-                      <div className="mt-5 flex justify-end">
-
-                        <button
-                          type="button"
-                          disabled={
-                            readOnly ||
-                            processingUserId ===
-                              selectedUser.user_id ||
-                            !selectedUserHasWorkplace
-                          }
-                          onClick={() =>
-                            updateAccountStatus(
-                              selectedUser,
-                              'ACTIVE'
-                            )
-                          }
-                          className="rounded-xl bg-[#0077B6] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#005F91] disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {processingUserId ===
-                          selectedUser.user_id
-                            ? 'Processing...'
-                            : 'Reactivate Account'}
-                        </button>
-
-                      </div>
-                    </>
-                  )}
-
-                  {/* SUSPENDED */}
-
-                  {selectedUser.account_status ===
-                    'SUSPENDED' && (
-                    <>
-                      <p className="text-sm leading-6 text-gray-600">
-                        This account is
-                        currently suspended.
-                        The workplace assignment
-                        remains preserved.
-                      </p>
-
-                      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
-
-                        <button
-                          type="button"
-                          disabled={
-                            readOnly ||
-                            processingUserId ===
-                              selectedUser.user_id ||
-                            !selectedUserHasWorkplace
-                          }
-                          onClick={() =>
-                            updateAccountStatus(
-                              selectedUser,
-                              'ACTIVE'
-                            )
-                          }
-                          className="rounded-xl bg-[#0077B6] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#005F91] disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {processingUserId ===
-                          selectedUser.user_id
-                            ? 'Processing...'
-                            : 'Reactivate Account'}
-                        </button>
-
-                        <button
-                          type="button"
-                          disabled={
-                            readOnly ||
-                            processingUserId ===
-                            selectedUser.user_id
-                          }
-                          onClick={() =>
-                            updateAccountStatus(
-                              selectedUser,
-                              'INACTIVE'
-                            )
-                          }
-                          className="rounded-xl border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {processingUserId ===
-                          selectedUser.user_id
-                            ? 'Processing...'
-                            : 'Set Inactive'}
-                        </button>
-
-                      </div>
-                    </>
-                  )}
-
-                </div>
-              </section>
-
-              {/* AUTHORIZATION SUMMARY */}
-
-              <section>
-
-                <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-[#0077B6]">
-                  Authorization Summary
-                </h3>
-
-                <div className="rounded-2xl bg-gray-50 p-5">
-
-                  <p className="text-sm leading-6 text-gray-600">
-
-                    {selectedUser.role ===
-                    'Public Health Nurse'
-                      ? 'A Public Health Nurse receives RHU-wide geographic scope when the account is active and has a valid RHU assignment.'
-                      : selectedUser.role ===
-                          'Administrator'
-                        ? 'An Administrator receives system-wide administrative access when the account is active.'
-                        : 'A health worker can access assigned geographic records only when both the account and workplace assignments are active.'}
-
-                  </p>
-
-                  <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-
-                    <AuthorizationStatus
-                      label="Account"
-                      active={
-                        selectedUser.account_status ===
-                        'ACTIVE'
-                      }
-                    />
-
-                    <AuthorizationStatus
-                      label="Workplace"
-                      active={
-                        selectedUserWorkplaceActive
-                      }
-                    />
-
-                  </div>
-
-                  {selectedUser.role ===
-                    'Public Health Nurse' &&
-                    selectedUser.phn_workplace && (
-                      <div className="mt-4 rounded-xl border border-blue-100 bg-white px-4 py-3">
-
-                        <p className="text-xs font-medium text-gray-500">
-                          PHN Geographic Scope
-                        </p>
-
-                        <p className="mt-1 text-sm font-semibold text-gray-800">
-                          {
-                            selectedUser
-                              .phn_workplace
-                              .rhu_name
-                          }
-                          {' — '}
-                          all barangays
-                          belonging to this RHU
-                        </p>
-
-                      </div>
-                    )}
-
-                </div>
-              </section>
-        </Modal>
-      )}
-
-    </div>
+    </Modal>
   )
 }
 
 /* =========================================================
-   INFO ITEM
+   SMALL PARTS
 ========================================================= */
 
-function InfoItem({
-  label,
-  value,
-}: {
-  label: string
-  value: string
-}) {
+function DetailSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div>
+    <section>
+      <h3 className="mb-3 text-[11px] font-bold uppercase tracking-[0.5px] text-[#0B759A]">{title}</h3>
+      {children}
+    </section>
+  )
+}
 
-      <p className="text-xs font-medium text-gray-500">
-        {label}
-      </p>
+function InfoGrid({ children }: { children: ReactNode }) {
+  return <dl className="grid gap-4 rounded-[10px] border border-[#EAF0F4] bg-[#F9FBFC] p-4 sm:grid-cols-2">{children}</dl>
+}
 
-      <p className="mt-1 break-words text-sm font-semibold text-gray-800">
-        {value}
-      </p>
-
+function InfoItem({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <dt className="mb-0.5 text-xs text-[#8896B0]">{label}</dt>
+      <dd className="break-words text-sm font-semibold text-[#0C1260]">{value}</dd>
     </div>
   )
 }
 
-/* =========================================================
-   AUTHORIZATION STATUS
-========================================================= */
+function EmptyCard({ children }: { children: ReactNode }) {
+  return <p className="rounded-[10px] border border-[#EAF0F4] bg-[#F9FBFC] p-4 text-sm text-[#55617F]">{children}</p>
+}
 
-function AuthorizationStatus({
-  label,
-  active,
-}: {
-  label: string
-  active: boolean
-}) {
+function SummaryChip({ label, active }: { label: string; active: boolean }) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3">
-
-      <span className="text-sm font-medium text-gray-700">
-        {label}
-      </span>
-
-      {active ? (
-        <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-          ACTIVE
-        </span>
-      ) : (
-        <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-500">
-          NOT ACTIVE
-        </span>
-      )}
-
-    </div>
+    <span className="flex items-center gap-2 rounded-lg border border-[#EAF0F4] bg-white px-3.5 py-2 text-[13px] text-[#1E2A55]">
+      {label}
+      <StatusBadge status={active ? 'active' : 'inactive'} label={active ? 'Active' : 'Not active'} />
+    </span>
   )
 }

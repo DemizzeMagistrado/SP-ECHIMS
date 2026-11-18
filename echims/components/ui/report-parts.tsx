@@ -49,9 +49,9 @@ export function CountsStrip({ label, items, selected, onSelect }: {
   const isOn = (key: string) => (Array.isArray(selected) ? selected.includes(key) : selected === key)
   // Secondary line under the number and label (e.g. Vaccination's "Longest missed").
   const hint = (item: CountItem) => item.hint && <span className="basis-full text-xs text-brand-muted">{item.hint}</span>
-  const number = (item: CountItem) => cn('text-2xl font-bold tabular-nums', item.value === 0 ? 'text-zero' : item.tone ? COUNT_TONE[item.tone] : 'text-brand-navy')
+  const number = (item: CountItem) => cn('text-[28px] font-bold leading-none tabular-nums', item.value === 0 ? 'text-zero' : item.tone ? COUNT_TONE[item.tone] : 'text-[#07075F]')
   const span = (i: number) => items.length === 5 && i === 4 && 'col-span-2 lg:col-span-1'
-  const grid = cn('grid gap-px border-t border-brand-line/70 bg-brand-line/70', COUNT_GRID[items.length] ?? 'grid-cols-2 sm:grid-cols-4')
+  const grid = cn('grid gap-px border-t border-[#EAF0F4] bg-[#EAF0F4]', COUNT_GRID[items.length] ?? 'grid-cols-2 sm:grid-cols-4')
   if (onSelect) {
     return (
       <div role="group" aria-label={label} className={grid}>
@@ -64,13 +64,13 @@ export function CountsStrip({ label, items, selected, onSelect }: {
               aria-pressed={isOn(key)}
               onClick={() => onSelect(key)}
               className={cn(
-                'flex flex-wrap items-baseline gap-x-2 bg-white px-4 py-3 text-left outline-none transition-colors hover:bg-brand-ice focus-visible:outline-3 focus-visible:outline-solid focus-visible:-outline-offset-3 focus-visible:outline-link',
-                isOn(key) && 'bg-brand-ice',
+                'flex flex-wrap items-baseline gap-x-2 bg-white px-5 py-3.5 text-left outline-none transition-colors hover:bg-[#F5F8FA] focus-visible:outline-3 focus-visible:outline-solid focus-visible:-outline-offset-3 focus-visible:outline-link',
+                isOn(key) && 'bg-[#F0F4FF] shadow-[inset_0_-3px_0_#07075F] hover:bg-[#F0F4FF]',
                 span(i),
               )}
             >
               <span className={number(item)}>{item.value}</span>
-              <span className="text-sm text-brand-muted">{item.label}</span>
+              <span className="text-sm font-medium text-[#55617F]">{item.label}</span>
               {hint(item)}
             </button>
           )
@@ -81,9 +81,9 @@ export function CountsStrip({ label, items, selected, onSelect }: {
   return (
     <dl aria-label={label} className={grid}>
       {items.map((item, i) => (
-        <div key={item.key ?? item.label} className={cn('flex flex-row-reverse flex-wrap-reverse items-baseline justify-end gap-x-2 bg-white px-4 py-3', span(i))}>
+        <div key={item.key ?? item.label} className={cn('flex flex-row-reverse flex-wrap-reverse items-baseline justify-end gap-x-2 bg-white px-5 py-3.5', span(i))}>
           {item.hint && <dd className="basis-full text-xs text-brand-muted">{item.hint}</dd>}
-          <dt className="min-w-0 text-sm text-brand-muted">{item.label}</dt>
+          <dt className="min-w-0 text-sm font-medium text-[#55617F]">{item.label}</dt>
           <dd className={number(item)}>{item.value}</dd>
         </div>
       ))}
