@@ -1,6 +1,7 @@
 'use client'
 import { Select, DateInput, Input } from '@/components/ui/form'
 import { CountsStrip, FilterCard, GuidanceCard, SectionHeader } from '@/components/ui/report-parts'
+import { InfoContent } from '@/components/ui/info-tip'
 import { TabBar } from '@/components/ui/module-tabs'
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineScope } from '@/lib/offline/fetch'
@@ -98,16 +99,29 @@ const REQUESTER_STATUS_TRANSITIONS: Partial<
 
 type Tab = 'requests' | 'calendar'
 
-const SECTIONS: Record<Tab, { title: string; subtitle: string; about: string }> = {
+const SECTIONS: Record<Tab, { title: string; subtitle: string; about: React.ReactNode }> = {
   requests: {
     title: 'Activity requests',
     subtitle: 'All health activity requests filed by BHWs, BNSs, and health staff. PHN reviews and approves.',
-    about: 'Every request in your scope, latest schedule first. Counts follow the type, barangay and search filters; select a count to show only that status. Open a request for its details and the actions you can take on it.',
+    about: <InfoContent
+      title="Activity requests"
+      description="All requests within your scope, latest schedule first."
+      sections={[{ label: 'Tip', value: 'Select a count card to filter by that status' }]}
+      bullets={['Counts follow the type, barangay and search filters', 'Open a request to see details and available actions']}
+    />,
   },
   calendar: {
     title: 'Calendar & upcoming',
     subtitle: 'Scheduled activities by month or week, and what is coming up in the next 14 days.',
-    about: 'The same requests as the list, on their scheduled dates; the filters apply here too. Dashed activities are still awaiting approval and faded ones were cancelled. Select a day to see everything on it, or an activity for its details. Upcoming lists approved and ongoing activities, soonest first.',
+    about: <InfoContent
+      title="Calendar & upcoming"
+      description="Your activities on a monthly calendar, with what's next on the right."
+      sections={[
+        { label: 'Values', value: ['Solid = approved / ongoing', 'Dashed = pending approval', 'Faded = cancelled'] },
+        { label: 'Tip', value: 'Select a day to see everything scheduled on it' },
+      ]}
+      note="Upcoming lists approved and ongoing activities, soonest first."
+    />,
   },
 }
 

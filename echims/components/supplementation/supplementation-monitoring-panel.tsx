@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { StatusBadge, type StatusTone } from '@/components/ui/status-badge'
 import { CountsStrip, FilterCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
+import { InfoContent } from '@/components/ui/info-tip'
 import { cn } from '@/lib/utils'
 import { nutritionLabel } from '@/lib/nutrition-status'
 import { Pagination, usePagination } from '@/components/ui/pagination'
@@ -172,7 +173,12 @@ export function SupplementationMonitoringPanel({
       <SectionHeader
         title="Supplementation compliance monitoring"
         subtitle="Missed means a valid saved tracking date has passed. No grace period applies."
-        about="Monitoring uses saved administrations only. Dispensing is not proof of administration. Children without a saved schedule are not assumed to have missed a dose. Clinical results require RHM review. Counts represent tracked schedules/courses, not unique children."
+        about={<InfoContent
+          title="Supplementation compliance monitoring"
+          description="Uses saved administrations only; dispensing is not proof of administration."
+          bullets={['Children without a saved schedule are not counted as missed', 'Clinical results require RHM review']}
+          note="Counts are tracked schedules or courses, not unique children."
+        />}
       />
       {!online ? (
         <p role="status" className="rounded-2xl border border-review-line/40 bg-review-soft p-4 text-sm text-review">

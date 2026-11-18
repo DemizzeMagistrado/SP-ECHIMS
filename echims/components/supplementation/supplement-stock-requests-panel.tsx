@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { REPORT_CARD } from '@/components/ui/report-parts'
 import { cn } from '@/lib/utils'
+import { ResubmitStockRequestModal } from "@/components/inventory/resubmit-stock-request-modal";
 import { BatchNumberField, checkBatchNumber } from '@/components/inventory/batch-number-field'
 import { Modal } from '@/components/ui/modal'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
@@ -34,12 +35,13 @@ type StockRequest = {
   requester_name: string;
   batch_number?: string | null;
   supplement_approval_mode?: string | null;
+  requested_by?: string;
 };
 type Data = {
   currentUserId: string;
   role: string;
   canRequest: boolean;
-  canReject: boolean;
+  canReturn: boolean;
   canApprove: boolean;
   allocationConnected: boolean;
   products: Product[];
@@ -83,7 +85,8 @@ export function SupplementStockRequestsPanel({
     quantity: "",
     remarks: "",
   });
-  const [reject, setReject] = useState<StockRequest | null>(null);
+  const [returning, setReturning] = useState<StockRequest | null>(null);
+  const [resubmitting, setResubmitting] = useState<StockRequest | null>(null);
   const [approve, setApprove] = useState<StockRequest | null>(null);
   const [batch, setBatch] = useState({
     batchNumber: "",
@@ -113,7 +116,7 @@ export function SupplementStockRequestsPanel({
     }
     // The list stays on screen while it reloads (the panel remounts for another account).
     setOpen(false);
-    setReject(null);
+    setReturning(null);
     setApprove(null);
     setLoading(true);
     void (async () => {
@@ -155,11 +158,11 @@ export function SupplementStockRequestsPanel({
     setForm((f) => ({ ...f, [key]: value }));
     intent.current = null;
   }
-  async function submit(action: "REQUEST" | "REJECT" | "APPROVE") {
+  async function submit(action: "REQUEST" | "RETURN" | "APPROVE") {
     if (saving.current || !online || !data) return;
     if (
       (action === "REQUEST" && !data.canRequest) ||
-      (action === "REJECT" && !data.canReject) ||
+      (action === "RETURN" && !data.canReturn) ||
       (action === "APPROVE" && !data.canApprove)
     )
       return;
@@ -176,8 +179,8 @@ export function SupplementStockRequestsPanel({
       );
       return;
     }
-    if (action === "REJECT" && (!reject || !reason.trim())) {
-      setError("Enter a rejection reason.");
+    if (action === "RETURN" && (!returning || !reason.trim())) {
+      setError("Say what the requester needs to change.");
       return;
     }
     if (
@@ -210,7 +213,7 @@ export function SupplementStockRequestsPanel({
             }
           : {
               action,
-              stockRequestId: reject!.stock_request_id,
+              stockRequestId: returning!.stock_request_id,
               reason: reason.trim(),
             };
     const signature = JSON.stringify(values);
@@ -235,7 +238,7 @@ export function SupplementStockRequestsPanel({
         setNotice(body.message);
         if (action === "APPROVE") onStockChanged?.();
         setOpen(false);
-        setReject(null);
+        setReturning(null);
         setApprove(null);
         intent.current = null;
         setReload((v) => v + 1);
@@ -261,8 +264,7 @@ export function SupplementStockRequestsPanel({
   const { visible: pagedRequests, props: requestPager } = usePagination(shownRequests);
   const head = "px-4 py-3 text-left align-bottom text-[13px] font-semibold text-brand-navy whitespace-nowrap";
   const cell = "px-4 py-3.5 align-top";
-  const STATUS_TONE = { PENDING: "review", APPROVED: "good", REJECTED: "danger" } as const;
-  return (
+    return (
     <section aria-label="Supplement batch stock requests" className={REPORT_CARD}>
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-brand-line px-4 py-3">
         <div className="min-w-0 flex-[1_1_20rem]">
@@ -295,8 +297,8 @@ export function SupplementStockRequestsPanel({
       <div className="flex flex-wrap items-end gap-4 border-b border-brand-line/70 p-4">
         <div className="w-full sm:w-64">
           <Select aria-label="Request status" value={filter} onChange={(e) => setFilter(e.target.value)}>
-            {["ALL", "PENDING", "REJECTED", "APPROVED"].map((s) => (
-              <option key={s} value={s}>{s === "ALL" ? "All statuses" : s.charAt(0) + s.slice(1).toLowerCase()}</option>
+            {["ALL", "PENDING", "NEEDS_REVISION", "APPROVED"].map((s) => (
+              <option key={s} value={s}>{s === "ALL" ? "All statuses" : s === "NEEDS_REVISION" ? "Needs revision" : s.charAt(0) + s.slice(1).toLowerCase()}</option>
             ))}
           </Select>
         </div>
@@ -374,7 +376,7 @@ export function SupplementStockRequestsPanel({
                           {r.requested_quantity} {r.unit}
                         </td>
                         <td className={cell}>
-                          <StatusBadge status={r.status} tone={STATUS_TONE[r.status as keyof typeof STATUS_TONE] ?? "neutral"} />
+                          <StatusBadge status={r.status} />
                         </td>
                         <td className={cn(cell, "min-w-48")}>
                           {r.remarks || <span className="text-brand-muted">—</span>}
@@ -385,11 +387,11 @@ export function SupplementStockRequestsPanel({
                             <span className="block text-xs font-semibold text-review">Temporary barangay receipt</span>
                           )}
                           {r.reason && (
-                            <span className="mt-1 block text-danger">Reason: {r.reason}</span>
+                            <span className="mt-1 block text-[#9C6B10]">{r.status === "NEEDS_REVISION" ? "To change" : "PHN note"}: {r.reason}</span>
                           )}
                         </td>
                         <td className={cn(cell, "min-w-40")}>
-                          {data.canReject && r.status === "PENDING" ? (
+                          {data.canReturn && r.status === "PENDING" ? (
                             <div className="grid gap-2">
                               <Button
                                 variant="row"
@@ -409,19 +411,22 @@ export function SupplementStockRequestsPanel({
                                 Approve Batch
                               </Button>
                               <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
-                                className="text-danger"
                                 disabled={busy || !online}
                                 onClick={() => {
-                                  setReject(r);
+                                  setReturning(r);
                                   setReason("");
                                   setError("");
                                 }}
                               >
-                                Reject
+                                Return for revision
                               </Button>
                             </div>
+                          ) : r.status === "NEEDS_REVISION" && r.requested_by === data.currentUserId ? (
+                            <Button variant="row" size="row" disabled={busy || !online} onClick={() => setResubmitting(r)}>
+                              Edit and resubmit
+                            </Button>
                           ) : (
                             <span className="text-brand-muted">—</span>
                           )}
@@ -585,24 +590,33 @@ export function SupplementStockRequestsPanel({
             )}
         </Modal>
       )}
-      {reject && (
+      {resubmitting && (
+        <ResubmitStockRequestModal
+          request={{ ...resubmitting, request_type: "SUPPLEMENT_BATCH", requested_quantity: Number(resubmitting.requested_quantity) }}
+          onClose={() => setResubmitting(null)}
+          onDone={() => {
+            setResubmitting(null);
+            setReload((v) => v + 1);
+          }}
+        />
+      )}
+      {returning && (
         <Modal
           open
           size="md"
-          onClose={() => setReject(null)}
+          onClose={() => setReturning(null)}
           busy={busy}
-          title={`Reject Request #${reject.stock_request_id}`}
-          
-          
+          title={`Return request #${returning.stock_request_id} for revision`}
+          subtitle="The RHM sees your note, edits the request and resubmits it."
           bodyClassName="space-y-5"
           onSubmit={(e) => {
             e.preventDefault();
-            void submit("REJECT");
+            void submit("RETURN");
           }}
-          footer={<Button type="submit" loading={busy} disabled={!online}>Confirm Rejection</Button>}
+          footer={<Button type="submit" loading={busy} disabled={!online}>Return for revision</Button>}
         >
             <label className="block text-sm">
-              Reason
+              What needs to change
               <Textarea
                 required
                 disabled={busy}

@@ -280,8 +280,8 @@ export function ApprovalsWidget({ showInventory, style, size = 'compact' }: Widg
   const items = q ? [
     { key: 'vacc', label: 'Vaccination records', value: q.vaccinations, href: '/vaccination/records' },
     { key: 'act', label: 'Health activities', value: q.activities, href: '/health-activities' },
-    { key: 'batch', label: 'Vaccine & supplement batches', value: q.batches, href: '/inventory/batch-requests' },
-    ...(showInventory ? [{ key: 'repl', label: 'Stock replenishment', value: q.replenishment, href: '/inventory/replenishment' }] : []),
+    { key: 'batch', label: 'Vaccine & supplement batches', value: q.batches, href: '/inventory?tab=batches#batch-requests' },
+    ...(showInventory ? [{ key: 'repl', label: 'Stock replenishment', value: q.replenishment, href: '/inventory?tab=batches#replenishment' }] : []),
   ] : []
   const total = items.reduce((n, i) => n + i.value, 0)
   return (
@@ -368,7 +368,7 @@ export function ExpiringBatchesWidget({ style, size = 'tall' }: WidgetProps) {
   const list = data?.batches ?? []
   return (
     <WidgetShell id="expiring" title="Expiring batches" note="Stock that expires within 30 days"
-      link={{ href: '/inventory/batch-trace', label: 'Batch trace' }} style={style} size={size}
+      link={{ href: '/inventory?tab=batches#batch-trace', label: 'Batch trace' }} style={style} size={size}
       loading={isLoading} error={error} empty={data && list.length === 0 && 'No batches expire in the next 30 days.'}>
       <ul className="divide-y divide-brand-ice">
         {list.slice(0, SHOWN).map((b) => {
@@ -403,7 +403,7 @@ async function loadQueues(user: AuthUser) {
     ['Supplement doses', '/supplementation', async () => (await listSupplementDrafts(user.id)).length],
     ['Child registrations', '/child-profiling/children', async () => (await listChildDrafts(user.id, scope)).length],
     ['Health activities', '/health-activities', async () => (await listActivityDrafts(user.id, scope)).length],
-    ['Stock usage', '/inventory/usage', async () => getQueuedUsageCount()],
+    ['Stock usage', '/inventory?tab=stock#usage-log', async () => getQueuedUsageCount()],
   ]
   // A store this device never opened (or one locked to another session) counts as nothing queued.
   const results = await Promise.allSettled(sources.map(([, , load]) => load()))

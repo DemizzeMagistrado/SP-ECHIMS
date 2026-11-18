@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     .eq('request_type', 'REPLENISHMENT')
     .order('request_date', { ascending: false })
 
-  if (status && ['PENDING','APPROVED','REJECTED','COMPLETED'].includes(status)) q = q.eq('status', status)
+  if (status && ['PENDING','APPROVED','NEEDS_REVISION','COMPLETED','CANCELLED'].includes(status)) q = q.eq('status', status)
 
   const { data, error } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

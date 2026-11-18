@@ -14,8 +14,9 @@ export type TabItem<T extends string = string> = {
 }
 
 /**
- * The module tab row (Alerts is the reference): navy pill slides under the active tab, inactive
- * tabs are white with a soft border. Scrolls sideways on small screens instead of wrapping.
+ * The module tab row (INV-REV01): a gray segmented control (#F0F2F5, 10px radius, 3px inset); a white
+ * pill with a soft shadow slides under the active tab (#07075F, 600); inactive tabs are #55617F, 500.
+ * Scrolls sideways on small screens instead of wrapping.
  * State tabs: pass onChange and wrap the content in <TabPanel tabKey={value}> for the fade.
  */
 export function TabBar<T extends string>({ items, value, onChange, label, group, idBase, className, variant = 'pill' }: {
@@ -52,8 +53,8 @@ export function TabBar<T extends string>({ items, value, onChange, label, group,
       active ? 'border-brand-navy text-brand-navy' : 'border-transparent text-brand-muted hover:text-brand-navy',
     )
     : cn(
-      'relative z-10 shrink-0 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60',
-      active ? 'border-transparent text-white' : 'border-border bg-white text-foreground shadow-sm hover:bg-muted',
+      'relative z-10 shrink-0 whitespace-nowrap rounded-lg px-[18px] py-[7px] text-sm transition-colors outline-none focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-1 focus-visible:outline-link disabled:cursor-not-allowed disabled:opacity-60',
+      active ? 'font-semibold text-[#07075F]' : 'font-medium text-[#55617F] hover:text-[#0C1260]',
     )
   const links = items.some((i) => i.href)
 
@@ -63,7 +64,7 @@ export function TabBar<T extends string>({ items, value, onChange, label, group,
         ref={row}
         role={links ? undefined : 'tablist'}
         aria-label={links ? undefined : label}
-        className={underline ? 'scroll-subtle flex gap-1 overflow-x-auto overflow-y-hidden' : 'relative -m-1 flex gap-2 overflow-x-auto p-1'}
+        className={underline ? 'scroll-subtle flex gap-1 overflow-x-auto overflow-y-hidden' : 'relative flex w-fit max-w-full gap-1 overflow-x-auto rounded-[10px] bg-[#F0F2F5] p-[3px]'}
       >
         {links ? (
           <nav aria-label={label} data-arrow-nav className="contents">
@@ -89,7 +90,7 @@ export function TabBar<T extends string>({ items, value, onChange, label, group,
             {item.label}
           </button>
         ))}
-        {!underline && <TabIndicator group={group ?? label} activeKey={value} className="rounded-lg bg-primary" />}
+        {!underline && <TabIndicator group={group ?? label} activeKey={value} className="rounded-lg bg-white shadow-[0_1px_3px_rgba(12,18,96,0.10)]" />}
       </div>
     </div>
   )

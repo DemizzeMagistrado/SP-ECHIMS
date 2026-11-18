@@ -37,6 +37,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { StatusBadge, type StatusTone } from '@/components/ui/status-badge'
 import { CountsStrip, FilterCard, GuidanceCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
+import { InfoContent } from '@/components/ui/info-tip'
 import { useSingleOpen } from '@/components/ui/accordion-card'
 import { formatChildId } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
@@ -1666,7 +1667,15 @@ export default function SupplementsPage() {
             <SectionHeader
               title="Administration and supply records"
               subtitle="Saved administrations, supply issues and supply plans for children in your scope."
-              about="Entries are saved administrations and supply issues. Clinical-tier entries are recorded by assigned RHMs against a verified clinical protocol and documented order. Supply plans register authorized quantities for a period; issuing supplies does not prove administration or course completion."
+              about={<InfoContent
+                title="Administration and supply records"
+                description="Saved administrations and supply issues for children in your scope."
+                sections={[
+                  { label: 'Values', value: ['Entries = saved administrations and supply issues', 'Supply plans = authorized quantities for a period'] },
+                  { label: 'Tip', value: 'Clinical-tier entries are recorded by assigned RHMs against a verified protocol and documented order.' },
+                ]}
+                note="Issuing supplies does not prove administration or course completion."
+              />}
             />
             {/* Sub-tabs and filters: one tight block (12px), like Vaccination's toolbar. */}
             <div className="space-y-3">
@@ -1879,7 +1888,12 @@ export default function SupplementsPage() {
             <SectionHeader
               title="Supplements"
               subtitle="Stock and batches for your barangays, and the catalog's age limits and administration rules."
-              about="Stock arrives through PHN-approved batch requests. Expired batches with stock and batches that need reconciliation are flagged. The guidelines come from the active system catalog and protocols; they support staff review and do not select treatment or prescribe a dose."
+              about={<InfoContent
+                title="Supplements"
+                description="Stock arrives through PHN-approved batch requests."
+                bullets={['Expired batches with stock are flagged', 'Batches that need reconciliation are flagged']}
+                note="Guidelines come from the active catalog and protocols; they support staff review and do not select treatment or prescribe a dose."
+              />}
             />
             <TabBar
               className="border-b-0 pb-0"

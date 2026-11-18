@@ -371,7 +371,7 @@ function SummaryTile({ label, value, tone }: { label: string; value: number; ton
 function BatchLink({ batch, canTrace }: { batch: string | null; canTrace: boolean }) {
   if (!batch) return <>—</>
   if (!canTrace) return <>{batch}</>
-  return <Link href={`/inventory/batch-trace?batch_number=${encodeURIComponent(batch)}`} className="font-medium text-brand-blue underline-offset-2 hover:underline">{batch}</Link>
+  return <Link href={`/inventory?tab=batches&batch_number=${encodeURIComponent(batch)}#batch-trace`} className="font-medium text-brand-blue underline-offset-2 hover:underline">{batch}</Link>
 }
 
 /** A given dose whose record the PHN has not approved yet (counts provisionally). */

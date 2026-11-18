@@ -45,14 +45,6 @@ export const moduleTabs: Record<string, { label: string; href: string; module: s
     { label: 'Schedule', href: '/vaccination/schedule', module: 'Vaccination' },
     { label: 'Vaccines', href: '/vaccination/vaccines', module: 'NIP Catalog' },
   ],
-   Inventory: [
-    { label: 'Stock Overview', href: '/inventory/stock-overview', module: 'Inventory' },
-    { label: 'Allocation', href: '/inventory/stock-allocation', module: 'Stock Allocation' },
-    { label: 'Usage Log', href: '/inventory/usage', module: 'Inventory Transactions' },
-    { label: 'Replenishment', href: '/inventory/replenishment', module: 'Inventory' },
-    { label: 'Batch Trace', href: '/inventory/batch-trace', module: 'Batch Trace' },
-    { label: 'Batch Requests', href: '/inventory/batch-requests', module: 'Vaccine Batch Requests' },
-  ],
   // Settings deliberately omitted — settings/page.tsx already provides its own in-page
   // tabs for Profile / Organization / Notifications / Security so a second tab strip
   // would be redundant.
@@ -80,8 +72,8 @@ export const moduleRoutes: Record<string, string> = {
   'Vaccination Schedule': '/vaccination/schedule',
   'Nutritional Assessment': '/nutritional-assessment/records',
   Supplementation: '/supplementation',
-  Inventory: '/inventory/stock-overview',
-  'Stock Allocation': '/inventory/stock-allocation',
+  Inventory: '/inventory',
+  'Stock Allocation': '/inventory?tab=stock#allocation',
   'Health Activities': '/health-activities',
   Alerts: '/alerts',
   Reports: '/reports',
@@ -194,10 +186,6 @@ const ROUTE_MODULES: Record<string, string> = {
   '/vaccination': 'Vaccination', '/vaccinations': 'Vaccination',
   '/nutrition': 'Nutritional Assessment', '/nutritional-assessment': 'Nutritional Assessment',
   '/supplementation': 'Supplementation', '/supplements': 'Supplementation',
-  '/inventory/batch-requests': 'Vaccine Batch Requests',
-  '/inventory/stock-allocation': 'Stock Allocation',
-  '/inventory/usage': 'Inventory Transactions',
-  '/inventory/batch-trace': 'Batch Trace',
   '/inventory': 'Inventory',
   '/health-activities': 'Health Activities',
   '/alerts': 'Alerts', '/reports': 'Reports',

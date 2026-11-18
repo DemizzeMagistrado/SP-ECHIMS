@@ -318,7 +318,7 @@ function RecordsSection({ onGoToSchedule }: { onGoToSchedule: () => void }) {
                   <span className="flex flex-col items-end sm:items-start">
                     <span className="font-medium">{vaccineLabel(one(row.vaccine))} · Dose {row.dose_number}</span>
                     <span className="text-xs text-muted-foreground">
-                      Batch {row.batch_number ? (canTrace ? <Link href={`/inventory/batch-trace?batch_number=${encodeURIComponent(row.batch_number)}`} className="font-medium text-brand-blue hover:underline">{row.batch_number}</Link> : row.batch_number) : '—'}
+                      Batch {row.batch_number ? (canTrace ? <Link href={`/inventory?tab=batches&batch_number=${encodeURIComponent(row.batch_number)}#batch-trace`} className="font-medium text-brand-blue hover:underline">{row.batch_number}</Link> : row.batch_number) : '—'}
                       {comps.length > 0 && <> · with {comps.map((x) => one(x.item)?.item_name).filter(Boolean).join(', ')}</>}
                       {comps.length === 0 && row.status === 'PENDING' && (one(row.vaccine)?.companions ?? []).length > 0 && <> · {(one(row.vaccine)?.companions ?? []).map((x) => one(x.item)?.item_name).filter(Boolean).join(', ')} on approval</>}
                       {' · by '}{recorderName(one(row.recorder))}

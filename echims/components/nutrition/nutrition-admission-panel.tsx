@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useRef, useState, type MouseEvent } from "react";
 import { AlertTriangle, ChevronDown, HeartPulse, RefreshCw, Search } from "lucide-react";
 import { CountsStrip, FilterCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
+import { InfoContent } from '@/components/ui/info-tip'
 import { cn } from '@/lib/utils'
 import { Pagination, usePagination } from '@/components/ui/pagination'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -309,7 +310,13 @@ export function NutritionAdmissionPanel({
       <SectionHeader
         title="SAM/MAM admission tracking"
         subtitle="Children flagged SAM or MAM. Confirm the care they are actually receiving and track their checkups."
-        about="Qualifying saved assessments create pending entries. RHM/BNS confirm actual inpatient or outpatient care after checkup. Active means confirmed ongoing care; Done means this tracking entry was completed, not an automatically inferred cure. No next follow-up date is required. At most the latest 500 scoped entries are displayed."
+        about={<InfoContent
+          title="SAM/MAM admission tracking"
+          description="Qualifying saved assessments create pending entries; the RHM or BNS confirms the actual inpatient or outpatient care after checkup."
+          sections={[{ label: 'Values', value: ['Pending = waiting for care to be confirmed', 'Active = confirmed ongoing care', 'Done = this tracking entry was completed (not an inferred cure)'] }]}
+          bullets={['No next follow-up date is required']}
+          note="Shows at most the latest 500 entries in your scope."
+        />}
       />
       <FilterCard
         refresh={
