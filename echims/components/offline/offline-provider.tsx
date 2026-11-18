@@ -2,6 +2,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { SWRConfig, useSWRConfig } from 'swr'
 import { useAuth } from '@/components/auth/auth-provider'
+import {OfflineUpdateNotice} from '@/components/offline/offline-update-notice'
 import { AutomaticPreparation } from '@/components/offline/automatic-preparation'
 import { offlineScope } from '@/lib/offline/fetch'
 function AccountRevalidation({children}: {children: ReactNode}) {
@@ -34,17 +35,13 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     const storageError = () => setError('This device could not save the latest view. Check available browser storage before going offline.')
     window.addEventListener('echims-offline-storage-error', storageError)
     document.addEventListener('click', navigate, true)
-    if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
-      void navigator.serviceWorker.register('/offline-worker', { scope: '/', updateViaCache: 'none' })
-        .catch(() => setError('Offline page preparation failed. Retry while online.'))
-    }
     return () => {
       window.removeEventListener('echims-offline-storage-error', storageError)
       document.removeEventListener('click', navigate, true)
     }
   }, [])
   const accountKey = user ? user.id + ':' + offlineScope(user) : 'signed-out'
-  return <>{error && <div role="alert" className="bg-rose-50 p-2 text-sm text-rose-700">{error}</div>}
+  return <><OfflineUpdateNotice/>{error && <div role="alert" className="bg-rose-50 p-2 text-sm text-rose-700">{error}</div>}
     <SWRConfig key={accountKey} value={{ provider: () => new Map() }}><AccountRevalidation><AutomaticPreparation/>{children}</AccountRevalidation></SWRConfig>
   </>
 }

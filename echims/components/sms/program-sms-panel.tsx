@@ -38,12 +38,17 @@ type Row = {
   simulation_status: string | null;
   simulation_time: string | null;
   simulation_error: string | null;
+  live_contact_verified?: boolean;
+  live_status?: string | null;
+  provider_uid?: string | null;
 };
 type Data = {
   currentUserId: string;
   program: Program;
   canSend: boolean;
   simulationEnabled: boolean;
+  mode?: string;
+  liveEnabled?: boolean;
   previewEnabled?: boolean;
   evaluatedOn: string;
   rows: Row[];
@@ -177,6 +182,31 @@ export function ProgramSmsPanel({
       online &&
       !busy,
   );
+  const liveReady = Boolean(data?.canSend && data.liveEnabled && selected?.eligible && selected.live_contact_verified && selected.phase === messageType && online && !busy && !['READY','SENDING','SUBMITTED','DELIVERED','UNCERTAIN'].includes(selected.live_status ?? ''));
+  const currentContext = useRef(`${ownerId}:${program}`); currentContext.current = `${ownerId}:${program}`;
+  async function sendLive() {
+    if (sending.current || !liveReady || !selected) return;
+    const context = `${ownerId}:${program}`;
+    sending.current = true; setBusy(true); setError(''); setNotice('');
+    const signature = `${ownerId}:${program}:${selected.service_key}:${messageType}:LIVE`;
+    if (intent.current?.signature !== signature) intent.current = { signature, requestId: crypto.randomUUID() };
+    try {
+      // Native fetch never queues a paid send as an offline form submission.
+      const result = await readJson(await globalThis.fetch('/api/sms/reminders', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'SEND', program, serviceKey: selected.service_key, messageType, requestId: intent.current.requestId, requestOwnerId: ownerId, preview: false }),
+      }));
+      if (!active.current || currentContext.current !== context) return;
+      if (result.currentUserId !== ownerId) throw new Error('Session changed. Refresh this page.');
+      setNotice(typeof result.message === 'string' ? result.message : 'Sending attempt recorded.');
+      intent.current = null; setReload(old => old + 1);
+    } catch (cause) {
+      if (active.current && currentContext.current === context) setError(cause instanceof Error ? cause.message : 'Sending result is uncertain. Retry the same action to check its status.');
+    } finally {
+      sending.current = false;
+      if (active.current && currentContext.current === context) setBusy(false);
+    }
+  }
   const rows = (data?.rows ?? []).filter(
     (row) =>
       (filter === "ALL" || row.phase === filter) &&
@@ -350,6 +380,7 @@ export function ProgramSmsPanel({
                       "Due date",
                       "Status",
                       "SMS status",
+                      "Live sending status",
                       "Demo result",
                     ].map((label, index) => (
                       <th key={index} className="px-3 py-3 text-xs font-medium">
@@ -388,6 +419,7 @@ export function ProgramSmsPanel({
                                 ? "Ready to queue"
                                 : `Next reminder: ${row.phase === "OVERDUE" ? row.overdue_date : row.upcoming_date}`}
                         </td>
+                        <td className="px-3 py-3">{row.live_status?.replace(/_/g, ' ') ?? (row.live_contact_verified ? 'Not submitted' : 'OTP verification required')}</td>
                         <td className="px-3 py-3">
                           {row.simulation_status?.replace(/_/g, " ") ??
                             "No simulation yet"}
@@ -461,7 +493,13 @@ export function ProgramSmsPanel({
                     This preview is not the eligible message for today's date.
                   </p>
                 )}
-                {data.canSend && (
+                {data.canSend && data.mode === 'live' && <div className="space-y-2">
+                  {!data.liveEnabled && <p className="text-sm text-amber-800">Live sending requires complete iProg server configuration and a supported account route.</p>}
+                  {!selected.live_contact_verified && <p className="text-sm text-amber-800">Verify the guardian mobile number by OTP in the child profile first.</p>}
+                  {selected.live_status && <p className="text-sm">Live attempt: {selected.live_status.replace(/_/g, ' ')}. A submitted message is not yet confirmed delivered.</p>}
+                  <button type="button" disabled={!liveReady} onClick={() => void sendLive()} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{busy ? 'Submitting...' : 'Send guardian SMS'}</button>
+                </div>}
+                {data.canSend && data.simulationEnabled && (
                   <>
                     <div className="flex flex-wrap items-center gap-3">
                       <Button
@@ -502,8 +540,7 @@ export function ProgramSmsPanel({
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Presentation preview can run before the reminder date when
-                      enabled. It records a labelled demo only. Live SMS sending
-                      remains disabled until the provider is integrated.
+                      enabled. It records a labelled demo only. Live sending uses separate provider attempts and requires verified consent.
                     </p>
                   </>
                 )}

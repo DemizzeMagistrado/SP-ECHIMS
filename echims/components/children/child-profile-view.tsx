@@ -1,5 +1,6 @@
 "use client";
-import { HouseholdNotAssigned } from "@/components/children/assign-household";
+import { childProgramEligibility, manilaDate } from '@/lib/child-program-eligibility'
+import { TransferredHouseholdRegistration } from '@/components/children/transferred-household-registration'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 // CHILD-USR003 — View Child Profile
 // Centralized profile view that pulls the child record, their linked guardian,
@@ -35,7 +36,8 @@ import { NO_PHILHEALTH } from "@/lib/children/profile-fields";
 import { describeMedicalHistory, type MedicalHistory } from "@/lib/children/medical-history";
 import { useMedicalHistoryOptions } from "@/components/children/medical-history-picker";
 import { ChildFormModal } from "@/components/children/child-form-modal";
-import { ChangeStatusModal } from "@/components/children/change-status-modal";
+import { ChildCareSections } from '@/components/children/child-care-sections'
+import { ChildChangeDraftPanel } from '@/components/children/child-change-draft-panel'
 import { VaccinationScheduleSection } from "@/components/children/vaccination-schedule-section";
 import { toast } from '@/components/ui/toast'
 import { GuardianSmsConsent } from "@/components/children/guardian-sms-consent";
@@ -62,6 +64,7 @@ type ChildRow = {
   barangay_id: number | null;
   guardian_id: number | null;
   birth_weight_kg?: number | string | null;
+  birth_length_cm?: number | string | null;
   birth_height_cm?: number | string | null;
   mother_name?: string | null;
   father_name?: string | null;
@@ -508,15 +511,8 @@ export function ChildProfileView({childId}: {childId: string}) {
     return k.includes(`child_id=${parsedId}`) || k.includes(`childId=${parsedId}`) || k.startsWith(`/api/children/${parsedId}/`);
   });
   const [editOpen, setEditOpen] = useState(false);
-  const [statusOpen, setStatusOpen] = useState(false);
-  // Movement history — loaded alongside the main profile. Updates whenever the user
-  // marks a status change via the ChangeStatusModal (we mutate() this on save).
-  const { data: movements, mutate: mutateMovements } = useSWR<MovementRow[]>(
-    isReady && canView && Number.isSafeInteger(parsedId) && parsedId > 0
-      ? `/api/children/${parsedId}/movement`
-      : null,
-    fetcher,
-  );
+
+
   if (!isReady) {
     return (
       <LogoLoader label="Loading child profile…" />
@@ -587,6 +583,7 @@ export function ChildProfileView({childId}: {childId: string}) {
     siblings = [],
     openAlertCount,
   } = data;
+  const programEligibility = childProgramEligibility(child.date_of_birth, child.status ?? '', manilaDate());
   const fullName = [child.first_name, child.middle_name, child.last_name]
     .filter(Boolean)
     .join(" ");
@@ -613,10 +610,6 @@ export function ChildProfileView({childId}: {childId: string}) {
               Print
             </Button>
             {canEdit && (<>
-            <Button variant="secondary" onClick={() => setStatusOpen(true)}>
-              <ArrowRightLeft size={16} aria-hidden="true" />
-              Change status
-            </Button>
             <Button variant="secondary" onClick={() => setEditOpen(true)}>
               <Pencil size={16} aria-hidden="true" />
               Edit profile
@@ -624,9 +617,10 @@ export function ChildProfileView({childId}: {childId: string}) {
             </>)}
           </div>
       </div>
+      {programEligibility.underFive === false && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Archived from the under-five program after the fifth birthday. The profile, service history and continuing care remain available.</div>}
       {/* Transfer accepted without a household: a task until one is assigned (NIP-REV01). */}
       {!household && (
-        <HouseholdNotAssigned childId={child.child_id} childName={fullName} barangayId={child.barangay_id ?? null} canEdit={canEdit} onAssigned={() => void mutate()} />
+        <TransferredHouseholdRegistration childId={child.child_id} onSaved={() => void mutate()} />
       )}
       {/* Header: white card with a navy accent; name first, identifiers and details muted. */}
       <section className="rounded-2xl border border-border border-l-4 border-l-primary bg-white p-5 shadow-sm sm:p-6">
@@ -667,6 +661,7 @@ export function ChildProfileView({childId}: {childId: string}) {
           { id: "vaccination-schedule", label: "Vaccination schedule" },
           { id: "nutrition-history", label: "Nutrition history" },
           { id: "supplementation", label: "Supplementation" },
+          { id: "checkups-transfers", label: "Checkups & transfers" },
         ]}
         extra={canViewAlerts && (
           <Link href="/alerts" className={subnavPill(false)}>
@@ -692,7 +687,7 @@ export function ChildProfileView({childId}: {childId: string}) {
             <InfoRow label="Age group" value={classificationForDob(child.date_of_birth)} />
             <InfoRow label="Place of birth" value={child.birth_place || "—"} />
             <InfoRow label="Birth weight" value={child.birth_weight_kg ? `${child.birth_weight_kg} kg` : "—"} />
-            <InfoRow label="Birth height" value={child.birth_height_cm ? `${child.birth_height_cm} cm` : "—"} />
+            <InfoRow label="Birth height" value={(child.birth_height_cm ?? child.birth_length_cm) ? `${child.birth_height_cm ?? child.birth_length_cm} cm` : "—"} />
             <InfoRow label="Registered" value={formatDate(child.registration_date)} />
           </div>
           <div className="divide-y divide-border">
@@ -836,61 +831,10 @@ export function ChildProfileView({childId}: {childId: string}) {
         <SupplementationHistorySection childId={child.child_id} />
       </div>
 
-      {/* Movement history — only renders when at least one movement is on file.
-          Shows chronological audit trail of status changes (MOVED/LOST/RETURNED/TRANSFERRED). */}
-      {movements && movements.length > 0 && (
-        <SectionCard
-          title="Movement History"
-          subtitle={`${movements.length} record${movements.length === 1 ? "" : "s"}`}
-          icon={<History size={18} />}
-        >
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-muted/60">
-                <tr>
-                  {[
-                    "Date",
-                    "Type",
-                    "Status",
-                    "Reason",
-                    "New address",
-                    "Remarks",
-                  ].map((heading) => (
-                    <th
-                      key={heading}
-                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-                    >
-                      {heading}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {movements.map((record) => (
-                  <tr key={record.movement_id}>
-                    <td className="px-4 py-3 text-sm">
-                      {formatDate(record.movement_date)}
-                    </td>
-                    <td className="px-4 py-3 text-sm font-medium">
-                      {record.movement_type}
-                    </td>
-                    <td className="px-4 py-3 text-sm">{record.status}</td>
-                    <td className="px-4 py-3 text-sm">
-                      {record.reason ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      {record.new_address ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {record.remarks ?? "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </SectionCard>
-      )}
+      <ChildChangeDraftPanel childId={child.child_id} onUploaded={()=>{void mutate()}}/>
+      <div id="checkups-transfers" className="scroll-mt-[var(--subnav-offset,8rem)]"><ChildCareSections childId={child.child_id} householdId={child.household_id}
+        barangayId={child.barangay_id} dateOfBirth={child.date_of_birth}
+        registryStatus={child.status ?? ''} canEdit={canEdit} onSaved={()=>{void mutate()}}/></div>
       {editOpen && canEdit && (
         <ChildFormModal
           mode="edit"
@@ -907,23 +851,7 @@ export function ChildProfileView({childId}: {childId: string}) {
           onError={(message) => toast.error(message)}
         />
       )}
-      {statusOpen && canEdit && (
-        <ChangeStatusModal
-          childId={parsedId}
-          currentStatus={child.status ?? "ACTIVE"}
-          childName={fullName}
-          onClose={() => setStatusOpen(false)}
-          onSaved={() => {
-            setStatusOpen(false);
-            // Refetch both the profile (status chip updates) and movement history (new row).
-            mutate();
-            mutateMovements();
-            void refreshChildSections();
-            toast.success("Status updated");
-          }}
-          onError={(message) => toast.error(message)}
-        />
-      )}
+
     </div>
   );
 }

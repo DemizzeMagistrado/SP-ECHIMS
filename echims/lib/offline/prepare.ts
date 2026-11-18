@@ -20,6 +20,8 @@ export async function prepareSystemViews(user: AuthUser, progress: (text: string
   let completed = 0, profiles = 0
   const view = (name: string) => canPerform(user.role, name, 'view')
   const urls = new Set(['/api/notifications'])
+  const transferWorker = ['Public Health Nurse','Rural Health Midwife','Barangay Health Worker'].includes(user.role)
+  if(view('Child Profiling') && transferWorker) ['/api/children/age-archive','/api/children/transferred-archive','/api/child-transfers?','/api/transfer-destinations'].forEach(url=>urls.add(url))
   if (view('Child Profiling')) ['/api/children','/api/barangays','/api/psgc?level=offline-reference','/api/children/medical-history-options'].forEach(url => urls.add(url))
   if (view('Health Activities')) ['/api/health-activities','/api/health-activities/options'].forEach(url => urls.add(url))
   if (view('Nutritional Assessment')) urls.add('/api/nutrition')
@@ -46,7 +48,9 @@ export async function prepareSystemViews(user: AuthUser, progress: (text: string
     progress(`Preparing shared views (${completed}/${urls.size})…`)
     try {
       const data = await download(url)
-      if (url.startsWith('/api/children')) for (const id of preparedChildIds(data)) children.add(id)
+      if(url === '/api/transfer-destinations' && Array.isArray(data.records)) for(const destination of data.records){if(!current())break;try{await download('/api/transfer-destinations?rhuId='+destination.rhu_id)}catch{failures.push('/api/transfer-destinations?rhuId='+destination.rhu_id)}}
+      if (url === '/api/children' || url === '/api/children?view=vaccination-options') for (const id of preparedChildIds(data)) children.add(id)
+      if (url === '/api/children/age-archive' && Array.isArray(data.records)) for(const id of preparedChildIds(data.records)) children.add(id)
       if (url.startsWith('/api/alerts') && Array.isArray(data.alerts)) for (const row of data.alerts) for (const id of preparedChildIds([{child_id:row.child_id}])) children.add(id)
     } catch { failures.push(url) }
   }
@@ -58,7 +62,9 @@ export async function prepareSystemViews(user: AuthUser, progress: (text: string
       progress(`Preparing child profiles (${profiles}/${ids.length})…`)
       let profile
       try { profile = await download(`/api/children?childId=${id}`); profiles++ } catch { failures.push(`/api/children?childId=${id}`); continue }
-      const details = [`/api/children/${id}/movement`]
+      const details = [`/api/children/${id}/movement`,`/api/children/${id}/checkup-appointments`]
+      if(canPerform(user.role,'Child Profiling','edit'))details.push(`/api/children/${id}/edit-snapshot`)
+      if(transferWorker) details.push(`/api/child-transfers?childId=${id}&`)
       if (view('Vaccination')) details.push(`/api/children/${id}/vaccination-schedule`, `/api/vaccination/history?child_id=${id}`)
       if (view('Supplementation')) details.push(`/api/supplementation?childId=${id}`)
       const guardianId = profile?.child?.guardian_id

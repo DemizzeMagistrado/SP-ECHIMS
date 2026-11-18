@@ -1,4 +1,7 @@
 'use client'
+// ECHIMS_UNDER_FIVE_ROSTER
+import {ChildChangeDraftPanel} from '@/components/children/child-change-draft-panel'
+import {childProgramEligibility as ageArchiveEligibility,manilaDate as ageArchiveToday} from '@/lib/child-program-eligibility'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 // Children list (CHILD-USR004). Search by name, Child ID, Family Serial No., guardian or
@@ -83,7 +86,7 @@ export default function ChildHealthPage() {
   const [monitoringFilter, setMonitoringFilter] = useState('all')
   const [registerOpen, setRegisterOpen] = useState(false)
 
-  const records = useMemo(() => children ?? [], [children])
+  const records = useMemo(() => (children ?? []).filter(c => ageArchiveEligibility(c.dob,c.status,ageArchiveToday()).underFive === true), [children])
   const monitoringOptions = useMemo(() => [...new Set(records.map((c) => c.monitoringStatus).filter(Boolean))].sort(), [records])
   const barangayName = (id: string) => barangays?.find((b) => String(b.barangay_id) === id)?.barangay_name ?? '—'
 
@@ -137,6 +140,7 @@ export default function ChildHealthPage() {
   return (
     <div className="space-y-6">
       <ModuleTabs parent="Child Profiling" role={role} />
+      <ChildChangeDraftPanel onUploaded={()=>{void mutate()}}/>
       <PageHeader
         title="Child Profiling: Children"
         subtitle="Register and monitor children aged 0–59 months."

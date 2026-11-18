@@ -49,6 +49,9 @@ export async function GET(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return invalid('Please sign in to view the defaulters list.', 401)
+  const account = await supabase.from('users').select('account_status').eq('user_id',user.id).maybeSingle()
+  if(account.error) return invalid('Unable to verify your account.',500)
+  if(account.data?.account_status !== 'ACTIVE') return invalid('An active account is required.',403)
   const role = await trustedRole(supabase)
   if (!role || !canPerform(role, 'Vaccination', 'view')) {
     return invalid('You are not authorized to view the defaulters list.', 403)

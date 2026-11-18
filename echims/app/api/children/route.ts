@@ -1,3 +1,4 @@
+import {childProgramEligibility,manilaDate} from '@/lib/child-program-eligibility';
 import { NextResponse } from "next/server";
 import { withHistoryComparisons } from "@/lib/nutrition-history";
 import { createClient } from "@/lib/supabase/server";
@@ -112,12 +113,13 @@ export async function GET(request: Request) {
     return invalid("You are not authorized to access child records.", 403);
   const childId = parseId(new URL(request.url).searchParams.get("childId"));
   let query = auth.supabase
-    .from("child")
+    .from("child_program_roster")
     .select(
-      "child_id, first_name, middle_name, last_name, date_of_birth, sex, birth_place, address, registration_date, status, household_id, barangay_id, guardian_id, birth_weight_kg, birth_height_cm, mother_name, father_name, child_code, household:household(household_no, family_serial_no), guardian:guardian(first_name, middle_name, last_name)",
+      "child_id, first_name, middle_name, last_name, date_of_birth, sex, birth_place, address, registration_date, status, household_id, barangay_id, guardian_id, birth_weight_kg, birth_length_cm, program_ends_on, program_archive_status, birth_height_cm, mother_name, father_name, child_code, household:household(household_no, family_serial_no), guardian:guardian(first_name, middle_name, last_name)",
     )
     .order("child_id", { ascending: false });
   if (childId) query = query.eq("child_id", childId);
+  else query = query.eq("program_archive_status", "UNDER_FIVE");
   const { data, error } = await query;
   if (error) return invalid("Unable to load child records.", 500);
   const rows = data ?? [];
@@ -308,6 +310,8 @@ export async function GET(request: Request) {
       status: child.status,
       monitoringStatus: latestStatus.get(child.child_id) ?? "Not Yet Assessed",
       guardianId: child.guardian_id,
+      programArchiveStatus: child.program_archive_status,
+      programEndsOn: child.program_ends_on,
     })),
   );
 }
@@ -322,6 +326,9 @@ export async function POST(request: Request) {
   } catch {
     return invalid("Invalid request body.");
   }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return invalid("Invalid request body.");
+  const birthError = normalizeChildBirthMeasures(body);
+  if (birthError) return invalid(birthError);
   const firstName = String(body.first_name ?? "").trim();
   const middleName = String(body.middle_name ?? "").trim() || null;
   const lastName = String(body.last_name ?? "").trim();
@@ -341,7 +348,7 @@ export async function POST(request: Request) {
     dob > new Date().toISOString().slice(0, 10)
   )
     return invalid("Date of birth must be valid and cannot be in the future.");
-  if (monthsOld(dob) < 0 || monthsOld(dob) > 59)
+  if (childProgramEligibility(dob, "ACTIVE", manilaDate()).underFive !== true)
     return invalid("Child must be between 0 and 59 months old.");
   const household =
     body.new_household && typeof body.new_household === "object"
@@ -441,6 +448,7 @@ export async function POST(request: Request) {
       middle_name: middleName,
       last_name: lastName,
       date_of_birth: dob,
+      birth_length_cm: optionalNumber(body.birth_height_cm ?? body.birth_length_cm),
       sex,
       birth_place: String(body.birth_place ?? "").trim() || null,
       address: String(body.address ?? "").trim() || null,
@@ -450,7 +458,7 @@ export async function POST(request: Request) {
       barangay_id: barangayId,
       guardian_id: guardianId,
       birth_weight_kg: optionalNumber(body.birth_weight_kg),
-      birth_height_cm: optionalNumber(body.birth_height_cm),
+      birth_height_cm: optionalNumber(body.birth_height_cm ?? body.birth_length_cm),
       mother_name: String(body.mother_name ?? "").trim() || null,
       father_name: String(body.father_name ?? "").trim() || null,
     })
@@ -512,7 +520,10 @@ export async function PATCH(request: Request) {
     string,
     unknown
   > | null;
-  const childId = parseId(body?.child_id);
+  if (!body || typeof body !== "object" || Array.isArray(body)) return invalid("Invalid request body.");
+  const birthError = normalizeChildBirthMeasures(body);
+  if (birthError) return invalid(birthError);
+  const childId = parseId(body.child_id);
   if (!childId) return invalid("A valid child is required.");
   const changingGuardianContact = body?.guardian_contact_number !== undefined;
   let guardianContact: string | null = null;
@@ -569,6 +580,7 @@ export async function PATCH(request: Request) {
     "guardian_id",
     "birth_weight_kg",
     "birth_height_cm",
+    "birth_length_cm",
     "mother_name",
     "father_name",
   ];
@@ -591,16 +603,24 @@ export async function PATCH(request: Request) {
           return invalid(`Invalid ${field} value.`);
         updates[field] = n;
       }
-    } else if (field === "birth_weight_kg" || field === "birth_height_cm") {
+    } else if (field === "birth_weight_kg" || field === "birth_height_cm" || field === "birth_length_cm") {
       updates[field] = optionalNumber(raw);
     } else {
       updates[field] = raw === "" ? null : raw;
     }
   }
-  if (updates.date_of_birth && monthsOld(String(updates.date_of_birth)) > 59)
-    return invalid(
-      "Child must be between 0 and 59 months old at registration.",
-    );
+  if (body.birth_height_cm !== undefined || body.birth_length_cm !== undefined) {
+    if (body.birth_height_cm !== undefined && body.birth_length_cm !== undefined &&
+        optionalNumber(body.birth_height_cm) !== optionalNumber(body.birth_length_cm)) return invalid('Birth height and length must match.');
+    updates.birth_height_cm = optionalNumber(body.birth_height_cm ?? body.birth_length_cm);
+    updates.birth_length_cm = updates.birth_height_cm;
+  }
+  // An aged-out child remains editable for demographics and continuing care.
+  if (updates.date_of_birth) {
+    const dob = String(updates.date_of_birth);
+    const parsed = new Date(dob + 'T00:00:00Z');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dob) || !Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0,10) !== dob || dob > new Date().toISOString().slice(0,10)) return invalid('Date of birth must be valid and cannot be in the future.');
+  }
   // Only run the UPDATE if there's actually something to change. select() + maybeSingle()
   // after the update confirms a row was returned — if the UPDATE matched zero rows (wrong
   // id, or RLS blocked it silently), we surface a clear error instead of claiming success.
@@ -740,4 +760,13 @@ export async function PATCH(request: Request) {
     // The existing guardian trigger clears SMS confirmation when the number changes.
   }
   return NextResponse.json({ message: "Child updated successfully." });
+}
+
+// ECHIMS_BIRTH_API_V1
+function normalizeChildBirthMeasures(body: Record<string, unknown>): string | null {
+ for(const [key,label] of [['birth_weight_kg','Birth weight in kg'],['birth_length_cm','Birth length in cm']] as const){
+  if(!(key in body))continue;const raw=body[key];if(raw===null || (typeof raw==='string' && raw.trim()==='')){body[key]=null;continue}
+  if(typeof raw!=='string' && typeof raw!=='number')return label+' must be a positive finite number or blank.';
+  const value=Number(raw);if(!Number.isFinite(value) || value<=0)return label+' must be a positive finite number or blank.';body[key]=value;
+ }return null;
 }

@@ -71,6 +71,11 @@ export const NO_PHILHEALTH = new Set(['N/A', 'No PhilHealth'])
 
 /** Drafts saved before CP-REV01 used condition checkboxes; keep what they recorded as "Other". */
 export function upgradeLegacyDraft(form: ChildForm): ChildForm {
+  // Old offline drafts used birth_length_cm. Move the value into the current UI field once.
+  if ('birth_length_cm' in form) {
+    const { birth_length_cm, ...modern } = form;
+    form = { ...modern, birth_height_cm: form.birth_height_cm || birth_length_cm || '' };
+  }
   const legacy = [
     form.has_hypertension && 'Hypertension', form.has_diabetes_mellitus && 'Diabetes Mellitus',
     form.has_tuberculosis && 'Tuberculosis', form.has_others && String(form.medical_history_other ?? '').trim(),
@@ -168,7 +173,7 @@ export function recordToForm(d: { child?: Row | null; guardian?: Row | null; pro
     date_of_birth: str(child.date_of_birth),
     sex: child.sex === "MALE" ? "Male" : child.sex === "FEMALE" ? "Female" : "",
     birth_place: str(child.birth_place), address: str(child.address),
-    birth_weight_kg: str(child.birth_weight_kg), birth_height_cm: str(child.birth_height_cm),
+    birth_weight_kg: str(child.birth_weight_kg), birth_height_cm: str(child.birth_height_cm ?? child.birth_length_cm),
     mother_name: str(child.mother_name), father_name: str(child.father_name),
     barangay_id: str(child.barangay_id), household_id: str(child.household_id), guardian_id: str(child.guardian_id),
     guardian_contact_number: normalizePhMobile(str(guardian?.contact_number)) ?? str(guardian?.contact_number),

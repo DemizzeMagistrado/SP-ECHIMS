@@ -1,4 +1,6 @@
 'use client'
+// ECHIMS_OFFLINE_TRANSFER_TABS_V1
+import {ChildTransfersPage} from '@/components/children/child-transfers-page'
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { Sidebar } from '@/components/dashboard/sidebar'
@@ -15,6 +17,9 @@ import ResetPasswordPage from '@/app/reset-password/page'
 import PrivacyPage from '@/app/privacy/page'
 import TermsPage from '@/app/terms/page'
 import DashboardPage from '@/app/(dashboard)/dashboard/page'
+import {ChildArchives} from '@/components/children/child-archives'
+import {ChildChangeDraftPanel} from '@/components/children/child-change-draft-panel'
+import {RhuTransferSection} from '@/components/children/rhu-transfer-section'
 import ChildrenPage from '@/app/(dashboard)/children/page'
 import { ChildProfileView } from '@/components/children/child-profile-view'
 import NutritionPage from '@/app/(dashboard)/nutrition/page'
@@ -56,6 +61,8 @@ export default function OfflinePage() {
   let page
   if (path === '/dashboard') page = <DashboardPage/>
   else if (childId) page = <ProfileErrorBoundary key={childId}><ChildProfileView childId={childId}/></ProfileErrorBoundary>
+  else if (path === '/child-profiling/archived') page = <ChildArchives/>
+  else if (path === '/child-profiling/transfers') page = <ChildTransfersPage/>
   else if (['/children', '/child-profiling/children'].includes(path)) page = <ChildrenPage/>
   else if (/^\/(vaccination|vaccinations)(\/|$)/.test(path)) page = <VaccinationPage/>
   else if (/^\/(nutrition|nutritional-assessment)(\/|$)/.test(path)) page = <NutritionPage/>

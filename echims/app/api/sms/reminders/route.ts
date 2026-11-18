@@ -1,167 +1,57 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { getAuthorizationContext } from "@/lib/auth/authorization";
-import { canPerform, type UserRole } from "@/lib/echims-data";
-const headers = { "Cache-Control": "private, no-store" };
-const fail = (error: string, status: number) =>
-  NextResponse.json({ error }, { status, headers });
-const roles: Record<string, UserRole> = {
-  Administrator: "Administrator",
-  PHN: "Public Health Nurse",
-  RHM: "Rural Health Midwife",
-  BHW: "Barangay Health Worker",
-  BNS: "Barangay Nutrition Scholar",
-};
-async function authorize(program: string, send = false) {
-  const context = await getAuthorizationContext();
-  if (!context) return fail("Please sign in.", 401);
-  if (!["VACCINATION", "SUPPLEMENTATION"].includes(program))
-    return fail("Choose Vaccination or Supplementation.", 400);
-  const role = roles[String(context.role)];
-  if (
-    !role ||
-    !canPerform(
-      role,
-      program === "VACCINATION" ? "Vaccination" : "Supplementation",
-      "view",
-    )
-  )
-    return fail("Not authorized to view this program.", 403);
-  if (send && !["RHM", "BHW"].includes(String(context.role)))
-    return fail(
-      "Only RHM and BHW can send or simulate SMS. Administrator, PHN and BNS have viewing access.",
-      403,
-    );
-  if (send && process.env.SMS_SIMULATION_ENABLED !== "true")
-    return fail(
-      "Simulation is disabled. Live sending is not integrated yet.",
-      403,
-    );
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("users")
-    .select("account_status")
-    .eq("user_id", context.authUser.id)
-    .maybeSingle();
-  if (error) return fail("Unable to verify your account.", 500);
-  if (data?.account_status !== "ACTIVE")
-    return fail("An active account is required.", 403);
-  return { context, supabase };
-}
+import { NextResponse } from 'next/server'
+import { smsSession, smsService, json, uuid, dbFailure } from '@/lib/sms/server'
+import { smsConfiguration, sendIprogSms } from '@/lib/sms/iprogsms'
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 export async function GET(request: Request) {
   try {
-    const program = new URL(request.url).searchParams.get("program") ?? "";
-    const auth = await authorize(program);
-    if (auth instanceof NextResponse) return auth;
-    const { data, error } = await auth.supabase.rpc(
-      "get_sms_program_overview",
-      { p_program: program },
-    );
-    if (error) {
-      console.error("SMS program overview:", error);
-      return fail(
-        error.code === "42501"
-          ? "Not authorized to view these reminders."
-          : "Unable to load SMS reminders. Check the migration.",
-        error.code === "42501" ? 403 : 500,
-      );
-    }
-    const panel: unknown = data;
-    if (
-      !panel ||
-      typeof panel !== "object" ||
-      Array.isArray(panel) ||
-      !("currentUserId" in panel) ||
-      panel.currentUserId !== auth.context.authUser.id
-    )
-      return fail("SMS session changed. Refresh the page.", 409);
-    return NextResponse.json(
-      {
-        ...panel,
-        canSend:
-          ["RHM", "BHW"].includes(String(auth.context.role)) &&
-          "canSend" in panel &&
-          panel.canSend === true,
-        simulationEnabled: process.env.SMS_SIMULATION_ENABLED === "true",
-        previewEnabled: process.env.SMS_PRESENTATION_PREVIEW_ENABLED === "true",
-      },
-      { headers },
-    );
-  } catch (error) {
-    console.error("SMS reminders GET:", error);
-    return fail("Unable to load SMS reminders.", 500);
-  }
+    const program = new URL(request.url).searchParams.get('program') ?? ''
+    const auth = await smsSession(program)
+    if (auth instanceof NextResponse) return auth
+    const result = await auth.db.rpc('echims_sms_program_overview', { p_program: program })
+    if (result.error) return dbFailure(result.error)
+    const panel = result.data as unknown as Record<string, unknown> | null
+    if (!panel || panel.currentUserId !== auth.userId) return json({ error: 'Session changed. Refresh the page.' }, 409)
+    const config = smsConfiguration()
+    return json({ ...panel, mode: config.mode, canSend: panel.canSend === true && ['Rural Health Midwife', 'Barangay Health Worker'].includes(auth.role),
+      liveEnabled: config.ready, simulationEnabled: config.mode === 'simulation' && process.env.SMS_SIMULATION_ENABLED === 'true',
+      previewEnabled: config.mode === 'simulation' && process.env.SMS_PRESENTATION_PREVIEW_ENABLED === 'true' })
+  } catch { return json({ error: 'Unable to load SMS reminders.' }, 500) }
 }
 export async function POST(request: Request) {
   try {
-    const input: unknown = await request.json().catch(() => null);
-    if (!input || typeof input !== "object" || Array.isArray(input))
-      return fail("Invalid request body.", 400);
-    const body = input as Record<string, unknown>;
-    const auth = await authorize(String(body.program ?? ""), true);
-    if (auth instanceof NextResponse) return auth;
-    if (
-      typeof body.serviceKey !== "string" ||
-      body.serviceKey.length < 1 ||
-      body.serviceKey.length > 500 ||
-      !["UPCOMING", "OVERDUE"].includes(String(body.messageType)) ||
-      typeof body.requestId !== "string" ||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-        body.requestId,
-      ) ||
-      !["SIMULATED_SENT", "SIMULATED_FAILED"].includes(String(body.outcome)) ||
-      (body.outcome === "SIMULATED_SENT" && body.errorCode !== null) ||
-      (body.outcome === "SIMULATED_FAILED" &&
-        !["NETWORK_ERROR", "INSUFFICIENT_CREDITS", "PROVIDER_ERROR"].includes(
-          String(body.errorCode),
-        ))
-    )
-      return fail(
-        "Choose a valid reminder template and simulation scenario.",
-        400,
-      );
-    if (body.preview !== undefined && typeof body.preview !== "boolean")
-      return fail("Invalid preview option.", 400);
-    if (
-      body.preview === true &&
-      process.env.SMS_PRESENTATION_PREVIEW_ENABLED !== "true"
-    )
-      return fail("Presentation preview is disabled.", 403);
-    const { data, error } = await auth.supabase.rpc(
-      body.preview === true
-        ? "simulate_staff_sms_preview"
-        : "simulate_staff_program_sms",
-      {
-        p_program: body.program,
-        p_service_key: body.serviceKey,
-        p_phase: body.messageType,
-        p_request_id: body.requestId,
-        p_outcome: body.outcome,
-        p_error_code: body.errorCode,
-      },
-    );
-    if (error) {
-      if (["42501", "22023", "23505"].includes(error.code))
-        return fail(
-          error.message,
-          error.code === "42501" ? 403 : error.code === "23505" ? 409 : 400,
-        );
-      console.error("Staff SMS attempt:", error);
-      return fail(
-        "Unable to record simulation. Retry the same action to check whether it saved.",
-        500,
-      );
+    const input: unknown = await request.json().catch(() => null)
+    if (!input || typeof input !== 'object' || Array.isArray(input)) return json({ error: 'Invalid SMS request.' }, 400)
+    const body = input as Record<string, unknown>
+    const program = String(body.program ?? '')
+    const auth = await smsSession(program, true)
+    if (auth instanceof NextResponse) return auth
+    if (typeof body.serviceKey !== 'string' || !body.serviceKey || body.serviceKey.length > 500 || !uuid(body.requestId) || !['UPCOMING', 'OVERDUE'].includes(String(body.messageType))) return json({ error: 'Choose a valid saved reminder and request ID.' }, 400)
+    const config = smsConfiguration()
+    if (body.action !== 'SEND') {
+      if (config.mode !== 'simulation' || process.env.SMS_SIMULATION_ENABLED !== 'true') return json({ error: 'Simulation is disabled.' }, 403)
+      if (!['SIMULATED_SENT', 'SIMULATED_FAILED'].includes(String(body.outcome)) || (body.outcome === 'SIMULATED_SENT' && body.errorCode !== null) || (body.outcome === 'SIMULATED_FAILED' && !['NETWORK_ERROR', 'INSUFFICIENT_CREDITS', 'PROVIDER_ERROR'].includes(String(body.errorCode))) || (body.preview !== undefined && typeof body.preview !== 'boolean')) return json({ error: 'Choose a valid simulation scenario.' }, 400)
+      if (body.preview === true && process.env.SMS_PRESENTATION_PREVIEW_ENABLED !== 'true') return json({ error: 'Presentation preview is disabled.' }, 403)
+      const result = await auth.db.rpc(body.preview === true ? 'simulate_staff_sms_preview' : 'simulate_staff_program_sms', {
+        p_program: program, p_service_key: body.serviceKey, p_phase: body.messageType, p_request_id: body.requestId, p_outcome: body.outcome, p_error_code: body.errorCode,
+      })
+      if (result.error) return dbFailure(result.error)
+      return json({ currentUserId: auth.userId, result: result.data, message: 'Simulation saved. No SMS was sent.' })
     }
-    return NextResponse.json(
-      {
-        currentUserId: auth.context.authUser.id,
-        result: data,
-        message: "Simulation saved. No actual SMS was sent.",
-      },
-      { headers },
-    );
-  } catch (error) {
-    console.error("Staff SMS POST:", error);
-    return fail("Unable to process SMS simulation.", 500);
-  }
+    if (!config.ready) return json({ error: 'Live sending is disabled. Configure iProg SMS credentials and SMS_MODE=live. Sender and network availability follow the approved provider account route.' }, 503)
+    if (body.preview === true) return json({ error: 'Presentation previews cannot be sent as live SMS.' }, 400)
+    if (body.requestOwnerId !== auth.userId) return json({ error: 'Session changed. Refresh before sending.' }, 409)
+    const service = smsService() // Fail before reserving an attempt if server credentials are missing.
+    const prepared = await auth.db.rpc('echims_prepare_live_sms', { p_program: program, p_service_key: body.serviceKey, p_phase: body.messageType, p_request_id: body.requestId })
+    if (prepared.error) return dbFailure(prepared.error)
+    const attempt = prepared.data as { attempt_id: number }
+    const claimed = await service.rpc('echims_claim_live_sms', { p_attempt_id: attempt.attempt_id, p_actor_id: auth.userId })
+    if (claimed.error) return dbFailure(claimed.error)
+    const dispatch = claimed.data as { send: boolean; destination?: string; message?: string; status: string }
+    if (!dispatch.send) return json({ currentUserId: auth.userId, result: { mode: 'LIVE', attempt_id: attempt.attempt_id, status: dispatch.status, replayed: true }, message: 'Existing attempt found. No additional SMS was submitted.' })
+    const outcome = await sendIprogSms(dispatch.destination!, dispatch.message!)
+    const finished = await service.rpc('echims_finish_live_sms', { p_attempt_id: attempt.attempt_id, p_actor_id: auth.userId, p_status: outcome.status, p_provider_uid: outcome.uid, p_error_code: outcome.code })
+    if (finished.error) return json({ error: 'The provider call finished but its saved status is uncertain. Retry this same action; do not create a new send.' }, 503)
+    return json({ currentUserId: auth.userId, result: { mode: 'LIVE', ...finished.data }, message: outcome.status === 'SUBMITTED' ? 'Submitted to iProg SMS. Delivery is not yet confirmed.' : outcome.status === 'FAILED' ? 'iProg SMS rejected this attempt.' : 'Sending result is uncertain. Check the provider report before retrying.' })
+  } catch { return json({ error: 'Unable to complete SMS processing. Retry the same request to inspect its saved result.' }, 500) }
 }

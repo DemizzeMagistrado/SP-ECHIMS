@@ -1,4 +1,7 @@
 "use client";
+import {buildEditChanges,type EditSnapshot} from '@/lib/offline/child-edit-model'
+import {saveChildChangeDraft,type ChildChangeDraft} from '@/lib/offline/child-change-drafts'
+
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 // Shared child registration + edit form, as a stepper: Child → Guardian → Household → Review.
@@ -55,8 +58,9 @@ const grid = "grid gap-4 sm:grid-cols-2 lg:grid-cols-3";
 const wide = "sm:col-span-2 lg:col-span-3";
 
 export function ChildFormModal({
-  mode, childId, onClose, onSaved, onError, draft, onDraftSaved,
+  mode, childId, onClose, onSaved, onError, draft, onDraftSaved, localEditDraft,
 }: {
+  localEditDraft?: ChildChangeDraft;
   draft?: ChildRegistrationDraft;
   onDraftSaved?: () => void;
   mode: Mode;
@@ -66,9 +70,12 @@ export function ChildFormModal({
   onError?: (message: string) => void;
 }) {
   const { user } = useAuth()
+  const editBaseline = useRef<EditSnapshot|null>(localEditDraft?.baseline ?? null)
+  const editRequestId = useRef(localEditDraft?.requestId ?? '')
+  const usedOffline = useRef(false)
   const [online, setOnline] = useState(true)
   useEffect(() => {
-    const update = () => setOnline(navigator.onLine); update()
+    const update = () => { setOnline(navigator.onLine); if (!navigator.onLine) usedOffline.current=true }; update()
     window.addEventListener('online', update); window.addEventListener('offline', update)
     return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update) }
   }, [])
@@ -111,9 +118,11 @@ export function ChildFormModal({
     let cancelled = false;
     (async () => {
       try {
-        const r = await fetch(`/api/children?childId=${childId}`);
-        const d = await r.json();
-        if (!r.ok) throw new Error(d.error || "Unable to load child record.");
+        const response = localEditDraft?.baseline ? null : await fetch(`/api/children/${childId}/edit-snapshot`);
+        const d:EditSnapshot = localEditDraft?.baseline ?? await response!.json();
+        if (response && !response.ok) throw new Error((d as unknown as {error?:string}).error || "Unable to prepare child edit snapshot.");
+        if(d.currentUserId!==user?.id || !Number.isSafeInteger(d.revision) || d.revision<1)throw Error('Open this profile online once to prepare the current edit version.');
+        editBaseline.current=d;
         if (cancelled) return;
         const guardian = d.guardian ?? null;
         const household = d.household ?? null;
@@ -121,11 +130,11 @@ export function ChildFormModal({
           ? `${household.household_no ?? `HH-${household.household_id}`}${household.household_address ? ` — ${household.household_address}` : ""}` : "");
         setGuardianQuery(guardian
           ? `${[guardian.first_name, guardian.middle_name, guardian.last_name].filter(Boolean).join(" ")}${guardian.relationship_to_child ? ` (${guardian.relationship_to_child})` : ""}` : "");
-        setOriginalGuardianContact(normalizePhMobile(guardian?.contact_number) ?? guardian?.contact_number ?? "");
+        setOriginalGuardianContact(normalizePhMobile(String(guardian?.contact_number ?? "")) ?? String(guardian?.contact_number ?? ""));
         const values = recordToForm(d);
         loaded.current = values;
-        setCodes({ childCode: d.child?.child_code ?? "", fsn: household?.family_serial_no ?? "" });
-        setForm(values);
+        setCodes({ childCode: String(d.child?.child_code ?? ""), fsn: String(household?.family_serial_no ?? "") });
+        setForm(upgradeLegacyDraft({ ...values, ...localEditDraft?.form, birth_height_cm: localEditDraft?.form?.birth_height_cm ?? localEditDraft?.form?.birth_length_cm ?? values.birth_height_cm }));
       } catch (e) {
         if (!cancelled) setMessage(e instanceof Error ? e.message : "Unable to load child record.");
       } finally {
@@ -204,9 +213,23 @@ export function ChildFormModal({
     } finally { setSaving(false) }
   }
 
+  async function saveEditDraft(){
+    if(saving)return;
+    setSaving(true);setMessage('');
+    try{
+      if(!user || !childId || !editBaseline.current)throw Error('Open this child profile online once before preparing an offline edit.');
+      const changes=buildEditChanges({...form,birth_length_cm:form.birth_height_cm},{...resolveOthers(form),medical_history_structured:toStructured(form)},editBaseline.current);
+      if(!editRequestId.current)editRequestId.current=crypto.randomUUID();
+      await saveChildChangeDraft({requestId:editRequestId.current,ownerId:user.id,scope:offlineScope(user),childId,kind:'EDIT',title:[form.first_name,form.last_name].join(' '),savedAt:new Date().toISOString(),status:'DRAFT',baseline:editBaseline.current,form:{...form},payload:{childId,expectedRevision:editBaseline.current.revision,changes}});
+      setMessage('Edit draft saved on this device. Review and sync it from Child changes & movement drafts after reconnecting.');onDraftSaved?.();
+    }catch(e){setMessage(e instanceof Error?e.message:'Unable to save edit draft.')}finally{setSaving(false)}
+  }
+
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (saving) return;
     if (current !== "review") { next(); return; }
+    if (mode === "edit" && (!navigator.onLine || usedOffline.current || localEditDraft)) { await saveEditDraft(); return; }
     if (!validateAll()) return;
     if (mode === 'create' && !navigator.onLine) { await saveLocalDraft(); return }
     await save(form);
@@ -396,12 +419,13 @@ export function ChildFormModal({
       noValidate
       footerStart={step > 0 ? <Button variant="ghost" onClick={() => goTo(step - 1)}>Back</Button> : null}
       footer={conflict ? null : (<>
+        {mode === 'edit' && <Button variant="secondary" disabled={saving} onClick={saveEditDraft}>Save edit draft on device</Button>}
         {mode === 'create' && <Button variant="secondary" disabled={saving} onClick={saveLocalDraft}>Save draft on device</Button>}
         {current !== "review" ? (
           <Button type="submit">Next: {STEPS[step + 1].label}</Button>
         ) : (
           <Button type="submit" loading={saving} disabled={Boolean(draft && online && !reviewed)}>
-            {mode === "edit" ? "Save changes" : !online ? "Save draft on device" : draft ? "Upload reviewed draft" : "Save child record"}
+            {mode === "edit" ? (!online || usedOffline.current || localEditDraft ? "Save edit draft on device" : "Save changes") : !online ? "Save draft on device" : draft ? "Upload reviewed draft" : "Save child record"}
           </Button>
         )}
       </>)}

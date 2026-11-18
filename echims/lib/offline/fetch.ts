@@ -7,7 +7,7 @@ import type { AuthUser } from '@/components/auth/auth-provider'
 // Only explicit read endpoints are saved. No authentication, administration,
 // report generation/export, or mutation requests enter this cache.
 export function canSaveOfflineRead(path: string) {
-  return /^\/api\/(dashboard\/(?:summary|widgets)|children(?:\/\d+\/(?:guardian-sms|vaccination-schedule|movement))?|guardians(?:\/\d+)?|households|barangays|rhus|psgc|notifications|alerts|nutrition(?:\/admissions)?|supplementation(?:\/(?:compliance|sms|stock-requests))?|vaccination\/(?:records|history|defaulters|schedule|batch-requests)|vaccines(?:\/catalog)?|health-activities(?:\/(?:options|personnel-options))?|sms\/reminders|reports)$/.test(path)
+  return /^\/api\/(dashboard\/(?:summary|widgets)|children(?:\/(?:age-archive|transferred-archive|program-archive|medical-history-options)|\/\d+\/(?:guardian-sms|vaccination-schedule|movement|checkup-appointments|edit-snapshot))?|child-transfers|transfer-destinations|guardians(?:\/\d+)?|households|barangays|rhus|psgc|notifications|alerts|nutrition(?:\/admissions)?|supplementation(?:\/(?:compliance|sms|stock-requests))?|vaccination\/(?:records|history|defaulters|schedule|batch-requests)|vaccines(?:\/catalog)?|health-activities(?:\/(?:options|personnel-options))?|sms\/reminders|reports)$/.test(path)
 }
 export function offlineScope(user: Pick<AuthUser, 'role' | 'rhu_id' | 'barangay_ids'>) {
   return JSON.stringify([user.role, user.rhu_id ?? '', [...(user.barangay_ids ?? [])].sort()])
@@ -46,11 +46,11 @@ export async function offlineFetch(input: RequestInfo | URL, init?: RequestInit)
       await verify(ownerId, scope)
       const response = await fetch(input, { ...init, cache: 'no-store' })
       // A server denial or validation failure must never reveal an older snapshot.
-      if (response.status < 500 && !response.ok) return response
-      if (!response.ok) throw new Error('Server temporarily unavailable.')
+      if (!response.ok) return response // Never hide current server failures with older saved data.
       if (!response.headers.get('content-type')?.includes('application/json')) return response
       const body = await response.clone().text()
-      const data: unknown = JSON.parse(body)
+      let data: unknown
+      try {data=JSON.parse(body)} catch {return unavailable('The server returned invalid JSON. Reconnect and refresh this view.')} 
       if (data && typeof data === 'object' && 'currentUserId' in data && data.currentUserId !== ownerId) throw new AccessChanged('The response belongs to a different account.')
       // Access was verified before this read. Do not discard a completed response
       // when Wi-Fi fails before a second context request. Recheck local ownership.
@@ -70,9 +70,8 @@ export async function offlineFetch(input: RequestInfo | URL, init?: RequestInit)
     } catch (error) {
       if (error instanceof AccessChanged) return unavailable(error.message, 403)
       if (init?.signal?.aborted || request?.signal.aborted) throw error
-      // Online but something non-fatal failed → fall back to native fetch
-      // so the user still gets fresh data instead of a stale/missing cache.
-      return fetch(input, init)
+      // Only transport failures fall through to an owner-scoped saved view.
+      // Do not repeat requests or bypass the account/area verification above.
     }
   }
   if (!await sameOwner()) return unavailable('Account changed. Reopen this page.', 401)
