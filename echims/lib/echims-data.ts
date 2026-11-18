@@ -32,10 +32,13 @@ const SIDEBAR_MODULES = ['Dashboard', 'User Management', 'Health Activities', 'C
 // permissions key in rolePermissions for the tab — the tab is hidden if the role has no
 // 'view' permission for it.
 export const moduleTabs: Record<string, { label: string; href: string; module: string }[]> = {
+  // Child Profiling: strict three-tab layout for every role (FINAL-POLISH).
+  // Age-based archive lives inside Children as a view toggle; Masterlist Upload
+  // moved to a header button in Children (PHN/Admin only). Transfer Inbox is
+  // appended by module-tabs.tsx for assigned PHN / RHM / BHW roles only.
   'Child Profiling': [
     { label: 'Children', href: '/child-profiling/children', module: 'Child Profiling' },
     { label: 'Map', href: '/geospatial', module: 'Geospatial' },
-    { label: 'Masterlist Upload', href: '/masterlist-upload', module: 'Masterlist Upload' },
   ],
   // NIP-REV01: three tabs. Defaulters = Schedule's "Defaulters (Missed)" chip, SMS reminders sit on
   // Schedule rows, Vaccines = the NIP catalog (editing in the tab for Admin/PHN; was Settings ›

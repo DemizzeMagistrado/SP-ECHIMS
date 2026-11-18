@@ -1,6 +1,5 @@
 'use client'
 
-import {withTransferInbox} from '@/lib/child-profiling-tabs'
 import { usePathname } from '@/lib/offline/navigation'
 import { TabBar } from '@/components/ui/module-tabs'
 import {
@@ -21,9 +20,12 @@ export function ModuleTabs({
   if (!role) return null
 
   const tabs = [...(moduleTabs[parent] ?? [])]
+  // FINAL-POLISH: Child Profiling is a strict three-tab layout.
+  //   Children · Map · Transfer Inbox (for PHN / RHM / BHW).
+  // Archived-children now lives inside the Children tab as a view toggle, so no
+  // Archived Children tab is pushed. Admin and BNS see only Children · Map.
   if (parent === 'Child Profiling' && ['Public Health Nurse','Rural Health Midwife','Barangay Health Worker'].includes(role)) {
-    if (!tabs.some(tab => tab.href === '/child-profiling/archived')) tabs.push({label:'Archived Children',href:'/child-profiling/archived',module:'Child Profiling'})
-    tabs.splice(0,tabs.length,...withTransferInbox(tabs,role))
+    tabs.push({label:'Transfer Inbox',href:'/child-profiling/transfers',module:'Child Profiling'})
   }
 
   const visibleTabs = tabs.filter((tab) =>

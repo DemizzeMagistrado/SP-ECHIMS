@@ -8,11 +8,11 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 // household number; filter by barangay, status, monitoring status and age group. Six columns
 // at a glance; everything else is on the profile. Registration uses the shared ChildFormModal.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import useSWR from 'swr'
 import Link from 'next/link'
 import { useRouter } from '@/lib/offline/navigation'
-import { Plus, Search, SearchX, Baby, X } from 'lucide-react'
+import { Plus, Search, SearchX, Baby, X, Upload } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
@@ -22,12 +22,13 @@ import { toast } from '@/components/ui/toast'
 import { LogoLoader } from '@/components/brand/logo-loader'
 import { PageHeader } from '@/components/ui/page-header'
 import { LoadError } from '@/components/ui/load-error'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/form'
 import { DataTable, type Column } from '@/components/ui/data-table'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { CHILD_ID_HELP, FSN_HELP, InfoTip } from '@/components/ui/info-tip'
+import { CHILD_ID_HELP, FSN_HELP, InfoContent, InfoTip } from '@/components/ui/info-tip'
 import { monthsOld } from '@/lib/children/profile-fields'
+import { cn } from '@/lib/utils'
 
 type Child = {
   child_id: number
@@ -75,10 +76,22 @@ export default function ChildHealthPage() {
   const role = user?.role as UserRole | undefined
   const isApproved = user?.accountStatus === 'APPROVED'
   const canRegister = Boolean(role && isApproved && canPerform(role, 'Child Profiling', 'create'))
+  const canUploadMasterlist = Boolean(role && isApproved && canPerform(role, 'Masterlist Upload', 'view'))
 
   const { data: children, error, isLoading, mutate } = useSWR<Child[]>('/api/children', fetcher, { keepPreviousData: true })
   const { data: barangays } = useSWR<Barangay[]>('/api/barangays', fetcher)
 
+  // FINAL-POLISH: the former "Archived Children" tab now lives here as a view toggle.
+  // Active = under-five (0–59 months). Archived = aged out on the fifth birthday
+  // (echims_list_age_archived_children in the backend has the same source rule).
+  const [view, setView] = useState<'active' | 'archived'>('active')
+  // Keep the URL synced so notification deep links (?view=archived) and the legacy
+  // /child-profiling/archived route can land straight on the archive without a flash.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const q = new URLSearchParams(window.location.search)
+    if (q.get('view') === 'archived') setView('archived')
+  }, [])
   const [search, setSearch] = useState('')
   const [barangayFilter, setBarangayFilter] = useState('all')
   const [ageFilter, setAgeFilter] = useState<AgeBand>('all')
@@ -86,7 +99,15 @@ export default function ChildHealthPage() {
   const [monitoringFilter, setMonitoringFilter] = useState('all')
   const [registerOpen, setRegisterOpen] = useState(false)
 
-  const records = useMemo(() => (children ?? []).filter(c => ageArchiveEligibility(c.dob,c.status,ageArchiveToday()).underFive === true), [children])
+  const records = useMemo(() => {
+    const all = children ?? []
+    if (view === 'archived') {
+      // Age-based archive: the child reached their fifth birthday. Profiles,
+      // history and continuing care are preserved (see backend eligibility rules).
+      return all.filter(c => ageArchiveEligibility(c.dob, c.status, ageArchiveToday()).underFive === false)
+    }
+    return all.filter(c => ageArchiveEligibility(c.dob, c.status, ageArchiveToday()).underFive === true)
+  }, [children, view])
   const monitoringOptions = useMemo(() => [...new Set(records.map((c) => c.monitoringStatus).filter(Boolean))].sort(), [records])
   const barangayName = (id: string) => barangays?.find((b) => String(b.barangay_id) === id)?.barangay_name ?? '—'
 
@@ -143,10 +164,66 @@ export default function ChildHealthPage() {
       <ChildChangeDraftPanel onUploaded={()=>{void mutate()}}/>
       <PageHeader
         title="Child Profiling: Children"
-        subtitle="Register and monitor children aged 0–59 months."
-        actions={canRegister && <Button onClick={() => setRegisterOpen(true)}><Plus size={17} aria-hidden="true" />Register child</Button>}
+        subtitle={view === 'archived'
+          ? 'Age-based archive: children who have reached their fifth birthday. Profiles, service histories and continuing care are preserved.'
+          : 'Register and monitor children aged 0–59 months.'}
+        actions={
+          <>
+            {canUploadMasterlist && (
+              <Link href="/masterlist-upload" className={buttonVariants({ variant: 'secondary' })}>
+                <Upload size={17} aria-hidden="true" /> Upload masterlist
+              </Link>
+            )}
+            {canRegister && view === 'active' && (
+              <Button onClick={() => setRegisterOpen(true)}><Plus size={17} aria-hidden="true" />Register child</Button>
+            )}
+          </>
+        }
       />
-      {canRegister && <ChildDraftPanel onUploaded={() => mutate()} />}
+      {/* View switch (FINAL-POLISH: merged Archived Children into this tab). */}
+      <div className="-mt-2 flex flex-wrap items-center gap-2">
+        <div role="tablist" aria-label="Children view" className="inline-flex rounded-xl border border-brand-line bg-white p-1">
+          {([
+            { value: 'active' as const, label: 'Active (0–59 mos)' },
+            { value: 'archived' as const, label: 'Archived (age-out)' },
+          ]).map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              role="tab"
+              aria-selected={view === opt.value}
+              onClick={() => setView(opt.value)}
+              className={cn(
+                'rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-colors',
+                view === opt.value ? 'bg-primary text-white shadow-sm' : 'text-brand-navy hover:bg-brand-ice',
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <InfoTip label="About this view" text="About this view" align="end">
+          <InfoContent
+            title={view === 'archived' ? 'Archived (age-out) children' : 'Active children (0–59 months)'}
+            description={view === 'archived'
+              ? 'Children who have reached their fifth birthday. They leave the under-five program on the exact anniversary; profiles, service history and continuing care remain available.'
+              : 'Registered children currently inside the 0–59 month under-five program for your assigned scope.'}
+            sections={[
+              { label: 'Scope', value: 'Filtered to your authorized barangays or RHU. Transfers in / out are handled in Transfer Inbox, not here.' },
+              { label: 'Values', value: view === 'archived'
+                ? ['Record remains Active at the receiving location after transfer', 'Age-out is separate from Inactive, Moved, Lost or Deceased statuses']
+                : ['Status reflects the registry state (Active, Inactive, Moved, Lost, Deceased)', 'Monitoring status comes from the latest service rules']
+              },
+              { label: 'Tip', value: view === 'archived'
+                ? 'Switch back to Active to register a new child or upload a masterlist. Age-out does not mark a child inactive or lost to follow-up.'
+                : 'Switch to Archived (age-out) to review children who reached their fifth birthday. Use Transfer Inbox for incoming or outgoing transfer requests.'
+              },
+            ]}
+            note="Search and filters apply to the current view. Offline results use the last saved view for your assigned scope."
+          />
+        </InfoTip>
+      </div>
+      {canRegister && view === 'active' && <ChildDraftPanel onUploaded={() => mutate()} />}
 
       {error && !children ? (
         <LoadError what="child records" error={error} onRetry={() => void mutate()} />
@@ -165,7 +242,9 @@ export default function ChildHealthPage() {
           rowLabel={(c) => `Open ${c.name}'s profile`}
           empty={anyFilter
             ? { icon: SearchX, title: 'No children match these filters', description: 'Try a broader search or clear the filters.', action: <Button variant="secondary" size="sm" onClick={clearFilters}>Clear filters</Button> }
-            : { icon: Baby, title: 'No children registered yet', description: canRegister ? 'Use Register Child to add the first child in your area.' : 'Registered children in your area will be listed here.' }}
+            : view === 'archived'
+              ? { icon: Baby, title: 'No archived children yet', description: 'Children appear here automatically on their fifth birthday. Their profiles and service histories remain available.' }
+              : { icon: Baby, title: 'No children registered yet', description: canRegister ? 'Use Register Child to add the first child in your area.' : 'Registered children in your area will be listed here.' }}
           toolbar={
             <div className="w-full min-w-0 space-y-3">
               <div className="relative">
