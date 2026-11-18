@@ -1,8 +1,7 @@
 'use client'
 import { Checkbox, Select } from '@/components/ui/form'
-import { useState, type MouseEvent, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { SearchX, CheckCircle2, ChevronDown, FileText, Info } from 'lucide-react'
 import { labelClassification } from '@/lib/nutrition-history'
 import type { RiskMonitoring } from '@/lib/nutrition-risk'
@@ -25,7 +24,6 @@ const PINNED = 'relative sm:sticky right-0 w-[208px] min-w-[208px] border-l-bran
 
 // Refresh comes from the page (it reloads the same data as the assessments) and sits in the filter card.
 export function NutritionRiskMonitor({ monitoring, error, loading, offline, refresh }: { monitoring?: RiskMonitoring; error?: string; loading: boolean; offline: boolean; refresh?: ReactNode }) {
-  const router = useRouter()
   const [barangay, setBarangay] = useState('All')
   const [classification, setClassification] = useState('All')
   const [severity, setSeverity] = useState('All')
@@ -38,8 +36,6 @@ export function NutritionRiskMonitor({ monitoring, error, loading, offline, refr
     && (severity === 'All' || row.severity === severity) && (!worsenedOnly || row.worsening.length > 0))
   const { visible: page, bindList, listStyle, props: pager } = usePagination(visible)
   const counts = monitoring?.counts
-  // The whole row opens the profile; links inside it keep their own target.
-  const openRow = (event: MouseEvent, childId: number) => { if (!(event.target as HTMLElement).closest('a,button')) router.push(nutritionProfileHref(childId)) }
   return <section className="nutrition-no-print space-y-5" aria-label="Nutritional risk monitoring">
     <SectionHeader
       title="Nutritional risk monitoring"
@@ -81,7 +77,7 @@ export function NutritionRiskMonitor({ monitoring, error, loading, offline, refr
               {page.map((row, i) => {
                 // Screening (SAM/MAM) first, as a pill; each other indicator as "name  classification".
                 const risks = [...row.classifications].sort((a, b) => Number(b.field === 'nutritional_status') - Number(a.field === 'nutritional_status'))
-                return <tr key={row.child_id} onClick={(event) => openRow(event, row.child_id)} data-zebra={i % 2 === 1 || undefined} data-urgent={row.worsening.length > 0 || undefined} className="group cursor-pointer">
+                return <tr key={row.child_id} data-zebra={i % 2 === 1 || undefined} data-urgent={row.worsening.length > 0 || undefined} className="group">
                   <td className={cn(CELL, 'min-w-44 transition-[box-shadow,background-color] duration-[120ms] group-hover:shadow-[inset_3px_0_0_var(--brand-navy)]')}>
                     <span className="font-semibold">{row.child_name}</span>
                     <span className="block text-xs text-brand-muted">{formatChildId(row.child_id)}</span>
