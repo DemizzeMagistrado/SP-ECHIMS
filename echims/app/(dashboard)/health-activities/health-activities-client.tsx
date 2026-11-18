@@ -72,10 +72,12 @@ type Activity = {
   barangay_id: number
   barangay: Barangay | Barangay[] | null
   requested_by_name?: string | null
+  requested_by_role?: string | null
   approved_by_name?: string | null
   responsible_personnel?: {
     user_id: string
     full_name: string
+    role?: string | null
   }[]
 }
 
@@ -251,7 +253,7 @@ function ActivityDetailsModal({
 
   const info: { label: string; value: React.ReactNode }[] = [
     { label: 'Type', value: <TypePill type={activity.activity_type} /> },
-    { label: 'Requested by', value: activity.requested_by_name ?? 'Name unavailable' },
+    { label: 'Requested by', value: <>{activity.requested_by_name ?? 'Name unavailable'}{activity.requested_by_role && <span className="font-normal text-brand-muted"> · {activity.requested_by_role}</span>}</> },
     { label: 'Schedule', value: <>{formatDate(activity.schedule_date)}<span className="block text-[13px] font-normal text-brand-muted">{formatTimeRange(activity)}</span></> },
     { label: 'Barangay', value: barangay?.barangay_name ?? `Barangay ${activity.barangay_id}` },
     { label: 'Location', value: [barangay?.municipality, barangay?.province].filter(Boolean).join(', ') || '—' },
@@ -311,7 +313,10 @@ function ActivityDetailsModal({
               {people.map((person) => (
                 <li key={person.user_id} className="flex items-center gap-2.5">
                   <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-ice text-xs font-semibold text-brand-navy">{initials(person.full_name)}</span>
-                  <span className="text-sm font-medium text-brand-navy">{person.full_name}</span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-brand-navy">{person.full_name}</span>
+                    {person.role && <span className="block text-xs text-brand-muted">{person.role}</span>}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -519,17 +524,6 @@ function ActivityWorkspace() {
         <PageHeader
           title="Health Activities"
           subtitle="Activity requests, scheduling, and community health event tracking"
-          actions={canRequest && (
-            <Button
-              onClick={() => {
-                setRuleEvaluation(null)
-                setShowRequestModal(true)
-              }}
-            >
-              <Plus size={17} aria-hidden="true" />
-              New request
-            </Button>
-          )}
         />
         <TabBar
           className="pb-5"
@@ -581,11 +575,22 @@ function ActivityWorkspace() {
 
         <FilterCard
           wide
-          refresh={
+          refresh={<>
             <Button variant="outline" size="icon" className="size-10" aria-label="Refresh activities" title="Refresh" disabled={refreshing} onClick={() => void loadActivities()}>
               <RefreshCw size={16} aria-hidden="true" className={cn(refreshing && 'animate-spin motion-reduce:animate-none')} />
             </Button>
-          }
+            {canRequest && (
+              <Button
+                onClick={() => {
+                  setRuleEvaluation(null)
+                  setShowRequestModal(true)
+                }}
+              >
+                <Plus size={17} aria-hidden="true" />
+                New request
+              </Button>
+            )}
+          </>}
           below={activeTab === 'requests' ? counts : undefined}
         >
           <div className="relative">
@@ -673,7 +678,10 @@ function ActivityWorkspace() {
                               <span className="block">{barangay?.barangay_name ?? `Barangay ${activity.barangay_id}`}</span>
                               {barangay?.municipality && <span className="mt-0.5 block text-xs text-brand-muted">{barangay.municipality}</span>}
                             </td>
-                            <td className={cn(cell, 'min-w-36')}>{activity.requested_by_name ?? <span className="text-brand-muted">—</span>}</td>
+                            <td className={cn(cell, 'min-w-36')}>
+                              <span className="block">{activity.requested_by_name ?? <span className="text-brand-muted">—</span>}</span>
+                              {activity.requested_by_role && <span className="mt-0.5 block text-xs text-brand-muted">{activity.requested_by_role}</span>}
+                            </td>
                             <td className={cell}>
                               <ActivityStatusBadge status={activity.status} />
                               {activity.conflict_status === 'DETECTED' && (
@@ -709,6 +717,7 @@ function ActivityWorkspace() {
         <ul className="list-disc space-y-1.5 pl-5 text-brand-muted">
           <li><span className="font-semibold text-brand-navy">Request:</span> a BHW, BNS, RHM or PHN files a request for a barangay they cover, with a date and time. Scheduling rules check it for overlaps when it is submitted.</li>
           <li><span className="font-semibold text-brand-navy">Review:</span> the PHN approves the request, or returns it for revision with a note on what to change. A returned request is not refused: the requester edits and resubmits it, and it goes back to Pending.</li>
+          <li><span className="font-semibold text-brand-navy">Approval:</span> every activity type (vaccination, nutritional assessment, supplementation) needs PHN approval before it can start.</li>
           <li><span className="font-semibold text-brand-navy">Statuses:</span> Pending → Approved (or Needs revision → Pending again) → Ongoing → Completed. A request can be cancelled at any point before it is completed, with a reason.</li>
           <li><span className="font-semibold text-brand-navy">Conflicts:</span> a worker booked at the same time blocks approval until the schedule changes; an overlap in the same barangay is a warning the PHN may accept.</li>
         </ul>

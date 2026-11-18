@@ -5,8 +5,8 @@ import { canPerform, type UserRole } from '@/lib/echims-data'
 // NIP-USR001 — Review a vaccination schedule request.
 // POST /api/vaccination/review
 // Body: { schedule_id: number, action: 'APPROVE' | 'REVISE', review_remarks?: string }
-// Schedules are never rejected (NIP-REV01): REVISE sends it back for a new date
-// (NEEDS_REVISION). The database trigger nip_block_vaccination_schedule_reject enforces it too.
+// APPROVE, or REVISE: send it back for a new date (NEEDS_REVISION). The status check on
+// health_activity_schedule allows no other review outcome.
 //
 // Only PHN or Admin can review. The role matrix lists Vaccination Schedule for RHM as
 // ['view', 'request'] (no 'approve'), and the Supabase schema's reviewed_by/approved_by
@@ -49,7 +49,6 @@ export async function POST(request: Request) {
   const scheduleId = parseScheduleId(body?.schedule_id)
   if (!scheduleId) return invalid('A valid schedule_id is required.')
   const action = String(body?.action ?? '').trim().toUpperCase()
-  if (action === 'REJECT') return invalid('Vaccination schedules cannot be rejected. Approve it or ask for a new date.')
   if (action !== 'APPROVE' && action !== 'REVISE') return invalid('action must be APPROVE or REVISE.')
 
   const reviewRemarks = String(body?.review_remarks ?? '').trim() || null

@@ -28,7 +28,7 @@ function invalid(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status })
 }
 
-const VALID_STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'NEEDS_REVISION', 'ONGOING', 'COMPLETED', 'CANCELLED'] as const
+const VALID_STATUSES = ['PENDING', 'APPROVED', 'NEEDS_REVISION', 'ONGOING', 'COMPLETED', 'CANCELLED'] as const
 type Status = typeof VALID_STATUSES[number]
 
 export async function GET(request: Request) {

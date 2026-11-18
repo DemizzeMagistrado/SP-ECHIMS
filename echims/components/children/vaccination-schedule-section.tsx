@@ -4,7 +4,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 // Loads the computed schedule preview + the latest request status. BHW/RHM see a
 // "Request Schedule" button when no PENDING request exists; everyone sees the preview.
 // Status badges mirror the health_activity_schedule lifecycle (PENDING / APPROVED / NEEDS_REVISION).
-// Schedules are never rejected (NIP-REV01); a reviewer asks for a new date instead.
+// A reviewer approves a schedule or asks for a new date (NEEDS_REVISION).
 import { useId, useState } from 'react'
 import { ImmunizationHistorySection } from '@/components/children/immunization-history-section'
 import useSWR from 'swr'
@@ -32,7 +32,7 @@ type ScheduleEntry = {
 }
 type LatestRequest = {
   schedule_id: number
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'NEEDS_REVISION' | 'ONGOING' | 'COMPLETED' | 'CANCELLED'
+  status: 'PENDING' | 'APPROVED' | 'NEEDS_REVISION' | 'ONGOING' | 'COMPLETED' | 'CANCELLED'
   created_at: string
   created_by: string | null
   reviewed_by: string | null
@@ -222,8 +222,8 @@ function VaccinationScheduleContent({ childId }: { childId: number }) {
           )}
         </div>
       )}
-      {/* Review remarks when the reviewer asked for a new date (old rows may be REJECTED) */}
-      {data.latest_request && (data.latest_request.status === 'REJECTED' || data.latest_request.status === 'NEEDS_REVISION') && data.latest_request.review_remarks && (
+      {/* Review remarks when the reviewer asked for a new date */}
+      {data.latest_request && data.latest_request.status === 'NEEDS_REVISION' && data.latest_request.review_remarks && (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
           <p className="font-semibold">Reviewer remarks:</p>
           <p className="mt-1">{data.latest_request.review_remarks}</p>

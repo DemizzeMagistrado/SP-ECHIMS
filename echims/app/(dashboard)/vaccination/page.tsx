@@ -413,8 +413,7 @@ type ScheduleChildRef = {
 type BarangayRef = { barangay_id: number; barangay_name: string }
 type ScheduleRow = {
   schedule_id: number
-  // REJECTED stays in the type for old rows only; schedules can no longer be rejected.
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'NEEDS_REVISION' | 'ONGOING' | 'COMPLETED' | 'CANCELLED'
+  status: 'PENDING' | 'APPROVED' | 'NEEDS_REVISION' | 'ONGOING' | 'COMPLETED' | 'CANCELLED'
   schedule_date: string
   created_at: string
   remarks: string | null
@@ -432,7 +431,6 @@ const SCHEDULE_STATUS_META: Record<ScheduleRow['status'], { label: string }> = {
   ONGOING: { label: 'Ongoing' },
   COMPLETED: { label: 'Completed' },
   CANCELLED: { label: 'Cancelled' },
-  REJECTED: { label: 'Needs correction (old)' },
 }
 
 type DoseRow = {
@@ -805,7 +803,7 @@ function ScheduleSection() {
         <Field
           label={reviewAction === 'REVISE' ? 'What needs to change?' : 'Remarks (optional)'}
           required={reviewAction === 'REVISE'}
-          hint={reviewAction === 'REVISE' ? 'The requester sees this and picks a new date. Schedules are never rejected.' : undefined}
+          hint={reviewAction === 'REVISE' ? 'The requester sees this and picks a new date.' : undefined}
           error={remarksError}
         >
           <Textarea

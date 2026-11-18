@@ -1131,6 +1131,36 @@ const peopleBySchedule = new Map(
   ]),
 )
 
+// Roles shown next to requester and personnel names. Best effort: a role this account
+// cannot read (RLS) is simply left off; the name still shows.
+const peopleIds = [
+  ...new Set([
+    ...rows.map((activity) => activity.created_by),
+    ...((people ?? []) as ActivityPeople[]).flatMap((person) => person.responsible_personnel.map((worker) => worker.user_id)),
+  ]),
+].filter((id): id is string => Boolean(id))
+
+const roleByUser = new Map<string, string>()
+
+if (peopleIds.length > 0) {
+  const roleTables = [
+    ['public_health_nurse', 'PHN'],
+    ['rural_health_midwife', 'RHM'],
+    ['barangay_health_worker', 'BHW'],
+    ['barangay_nutrition_scholar', 'BNS'],
+  ] as const
+
+  const roleRows = await Promise.all(
+    roleTables.map(([table]) => supabase.from(table).select('user_id').in('user_id', peopleIds)),
+  )
+
+  roleRows.forEach(({ data }, index) => {
+    for (const row of (data ?? []) as { user_id: string }[]) {
+      if (!roleByUser.has(row.user_id)) roleByUser.set(row.user_id, roleTables[index][1])
+    }
+  })
+}
+
 return NextResponse.json({
   role,
   currentUserId: user.id,
@@ -1140,8 +1170,12 @@ return NextResponse.json({
     return {
       ...activity,
       requested_by_name: names?.requested_by_name ?? null,
+      requested_by_role: roleByUser.get(activity.created_by) ?? null,
       approved_by_name: names?.approved_by_name ?? null,
-      responsible_personnel: names?.responsible_personnel ?? [],
+      responsible_personnel: (names?.responsible_personnel ?? []).map((worker) => ({
+        ...worker,
+        role: roleByUser.get(worker.user_id) ?? null,
+      })),
     }
   }),
 })
