@@ -7,6 +7,16 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 20
 const fail = (status: number) => guardianJson({ error: { http_code: status, message: 'Unable to send a login code. Wait before trying again.' } }, status)
 export async function POST(request: Request) {
+  const config = smsConfiguration()
+
+console.info('Guardian hook configuration', {
+  portalEnabled: process.env.GUARDIAN_PORTAL_ENABLED === 'true',
+  hookSecretPresent: Boolean(process.env.GUARDIAN_SMS_HOOK_SECRET),
+  smsLive: config.mode === 'live',
+  providerSupported: ['iprogsms', 'iprog'].includes(config.provider),
+  tokenPresent: Boolean(config.token),
+  configurationValid: config.configured,
+})
   if (process.env.GUARDIAN_PORTAL_ENABLED !== 'true' || !smsConfiguration().ready || !process.env.GUARDIAN_SMS_HOOK_SECRET) return fail(503)
   try {
     // Bounded streaming read before verification; never log the OTP or payload.
