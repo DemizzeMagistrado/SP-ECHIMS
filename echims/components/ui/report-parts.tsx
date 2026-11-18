@@ -106,7 +106,7 @@ export function SectionHeader({ title, subtitle, about, actions }: { title: Reac
 }
 
 /** Sub-views inside a tab (the Summary "Overview / List UW …" pills), styled as sub-tabs (TabBar
- *  variant="sub"): gray strip, solid navy active pill. One row that scrolls sideways when narrow, the
+ *  variant="sub"): gray strip, white active pill with navy text. One row that scrolls sideways when narrow, the
  *  active pill kept in view; optional count badges. */
 export function ViewSwitch<T extends string>({ label, value, onChange, items }: {
   label: string
@@ -136,12 +136,12 @@ export function ViewSwitch<T extends string>({ label, value, onChange, items }: 
             onClick={() => onChange(item.value)}
             className={cn(
               'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-1.5 text-[13px] outline-none transition-all duration-150 focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-1 focus-visible:outline-link',
-              active ? 'bg-[#07075F] font-semibold text-white shadow-[0_1px_3px_rgba(12,18,96,0.10)]' : 'font-medium text-[#55617F] hover:bg-[rgba(7,7,95,0.06)] hover:text-[#0C1260]',
+              active ? 'bg-white font-semibold text-[#07075F] shadow-[0_1px_3px_rgba(12,18,96,0.08)]' : 'font-medium text-[#55617F] hover:bg-[rgba(7,7,95,0.05)] hover:text-[#0C1260]',
             )}
           >
             {item.label}
             {item.count != null && (
-              <span className={cn('rounded-full px-1.5 text-[11px] font-semibold tabular-nums', active ? 'bg-white/20' : 'bg-white text-[#55617F]')}>
+              <span className={cn('rounded-full px-1.5 text-[11px] font-semibold tabular-nums', active ? 'bg-[#F0F2F5] text-[#07075F]' : 'bg-white text-[#55617F]')}>
                 {item.count}
               </span>
             )}
