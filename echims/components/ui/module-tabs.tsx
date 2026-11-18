@@ -15,10 +15,10 @@ export type TabItem<T extends string = string> = {
 
 /**
  * Tab rows, two levels that must look different at a glance:
- *  - main (default): page-level tabs under the title. Outlined pills on the page, no strip: active =
- *    #07075F border + text on a #F0F4FF tint; inactive = white with a #D5E2EA border. Wraps on phones.
- *  - sub: tabs nested in a section, card or dialog. A gray #F0F2F5 strip; a solid #07075F pill slides
- *    under the active tab (white text); inactive tabs are transparent, no border. 13px, smaller.
+ *  - main (default): page-level tabs under the title, on the page (no strip): active = solid #07075F
+ *    with white text; inactive = white with a #D5E2EA border. Wraps on phones.
+ *  - sub: tabs nested in a section, card or dialog (and the sticky section bar). A gray #F0F2F5 strip;
+ *    a white pill slides under the active tab (#07075F text); inactive tabs are transparent. 13px.
  * State tabs: pass onChange and wrap the content in <TabPanel tabKey={value}> for the fade.
  */
 export function TabBar<T extends string>({ items, value, onChange, label, group, idBase, className, variant = 'main' }: {
@@ -51,11 +51,11 @@ export function TabBar<T extends string>({ items, value, onChange, label, group,
   const tabClass = (active: boolean) => sub
     ? cn(
       'relative z-10 shrink-0 whitespace-nowrap rounded-lg px-4 py-1.5 text-[13px] transition-all duration-150 outline-none focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-1 focus-visible:outline-link disabled:cursor-not-allowed disabled:opacity-60',
-      active ? 'font-semibold text-white' : 'font-medium text-[#55617F] hover:bg-[rgba(7,7,95,0.06)] hover:text-[#0C1260]',
+      active ? 'font-semibold text-[#07075F]' : 'font-medium text-[#55617F] hover:bg-[rgba(7,7,95,0.05)] hover:text-[#0C1260]',
     )
     : cn(
-      'shrink-0 whitespace-nowrap rounded-lg border px-[18px] py-[7px] text-sm transition-all duration-150 outline-none focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-link disabled:cursor-not-allowed disabled:opacity-60',
-      active ? 'border-[#07075F] bg-[#F0F4FF] font-semibold text-[#07075F]' : 'border-[#D5E2EA] bg-white font-medium text-[#55617F] hover:border-[#8896B0] hover:bg-[#F5F8FA]',
+      'shrink-0 whitespace-nowrap rounded-lg border px-5 py-2 text-sm transition-all duration-150 outline-none focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-link disabled:cursor-not-allowed disabled:opacity-60',
+      active ? 'border-[#07075F] bg-[#07075F] font-semibold text-white' : 'border-[#D5E2EA] bg-white font-medium text-[#55617F] hover:border-[#8896B0] hover:bg-[#F5F8FA]',
     )
   const links = items.some((i) => i.href)
 
@@ -93,7 +93,7 @@ export function TabBar<T extends string>({ items, value, onChange, label, group,
             {item.label}
           </button>
         ))}
-        {sub && <TabIndicator group={group ?? label} activeKey={value} className="rounded-lg bg-[#07075F] shadow-[0_1px_3px_rgba(12,18,96,0.10)]" />}
+        {sub && <TabIndicator group={group ?? label} activeKey={value} className="rounded-lg bg-white shadow-[0_1px_3px_rgba(12,18,96,0.08)]" />}
       </div>
     </div>
   )

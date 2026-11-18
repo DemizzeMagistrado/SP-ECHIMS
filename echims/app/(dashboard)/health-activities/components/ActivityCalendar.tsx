@@ -100,7 +100,7 @@ export function ActivityCalendar({ activities, onOpen }: { activities: Activity[
                 type="button"
                 aria-pressed={view === option}
                 onClick={() => setView(option)}
-                className={cn('rounded-lg px-4 py-1.5 text-[13px] transition-all duration-150 focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-[#0B759A]', view === option ? 'bg-[#07075F] font-semibold text-white shadow-[0_1px_3px_rgba(12,18,96,0.10)]' : 'font-medium text-[#55617F] hover:bg-[rgba(7,7,95,0.06)] hover:text-[#0C1260]')}
+                className={cn('rounded-lg px-4 py-1.5 text-[13px] transition-all duration-150 focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-[#0B759A]', view === option ? 'bg-white font-semibold text-[#07075F] shadow-[0_1px_3px_rgba(12,18,96,0.08)]' : 'font-medium text-[#55617F] hover:bg-[rgba(7,7,95,0.05)] hover:text-[#0C1260]')}
               >
                 {option === 'MONTH' ? 'Month' : 'Week'}
               </button>

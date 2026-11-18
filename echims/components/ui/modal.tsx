@@ -127,7 +127,7 @@ export function Modal({
 
   return createPortal(
     <div
-      className={cn('fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4', 'transition-colors duration-200 motion-reduce:transition-none', shown ? 'bg-brand-navy/40 backdrop-blur-[2px]' : 'bg-brand-navy/0')}
+      className={cn('fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4', 'transition-colors duration-200 motion-reduce:transition-none', shown ? 'bg-[rgba(12,18,96,0.45)] backdrop-blur-[2px]' : 'bg-[rgba(12,18,96,0)]')}
       onMouseDown={(e) => { if (e.target === e.currentTarget) void requestClose() }}
       onKeyDown={(e) => {
         if (e.key !== 'Escape' || e.defaultPrevented) return
@@ -156,8 +156,10 @@ export function Modal({
             <h2 id={titleId} ref={titleRef} tabIndex={titleRef ? -1 : undefined} className={cn('font-display text-lg font-bold leading-snug outline-none', titleClassName)}>{title}</h2>
             {subtitle && <p id={subtitleId} className="mt-0.5 text-sm text-brand-muted">{subtitle}</p>}
           </div>
-          <button type="button" onClick={() => void requestClose()} disabled={busy} aria-label="Close" className="-mr-2.5 -mt-1.5 inline-flex size-11 shrink-0 items-center justify-center rounded-[10px] text-brand-muted outline-none hover:bg-brand-ice hover:text-brand-navy focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-40">
-            <X size={18} aria-hidden="true" />
+          <button type="button" onClick={() => void requestClose()} disabled={busy} aria-label="Close" className="group/close -mr-1.5 -mt-1.5 inline-flex size-11 shrink-0 items-center justify-center rounded-[10px] outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-40">
+            <span className="flex size-8 items-center justify-center rounded-lg border border-[#D5E2EA] bg-white text-[#55617F] transition-colors group-hover/close:border-[#07075F] group-hover/close:bg-[#E6F1F7] group-hover/close:text-[#07075F]">
+              <X size={16} aria-hidden="true" />
+            </span>
           </button>
         </div>
         {belowHeader}

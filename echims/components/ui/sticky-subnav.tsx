@@ -17,9 +17,10 @@ import { cn } from '@/lib/utils'
 
 const GAP = 14
 
+// Pills use the sub-tab look (TabBar variant="sub"): on the gray strip, the current section is white.
 export const subnavPill = (active: boolean) => cn(
-  'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
-  active ? 'border-primary bg-primary text-white' : 'border-border bg-white text-brand-navy hover:bg-brand-ice',
+  'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-1.5 text-[13px] transition-all duration-150 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
+  active ? 'bg-white font-semibold text-[#07075F] shadow-[0_1px_3px_rgba(12,18,96,0.08)]' : 'font-medium text-[#55617F] hover:bg-[rgba(7,7,95,0.05)] hover:text-[#0C1260]',
 )
 
 export function StickySubnav({ items, extra, label }: {
@@ -159,7 +160,7 @@ export function StickySubnav({ items, extra, label }: {
           'pointer-events-none absolute inset-x-0 top-full h-4 bg-gradient-to-b from-[#D8F3F9]/80 to-transparent opacity-0 transition-opacity duration-200 ease-out motion-reduce:transition-none',
           stuck && 'opacity-100',
         )} />
-        <div className="flex gap-2 overflow-x-auto">
+        <div className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-[10px] bg-[#F0F2F5] p-[3px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {items.map((item) => (
             <a
               key={item.id}
