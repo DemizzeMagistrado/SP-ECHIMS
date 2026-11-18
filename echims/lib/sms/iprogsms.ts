@@ -11,12 +11,12 @@ export function smsConfiguration(){
  const validRoute=/^[012]$/.test(route)
  return {mode,provider,token,smsProvider:Number(route),configured:['iprogsms','iprog'].includes(provider) && validToken && validRoute,ready:mode==='live' && ['iprogsms','iprog'].includes(provider) && validToken && validRoute}
 }
-export async function sendIprogSms(recipient:string,message:string):Promise<SendOutcome>{
+export async function sendIprogSms(recipient:string,message:string,timeoutMs=15000):Promise<SendOutcome>{
  const config=smsConfiguration()
  if(!config.ready)throw new Error('Live iProg SMS configuration is incomplete.')
  if(!/^639\d{9}$/.test(recipient) || !message.trim())return {status:'FAILED',uid:null,code:'INVALID_MESSAGE_OR_DESTINATION'}
  try{
-  const response=await fetch(`${origin}/api/v1/sms_messages`,{method:'POST',redirect:'error',cache:'no-store',signal:AbortSignal.timeout(15000),headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({api_token:config.token,phone_number:recipient,message,sms_provider:config.smsProvider})})
+  const response=await fetch(`${origin}/api/v1/sms_messages`,{method:'POST',redirect:'error',cache:'no-store',signal:AbortSignal.timeout(Math.max(1000,Math.min(timeoutMs,15000))),headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({api_token:config.token,phone_number:recipient,message,sms_provider:config.smsProvider})})
   const body:unknown=await response.json().catch(()=>null)
   if(response.status>=500 || response.status===408)return {status:'UNCERTAIN',uid:null,code:`HTTP_${response.status}`}
   if(!response.ok)return {status:'FAILED',uid:null,code:`HTTP_${response.status}`}

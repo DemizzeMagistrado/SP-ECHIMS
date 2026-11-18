@@ -454,6 +454,13 @@ export default function RegisterPage() {
                 Your RHU administrator reviews new accounts before first sign-in.
               </p>
           </div>
+          {process.env.NEXT_PUBLIC_GUARDIAN_PORTAL_ENABLED === 'true' && (
+            <div className="mt-5 rounded-xl border border-brand-line bg-brand-ice p-4 text-sm">
+              <p className="font-semibold">Registering as a parent or guardian?</p>
+              <p className="mt-1 text-brand-muted">Verify your mobile number to view your linked children. No employee details are required.</p>
+              <Link href="/guardian/login?mode=register" className="mt-2 inline-block font-semibold underline">Register as Guardian</Link>
+            </div>
+          )}
           <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-500 [animation-delay:250ms]">
               <form onSubmit={handleSubmit} className="mt-8 space-y-5">
                 <div>
@@ -519,11 +526,16 @@ export default function RegisterPage() {
                   <div className="relative">
                     <Select
                       value={form.role}
-                      onChange={(event) =>
-                        handleRoleChange(event.target.value as UserRole)
-                      }
+                      onChange={(event) => {
+                        if (event.target.value === 'Guardian') {
+                          router.push('/guardian/login?mode=register');
+                          return;
+                        }
+                        handleRoleChange(event.target.value as UserRole);
+                      }}
                      
                     >
+                      {process.env.NEXT_PUBLIC_GUARDIAN_PORTAL_ENABLED === 'true' && <option value="Guardian">Guardian — view my children</option>}
                       {roleOptions.map((role) => (
                         <option key={role.value} value={role.value}>
                           {role.value}

@@ -42,6 +42,14 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!user && DASHBOARD.test(path)) return redirectTo('/login')
+  if (path === '/guardian' || path.startsWith('/guardian/')) {
+    response.headers.set('Cache-Control', 'private, no-store, max-age=0')
+    if (path !== '/guardian/login' && !user) return redirectTo('/guardian/login')
+  }
+  // Redirect phone-guardian sessions away from staff screens; database RPCs
+  // separately verify every child access and never trust this routing marker.
+  if (user?.phone && user.user_metadata?.account_type === 'guardian' && DASHBOARD.test(path)) return redirectTo('/guardian')
+
 
   if (user && AUTH_PAGES.has(path)) {
     const { data } = await supabase.from('users').select('account_status').eq('user_id', user.id).maybeSingle()
