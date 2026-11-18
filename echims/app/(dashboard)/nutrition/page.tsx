@@ -1,13 +1,7 @@
 "use client";
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { useAuth } from "@/components/auth/auth-provider";
 import Link from "next/link";
@@ -25,14 +19,26 @@ import {
   type NutritionPayload,
   type QueuedAssessment,
 } from "@/lib/nutrition-offline";
-import {
-  AlertCircle,
-  Loader2,
-  Plus,
-  RefreshCw,
-  Printer,
-  X,
-} from "lucide-react";
+import { AlertCircle, BarChart3, ChevronDown, FileText, Plus, RefreshCw, Printer, SearchX } from "lucide-react";
+import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
+import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ui/page-header'
+import { FilterCard, REPORT_CARD, ViewSwitch } from '@/components/ui/report-parts'
+import { TabBar } from '@/components/ui/module-tabs'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
+import { Checkbox, Select, DateInput } from '@/components/ui/form'
+import { InfoTip } from '@/components/ui/info-tip'
+import { Pagination, usePagination, useStableHeight } from '@/components/ui/pagination'
+import { LoadError } from '@/components/ui/load-error'
+import { ScoresDialog } from '@/components/nutrition/assessment-scores-dialog'
+import { cn } from '@/lib/utils'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { toast } from '@/components/ui/toast'
+import { useConfirm } from '@/components/ui/confirm-dialog'
+import { canPerform, type UserRole } from '@/lib/echims-data'
+import { MUAC_SOFT_WARNING, muacUnusual, nutritionFlagClass, nutritionLabel, nutritionProfileHref, nutritionTone } from '@/lib/nutrition-status'
+import { reportSync } from '@/lib/offline/refresh'
 type Relation<T> = T | T[] | null;
 type Barangay = {
   barangay_id: number;
@@ -163,29 +169,7 @@ function childName(child: Child | null) {
     : "Child name unavailable";
 }
 function label(value: string | null | undefined) {
-  const names: Record<string, string> = {
-    SAM: "SAM",
-    MAM: "MAM",
-    NO_FLAGGED_INDICATORS: "No flagged indicators",
-    NOT_UNDERWEIGHT: "Not underweight",
-    NOT_STUNTED: "Not stunted",
-    NOT_INTERPRETABLE_EDEMA: "Not interpretable — edema",
-    INFANT_URGENT_REVIEW: "Infant urgent review",
-    NOT_EVALUATED: "Not evaluated",
-    NEEDS_VERIFICATION: "Needs verification",
-    NORMAL: "Normal",
-    NO_LOW_MUAC: "No low MUAC",
-    AT_RISK: "At risk",
-    NOT_APPLICABLE: "Not applicable",
-  };
-  if (!value) return "Not recorded";
-  return (
-    names[value] ??
-    value
-      .toLowerCase()
-      .replaceAll("_", " ")
-      .replace(/^./, (first) => first.toUpperCase())
-  );
+  return nutritionLabel(value);
 }
 function ipMembership(ethnicity: string | null | undefined) {
   switch (ethnicity?.trim().toUpperCase()) {
@@ -275,7 +259,7 @@ function caregiverName(child: Child | null) {
     : "Not recorded";
 }
 function childRecordUrl(childId: number) {
-  return `/child-profiling/children/${childId}`;
+  return nutritionProfileHref(childId);
 }
 class NutritionHttpError extends Error {
   constructor(
@@ -364,139 +348,6 @@ function followUp(item: Assessment) {
   if (item.evaluation_status !== "EVALUATED")
     return "Complete or verify assessment";
   return "Routine growth monitoring";
-}
-function Modal({
-  title,
-  children,
-  onClose,
-  busy = false,
-}: {
-  title: string;
-  children: ReactNode;
-  onClose: () => void;
-  busy?: boolean;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const dialog = ref.current;
-    if (dialog && !dialog.open) dialog.showModal();
-    return () => {
-      if (dialog?.open) dialog.close();
-    };
-  }, []);
-  return (
-    <dialog
-      ref={ref}
-      aria-label={title}
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!busy) onClose();
-      }}
-      className="fixed inset-0 m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-4xl overflow-y-auto rounded-2xl bg-white p-0 text-foreground shadow-xl backdrop:bg-slate-950/50"
-    >
-      <div className="p-6">
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <h2 className="text-2xl font-bold text-[#03045E]">{title}</h2>
-          <button
-            type="button"
-            aria-label="Close dialog"
-            disabled={busy}
-            onClick={onClose}
-            className="rounded-lg p-2 hover:bg-muted disabled:opacity-50"
-          >
-            <X size={22} />
-          </button>
-        </div>
-        {children}
-      </div>
-    </dialog>
-  );
-}
-function AssessmentDetails({
-  assessment,
-  onClose,
-}: {
-  assessment: Assessment;
-  onClose: () => void;
-}) {
-  const item = assessment;
-  const rows = [
-    ["Assessment", `#${item.assessment_id}`],
-    ["Child", childName(one(item.child))],
-    ["Date measured", item.assessment_date],
-    [
-      "Birth date used for calculation",
-      birthAtAssessment(item) ?? "Not recorded",
-    ],
-    ["Sex used for calculation", label(item.sex_at_assessment)],
-    [
-      "Residence location (current profile)",
-      one(item.child)
-        ? residentLocation(one(item.child)!) || "Not recorded"
-        : "Not recorded",
-    ],
-    ["Mother/caregiver (current profile)", caregiverName(one(item.child))],
-    ["Ethnicity (current profile)", item.profile?.ethnicity || "Not recorded"],
-    [
-      "Belongs to IP group? (current profile)",
-      ipMembership(item.profile?.ethnicity),
-    ],
-    [
-      "Age in completed months",
-      String(
-        completedMonths(birthAtAssessment(item), item.assessment_date) ??
-          "Not recorded",
-      ),
-    ],
-    ["Summary", label(item.nutritional_status)],
-    ["Evaluation", label(item.evaluation_status)],
-    [
-      "Age at assessment",
-      item.age_days == null ? "Not recorded" : `${item.age_days} days`,
-    ],
-    ["Weight", quantity(item.weight, "kg")],
-    ["Measured length/height", quantity(item.height, "cm")],
-    ["Measurement position", label(item.measurement_type)],
-    ["Corrected length/height", quantity(item.normalized_height_cm, "cm")],
-    ["MUAC", quantity(item.muac, "cm")],
-    ["MUAC classification", label(item.muac_status)],
-    [
-      "Bilateral pitting edema",
-      item.edema_grade == null
-        ? "Not recorded"
-        : item.edema_grade === 0
-          ? "Absent"
-          : `+${item.edema_grade}`,
-    ],
-    ["WAZ", quantity(item.waz, "", 2)],
-    ["Weight-for-age", label(item.weight_for_age)],
-    ["HAZ", quantity(item.haz, "", 2)],
-    ["Length/height-for-age", label(item.height_for_age)],
-    ["WLZ/WHZ", quantity(item.whz, "", 2)],
-    ["Weight-for-length/height", label(item.weight_for_height)],
-    ["BAZ", quantity(item.baz, "", 2)],
-    ["BMI-for-age", label(item.bmi_for_age)],
-    ["BMI", quantity(item.bmi, "kg/m²", 2)],
-    ["Engine", item.engine_version ?? "Not engine evaluated"],
-  ];
-  return (
-    <Modal title="Assessment details" onClose={onClose}>
-      <p className="mb-4 rounded-lg bg-sky-50 p-3 text-sm">
-        {followUp(item)}. Each growth indicator is interpreted separately.
-      </p>
-      <dl className="grid gap-4 rounded-xl bg-muted p-4 sm:grid-cols-2">
-        {rows.map(([name, value]) => (
-          <div key={name}>
-            <dt className="text-xs text-muted-foreground">{name}</dt>
-            <dd className="mt-1 break-words text-sm font-medium">{value}</dd>
-          </div>
-        ))}
-      </dl>
-      <p className="mt-4 text-sm">
-        <strong>Remarks:</strong> {item.remarks || "None recorded"}
-      </p>
-    </Modal>
-  );
 }
 type IndicatorField = "weight_for_age" | "height_for_age" | "weight_for_height";
 type ListCode = "UW" | "SUW" | "St" | "SSt" | "W" | "SW";
@@ -682,437 +533,385 @@ function caregiverCount(records: Assessment[]) {
   }
   return ids.size;
 }
+/** A value cell in the Summary table: 0, 0.0% and — are muted and regular; others ink semibold. */
+const isZero = (v: number | string) => v === 0 || v === "0" || v === "0.0%" || v === "—";
+// Column groups of the Summary table (client-verified headings), alternating tints.
+const SUMMARY_GROUPS = [
+  ...ageBands.map((band) => ({ label: band.label, cols: ["Boys", "Girls", "Total"] })),
+  { label: "0–59 months", cols: ["Total", "Prevalence"] },
+  { label: "F1K: 0–23 months", cols: ["F1K total", "F1K prevalence"] },
+  { label: "IP children", cols: ["IP boys", "IP girls", "IP total"] },
+];
+/** Group starts get the 1px left border (cell index within a row of 22 value cells). */
+const SUMMARY_GROUP_START = new Set(
+  SUMMARY_GROUPS.reduce<number[]>((starts, g, i) => [...starts, i === 0 ? 0 : starts[i - 1] + SUMMARY_GROUPS[i - 1].cols.length], []),
+);
 function SummaryReport({
   records,
   year,
   barangay,
   onList,
+  canPrint,
+  views,
 }: {
   records: Assessment[];
   year: string;
   barangay: string;
   onList: (code: ListCode) => void;
+  canPrint: boolean;
+  /** Overview / List UW … List SW segmented control. */
+  views: ReactNode;
 }) {
   const eligible = records.filter(eligibleForReport);
   const underTwo = inAgeBand(eligible, 0, 23);
   const denominators = (field: IndicatorField) =>
     eligible.filter((item) => validIndicator(item, field));
-  const cell = "border border-border px-3 py-2 text-center text-xs";
-  const summary = [
-    ["Children assessed, 0–59 months", eligible.length],
-    [
+  // The 17 indicators (labels and values unchanged), grouped for the cards below the table.
+  const indicator: Record<string, number> = {
+    "Children assessed, 0–59 months": eligible.length,
+    "Children with UW/SUW, St/SSt or W/SW (unique children)": eligible.filter(undernourished).length,
+    "Children with overweight/obesity (WFL/H)": eligible.filter(overnourished).length,
+    "Children assessed, 0–23 months": underTwo.length,
+    "Children 0–23 months with UW/St/W classifications": underTwo.filter(undernourished).length,
+    "Linked mothers/caregivers of assessed children": caregiverCount(eligible),
+    "Linked mothers/caregivers of children with UW/St/W classifications": caregiverCount(eligible.filter(undernourished)),
+    "Linked mothers/caregivers of children with overweight/obesity": caregiverCount(eligible.filter(overnourished)),
+    "Linked mothers/caregivers of children 0–23 months": caregiverCount(underTwo),
+    "Children without a linked caregiver ID": eligible.filter(
+      (item) => one(one(item.child)?.guardian ?? null)?.guardian_id == null,
+    ).length,
+    "WFA unavailable / not verified": eligible.length - denominators("weight_for_age").length,
+    "HFA unavailable / not verified": eligible.length - denominators("height_for_age").length,
+    "WFL/H unavailable / not verified": eligible.length - denominators("weight_for_height").length,
+    "Excluded: age unavailable or outside 0–59 months": records.length - eligible.length,
+    "Sex unavailable (included in totals only)": eligible.filter(
+      (item) => !["MALE", "FEMALE"].includes(assessmentSex(item) ?? ""),
+    ).length,
+    "IP children (current profile)": eligible.filter((item) => ipMembership(item.profile?.ethnicity) === "Yes").length,
+    "IP membership not confirmed": eligible.filter(
+      (item) => ipMembership(item.profile?.ethnicity) === "Not confirmed",
+    ).length,
+  };
+  const indicatorGroups: [string, string[]][] = [
+    ["Children", [
+      "Children assessed, 0–59 months",
+      "Children assessed, 0–23 months",
       "Children with UW/SUW, St/SSt or W/SW (unique children)",
-      eligible.filter(undernourished).length,
-    ],
-    [
       "Children with overweight/obesity (WFL/H)",
-      eligible.filter(overnourished).length,
-    ],
-    ["Children assessed, 0–23 months", underTwo.length],
-    [
       "Children 0–23 months with UW/St/W classifications",
-      underTwo.filter(undernourished).length,
-    ],
-    [
+    ]],
+    ["Mothers and caregivers", [
       "Linked mothers/caregivers of assessed children",
-      caregiverCount(eligible),
-    ],
-    [
       "Linked mothers/caregivers of children with UW/St/W classifications",
-      caregiverCount(eligible.filter(undernourished)),
-    ],
-    [
       "Linked mothers/caregivers of children with overweight/obesity",
-      caregiverCount(eligible.filter(overnourished)),
-    ],
-    [
       "Linked mothers/caregivers of children 0–23 months",
-      caregiverCount(underTwo),
-    ],
-    [
       "Children without a linked caregiver ID",
-      eligible.filter(
-        (item) => one(one(item.child)?.guardian ?? null)?.guardian_id == null,
-      ).length,
-    ],
-    [
+    ]],
+    ["Data quality", [
       "WFA unavailable / not verified",
-      eligible.length - denominators("weight_for_age").length,
-    ],
-    [
       "HFA unavailable / not verified",
-      eligible.length - denominators("height_for_age").length,
-    ],
-    [
       "WFL/H unavailable / not verified",
-      eligible.length - denominators("weight_for_height").length,
-    ],
-    [
       "Excluded: age unavailable or outside 0–59 months",
-      records.length - eligible.length,
-    ],
-    [
       "Sex unavailable (included in totals only)",
-      eligible.filter(
-        (item) => !["MALE", "FEMALE"].includes(assessmentSex(item) ?? ""),
-      ).length,
-    ],
-    [
+    ]],
+    ["IP membership", [
       "IP children (current profile)",
-      eligible.filter((item) => ipMembership(item.profile?.ethnicity) === "Yes")
-        .length,
-    ],
-    [
       "IP membership not confirmed",
-      eligible.filter(
-        (item) => ipMembership(item.profile?.ethnicity) === "Not confirmed",
-      ).length,
-    ],
+    ]],
+  ];
+  const ipYes = (items: Assessment[]) => items.filter((item) => ipMembership(item.profile?.ethnicity) === "Yes");
+  const sticky = "grid-pin-left sticky left-0 z-[1] min-w-[230px] border-r border-r-brand-line shadow-[6px_0_8px_-6px_rgba(12,18,96,0.18)]";
+  const valueCell = (v: number | string, i: number, extra = "") => (
+    <td
+      key={i}
+      className={cn(
+        "px-2.5 py-1.5 text-right tabular-nums",
+        SUMMARY_GROUP_START.has(i) && i > 0 && "border-l-brand-line",
+        isZero(v) ? "font-normal text-zero" : "font-semibold text-brand-navy",
+        extra,
+      )}
+    >
+      {v}
+    </td>
+  );
+  const totalValues: (number | string)[] = [
+    ...ageBands.flatMap((band) => {
+      const c = sexCounts(inAgeBand(eligible, band.min, band.max));
+      return [c.boys, c.girls, c.total];
+    }),
+    eligible.length, "—", underTwo.length, "—",
+    ...(() => { const c = sexCounts(ipYes(eligible)); return [c.boys, c.girls, c.total]; })(),
   ];
   return (
-    <section
-      className="space-y-4 rounded-2xl border border-border bg-white p-5"
-      aria-label="OPT Plus summary"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold">
-            Nutritional Assessment {year} — Summary
-          </h2>
-          <p className="text-sm text-muted-foreground">{barangay}</p>
+    <>
+      <section className={REPORT_CARD} aria-label="OPT Plus summary">
+        <ReportHeader
+          views={views}
+          title={<>Nutritional Assessment {year} — Summary</>}
+          scope={barangay}
+          action={canPrint && (
+            <Button variant="secondary" onClick={() => window.print()}>
+              <Printer size={16} aria-hidden="true" />
+              Print summary
+            </Button>
+          )}
+        />
+        {/* Valid totals: one strip, 1px between cells. */}
+        <div className="grid grid-cols-1 gap-px border-y border-brand-line bg-brand-line sm:grid-cols-3">
+          {(["weight_for_age", "height_for_age", "weight_for_height"] as IndicatorField[]).map((field) => {
+            const n = denominators(field).length;
+            return (
+              <p key={field} className="flex items-baseline gap-2 bg-white px-4 py-3">
+                <span className={cn("text-2xl font-bold tabular-nums", n === 0 ? "text-zero" : "text-brand-navy")}>{n}</span>
+                <span className="text-sm text-brand-muted">
+                  {field === "weight_for_age" ? "Total valid WFA" : field === "height_for_age" ? "Total valid HFA" : "Total valid WFL/H"}
+                </span>
+              </p>
+            );
+          })}
         </div>
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="nutrition-no-print flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm"
-        >
-          <Printer size={16} />
-          Print summary
-        </button>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-3">
-        {(
-          [
-            "weight_for_age",
-            "height_for_age",
-            "weight_for_height",
-          ] as IndicatorField[]
-        ).map((field) => (
-          <div key={field} className="rounded-lg bg-sky-50 p-3 text-sm">
-            <p>
-              {field === "weight_for_age"
-                ? "Total valid WFA"
-                : field === "height_for_age"
-                  ? "Total valid HFA"
-                  : "Total valid WFL/H"}
-            </p>
-            <strong className="text-xl">{denominators(field).length}</strong>
-          </div>
-        ))}
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <caption className="sr-only">
-            Nutrition classifications by age, sex, prevalence and IP membership
-          </caption>
-          <thead>
-            <tr className="bg-sky-50">
-              <th rowSpan={2} className={cell}>
-                Classification
-              </th>
-              {ageBands.map((band) => (
-                <th key={band.label} colSpan={3} className={cell}>
-                  {band.label}
+        <div className="scroll-subtle overflow-x-auto">
+          {/* Compact padding (10/6px) so most of the report fits at once; it scrolls sideways for the rest. */}
+          <table className="data-grid w-full text-sm text-brand-navy">
+            <caption className="sr-only">
+              Nutrition classifications by age, sex, prevalence and IP membership
+            </caption>
+            <thead>
+              <tr>
+                <th rowSpan={2} scope="col" className={cn(sticky, "z-[2] px-3 py-1.5 text-left text-[13px] font-semibold")}>
+                  Classification
                 </th>
-              ))}
-              <th colSpan={2} className={cell}>
-                0–59 months
-              </th>
-              <th colSpan={2} className={cell}>
-                F1K: 0–23 months
-              </th>
-              <th colSpan={3} className={cell}>
-                IP children
-              </th>
-            </tr>
-            <tr className="bg-muted">
-              {ageBands.flatMap((band) =>
-                ["Boys", "Girls", "Total"].map((heading) => (
-                  <th key={`${band.label}-${heading}`} className={cell}>
-                    {heading}
+                {SUMMARY_GROUPS.map((g, i) => (
+                  <th key={g.label} colSpan={g.cols.length} scope="colgroup" className={cn("whitespace-nowrap px-2.5 py-1.5 text-center text-[13px] font-semibold", i % 2 === 0 ? "bg-group-a" : "bg-group-b", i > 0 && "border-l-brand-line")}>
+                    {g.label}
                   </th>
-                )),
-              )}
-              {[
-                "Total",
-                "Prevalence",
-                "F1K total",
-                "F1K prevalence",
-                "IP boys",
-                "IP girls",
-                "IP total",
-              ].map((heading) => (
-                <th key={heading} className={cell}>
-                  {heading}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {summaryRows.map((row) => {
-              const matching = eligible.filter(
-                (item) =>
-                  validIndicator(item, row.field) &&
-                  item[row.field] === row.value,
-              );
-              const f1k = inAgeBand(matching, 0, 23);
-              const ip = sexCounts(
-                matching.filter(
-                  (item) => ipMembership(item.profile?.ethnicity) === "Yes",
-                ),
-              );
-              return (
-                <tr key={row.title}>
-                  <th
-                    scope="row"
-                    className={`${cell} whitespace-nowrap text-left`}
-                  >
-                    {row.list ? (
-                      <button
-                        type="button"
-                        onClick={() => onList(row.list!)}
-                        className="font-medium text-primary underline"
-                      >
-                        {row.title}
-                      </button>
-                    ) : (
-                      row.title
-                    )}
-                  </th>
-                  {ageBands.flatMap((band) => {
-                    const count = sexCounts(
-                      inAgeBand(matching, band.min, band.max),
-                    );
-                    return [count.boys, count.girls, count.total].map(
-                      (n, index) => (
-                        <td key={`${band.label}-${index}`} className={cell}>
-                          {n}
-                        </td>
-                      ),
-                    );
-                  })}
-                  <td className={cell}>{matching.length}</td>
-                  <td className={cell}>
-                    {prevalence(
-                      matching.length,
-                      denominators(row.field).length,
-                    )}
-                  </td>
-                  <td className={cell}>{f1k.length}</td>
-                  <td className={cell}>
-                    {prevalence(
-                      f1k.length,
-                      inAgeBand(denominators(row.field), 0, 23).length,
-                    )}
-                  </td>
-                  <td className={cell}>{ip.boys}</td>
-                  <td className={cell}>{ip.girls}</td>
-                  <td className={cell}>{ip.total}</td>
-                </tr>
-              );
-            })}
-            <tr className="bg-slate-800 font-bold text-white">
-              <th scope="row" className={`${cell} text-left`}>
-                Children assessed
-              </th>
-              {ageBands.flatMap((band) => {
-                const c = sexCounts(inAgeBand(eligible, band.min, band.max));
-                return [c.boys, c.girls, c.total].map((n, index) => (
-                  <td key={`${band.label}-${index}`} className={cell}>
-                    {n}
-                  </td>
-                ));
-              })}
-              <td className={cell}>{eligible.length}</td>
-              <td className={cell}>—</td>
-              <td className={cell}>{underTwo.length}</td>
-              <td className={cell}>—</td>
-              {(() => {
-                const c = sexCounts(
-                  eligible.filter(
-                    (item) => ipMembership(item.profile?.ethnicity) === "Yes",
-                  ),
+                ))}
+              </tr>
+              <tr>
+                {SUMMARY_GROUPS.flatMap((g, gi) =>
+                  g.cols.map((col, ci) => (
+                    <th key={`${g.label}-${col}`} scope="col" className={cn("whitespace-nowrap px-2.5 py-1.5 text-right text-xs font-semibold text-brand-muted", gi % 2 === 0 ? "bg-group-a" : "bg-group-b", ci === 0 && gi > 0 && "border-l-brand-line")}>
+                      {col}
+                    </th>
+                  )),
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {summaryRows.map((row, r) => {
+                const matching = eligible.filter(
+                  (item) => validIndicator(item, row.field) && item[row.field] === row.value,
                 );
-                return [c.boys, c.girls, c.total].map((n, index) => (
-                  <td key={index} className={cell}>
-                    {n}
+                const f1k = inAgeBand(matching, 0, 23);
+                const ip = sexCounts(ipYes(matching));
+                const values: (number | string)[] = [
+                  ...ageBands.flatMap((band) => {
+                    const count = sexCounts(inAgeBand(matching, band.min, band.max));
+                    return [count.boys, count.girls, count.total];
+                  }),
+                  matching.length,
+                  prevalence(matching.length, denominators(row.field).length),
+                  f1k.length,
+                  prevalence(f1k.length, inAgeBand(denominators(row.field), 0, 23).length),
+                  ip.boys, ip.girls, ip.total,
+                ];
+                // HFA and WFL/H start a new indicator: 2px rule above.
+                const startsIndicator = r === 3 || r === 6;
+                return (
+                  <tr key={row.title} data-zebra={r % 2 === 1 || undefined} className={cn(startsIndicator && "[&>*]:border-t-2 [&>*]:border-t-brand-line")}>
+                    <th scope="row" className={cn(sticky, "whitespace-nowrap px-3 py-1.5 text-left text-sm font-semibold")}>
+                      {row.list ? (
+                        <button
+                          type="button"
+                          onClick={() => onList(row.list!)}
+                          className="rounded font-semibold text-link underline underline-offset-2 outline-none hover:text-brand-navy focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-link"
+                        >
+                          {row.title}
+                        </button>
+                      ) : (
+                        row.title
+                      )}
+                    </th>
+                    {values.map((v, i) => valueCell(v, i))}
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="bg-brand-navy text-white">
+                <th scope="row" className="grid-pin-left sticky left-0 z-[1] min-w-[230px] border-r border-r-total-line bg-brand-navy px-3 py-1.5 text-left text-sm font-bold shadow-[6px_0_8px_-6px_rgba(12,18,96,0.18)]">
+                  Children assessed
+                </th>
+                {totalValues.map((v, i) => (
+                  <td key={i} className={cn("px-2.5 py-1.5 text-right tabular-nums", isZero(v) ? "font-normal text-total-zero" : "font-bold text-white")}>
+                    {v}
                   </td>
-                ));
-              })()}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        One latest assessment per child in the selected year and barangay.
-        Prevalence uses the number with a valid classification for that
-        indicator; missing, implausible, edema-affected and legacy results are
-        excluded from its denominator. The six classifications remain separate.
-        Current profile data supplies IP membership and caregiver links.
-      </p>
-      <div className="grid gap-3 md:grid-cols-2">
-        {summary.map(([name, value]) => (
-          <div
-            key={name}
-            className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm"
-          >
-            <span>{name}</span>
-            <strong>{value}</strong>
-          </div>
+                ))}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <ReportFootnote>
+          One latest assessment per child in the selected year and barangay.
+          Prevalence uses the number with a valid classification for that
+          indicator; missing, implausible, edema-affected and legacy results are
+          excluded from its denominator. The six classifications remain separate.
+          Current profile data supplies IP membership and caregiver links.
+        </ReportFootnote>
+      </section>
+      <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr))]">
+        {indicatorGroups.map(([title, labels]) => (
+          <section key={title} aria-label={title} className={cn(REPORT_CARD, "p-4")}>
+            <h3 className="text-base font-semibold text-brand-navy">{title}</h3>
+            <dl className="mt-2 divide-y divide-brand-line/70">
+              {labels.map((name) => (
+                <div key={name} className="flex items-baseline justify-between gap-4 py-2 text-sm">
+                  <dt className="text-brand-navy">{name}</dt>
+                  <dd className={cn("tabular-nums", indicator[name] === 0 ? "text-zero" : "font-semibold text-brand-navy")}>{indicator[name]}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground">
-        Total barangay population and estimated child population are unavailable
-        in the supplied database. Caregivers are counted by linked guardian ID,
-        not by name. WFA does not define overweight and HFA does not define
-        tallness in the installed engine, so those sample rows are not
-        fabricated.
+      <p className="text-[13px] text-brand-muted">
+        Total barangay population and estimated child population are not yet in the database. Caregivers are counted by linked guardian ID, not by name. The current rules have no overweight class for WFA and no tall class for HFA, so those rows are not shown.
       </p>
-    </section>
+    </>
   );
 }
+/** Overview / List UW … List SW: the shared view switcher (one row, counts in badges). */
+function SummaryViews({ value, onChange, counts }: {
+  value: "Summary" | ListCode;
+  onChange: (view: "Summary" | ListCode) => void;
+  counts: Record<ListCode, number>;
+}) {
+  return (
+    <ViewSwitch
+      label="Summary views"
+      value={value}
+      onChange={onChange}
+      items={(["Summary", ...listCodes] as Array<"Summary" | ListCode>).map((view) => ({
+        value: view,
+        label: view === "Summary" ? "Overview" : `List ${view}`,
+        count: view === "Summary" ? undefined : counts[view],
+      }))}
+    />
+  );
+}
+// List UW … List SW table: client-verified columns, in this exact order with these exact labels.
+const LIST_COLUMNS = [
+  { label: "Child ID", width: "min-w-28" },
+  { label: "Address / location", width: "min-w-40" },
+  { label: "Mother / caregiver", width: "min-w-40" },
+  { label: "Full name of child", width: "min-w-40" },
+  { label: "Sex", width: "min-w-14" },
+  { label: "Age (months)", width: "min-w-24", numeric: true },
+  { label: "Classification", width: "min-w-32" },
+  { label: "Weight (kg)", width: "min-w-24", numeric: true },
+  { label: "Length/height (cm)", width: "min-w-28", numeric: true },
+  { label: "Date measured", width: "min-w-28" },
+] as const;
 function ClassificationList({
   records,
   code,
   year,
   barangay,
   onScores,
+  canPrint,
+  views,
 }: {
   records: Assessment[];
   code: ListCode;
   year: string;
   barangay: string;
   onScores: (item: Assessment) => void;
+  canPrint: boolean;
+  views: ReactNode;
 }) {
   const definition = listDefinitions[code];
   const items = listRecords(records, code);
   const heightIndicator = definition.field === "height_for_age";
-  const cell = "border border-border px-4 py-3 text-left text-sm";
+  const head = "px-4 py-2.5 align-bottom text-[13px] font-semibold leading-tight text-brand-navy";
+  const sticky = "sticky right-0 w-[260px] min-w-[260px] border-l-brand-line shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]";
   return (
-    <section
-      className="space-y-4 rounded-2xl border border-border bg-white p-5"
-      aria-label={`List ${code}`}
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold">
-            List {code} — {definition.title} children, 0–59 months
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {barangay} · {year} · {items.length} children
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="nutrition-no-print flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm"
-        >
-          <Printer size={16} />
-          Print list
-        </button>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead className="bg-muted">
+    <section className={REPORT_CARD} aria-label={`List ${code}`}>
+      <ReportHeader
+        views={views}
+        title={<>List {code} — {definition.title} children, 0–59 months</>}
+        scope={<>{barangay} · {year} · {items.length} children</>}
+        action={canPrint && (
+          <Button variant="secondary" onClick={() => window.print()}>
+            <Printer size={16} aria-hidden="true" />
+            Print list
+          </Button>
+        )}
+      />
+      <div className="scroll-subtle overflow-x-auto border-t border-brand-line">
+        <table className="data-grid data-grid--hover w-full text-sm text-brand-navy">
+          <thead>
             <tr>
-              {[
-                "Child ID",
-                "Address / location",
-                "Mother / caregiver",
-                "Full name of child",
-                "Sex",
-                "Age (months)",
-                "Classification",
-                "Weight (kg)",
-                "Length/height (cm)",
-                "Date measured",
-              ].map((name) => (
-                <th key={name} rowSpan={2} className={cell}>
-                  {name}
+              {LIST_COLUMNS.map((c) => (
+                <th key={c.label} rowSpan={2} scope="col" className={cn(head, c.width, "numeric" in c ? "text-right" : "text-left")}>
+                  {c.label}
                 </th>
               ))}
-              <th colSpan={4} className={cell}>
+              <th colSpan={4} scope="colgroup" className={cn(head, "border-l-brand-line pb-1 text-center")}>
                 Date of follow-up
               </th>
-              <th rowSpan={2} className={`${cell} nutrition-no-print`}>
+              <th rowSpan={2} scope="col" className={cn(head, sticky, "z-[2] text-left nutrition-no-print")}>
                 Actions
               </th>
             </tr>
             <tr>
               {[1, 2, 3, 4].map((n) => (
-                <th key={n} className={cell}>
+                <th key={n} scope="col" className={cn(head, "w-12 min-w-12 px-0 pt-1 text-center", n === 1 && "border-l-brand-line")}>
                   {n}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => (
-              <tr key={item.child_id}>
-                <td className={cell}>CH-{item.child_id}</td>
-                <td className={cell}>
+            {items.map((item, i) => (
+              <tr key={item.child_id} data-zebra={i % 2 === 1 || undefined} className="group">
+                <td className="px-4 py-3.5 align-top transition-[box-shadow] duration-[120ms] group-hover:shadow-[inset_3px_0_0_var(--brand-navy)]">CH-{item.child_id}</td>
+                <td className="px-4 py-3.5 align-top">
                   {one(item.child)
                     ? residentLocation(one(item.child)!) || "Not recorded"
                     : "Not recorded"}
                 </td>
-                <td className={cell}>{caregiverName(one(item.child))}</td>
-                <td className={cell}>{childName(one(item.child))}</td>
-                <td className={cell}>
+                <td className="px-4 py-3.5 align-top">{caregiverName(one(item.child))}</td>
+                <td className="px-4 py-3.5 align-top font-semibold">{childName(one(item.child))}</td>
+                <td className="px-4 py-3.5 align-top">
                   {assessmentSex(item) === "MALE"
                     ? "M"
                     : assessmentSex(item) === "FEMALE"
                       ? "F"
                       : "—"}
                 </td>
-                <td className={cell}>{assessmentMonths(item)}</td>
-                <td className={cell}>{code}</td>
-                <td className={cell}>{quantity(item.weight)}</td>
-                <td className={cell}>{quantity(item.height)}</td>
-                <td className={`${cell} whitespace-nowrap`}>
+                <td className="px-4 py-3.5 text-right align-top tabular-nums">{assessmentMonths(item)}</td>
+                <td className={cn("px-4 py-3.5 align-top", nutritionFlagClass(item[definition.field]))}>{code}</td>
+                <td className="px-4 py-3.5 text-right align-top tabular-nums">{quantity(item.weight)}</td>
+                <td className="px-4 py-3.5 text-right align-top tabular-nums">{quantity(item.height)}</td>
+                <td className="whitespace-nowrap px-4 py-3.5 align-top">
                   {item.assessment_date}
                 </td>
                 {[1, 2, 3, 4].map((n) => (
+                  // Blank write-in boxes for the printed list.
                   <td
                     key={n}
                     aria-label={`Follow-up ${n}: not recorded`}
-                    className={`${cell} min-w-24`}
-                  >
-                    —
-                  </td>
+                    className={cn("w-12 min-w-12 px-0 py-3.5", n === 1 && "border-l-brand-line")}
+                  />
                 ))}
-                <td className={`${cell} nutrition-no-print`}>
-                  <Link
-                    href={childRecordUrl(item.child_id)}
-                    className="block text-primary underline"
-                  >
-                    View child record
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => onScores(item)}
-                    className="mt-2 text-primary underline"
-                  >
-                    Scores
-                  </button>
+                <td className={cn(sticky, "px-4 py-3.5 align-top nutrition-no-print")}>
+                  <RecordButtons item={item} onScores={() => onScores(item)} />
                 </td>
               </tr>
             ))}
             {items.length === 0 && (
               <tr>
-                <td
-                  colSpan={15}
-                  className={`${cell} py-8 text-center text-muted-foreground`}
-                >
+                <td colSpan={15} className="h-14 px-4 text-left align-middle text-sm text-brand-muted">
                   No {definition.title.toLowerCase()} children in this scope.
                 </td>
               </tr>
@@ -1120,7 +919,7 @@ function ClassificationList({
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-muted-foreground">
+      <ReportFootnote>
         This list uses{" "}
         {heightIndicator
           ? "height-for-age"
@@ -1131,10 +930,111 @@ function ClassificationList({
         latest assessment in the selected year. Follow-up dates have no
         dedicated field in the supplied database; the four columns are blank
         spaces for the printed list.
-      </p>
+      </ReportFootnote>
     </section>
   );
 }
+/** Summary report header: the view switcher on its own first row (never moves between views),
+ *  then the title and scope line. */
+function ReportHeader({ views, title, scope, action }: { views: ReactNode; title: ReactNode; scope: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="space-y-3 p-4">
+      <div className="nutrition-no-print flex min-h-10 flex-wrap items-center gap-2">
+        {/* The views stay on one line; they scroll sideways only when the row is too narrow. */}
+        <div className="min-w-0 flex-1 max-sm:basis-full">{views}</div>
+        {action && <div className="ml-auto">{action}</div>}
+      </div>
+      <div className="min-w-0">
+        <h2 className="text-xl font-semibold text-brand-navy">{title}</h2>
+        <p className="text-sm text-brand-muted">{scope}</p>
+      </div>
+    </div>
+  );
+}
+/** Footnote under a Summary table: same spacing, rule and measure in every view. */
+function ReportFootnote({ children }: { children: ReactNode }) {
+  return (
+    <p className="border-t border-brand-line/70 px-4 py-3 text-[13px] text-brand-muted">
+      <span className="block max-w-[110ch]">{children}</span>
+    </p>
+  );
+}
+// "Latest assessments" table: client-verified columns, in this exact order with these exact labels.
+const RECORD_COLUMNS = [
+  "Child seq.",
+  "Address / location of residence",
+  "Name of mother or caregiver",
+  "Full name of child",
+  "Belongs to IP group?",
+  "Sex",
+  "Date of birth",
+  "Date measured",
+  "Weight (kg)",
+  "Length / height (cm)",
+  "Age in months",
+  "Age in days",
+  "Weight-for-age status",
+  "Length/height-for-age status",
+  "Weight-for-length/height status",
+  "Bilateral pitting edema",
+  "Disability",
+  "MUAC (cm)",
+  "MUAC status",
+  "Actions",
+] as const;
+// Column groups above the labels (7 + 5 + 3 + 4 = the 19 data columns; Actions has its own cell).
+const RECORD_GROUPS = [
+  ["Child", 7],
+  ["Measurement", 5],
+  ["WHO classification", 3],
+  ["Other indicators", 4],
+] as const;
+/** A measurement exactly as recorded (no rounding or reformatting); "—" when missing. */
+function recorded(value: NumberValue) {
+  return value === null || value === "" ? "—" : String(value);
+}
+const flagClass = nutritionFlagClass;
+const isUrgent = (item: Assessment) => followUp(item) === "Urgent clinical assessment";
+type RecordCell = { content: ReactNode; numeric?: boolean; className?: string };
+/** The 19 data cells of one row, shared by the wide table and the phone cards. */
+function recordCells(item: Assessment, seq: number): RecordCell[] {
+  const child = one(item.child);
+  const barangay = one(child?.barangay ?? null)?.barangay_name ?? "Barangay unavailable";
+  return [
+    { content: seq, numeric: true },
+    { content: child ? residentLocation(child) || "Not recorded" : "Not recorded", className: "min-w-40" },
+    { content: caregiverName(child), className: "min-w-44" },
+    {
+      className: "min-w-44 font-medium",
+      content: <>
+        <span className="font-semibold text-brand-navy">{childName(child)}</span>
+        <span className="mt-0.5 block text-xs font-normal text-brand-muted">{barangay}</span>
+      </>,
+    },
+    { content: ipMembership(item.profile?.ethnicity) },
+    { content: child?.sex === "MALE" ? "M" : child?.sex === "FEMALE" ? "F" : "Not recorded" },
+    { content: child?.date_of_birth ?? "Not recorded", className: "whitespace-nowrap" },
+    { content: item.assessment_date, className: "whitespace-nowrap" },
+    { content: recorded(item.weight), numeric: true },
+    {
+      numeric: true,
+      content: <>
+        {recorded(item.height)}
+        <span className="block text-xs text-brand-muted">{label(item.measurement_type)}</span>
+      </>,
+    },
+    { content: item.age_days == null ? "Not recorded" : completedMonths(birthAtAssessment(item), item.assessment_date), numeric: true },
+    { content: item.age_days ?? "Not recorded", numeric: true },
+    { content: label(item.weight_for_age), className: cn("min-w-40", flagClass(item.weight_for_age)) },
+    { content: label(item.height_for_age), className: cn("min-w-40", flagClass(item.height_for_age)) },
+    { content: label(item.weight_for_height), className: cn("min-w-40", flagClass(item.weight_for_height)) },
+    { content: item.edema_grade == null ? "Not recorded" : item.edema_grade === 0 ? "Absent" : `+${item.edema_grade}` },
+    { content: "Not recorded in child profile", className: "min-w-40 text-zero" },
+    { content: recorded(item.muac), numeric: true, className: flagClass(item.muac_status) },
+    { content: label(item.muac_status), className: cn("min-w-36", flagClass(item.muac_status)) },
+  ];
+}
+
 export default function NutritionPage() {
   const sharedAuth = useAuth();
   const [category, setCategory] = useState("All");
@@ -1143,12 +1043,17 @@ export default function NutritionPage() {
   const [selected, setSelected] = useState<Assessment | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
-  const [message, setMessage] = useState("");
+  const router = useRouter();
+  const confirm = useConfirm();
+  const role = sharedAuth.user?.role as UserRole | undefined;
+  // Print is the export of this page (PHN monitors and exports; BNS and Admin too).
+  const canExport = role ? canPerform(role, "Nutritional Assessment", "export") : false;
   const [reportYear, setReportYear] = useState(todayKey().slice(0, 4));
   const [reportBarangay, setReportBarangay] = useState("All");
   const [reportView, setReportView] = useState<ReportView>("Assessments");
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  // One page-level loader: the page appears once the account and its first data are in.
   const [online, setOnline] = useState(true);
   const [cachedResponse, setCachedResponse] =
     useState<NutritionResponse | null>(null);
@@ -1184,6 +1089,13 @@ export default function NutritionPage() {
         ? cachedResponse
         : undefined;
   const canRecord = data?.role === "BNS" && data.permissions.create;
+  usePageLoading(!authReady || Boolean(ownerId && online && !data && !error));
+  const { visible: queuePage, bindList: bindQueue, listStyle: queueStyle, props: queuePager } = usePagination(queued);
+  const tab = reportView === "Assessments" || reportView === "Risk" || reportView === "Admissions" ? reportView : "Summary";
+  // The whole row opens the profile at Nutrition history; links and buttons inside keep their own action.
+  const openRow = (event: MouseEvent, childId: number) => {
+    if (!(event.target as HTMLElement).closest("a,button")) router.push(childRecordUrl(childId));
+  };
   const savingRef = useRef(false);
   const children = data?.children ?? [];
   const scopedRecords = useMemo(
@@ -1227,6 +1139,15 @@ export default function NutritionPage() {
   const visible = (history ? scopedRecords : latest).filter((item) =>
     matches(item, category),
   );
+  // Shared pager (6 per page). Stable height only across several pages; one page fits its rows.
+  const { visible: recordRows, page: recordPage, props: recordPager } = usePagination(visible);
+  const { bindArea: bindRecords, height: recordsMin } = useStableHeight(recordPager.pageCount > 1, recordRows.length >= recordPager.pageSize);
+  const urgent = latest.filter(isUrgent);
+  // Same rule as edit_nutritional_assessment: only the BNS who recorded it; administrators for
+  // support / data fixes. PHN and RHM view (incl. History). The RPC re-checks.
+  const canEditAssessment = (item: Assessment) =>
+    data?.role === "Administrator" ||
+    (data?.role === "BNS" && item.assessed_by === data.currentUserId);
   const countCategories = [
     "MAM",
     "SAM",
@@ -1527,10 +1448,11 @@ export default function NutritionPage() {
           window.clearTimeout(timeout);
         }
       }
+      reportSync(saved, failures.length);
       if (ownerRef.current === id) {
         await refreshQueue(id);
         if (saved > 0) {
-          setMessage(
+          toast.success(
             `${saved} assessment${saved === 1 ? "" : "s"} saved on the server and classified.`,
           );
           await mutate();
@@ -1540,6 +1462,7 @@ export default function NutritionPage() {
       failures.push(
         syncError instanceof Error ? syncError.message : "Sync did not finish.",
       );
+      reportSync(0, failures.length);
       if (ownerRef.current === id)
         setStorageError(
           syncError instanceof Error
@@ -1710,7 +1633,7 @@ export default function NutritionPage() {
         setSelected(result.data);
         setReportYear(payload.assessment_date.slice(0, 4));
         setReportView("Assessments");
-        setMessage("Assessment saved on the server and classified.");
+        toast.success("Assessment saved on the server and classified.");
         await mutate();
       } catch (problem) {
         const detail =
@@ -1738,7 +1661,7 @@ export default function NutritionPage() {
             if (ownerRef.current === id) {
               onlineRequest.current = null;
               setDraft(null);
-              setMessage(
+              toast.warning(
                 "Submission could not be confirmed. A recovery draft was retained; review it before retrying. Eligible drafts sync when online; conflicts require recorder review.",
               );
               await refreshQueue(id);
@@ -1779,8 +1702,8 @@ export default function NutritionPage() {
       onlineRequest.current = null;
       setDraft(null);
       setStorageError("");
-      setMessage(
-        "Draft saved locally. Eligible drafts sync when online; review any flagged conflicts. Eligible drafts sync when online; conflicts require recorder review.",
+      toast.success(
+        "Draft saved locally. Eligible drafts sync when online; conflicts require recorder review.",
       );
       await refreshQueue(id);
     } catch (saveError) {
@@ -1813,6 +1736,13 @@ export default function NutritionPage() {
   async function removeQueued(row: QueuedAssessment) {
     const id = ownerRef.current;
     if (!id || row.ownerId !== id || syncing) return;
+    const ok = await confirm({
+      title: "Remove this local draft?",
+      description: `${row.childName} · ${row.payload.assessment_date}. The draft is deleted from this device and is not uploaded.`,
+      confirmLabel: "Remove draft",
+      tone: "danger",
+    });
+    if (!ok || ownerRef.current !== id) return;
     try {
       await removeQueuedAssessment(id, row.requestId);
       await refreshQueue(id);
@@ -1855,7 +1785,6 @@ export default function NutritionPage() {
         setDraft(null);
         setSelected(null);
         setFormError("");
-        setMessage("");
         setStorageError("");
         setSyncing(false);
         setSaving(false);
@@ -1961,8 +1890,54 @@ export default function NutritionPage() {
     return ()=>{alive=false;window.clearTimeout(first);window.clearInterval(timer);window.removeEventListener('online',wake);window.removeEventListener('focus',wake);};
   },[ownerId,online,canRecord,accessDenied]);
 
+  // Refresh for the filter card (All assessments, Summary, Risk monitoring): secondary, pushed right.
+  const refreshButton = ownerId ? (
+    <Button
+      variant="secondary"
+      loading={isValidating && Boolean(data)}
+      disabled={!online || accessDenied}
+      title={online ? undefined : "Reconnect to refresh"}
+      onClick={() => void mutate()}
+    >
+      {!(isValidating && data) && <RefreshCw size={16} aria-hidden="true" />}
+      Refresh
+    </Button>
+  ) : null;
+  const summaryViews = (
+    <SummaryViews
+      value={reportView === "Summary" || listCodes.includes(reportView as ListCode) ? (reportView as "Summary" | ListCode) : "Summary"}
+      onChange={setReportView}
+      counts={Object.fromEntries(listCodes.map((code) => [code, listRecords(latest, code).length])) as Record<ListCode, number>}
+    />
+  );
+  // Year and barangay: on the Summary tab on their own, on All assessments with the other filters.
+  const periodFields = (
+    <>
+      <Select
+        aria-label="Year"
+        value={reportYear}
+        onChange={(event) => setReportYear(event.target.value)}
+      >
+        {years.map((year) => (
+          <option key={year} value={year}>Year {year}</option>
+        ))}
+      </Select>
+      <Select
+        aria-label="Barangay"
+        value={reportBarangay}
+        onChange={(event) => setReportBarangay(event.target.value)}
+      >
+          <option value="All">All accessible barangays</option>
+          {barangays.map((b) => (
+            <option key={b.barangay_id} value={b.barangay_id}>
+              {b.barangay_name} — {b.municipality}
+            </option>
+          ))}
+      </Select>
+    </>
+  );
   return (
-    <div className="nutrition-report-root space-y-6">
+    <div className="nutrition-report-root space-y-5">
       <style>{`@media print {
       body * { visibility: hidden; }
       .nutrition-report-root, .nutrition-report-root * { visibility: visible; }
@@ -1974,66 +1949,26 @@ export default function NutritionPage() {
       .nutrition-report-root th:first-child { width: 15%; }
       .nutrition-report-root thead { display: table-header-group; }
       .nutrition-report-root tr { break-inside: avoid; }
+      .nutrition-report-root .sticky { position: static !important; box-shadow: none !important; }
+      .nutrition-report-root .data-grid { border-collapse: collapse !important; }
+      .nutrition-report-root .data-grid th, .nutrition-report-root .data-grid td { border: 1px solid #555 !important; background: #fff !important; color: #000 !important; }
       @page { size: A4 landscape; margin: 8mm; }
     }`}</style>
-      <nav
-        aria-label="Nutrition views"
-        className="nutrition-no-print flex flex-wrap gap-1 border-b border-border"
-      >
-        {(["Assessments", "Summary", "Risk", "Admissions"] as const).map(
-          (view) => {
-            const active =
-              view === "Summary"
-                ? reportView !== "Assessments" &&
-                  reportView !== "Risk" &&
-                  reportView !== "Admissions"
-                : reportView === view;
-            return (
-              <button
-                key={view}
-                type="button"
-                aria-pressed={active}
-                onClick={() => setReportView(view)}
-                className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors ${active ? "border-[#0077B6] text-[#0077B6]" : "border-transparent text-muted-foreground hover:border-sky-200 hover:text-[#0077B6]"}`}
-              >
-                {view === "Assessments"
-                  ? "All assessments"
-                  : view === "Risk"
-                    ? "Risk monitoring"
-                    : view === "Admissions"
-                      ? "Admission tracking"
-                      : "Summary"}
-              </button>
-            );
-          },
-        )}
-      </nav>
-      <div className="nutrition-no-print flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">
-            Nutritional Assessment
-          </h1>
-          <p className="mt-1 text-muted-foreground">
-            OPT Plus measurements, WHO classifications, and follow-up monitoring
-          </p>
-        </div>
-        {data?.role === "BNS" && (
-          <div className="flex flex-col items-end gap-1">
-            <button
-              type="button"
-              disabled={!canRecord || !ownerId || accessDenied}
-              title={
-                !data
-                  ? "Loading account permissions and child options"
-                  : !data.permissions.create
-                    ? "This account has view access only"
-                    : "Record anthropometric measurements"
-              }
+      {/* Header block: title and subtitle, then the module tabs; one divider below. */}
+      <div className="nutrition-no-print space-y-4">
+      <PageHeader
+        title="Nutritional Assessment"
+        subtitle="OPT Plus measurements, WHO classifications, and follow-up monitoring"
+        className="nutrition-no-print"
+        actions={<>
+          {/* Refresh sits in each tab's filter card. */}
+          {canRecord && (
+            <Button
+              disabled={!ownerId || accessDenied}
               onClick={() => {
                 editingRequest.current = null;
                 onlineRequest.current = null;
                 setFormError("");
-                setMessage("");
                 setDraft({
                   ...initialDraft(),
                   assessment_date:
@@ -2042,60 +1977,38 @@ export default function NutritionPage() {
                       : `${reportYear}-12-31`,
                 });
               }}
-              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Plus size={20} />
-              Record Assessment
-            </button>
-            {!canRecord && (
-              <span className="text-xs text-muted-foreground">
-                Recording permission is unavailable for this account.
-              </span>
-            )}
-          </div>
-        )}
+              <Plus size={17} aria-hidden="true" />Record assessment
+            </Button>
+          )}
+        </>}
+      />
+      <TabBar
+        className="pb-5"
+        label="Nutrition views"
+        group="nutrition"
+        value={tab}
+        onChange={setReportView}
+        items={[
+          { value: "Assessments", label: "All assessments" },
+          { value: "Summary", label: "Summary" },
+          { value: "Risk", label: "Risk monitoring" },
+          { value: "Admissions", label: "Admission tracking" },
+        ]}
+      />
       </div>
 
-      {message && (
-        <p
-          role="status"
-          className="rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm text-teal-800"
-        >
-          {message}
-        </p>
-      )}
       {error && (
-        <div role="alert" className={alertClass}>
-          {error.message}
-          <button
-            type="button"
-            onClick={() => void mutate()}
-            className="ml-3 underline"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-      {!authReady && (
-        <p role="status" className="text-sm">
-          Checking signed-in account…
-        </p>
+        <LoadError what="nutrition records" error={error} retrying={isValidating} onRetry={() => void mutate()} />
       )}
       {authReady && !ownerId && (
         <p role="alert" className={alertClass}>
           Sign in to access this account’s nutrition records and offline drafts.
         </p>
       )}
-      {ownerId && !data && !error && (
-        <p role="status" className="flex items-center gap-2 text-sm">
-          {online ? (
-            <>
-              <Loader2 className="animate-spin" size={18} />
-              Loading assessments…
-            </>
-          ) : (
-            "No cached child options are available. Open this page online once before working offline."
-          )}
+      {ownerId && !data && !error && !online && (
+        <p role="status" className="text-sm text-muted-foreground">
+          No cached child options are available. Open this page online once before working offline.
         </p>
       )}
       {storageError && (
@@ -2105,122 +2018,80 @@ export default function NutritionPage() {
       )}
       {(queued.length > 0 || !online) && (
         <section
-          className="nutrition-no-print space-y-3 rounded-xl border border-sky-200 bg-sky-50 p-4"
+          className="nutrition-no-print space-y-3 rounded-2xl border border-sky-200 bg-sky-50/70 p-5"
           aria-label="Offline assessment queue"
         >
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="font-semibold">
+              <h2 className="flex items-center gap-1.5 font-semibold text-brand-navy">
                 {online ? "Pending offline drafts" : "Offline"} ·{" "}
                 {queued.length} local draft{queued.length === 1 ? "" : "s"}
+                <InfoTip label="About offline drafts">
+                  Drafts stay on this device until you review and confirm upload.
+                  Eligible drafts sync automatically when online. Conflicts remain for recorder review.
+                </InfoTip>
               </h2>
-              <p className="text-xs text-muted-foreground">
-                Drafts stay on this device until you review and confirm upload.
-                Eligible drafts sync automatically when online. Conflicts remain for recorder review.
-              </p>
+              <p className="mt-1 text-xs text-muted-foreground">Saved on this device until uploaded</p>
             </div>
-            <button
-              type="button"
-              disabled={
-                !online ||
-                !ownerId ||
-                !canRecord ||
-                syncing ||
-                reviewing ||
-                queued.length === 0
-              }
-              onClick={() => void reviewQueue()}
-              className="rounded-lg border border-border bg-white px-3 py-2 text-sm disabled:opacity-50"
-            >
-              {syncing
-                ? "Uploading…"
-                : reviewing
-                  ? "Checking drafts…"
-                  : "Review pending drafts"}
-            </button>
+            {canRecord && (
+              <Button
+                variant="tonal"
+                loading={syncing || reviewing}
+                disabled={!online || !ownerId || queued.length === 0}
+                onClick={() => void reviewQueue()}
+              >
+                {syncing
+                  ? "Uploading…"
+                  : reviewing
+                    ? "Checking drafts…"
+                    : "Review pending drafts"}
+              </Button>
+            )}
           </div>
-          {queued.map((row) => (
-            <div
-              key={row.requestId}
-              className="rounded-lg border border-border bg-white p-3 text-sm"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <strong>{row.childName}</strong>
-                  <p>
-                    {row.payload.assessment_date} ·{" "}
-                    {row.status === "BLOCKED"
-                      ? "Needs correction or permission review"
-                      : "Pending sync"}
-                  </p>
+          <div ref={bindQueue} style={queueStyle} className="space-y-3">
+            {queuePage.map((row) => (
+              <div
+                key={row.requestId}
+                className="rounded-xl border border-border bg-white p-4 text-sm"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-brand-navy">{row.childName}</p>
+                    <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      {row.payload.assessment_date}
+                      <StatusBadge
+                        status={row.status}
+                        tone={row.status === "BLOCKED" ? "danger" : "warn"}
+                        label={row.status === "BLOCKED" ? "Needs correction or permission review" : "Pending sync"}
+                      />
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {canRecord && (
+                      <Button variant="ghost" size="sm" disabled={syncing} onClick={() => editQueued(row)}>
+                        Edit draft
+                      </Button>
+                    )}
+                    {canRecord && (
+                      <Button variant="tonal" size="sm" disabled={syncing || !online} onClick={() => void retryQueued(row)}>
+                        Review & retry
+                      </Button>
+                    )}
+                    <Button variant="danger" size="sm" disabled={syncing} onClick={() => void removeQueued(row)}>
+                      Remove local draft
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    disabled={syncing || !canRecord}
-                    onClick={() => editQueued(row)}
-                    className="text-primary underline disabled:opacity-50"
-                  >
-                    Edit draft
-                  </button>
-                  <button
-                    type="button"
-                    disabled={syncing || !online || !canRecord}
-                    onClick={() => void retryQueued(row)}
-                    className="text-primary underline disabled:opacity-50"
-                  >
-                    Review & retry
-                  </button>
-                  <button
-                    type="button"
-                    disabled={syncing}
-                    onClick={() => void removeQueued(row)}
-                    className="text-red-700 underline disabled:opacity-50"
-                  >
-                    Remove local draft
-                  </button>
-                </div>
+                {row.lastError && (
+                  <p className="mt-2 text-xs text-red-700">{row.lastError}</p>
+                )}
               </div>
-              {row.lastError && (
-                <p className="mt-2 text-xs text-red-700">{row.lastError}</p>
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
+          <Pagination {...queuePager} label="Offline draft pages" className="rounded-xl border-0 bg-white" />
         </section>
       )}
-      {reportView !== "Risk" && reportView !== "Admissions" && (
-        <div className="nutrition-no-print flex flex-wrap items-center gap-3">
-          <label htmlFor="nutrition-year" className="text-sm font-medium">
-            Year
-          </label>
-          <select
-            id="nutrition-year"
-            value={reportYear}
-            onChange={(event) => setReportYear(event.target.value)}
-            className="rounded-lg border border-border bg-white px-3 py-2"
-          >
-            {years.map((year) => (
-              <option key={year}>{year}</option>
-            ))}
-          </select>
-          <label htmlFor="nutrition-barangay" className="text-sm font-medium">
-            Barangay
-          </label>
-          <select
-            id="nutrition-barangay"
-            value={reportBarangay}
-            onChange={(event) => setReportBarangay(event.target.value)}
-            className="rounded-lg border border-border bg-white px-3 py-2"
-          >
-            <option value="All">All accessible barangays</option>
-            {barangays.map((b) => (
-              <option key={b.barangay_id} value={b.barangay_id}>
-                {b.barangay_name} — {b.municipality}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      <TabPanel tabKey={tab} className="space-y-5">
       {reportView === "Admissions" && ownerId && (
         <NutritionAdmissionPanel
           key={ownerId}
@@ -2238,33 +2109,12 @@ export default function NutritionPage() {
           }
           error={error?.message}
           offline={!online}
-          onRefresh={() => void mutate()}
+          refresh={refreshButton}
         />
       )}
-      {reportView !== "Assessments" &&
-        reportView !== "Risk" &&
-        reportView !== "Admissions" && (
-          <nav
-            aria-label="Summary classifications"
-            className="nutrition-no-print flex flex-wrap gap-2 rounded-xl border border-border bg-white p-3"
-          >
-            {(
-              ["Summary", ...listCodes] as Array<"Summary" | ListCode>
-            ).map((view) => (
-              <button
-                key={view}
-                type="button"
-                aria-pressed={reportView === view}
-                onClick={() => setReportView(view)}
-                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${reportView === view ? "bg-sky-100 text-[#0077B6]" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
-              >
-                {view === "Summary"
-                  ? "Overview"
-                  : `List ${view} (${listRecords(latest, view).length})`}
-              </button>
-            ))}
-          </nav>
-        )}
+      {tab === "Summary" && (
+        <FilterCard refresh={refreshButton}>{periodFields}</FilterCard>
+      )}
       {reportView === "Summary" && (
         <SummaryReport
           records={latest}
@@ -2275,6 +2125,8 @@ export default function NutritionPage() {
               : (selectedAreas[0]?.barangay_name ?? "Selected barangay")
           }
           onList={setReportView}
+          canPrint={canExport}
+          views={summaryViews}
         />
       )}
       {reportView !== "Summary" &&
@@ -2291,260 +2143,248 @@ export default function NutritionPage() {
                 : (selectedAreas[0]?.barangay_name ?? "Selected barangay")
             }
             onScores={setSelected}
+            canPrint={canExport}
+            views={summaryViews}
           />
         )}
       {reportView === "Assessments" && (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            {countCategories.map((name) => (
-              <button
-                key={name}
-                type="button"
-                onClick={() => setCategory(category === name ? "All" : name)}
-                aria-pressed={category === name}
-                className={`rounded-xl border p-4 text-left ${category === name ? "border-primary bg-sky-50" : "border-border bg-white"}`}
-              >
-                <p className="text-sm text-muted-foreground">{name}</p>
-                <p className="mt-1 text-2xl font-bold text-foreground">
-                  {latest.filter((item) => matches(item, name)).length}
-                </p>
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Counts use the latest loaded assessment per child in the selected
-            year and barangay. Categories can overlap.
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <label htmlFor="nutrition-category" className="text-sm font-medium">
-              Classification view
-            </label>
-            <select
-              id="nutrition-category"
-              value={category}
-              onChange={(event) => setCategory(event.target.value)}
-              className="rounded-lg border border-border bg-white px-3 py-2"
-            >
-              {allCategories.map((name) => (
-                <option key={name}>{name}</option>
-              ))}
-            </select>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
+          {/* Filters and counts: one card. Controls share one bottom edge. */}
+          <FilterCard
+            refresh={refreshButton}
+            extra={
+              <Checkbox
+                label="Include assessment history"
                 checked={history}
                 onChange={(event) => setHistory(event.target.checked)}
               />
-              Include assessment history
-            </label>
-            <button
-              type="button"
-              disabled={isValidating}
-              onClick={() => void mutate()}
-              className="ml-auto flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm disabled:opacity-50"
-            >
-              <RefreshCw
-                size={16}
-                className={isValidating ? "animate-spin" : ""}
-              />
-              Refresh
-            </button>
-          </div>
-          <div className="overflow-hidden rounded-2xl border border-border bg-white">
-            <div className="border-b border-border p-5">
-              <h2 className="font-semibold">
+            }
+            below={
+              // Counts (latest assessment per child); each one filters the table. 1px dividers between cells.
+              <div className="grid grid-cols-2 gap-px border-t border-brand-line/70 bg-brand-line/70 sm:grid-cols-3 lg:grid-cols-5">
+                {["SAM", "MAM", "Stunted", "Wasted", "Overweight / obesity"].map((name) => {
+                  const count = latest.filter((item) => matches(item, name)).length;
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      aria-pressed={category === name}
+                      onClick={() => setCategory(category === name ? "All" : name)}
+                      className={cn(
+                        "flex items-baseline gap-2 bg-white px-4 py-3 text-left outline-none transition-colors hover:bg-brand-ice focus-visible:outline-3 focus-visible:outline-solid focus-visible:-outline-offset-3 focus-visible:outline-link",
+                        category === name && "bg-brand-ice",
+                        // 5 cells: the last one fills the spare slot at 2 and 3 columns (no empty divider cell).
+                        name === "Overweight / obesity" && "col-span-2 lg:col-span-1",
+                      )}
+                    >
+                      <span className={cn("text-2xl font-bold tabular-nums", count === 0 ? "text-zero" : name === "SAM" ? "text-severe" : "text-brand-navy")}>{count}</span>
+                      <span className="text-sm text-brand-muted">{name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            }
+          >
+            {periodFields}
+            <Select aria-label="Classification view" value={category} onChange={(event) => setCategory(event.target.value)}>
+              {allCategories.map((name) => (
+                <option key={name} value={name}>{name === "All" ? "All classifications" : name}</option>
+              ))}
+            </Select>
+          </FilterCard>
+
+          {/* Follow-up banner: only when a child needs urgent clinical assessment. */}
+          {urgent.length > 0 && (
+            <div role="status" className="nutrition-no-print flex flex-wrap items-center gap-3 rounded-2xl border border-severe-line bg-white p-4 shadow-sm">
+              <AlertCircle size={20} aria-hidden="true" className="shrink-0 text-severe-icon" />
+              <p className="min-w-0 flex-[1_1_20rem] text-sm text-brand-navy">
+                <span className="font-semibold text-severe">
+                  {urgent.length} {urgent.length === 1 ? "child needs" : "children need"} urgent clinical assessment.
+                </span>{" "}
+                <span className="text-brand-muted">
+                  SAM or infant urgent review: {urgent.slice(0, 3).map((item) => childName(one(item.child))).join(", ")}
+                  {urgent.length > 3 ? ` and ${urgent.length - 3} more` : ""}.
+                  {(() => {
+                    // Soft MUAC warning only (bounds pending confirmation).
+                    const unusual = urgent.map((item) => muacUnusual(item.muac, item.age_days)).find(Boolean);
+                    return unusual ? <span className="font-semibold text-brand-navy"> MUAC: {MUAC_SOFT_WARNING[unusual]}</span> : null;
+                  })()}
+                </span>
+              </p>
+              <Link href={childRecordUrl(urgent[0].child_id)} className={buttonVariants({ variant: "secondary" })}>
+                View child record
+              </Link>
+            </div>
+          )}
+
+          {/* Latest assessments. White sits on the header, rows and pager, so a short last page shows the page background. */}
+          <section className={cn("overflow-hidden rounded-2xl border border-brand-line shadow-sm", recordPager.pageCount <= 1 && "bg-white")}>
+            <div className="border-b border-brand-line bg-white px-4 py-3">
+              <h2 className="flex items-center gap-1.5 text-lg font-semibold text-brand-navy">
                 {history ? "Assessment history" : "Latest assessments"}
+                <InfoTip label="About this table">
+                  Profile information comes from the linked child record. View
+                  child record opens the centralized profile and health history;
+                  Scores shows this assessment’s calculated results. Counts use the
+                  latest loaded assessment per child in the selected year and
+                  barangay; categories can overlap.
+                </InfoTip>
               </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Profile information comes from the linked child record. View
-                child record opens the centralized profile and health history;
-                Scores shows this assessment’s calculated results.
+              <p className="mt-0.5 text-sm text-brand-muted">
+                {visible.length} assessment{visible.length === 1 ? "" : "s"} · {category === "All" ? "all classifications" : category}
               </p>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-muted">
-                  <tr>
-                    {[
-                      "Child seq.",
-                      "Address / location of residence",
-                      "Name of mother or caregiver",
-                      "Full name of child",
-                      "Belongs to IP group?",
-                      "Sex",
-                      "Date of birth",
-                      "Date measured",
-                      "Weight (kg)",
-                      "Length / height (cm)",
-                      "Age in months",
-                      "Age in days",
-                      "Weight-for-age status",
-                      "Length/height-for-age status",
-                      "Weight-for-length/height status",
-                      "Bilateral pitting edema",
-                      "Disability",
-                      "MUAC (cm)",
-                      "MUAC status",
-                      "Actions",
-                    ].map((heading) => (
-                      <th
-                        key={heading}
-                        scope="col"
-                        className="min-w-24 px-4 py-4 text-left text-xs font-semibold"
-                      >
-                        {heading}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {visible.map((item, index) => (
-                    <tr key={item.assessment_id} className="hover:bg-muted">
-                      <td className="px-4 py-4 text-sm">{index + 1}</td>
-                      <td className="min-w-40 px-4 py-4 text-sm">
-                        {one(item.child)
-                          ? residentLocation(one(item.child)!) || "Not recorded"
-                          : "Not recorded"}
-                      </td>
-                      <td className="min-w-44 px-4 py-4 text-sm">
-                        {caregiverName(one(item.child))}
-                      </td>
-                      <td className="min-w-44 px-4 py-4 text-sm font-medium">
-                        {childName(one(item.child))}
-                        <span className="mt-1 block text-xs text-muted-foreground">
-                          {one(one(item.child)?.barangay ?? null)
-                            ?.barangay_name ?? "Barangay unavailable"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        {ipMembership(item.profile?.ethnicity)}
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        {one(item.child)?.sex === "MALE"
-                          ? "M"
-                          : one(item.child)?.sex === "FEMALE"
-                            ? "F"
-                            : "Not recorded"}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-4 text-sm">
-                        {one(item.child)?.date_of_birth ?? "Not recorded"}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-4 text-sm">
-                        {item.assessment_date}
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        {quantity(item.weight)}
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        {quantity(item.height)}
-                        <span className="block text-xs text-muted-foreground">
-                          {label(item.measurement_type)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        {item.age_days == null
-                          ? "Not recorded"
-                          : completedMonths(
-                              birthAtAssessment(item),
-                              item.assessment_date,
+            {data && visible.length === 0 ? (
+              <EmptyState icon={SearchX} title="No assessments match this view" description="Try a different filter or date range." className="bg-white" />
+            ) : (
+              <div ref={bindRecords} style={recordsMin ? { minHeight: recordsMin } : undefined}>
+                {/* Tablet and up: the wide table, scrolling sideways with the Actions column pinned. */}
+                <div className="scroll-subtle hidden overflow-x-auto bg-white sm:block">
+                  <table className="data-grid data-grid--hover w-full text-sm text-brand-navy">
+                    <thead>
+                      <tr>
+                        {RECORD_GROUPS.map(([group, span], i) => (
+                          <th
+                            key={group}
+                            scope="colgroup"
+                            colSpan={span}
+                            className={cn(
+                              "px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-brand-muted",
+                              i % 2 === 0 ? "bg-group-a" : "bg-group-b",
+                              i > 0 && "border-l-brand-line",
                             )}
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        {item.age_days ?? "Not recorded"}
-                      </td>
-                      <td className="min-w-40 px-4 py-4 text-sm">
-                        {label(item.weight_for_age)}
-                      </td>
-                      <td className="min-w-40 px-4 py-4 text-sm">
-                        {label(item.height_for_age)}
-                      </td>
-                      <td className="min-w-40 px-4 py-4 text-sm">
-                        {label(item.weight_for_height)}
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        {item.edema_grade == null
-                          ? "Not recorded"
-                          : item.edema_grade === 0
-                            ? "Absent"
-                            : `+${item.edema_grade}`}
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        Not recorded in child profile
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        {quantity(item.muac)}
-                      </td>
-                      <td className="min-w-36 px-4 py-4 text-sm">
-                        {label(item.muac_status)}
-                      </td>
-                      <td className="min-w-44 px-4 py-4 text-sm">
-                        <span className="block text-xs">
-                          {!item.engine_version
-                            ? "Legacy — not verified"
-                            : label(item.nutritional_status)}
-                        </span>
-                        <span className="my-1 block text-xs text-muted-foreground">
-                          {followUp(item)}
-                        </span>
-                        <Link
-                          href={childRecordUrl(item.child_id)}
-                          className="mb-2 block font-medium text-primary underline"
-                        >
-                          View child record
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => setSelected(item)}
-                          className="font-medium text-primary underline"
-                        >
-                          Scores
-                          <span className="sr-only">
-                            {" "}
-                            for assessment {item.assessment_id}
-                          </span>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {data && visible.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={20}
-                        className="px-5 py-10 text-center text-sm text-muted-foreground"
-                      >
-                        No assessments match this view.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <p className="border-t border-border p-4 text-xs text-muted-foreground">
-              Shows current linked profile information alongside measurements
-              recorded on the assessment date. IP membership comes from the
-              latest child profile’s Ethnicity field. Disability and region are
-              not present in the supplied profile fields. All accessible
-              assessment records are loaded in pages.
+                          >
+                            {group}
+                          </th>
+                        ))}
+                        <td aria-hidden="true" className="sticky right-0 z-[2] w-[260px] min-w-[260px] border-l-brand-line shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]" />
+                      </tr>
+                      <tr>
+                        {RECORD_COLUMNS.map((heading, i) => {
+                          const numeric = [0, 8, 9, 10, 11, 17].includes(i);
+                          const actions = heading === "Actions";
+                          return (
+                            <th
+                              key={heading}
+                              scope="col"
+                              className={cn(
+                                "px-4 py-3 align-bottom text-[13px] font-semibold text-brand-navy",
+                                numeric ? "text-right" : "text-left",
+                                // Labels wrap to two lines at most (narrow numeric columns otherwise stack 3–4).
+                                i !== 0 && i !== 5 && !actions && (i === 15 ? "min-w-32" : "min-w-[6.75rem]"),
+                                [7, 12, 15].includes(i) && "border-l-brand-line",
+                                actions && "sticky right-0 z-[2] w-[260px] min-w-[260px] border-l-brand-line shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]",
+                              )}
+                            >
+                              {heading}
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recordRows.map((item, i) => {
+                        const flagged = isUrgent(item);
+                        return (
+                          <tr
+                            key={item.assessment_id}
+                            onClick={(event) => openRow(event, item.child_id)}
+                            data-zebra={i % 2 === 1 || undefined}
+                            data-urgent={flagged || undefined}
+                            className="group cursor-pointer"
+                          >
+                            {recordCells(item, recordPage * recordPager.pageSize + i + 1).map((cell, c) => (
+                              <td
+                                key={c}
+                                className={cn(
+                                  "px-4 py-3.5 align-top transition-[box-shadow,background-color] duration-[120ms]",
+                                  // Row hover like Child Profiling: a 3px navy bar on the first cell.
+                                  c === 0 && "group-hover:shadow-[inset_3px_0_0_var(--brand-navy)]",
+                                  cell.numeric && "text-right tabular-nums",
+                                  [7, 12, 15].includes(c) && "border-l-brand-line",
+                                  cell.className,
+                                )}
+                              >
+                                {cell.content}
+                              </td>
+                            ))}
+                            <td className="sticky right-0 z-[1] w-[260px] min-w-[260px] border-l-brand-line px-4 py-3.5 align-top shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]">
+                              <RecordActions item={item} onScores={() => setSelected(item)} />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Phones: one card per row, same labels in the same order. */}
+                <ul className="divide-y divide-brand-line/70 bg-white sm:hidden">
+                  {recordRows.map((item, i) => {
+                    const seq = recordPage * recordPager.pageSize + i + 1;
+                    const child = one(item.child);
+                    const cells = recordCells(item, seq);
+                    return (
+                      <li key={item.assessment_id} className={cn("space-y-3 p-4", isUrgent(item) && "bg-severe-row")}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-brand-navy">
+                              <span className="tabular-nums text-brand-muted">{seq}.</span> {childName(child)}
+                            </p>
+                            <p className="text-xs text-brand-muted">
+                              {one(child?.barangay ?? null)?.barangay_name ?? "Barangay unavailable"} · Measured {item.assessment_date}
+                            </p>
+                          </div>
+                          <RecordBadge item={item} />
+                        </div>
+                        <dl className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
+                          {cells.map((cell, c) => (
+                            <div key={RECORD_COLUMNS[c]} className="contents">
+                              <dt className="text-xs font-semibold text-brand-muted">{RECORD_COLUMNS[c]}</dt>
+                              <dd className={cn("text-right text-brand-navy", cell.numeric && "tabular-nums", cell.className?.replace(/min-w-\S+/g, ""))}>{cell.content}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                        <p className="text-xs text-brand-muted">{followUp(item)}</p>
+                        <RecordButtons item={item} onScores={() => setSelected(item)} />
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+            <Pagination {...recordPager} label="Assessment pages" />
+            <p className="flex items-center gap-1.5 border-t border-brand-line bg-white px-4 py-3 text-xs text-brand-muted">
+              Profile columns show the child&rsquo;s current record. Measurements are as recorded on the date measured. Flagged values are shown in color.
+              <InfoTip label="About these columns">
+                IP membership comes from the latest child profile’s Ethnicity
+                field. Disability and region are not present in the supplied
+                profile fields. All accessible assessment records are loaded in
+                pages.
+              </InfoTip>
             </p>
-          </div>
+          </section>
         </>
       )}
-      <div className="nutrition-no-print rounded-2xl border border-border bg-white p-5">
-        <h2 className="flex items-center gap-2 font-semibold">
-          <AlertCircle size={19} className="text-orange-500" />
+      </TabPanel>
+      <details className={cn(REPORT_CARD, "nutrition-no-print group")}>
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-2xl px-4 text-sm font-semibold text-brand-navy outline-none focus-visible:ring-2 focus-visible:ring-brand-sky [&::-webkit-details-marker]:hidden">
+          <AlertCircle size={16} aria-hidden="true" className="shrink-0 text-warn" />
           Follow-up guidance
-        </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          SAM and infant urgent-review results require prompt clinical
-          assessment. Other growth concerns require health-staff review. Missing
-          scores and flagged measurements are displayed for verification.
+          <ChevronDown size={16} aria-hidden="true" className="ml-auto text-brand-muted transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none" />
+        </summary>
+        <p className="border-t border-brand-line/70 px-4 py-3 text-sm text-brand-navy">
+          SAM and infant urgent-review results require prompt clinical assessment. Other growth concerns require health-staff review. Missing scores and flagged measurements are displayed for verification.
         </p>
-      </div>
+      </details>
       {syncReview && (
         <Modal
+          open
+          size="xl"
           title="Review drafts before upload"
           busy={syncing}
           onClose={() => setSyncReview(null)}
+          cancelLabel="Back to drafts"
+          footer={<Button loading={syncing} disabled={!online || !canRecord || syncReview.selectedIds.length === 0} onClick={() => void confirmReview()}>Confirm upload ({syncReview.selectedIds.length})</Button>}
         >
           <p className="mb-4 text-sm text-muted-foreground">
             Check the measurements and any existing records. Select drafts to
@@ -2642,37 +2482,21 @@ export default function NutritionPage() {
               );
             })}
           </div>
-          <div className="mt-6 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => setSyncReview(null)}
-              className="rounded-lg border border-border px-4 py-2"
-            >
-              Back to drafts
-            </button>
-            <button
-              type="button"
-              disabled={
-                !online ||
-                !canRecord ||
-                syncReview.selectedIds.length === 0 ||
-                syncing
-              }
-              onClick={() => void confirmReview()}
-              className="rounded-lg bg-primary px-4 py-2 text-white disabled:opacity-50"
-            >
-              Confirm upload ({syncReview.selectedIds.length})
-            </button>
-          </div>
         </Modal>
       )}
       {draft && (
         <Modal
+          open
+          size="xl"
           title="Record nutritional assessment"
           busy={saving}
           onClose={() => setDraft(null)}
+          onSubmit={save}
+          footer={<Button type="submit" loading={saving} disabled={!child || !canRecord || accessDenied || !ownerId}>
+            {saving ? "Saving…" : editingRequest.current ? "Save draft changes" : online ? "Save Assessment" : "Save Offline Draft"}
+          </Button>}
         >
-          <form onSubmit={save} className="space-y-6">
+          <div className="space-y-6">
             {formError && (
               <p role="alert" className={alertClass}>
                 {formError}
@@ -2689,14 +2513,14 @@ export default function NutritionPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="text-sm font-medium md:col-span-2">
                     Select child
-                    <select
+                    <Select
                       autoFocus
                       required
                       value={draft.child_id}
                       onChange={(event) =>
                         change("child_id", event.target.value)
                       }
-                      className={inputClass}
+                     
                     >
                       <option value="">Select a child</option>
                       {eligibleChildren.map((item) => (
@@ -2706,7 +2530,7 @@ export default function NutritionPage() {
                           {item.child_id}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </label>
                   <label className="text-sm font-medium">
                     Address or location of child's residence
@@ -2768,11 +2592,9 @@ export default function NutritionPage() {
                   </label>
                   <label className="text-sm font-medium">
                     Date of birth
-                    <input
-                      readOnly
-                      type="date"
+                    <DateInput disabled
                       value={child?.date_of_birth ?? ""}
-                      className={inputClass}
+                     
                     />
                   </label>
                 </div>
@@ -2801,16 +2623,15 @@ export default function NutritionPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="text-sm font-medium">
                     Date measured
-                    <input
+                    <DateInput
                       required
-                      type="date"
                       value={draft.assessment_date}
                       min={child?.date_of_birth}
                       max={todayKey()}
                       onChange={(event) =>
                         change("assessment_date", event.target.value)
                       }
-                      className={inputClass}
+                     
                     />
                   </label>
                   <label className="text-sm font-medium">
@@ -2839,20 +2660,20 @@ export default function NutritionPage() {
                   </label>
                   <label className="text-sm font-medium">
                     Actual measurement position
-                    <select
+                    <Select
                       required
                       value={draft.measurement_type}
                       onChange={(event) =>
                         change("measurement_type", event.target.value)
                       }
-                      className={inputClass}
+                     
                     >
                       <option value="">Select position</option>
                       <option value="LENGTH">
                         Recumbent length — lying down
                       </option>
                       <option value="HEIGHT">Standing height</option>
-                    </select>
+                    </Select>
                   </label>
                 </div>
                 <p className="mt-3 text-xs text-muted-foreground">
@@ -2913,20 +2734,20 @@ export default function NutritionPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="text-sm font-medium">
                     Bilateral pitting edema
-                    <select
+                    <Select
                       required
                       value={draft.edema_grade}
                       onChange={(event) =>
                         change("edema_grade", event.target.value)
                       }
-                      className={inputClass}
+                     
                     >
                       <option value="">Select examination result</option>
                       <option value="0">Absent (0)</option>
                       <option value="1">Mild (+1)</option>
                       <option value="2">Moderate (+2)</option>
                       <option value="3">Severe (+3)</option>
-                    </select>
+                    </Select>
                   </label>
                   <label className="text-sm font-medium">
                     MUAC (cm, optional)
@@ -2970,41 +2791,69 @@ export default function NutritionPage() {
                 and confirm upload.
               </p>
             </fieldset>
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => setDraft(null)}
-                className="rounded-lg border border-border px-4 py-2 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={
-                  saving || !child || !canRecord || accessDenied || !ownerId
-                }
-                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white disabled:opacity-50"
-              >
-                {saving && <Loader2 size={16} className="animate-spin" />}
-                {saving
-                  ? "Saving…"
-                  : editingRequest.current
-                    ? "Save draft changes"
-                    : online
-                      ? "Save Assessment"
-                      : "Save Offline Draft"}
-              </button>
-            </div>
-          </form>
+          </div>
         </Modal>
       )}
       {selected && (
-        <AssessmentDetails
-          assessment={selected}
+        <ScoresDialog
+          key={selected.assessment_id}
+          item={selected}
+          childName={childName(one(selected.child))}
+          meta={[
+            `${selected.sex_at_assessment === "MALE" ? "Male" : selected.sex_at_assessment === "FEMALE" ? "Female" : "Sex not recorded"}, ${assessmentMonths(selected) ?? "?"} months (${selected.age_days ?? "?"} days), ${one(one(selected.child)?.barangay ?? null)?.barangay_name ?? "Barangay unavailable"}.`,
+            `Measured ${selected.assessment_date}.`,
+          ].join(" ")}
+          recommendation={followUp(selected)}
+          canEdit={canEditAssessment(selected)}
+          online={online}
           onClose={() => setSelected(null)}
+          onEdited={(updated) => {
+            setSelected((current) => (current ? ({ ...current, ...updated } as Assessment) : current));
+            void mutate();
+          }}
         />
       )}
+    </div>
+  );
+}
+
+/** Classification pill for a row (legacy rows are unverified, gray). */
+function RecordBadge({ item }: { item: Assessment }) {
+  return (
+    <StatusBadge
+      status={item.nutritional_status ?? "unknown"}
+      tone={item.engine_version ? nutritionTone(item.nutritional_status) : "neutral"}
+      label={!item.engine_version ? "Legacy — not verified" : label(item.nutritional_status)}
+      className="text-xs font-semibold"
+    />
+  );
+}
+
+/** "View child record" and "Scores": two equal row buttons side by side (shared Button "row"). */
+function RecordButtons({ item, onScores }: { item: Assessment; onScores: () => void }) {
+  // Stacked in the 260px Actions column: full width, 36px each, 8px apart, one line each.
+  return (
+    <div className="grid grid-cols-1 gap-2">
+      <Link href={childRecordUrl(item.child_id)} className={cn(buttonVariants({ variant: "row", size: "row" }), "w-full")}>
+        <FileText aria-hidden="true" />
+        View child record
+      </Link>
+      <Button variant="row" size="row" className="w-full" onClick={onScores}>
+        <BarChart3 aria-hidden="true" />
+        Scores
+        <span className="sr-only"> for assessment {item.assessment_id}</span>
+      </Button>
+    </div>
+  );
+}
+
+/** Pinned Actions cell: pill, recommendation, then the two buttons. */
+function RecordActions({ item, onScores }: { item: Assessment; onScores: () => void }) {
+  return (
+    <div className="space-y-2">
+      <RecordBadge item={item} />
+      <p className="text-xs text-brand-muted">{followUp(item)}</p>
+      <RecordButtons item={item} onScores={onScores} />
     </div>
   );
 }

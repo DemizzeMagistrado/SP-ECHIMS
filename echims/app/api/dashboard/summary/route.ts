@@ -9,16 +9,8 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-
-type Role = 'Administrator' | 'Public Health Nurse' | 'Rural Health Midwife'
-  | 'Barangay Health Worker' | 'Barangay Nutrition Scholar' | string
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function trustedRole(supabase: any): Promise<Role | null> {
-  const { data } = await supabase.rpc('get_my_profile').maybeSingle()
-  const r = String(data?.role ?? '').trim()
-  return r || null
-}
+import { scopeBarangays, trustedRole } from '@/lib/dashboard-scope'
+import { missedDoseCount } from '@/lib/vaccination-status-server'
 
 function parseDate(v: string | null): string | null {
   if (!v) return null
@@ -51,24 +43,7 @@ export async function GET(request: Request) {
   // Resolve the scope: which barangay_ids the user is allowed to count. BHW/BNS
   // only see their assignments; RHM sees assignments too; PHN sees their RHU;
   // Admin sees everything.
-  let scopeBarangayIds: number[] | null = null  // null = no filter (all)
-  if (role === 'Barangay Health Worker' || role === 'Barangay Nutrition Scholar' || role === 'Rural Health Midwife') {
-    const assignRes = await supabase.from('health_worker_assignment')
-      .select('barangay_id, status')
-      .eq('user_id', user.id)
-      .eq('status', 'ACTIVE')
-    scopeBarangayIds = (assignRes.data ?? []).map((r: { barangay_id: number }) => r.barangay_id)
-  } else if (role === 'Public Health Nurse') {
-    const phnRes = await supabase.from('public_health_nurse').select('rhu_id').eq('user_id', user.id).maybeSingle()
-    const rhuId = phnRes.data?.rhu_id
-    if (rhuId) {
-      const bRes = await supabase.from('barangay').select('barangay_id').eq('rhu_id', rhuId)
-      scopeBarangayIds = (bRes.data ?? []).map((r: { barangay_id: number }) => r.barangay_id)
-    } else {
-      scopeBarangayIds = []
-    }
-  }
-  // Admin: scopeBarangayIds stays null (see all)
+  const scopeBarangayIds = await scopeBarangays(supabase, user.id, role)
 
   // RPT-USR001 polish fix — the previous `scopeFilter<T extends ...>` generic
   // helper tripped TS error 2589 ("Type instantiation is excessively deep") when
@@ -94,20 +69,11 @@ export async function GET(request: Request) {
       const r = await q
       return { count: r.count ?? 0 }
     })(),
-    // Overdue vaccinations in scope (uses existing vaccination_record approach)
+    // Missed NIP doses in scope: same rule as Vaccination › Schedule (Not eligible doses excluded).
+    // Was a count of PENDING vaccination records (records awaiting approval), not missed doses.
     (async () => {
-      const q = supabase.from('vaccination_record')
-        .select('vaccination_record_id, child:child(barangay_id)', { count: 'exact', head: false })
-        .eq('status', 'PENDING')
-        .lte('vaccination_date', todayYMD())
-      const r = await q
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows = (r.data ?? []).filter((v: any) => {
-        if (scopeBarangayIds === null) return true
-        const brgy = Array.isArray(v.child) ? v.child[0]?.barangay_id : v.child?.barangay_id
-        return scopeBarangayIds.includes(brgy)
-      })
-      return { count: rows.length }
+      try { return { count: await missedDoseCount(supabase, scopeBarangayIds) } }
+      catch (e) { console.error('Dashboard missed doses:', e); return { count: 0 } }
     })(),
     // Vaccinations due in next 14 days
     (async () => {

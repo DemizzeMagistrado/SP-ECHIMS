@@ -2,6 +2,7 @@
 // POST a CSV masterlist file → create batch + staging rows (validated).
 // Role: PHN or Administrator only (enforced by RLS on insert).
 
+import { normalizePhMobile } from '@/lib/phone'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
@@ -138,9 +139,14 @@ export async function POST(request: Request) {
       rowErrors.push(`is_4ps_member must be true/false`)
     }
 
+    // Guardian mobile: any common format, stored as 09XXXXXXXXX
+    const mobile = raw.guardian_contact_number ? normalizePhMobile(raw.guardian_contact_number) : ''
+    if (raw.guardian_contact_number && !mobile) rowErrors.push(`guardian_contact_number "${raw.guardian_contact_number}" is not a valid mobile number (11 digits starting with 09)`)
+
     // Normalize
     const normalized: Record<string, string> = {
       ...raw,
+      guardian_contact_number: mobile ?? '',
       child_sex: sex === 'M' ? 'MALE' : sex === 'F' ? 'FEMALE' : sex ?? '',
       is_4ps_member: ['true','yes','1'].includes((raw.is_4ps_member ?? '').toLowerCase()) ? 'true' : 'false',
       barangay_id: brgy ? String(brgy.barangay_id) : '',

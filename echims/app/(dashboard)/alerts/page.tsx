@@ -1,21 +1,24 @@
 "use client";
+import { CountsStrip, REPORT_CARD } from '@/components/ui/report-parts'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  AlertTriangle,
-  AlertCircle,
-  Info,
-  CheckCircle,
-  X,
-  Plus,
-  RefreshCw,
-  Settings,
-} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AlertTriangle, AlertCircle, Info, CheckCircle, Plus, RefreshCw, Settings, History } from "lucide-react";
 import Link from "next/link";
 import { alertDestination } from "@/lib/alerts/alert-destination";
 import { SmsSimulationPanel } from "@/components/alerts/sms-simulation-panel";
 import { useAuth } from "@/components/auth/auth-provider";
 import { offlineScope } from "@/lib/offline/fetch";
+import { LogoLoader } from '@/components/brand/logo-loader'
+import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
+import { readPageCache, writePageCache } from '@/lib/page-cache'
+import { FilterChips, TabBar } from '@/components/ui/module-tabs'
+import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
+import { Select } from '@/components/ui/form'
+import { Pagination } from '@/components/ui/pagination'
+import { StatusBadge } from '@/components/ui/status-badge'
 type Rule = {
   rule_id: number;
   rule_name: string;
@@ -44,6 +47,8 @@ type Alert = {
   recipient_id: string | null;
   resolved_by: string | null;
   resolved_at: string | null;
+  /** Set when the system resolved the alert itself. */
+  resolution_note?: string | null;
 };
 type Audit = {
   audit_id: number;
@@ -73,6 +78,9 @@ type Data = {
   monitoring: { runs: EvaluationRun[]; error: string | null } | null;
   page: number;
   pageSize: number;
+  /** Alerts matching the current filters (server-side). */
+  matched?: number;
+  programs?: string[];
   summary: {
     total: number;
     critical: number;
@@ -212,14 +220,8 @@ function EvaluationMonitoring({
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           {modules.map(({ code, label }) => {
             const run = monitoring.runs.find((item) => item.module === code);
-            const color =
-              run?.status === "FAILED"
-                ? "bg-red-100 text-red-800"
-                : run?.status === "SUCCEEDED"
-                  ? "bg-teal-100 text-teal-800"
-                  : run?.status === "RUNNING"
-                    ? "bg-sky-100 text-sky-800"
-                    : "bg-muted text-muted-foreground";
+            const tone =
+              run?.status === "FAILED" ? "danger" : run?.status === "SUCCEEDED" ? "good" : run?.status === "RUNNING" ? "info" : "neutral";
             const status =
               run?.status === "SUCCEEDED"
                 ? "Succeeded"
@@ -232,11 +234,7 @@ function EvaluationMonitoring({
               <div key={code} className="rounded-xl border border-border p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-sm font-semibold">{label}</h3>
-                  <span
-                    className={`rounded-full px-2 py-1 text-xs font-medium ${color}`}
-                  >
-                    {status}
-                  </span>
+                  <StatusBadge status={run?.status ?? "not_run"} tone={tone} label={status} />
                 </div>
                 {run ? (
                   <>
@@ -291,14 +289,16 @@ function EvaluationMonitoring({
 }
 export default function AlertsPage() {
   const {user,isReady}=useAuth();
-  if(!isReady)return <p>Checking account…</p>;
+  if(!isReady)return <LogoLoader label="Checking account…" />;
   return <AlertsWorkspace key={user?user.id+':'+offlineScope(user):'signed-out'}/>;
 }
 function AlertsWorkspace() {
   const {user,isReady:authReady}=useAuth();
   const owner=user?.id??null;
-  const [data, setData] = useState<Data | null>(null);
+  // A revisit starts from the last result for this account (no loader) and refreshes it quietly.
+  const [data, setData] = useState<Data | null>(() => readPageCache<Data>(owner, "alerts:1") ?? null);
   const [loading, setLoading] = useState(false);
+  usePageLoading(!authReady || (loading && !data));
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [tab, setTab] = useState<
@@ -318,14 +318,18 @@ function AlertsWorkspace() {
   const ownerRef = useRef<string | null>(null);
   ownerRef.current=owner;
   useEffect(()=>()=>{sequence.current++;ownerRef.current=null},[]);
+  // Dashboard links open a program directly: /alerts?program=VACCINATION
+  useEffect(()=>{const q=new URLSearchParams(window.location.search),p=q.get("program"),t=q.get("tab");if(p&&/^[A-Z_]{1,40}$/.test(p))setProgram(p);if(t==="SMS")setTab("SMS")},[]);
   const load = useCallback(async () => {
     if (!owner) return;
     const token = ++sequence.current;
-    setLoading(true);
+    const cacheKey = `alerts:${page}:${filter}:${program}`;
+    if (!readPageCache(owner, cacheKey)) setLoading(true);
     setError("");
     try {
       const body: Data = await jsonResponse(
-        await fetch(`/api/alerts?page=${page}`, { cache: "no-store" }),
+        // Filters and pages of 6 on the server, so the counts and pages cover every alert.
+        await fetch(`/api/alerts?page=${page}&pageSize=6&filter=${encodeURIComponent(filter)}&program=${encodeURIComponent(program)}`, { cache: "no-store" }),
       );
       if (sequence.current !== token || ownerRef.current !== owner) return;
       if (
@@ -336,6 +340,7 @@ function AlertsWorkspace() {
       )
         throw new Error("The response does not match the current account.");
       setData(body);
+      writePageCache(owner, cacheKey, body);
     } catch (cause) {
       if (sequence.current === token) {
         setData(null);
@@ -346,7 +351,7 @@ function AlertsWorkspace() {
     } finally {
       if (sequence.current === token) setLoading(false);
     }
-  }, [owner, page]);
+  }, [owner, page, filter, program]);
   useEffect(() => {
     void load();
     return () => {
@@ -500,84 +505,44 @@ function AlertsWorkspace() {
       setResolving(false);
     }
   }
-  const alerts = (data?.alerts ?? []).filter(
-    (alert) =>
-      (program === "ALL" ||
-        (alert.source_module ?? alert.alert_type) === program) &&
-      (filter === "all" ||
-        (filter === "unresolved" && alert.status !== "RESOLVED") ||
-        (filter === "critical" &&
-          alert.severity === "CRITICAL" &&
-          alert.status !== "RESOLVED") ||
-        (filter === "warning" &&
-          ["HIGH", "MEDIUM"].includes(alert.severity) &&
-          alert.status !== "RESOLVED") ||
-        (filter === "info" && alert.severity === "LOW") ||
-        (filter === "resolved" && alert.status === "RESOLVED")),
-  );
-  const programs = [
-    ...new Set(
-      (data?.alerts ?? []).map(
-        (alert) => alert.source_module ?? alert.alert_type,
-      ),
-    ),
-  ].sort();
+  // The server applies the filter / program and sends one page of 6 (plus the exact match count).
+  const alerts = data?.alerts ?? [];
+  const matched = data?.matched ?? alerts.length;
+  const alertPagerProps = { page: page - 1, pageCount: Math.max(1, Math.ceil(matched / 6)), total: matched, pageSize: 6, onChange: (p: number) => setPage(p + 1) };
+  const programs = data?.programs ?? [...new Set(alerts.map((alert) => alert.source_module ?? alert.alert_type))].sort();
   const summary = data?.summary;
   const inputClass =
     "mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm";
   return (
     <div className="space-y-6">
       {data?.canConfigure && (
-        <div
-          className="flex flex-wrap gap-2 border-b border-border pb-3"
-          role="tablist"
-          aria-label="Alert sections"
-        >
-          {(
-            [
-              { value: "ALERTS", label: "Alerts" },
-              { value: "RULES", label: "Rules" },
-              { value: "AUDIT", label: "Rule change history" },
-              { value: "MONITORING", label: "Evaluation monitoring" },
-              { value: "SMS", label: "SMS Overview" },
-            ] as const
-          ).map((item) => (
-            <button
-              key={item.value}
-              type="button"
-              role="tab"
-              aria-selected={tab === item.value}
-              onClick={() => setTab(item.value)}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                tab === item.value
-                  ? "bg-primary text-white"
-                  : "border border-border bg-white text-foreground hover:bg-muted"
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+        <TabBar
+          label="Alert sections"
+          group="alerts"
+          value={tab}
+          onChange={setTab}
+          items={[
+            { value: "ALERTS", label: "Alerts" },
+            { value: "RULES", label: "Rules" },
+            { value: "AUDIT", label: "Rule change history" },
+            { value: "MONITORING", label: "Evaluation monitoring" },
+            { value: "SMS", label: "SMS Overview" },
+          ]}
+        />
       )}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">
-            Alert Management
-          </h1>
-          <p className="mt-1 text-muted-foreground">
-            Monitor system alerts and configure supported evaluation rules
-          </p>
-        </div>
-        <button
-          type="button"
-          disabled={loading || !owner}
-          onClick={() => void load()}
-          className="flex items-center gap-2 rounded-lg border border-border bg-white px-4 py-2 disabled:opacity-50"
-        >
-          <RefreshCw size={18} />
-          Refresh
-        </button>
-      </div>
+      <PageHeader
+        title="Alert Management"
+        subtitle="Monitor system alerts and configure supported evaluation rules"
+        actions={<>
+          <Button variant="tonal"
+            disabled={loading || !owner}
+            onClick={() => void load()}
+          >
+            <RefreshCw size={18} />
+            Refresh
+          </Button>
+        </>}
+      />
       {error && (
         <p
           role="alert"
@@ -595,10 +560,12 @@ function AlertsWorkspace() {
         </p>
       )}
       {!authReady || loading ? (
-        <p className="text-muted-foreground">Loading…</p>
+        <LogoLoader size="section" label="Loading alerts…" />
       ) : !owner ? (
         <p>Please sign in to access alerts.</p>
       ) : null}
+      {/* Tab content fades in with the previous tab's height held, so the page below does not jump. */}
+      <TabPanel tabKey={tab} className="space-y-6">
       {data?.canConfigure && tab === "MONITORING" && (
         <div role="tabpanel" aria-label="Evaluation monitoring">
           <EvaluationMonitoring monitoring={data.monitoring} />
@@ -614,64 +581,45 @@ function AlertsWorkspace() {
       )}
       {data && tab === "ALERTS" && (
         <>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            {[
-              ["Total Alerts", summary?.total, "text-foreground"],
-              ["Critical", summary?.critical, "text-destructive"],
-              ["Warning", summary?.warning, "text-orange-500"],
-              ["Resolved", summary?.resolved, "text-teal-600"],
-            ].map(([label, count, color]) => (
-              <div
-                key={String(label)}
-                className="rounded-2xl border border-border bg-white p-6"
-              >
-                <p className="text-sm text-muted-foreground">{label}</p>
-                <p className={`mt-2 text-3xl font-bold ${color}`}>
-                  {count ?? 0}
-                </p>
-              </div>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {[
-              "all",
-              "unresolved",
-              "critical",
-              "warning",
-              "info",
-              "resolved",
-            ].map((button) => (
-              <button
-                key={button}
-                type="button"
-                onClick={() => setFilter(button)}
-                className={`rounded-lg px-4 py-2 font-medium capitalize ${filter === button ? "bg-primary text-white" : "border border-border bg-white text-foreground hover:bg-muted"}`}
-              >
-                {button}
-              </button>
-            ))}
-            <select
+          <section aria-label="Filters" className={REPORT_CARD}>
+          <div className="flex flex-wrap items-center gap-3 p-4">
+            <FilterChips
+              label="Filter alerts"
+              value={filter}
+              onChange={(value) => { setFilter(value); setPage(1); }}
+              options={["all", "unresolved", "critical", "warning", "info", "resolved"].map((value) => ({
+                value,
+                label: value[0].toUpperCase() + value.slice(1),
+              }))}
+            />
+            <Select
               aria-label="Filter by program"
               value={program}
-              onChange={(event) => setProgram(event.target.value)}
-              className="rounded-lg border border-border bg-white px-3 py-2"
+              onChange={(event) => { setProgram(event.target.value); setPage(1); }}
             >
               <option value="ALL">All programs</option>
               {programs.map((value) => (
                 <option key={value}>{value}</option>
               ))}
-            </select>
+            </Select>
           </div>
+          <CountsStrip label="Alert counts" items={[
+            { label: 'Total alerts', value: summary?.total ?? 0 },
+            { label: 'Critical', value: summary?.critical ?? 0, tone: 'severe' },
+            { label: 'Warning', value: summary?.warning ?? 0, tone: 'review' },
+            { label: 'Resolved', value: summary?.resolved ?? 0 },
+          ]} />
+          </section>
           <p className="text-xs text-muted-foreground">
-            Cards count all alerts you can access. Filters apply to the current
+            Counts cover all alerts you can access. Filters apply to the current
             page of 50 alerts. High and medium severity appear under Warning.
           </p>
-          <div className="space-y-3">
+          <div className="scroll-mt-4 space-y-3">
             {alerts.length === 0 ? (
               <div className="rounded-2xl border border-border bg-white p-10 text-center">
-                <CheckCircle size={40} className="mx-auto mb-3 text-teal-600" />
+                <CheckCircle size={40} className="mx-auto mb-3 text-teal-700" />
                 <h3 className="font-semibold">
-                  No matching alerts on this page
+                  No matching alerts
                 </h3>
               </div>
             ) : (
@@ -695,7 +643,7 @@ function AlertsWorkspace() {
                     <div className="flex gap-4">
                       <Icon
                         size={24}
-                        className={`mt-1 shrink-0 ${resolved ? "text-teal-600" : critical ? "text-destructive" : warning ? "text-orange-500" : "text-secondary"}`}
+                        className={`mt-1 shrink-0 ${resolved ? "text-teal-700" : critical ? "text-destructive" : warning ? "text-orange-700" : "text-secondary"}`}
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap justify-between gap-2">
@@ -744,35 +692,34 @@ function AlertsWorkspace() {
                             )}
                           {alert.recipient_id === owner &&
                             alert.status === "UNREAD" && (
-                              <button
-                                type="button"
+                              <Button variant="secondary" size="sm"
                                 disabled={reading !== null}
                                 onClick={() => void markRead(alert)}
-                                className="rounded-lg border border-border bg-white px-3 py-1.5 disabled:opacity-50"
                               >
                                 Mark as read
-                              </button>
+                              </Button>
                             )}
                           {alert.recipient_id === owner &&
                             alert.status !== "RESOLVED" && (
-                              <button
-                                type="button"
+                              <Button size="sm"
                                 disabled={resolving || reading !== null}
                                 onClick={() => {
                                   setResolveTarget(alert);
                                   setResolutionReviewed(false);
                                 }}
-                                className="rounded-lg bg-primary px-3 py-1.5 text-white disabled:opacity-50"
+                               
                               >
                                 Mark as Resolved
-                              </button>
+                              </Button>
                             )}
                           {alert.status === "RESOLVED" && alert.resolved_at && (
                             <span className="text-muted-foreground">
                               Resolved {formatTime(alert.resolved_at)} ·{" "}
-                              {alert.resolved_by === owner
-                                ? "by you"
-                                : "handler recorded"}
+                              {alert.resolution_note
+                                ? alert.resolution_note
+                                : alert.resolved_by === owner
+                                  ? "by you"
+                                  : "handler recorded"}
                             </span>
                           )}
                         </div>
@@ -783,27 +730,8 @@ function AlertsWorkspace() {
               })
             )}
           </div>
-          <div className="flex items-center justify-between">
-            <button
-              type="button"
-              disabled={page === 1 || loading}
-              onClick={() => setPage((value) => value - 1)}
-              className="rounded-lg border bg-white px-4 py-2 disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <span className="text-sm">
-              Page {page} of{" "}
-              {Math.max(1, Math.ceil((summary?.total ?? 0) / 50))}
-            </span>
-            <button
-              type="button"
-              disabled={page * 50 >= (summary?.total ?? 0) || loading}
-              onClick={() => setPage((value) => value + 1)}
-              className="rounded-lg border bg-white px-4 py-2 disabled:opacity-50"
-            >
-              Next
-            </button>
+          <div className="overflow-hidden rounded-2xl border border-brand-line bg-white">
+            <Pagination {...alertPagerProps} label="Alert pages" className="border-t-0" />
           </div>
         </>
       )}
@@ -908,11 +836,12 @@ function AlertsWorkspace() {
             <tbody className="divide-y">
               {data.audit.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="p-6 text-center text-muted-foreground"
-                  >
-                    No rule changes recorded yet.
+                  <td colSpan={5}>
+                    <EmptyState
+                      icon={History}
+                      title="No rule changes recorded yet"
+                      description="Edits to alert rules will be logged here."
+                    />
                   </td>
                 </tr>
               ) : (
@@ -950,20 +879,18 @@ function AlertsWorkspace() {
           </table>
         </div>
       )}
+      </TabPanel>
       {resolveTarget && resolveTarget.recipient_id === owner && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="resolve-alert-title"
-            className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-xl"
-          >
-            <h2 id="resolve-alert-title" className="font-semibold">
-              Resolve assigned alert
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {resolveTarget.alert_message}
-            </p>
+        <Modal
+          open
+          size="sm"
+          onClose={() => setResolveTarget(null)}
+          busy={resolving}
+          title="Resolve assigned alert"
+          subtitle={resolveTarget.alert_message}
+          bodyClassName="space-y-4"
+          footer={<Button disabled={!resolutionReviewed} loading={resolving} onClick={() => void resolveAlert()}>{resolving ? "Resolving…" : "Confirm Resolution"}</Button>}
+        >
             <label className="flex items-start gap-2 text-sm">
               <input
                 type="checkbox"
@@ -984,55 +911,27 @@ function AlertsWorkspace() {
                 {error}
               </p>
             )}
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                disabled={resolving}
-                onClick={() => setResolveTarget(null)}
-                className="rounded-lg border px-3 py-2 text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={!resolutionReviewed || resolving}
-                onClick={() => void resolveAlert()}
-                className="rounded-lg bg-primary px-3 py-2 text-sm text-white disabled:opacity-50"
-              >
-                {resolving ? "Resolving…" : "Confirm Resolution"}
-              </button>
-            </div>
-          </section>
-        </div>
+        </Modal>
       )}
       {draft && data?.canConfigure && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="rule-dialog-title"
-            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6"
-          >
-            <div className="mb-5 flex justify-between gap-3">
-              <h2 id="rule-dialog-title" className="text-xl font-bold">
-                {review
-                  ? "Confirm rule changes"
-                  : draft.ruleId
-                    ? "Edit alert rule"
-                    : "Add inventory rule"}
-              </h2>
-              <button
-                type="button"
-                aria-label="Close rule form"
-                disabled={saving}
-                onClick={() => {
-                  setDraft(null);
-                  setReview(false);
-                }}
-              >
-                <X />
-              </button>
-            </div>
+        <Modal
+          open
+          size="lg"
+          onClose={() => { setDraft(null); setReview(false); }}
+          busy={saving}
+          title={review ? "Confirm rule changes" : draft.ruleId ? "Edit alert rule" : "Add inventory rule"}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (review) void saveRule();
+            else if (checkDraft()) setReview(true);
+          }}
+          footer={review ? (
+            <>
+              <Button variant="secondary" disabled={saving} onClick={() => setReview(false)}>Back to edit</Button>
+              <Button type="submit" loading={saving}>{saving ? "Saving…" : "Confirm and save"}</Button>
+            </>
+          ) : <Button type="submit">Review changes</Button>}
+        >
             {error && (
               <p
                 role="alert"
@@ -1079,33 +978,9 @@ function AlertsWorkspace() {
                   monitor may resolve reminders whose conditions are no longer
                   active.
                 </p>
-                <div className="mt-6 flex justify-end gap-3">
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={() => setReview(false)}
-                    className="rounded-lg border px-4 py-2"
-                  >
-                    Back to edit
-                  </button>
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={() => void saveRule()}
-                    className="rounded-lg bg-primary px-4 py-2 text-white disabled:opacity-50"
-                  >
-                    {saving ? "Saving…" : "Confirm and save"}
-                  </button>
-                </div>
               </>
             ) : (
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (checkDraft()) setReview(true);
-                }}
-                className="space-y-4"
-              >
+              <div className="space-y-4">
                 <label className="block text-sm font-medium">
                   Rule name
                   <input
@@ -1125,7 +1000,7 @@ function AlertsWorkspace() {
                 {draft.ruleId === null && (
                   <label className="block text-sm font-medium">
                     Evaluator
-                    <select
+                    <Select
                       value={draft.evaluatorType}
                       onChange={(event) =>
                         setDraft({
@@ -1137,13 +1012,13 @@ function AlertsWorkspace() {
                               : "30",
                         })
                       }
-                      className={inputClass}
+                     
                     >
                       <option value="INVENTORY_LOW_STOCK">Low stock</option>
                       <option value="INVENTORY_NEAR_EXPIRY">
                         Near expiry / expired batch
                       </option>
-                    </select>
+                    </Select>
                   </label>
                 )}
                 <label className="block text-sm font-medium">
@@ -1164,30 +1039,30 @@ function AlertsWorkspace() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="text-sm font-medium">
                     Severity
-                    <select
+                    <Select
                       value={draft.severity}
                       onChange={(event) =>
                         setDraft({ ...draft, severity: event.target.value })
                       }
-                      className={inputClass}
+                     
                     >
                       {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map((value) => (
                         <option key={value}>{value}</option>
                       ))}
-                    </select>
+                    </Select>
                   </label>
                   <label className="text-sm font-medium">
                     Status
-                    <select
+                    <Select
                       value={draft.status}
                       onChange={(event) =>
                         setDraft({ ...draft, status: event.target.value })
                       }
-                      className={inputClass}
+                     
                     >
                       <option>ACTIVE</option>
                       <option>INACTIVE</option>
-                    </select>
+                    </Select>
                   </label>
                 </div>
                 {parameterKey(draft.evaluatorType) ? (
@@ -1247,25 +1122,9 @@ function AlertsWorkspace() {
                     </span>
                   </label>
                 )}
-                <div className="flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setDraft(null)}
-                    className="rounded-lg border px-4 py-2"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="rounded-lg bg-primary px-4 py-2 text-white"
-                  >
-                    Review changes
-                  </button>
-                </div>
-              </form>
+              </div>
             )}
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

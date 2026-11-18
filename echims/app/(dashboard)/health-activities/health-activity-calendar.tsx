@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Button } from '@/components/ui/button'
 
 type CalendarView = 'MONTH' | 'WEEK' | 'DAY'
 
@@ -243,31 +244,25 @@ export default function HealthActivityCalendar<T extends CalendarActivity>({
     >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
         <div className="flex items-center gap-2">
-          <button
-            type="button"
+          <Button variant="secondary"
             aria-label={`Previous ${view.toLowerCase()}`}
             onClick={() => navigate(-1)}
-            className="rounded-lg border px-3 py-2 hover:bg-slate-50"
           >
             ‹
-          </button>
+          </Button>
 
-          <button
-            type="button"
+          <Button variant="secondary"
             onClick={() => setCurrentDate(new Date())}
-            className="rounded-lg border px-3 py-2 text-sm hover:bg-slate-50"
           >
             Today
-          </button>
+          </Button>
 
-          <button
-            type="button"
+          <Button variant="secondary"
             aria-label={`Next ${view.toLowerCase()}`}
             onClick={() => navigate(1)}
-            className="rounded-lg border px-3 py-2 hover:bg-slate-50"
           >
             ›
-          </button>
+          </Button>
         </div>
 
         <h2 aria-live="polite" className="text-lg font-semibold text-slate-900">
@@ -370,7 +365,7 @@ export default function HealthActivityCalendar<T extends CalendarActivity>({
                         isToday
                           ? 'bg-blue-600 text-white'
                           : isOutsideMonth
-                            ? 'text-slate-400 hover:bg-slate-200'
+                            ? 'text-slate-500 hover:bg-slate-200'
                             : 'text-slate-700 hover:bg-slate-100'
                       }`}
                     >
@@ -387,7 +382,7 @@ export default function HealthActivityCalendar<T extends CalendarActivity>({
                     {dayActivities.map(renderActivity)}
 
                     {dayActivities.length === 0 && view !== 'MONTH' && (
-                      <p className="p-2 text-xs text-slate-400">
+                      <p className="p-2 text-xs text-slate-500">
                         No activities.
                       </p>
                     )}

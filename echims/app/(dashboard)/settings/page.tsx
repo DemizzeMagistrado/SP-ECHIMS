@@ -1,59 +1,52 @@
 'use client'
 
+import { canPerform, toUserRole } from '@/lib/echims-data'
 import { useState } from 'react'
 import { Save, Lock, Bell, Shield, User, Building, LogOut } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
+import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { Input, Select } from '@/components/ui/form'
+import { TabBar } from '@/components/ui/module-tabs'
+import { TabPanel } from '@/components/brand/page-gate'
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState('general')
+  const [chosenTab, setActiveTab] = useState('general')
   const { logout, user } = useAuth()
   const isAdmin = user?.role === 'Administrator'
+  // Organization and Notifications follow the role matrix; BHW gets Profile and Security only.
+  const role = toUserRole(user?.role)
+  const canSeeOrg = Boolean(role && canPerform(role, 'Organization', 'view'))
+  const activeTab = !canSeeOrg && (chosenTab === 'general' || chosenTab === 'notifications') ? 'account' : chosenTab
 
-  async function handleLogout() {
-    await logout()
-    // replace (not assign) so the dashboard is overwritten in the browser history —
-    // see sidebar.tsx for the full rationale.
-    window.location.replace('/')
+  // logout() covers the page with the loader and navigates to the landing page itself.
+  function handleLogout() {
+    void logout()
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Settings</h1>
-        <p className="text-muted-foreground mt-1">
-          Manage system settings and user preferences
-        </p>
-      </div>
+      <TabBar
+        label="Settings sections"
+        group="settings"
+        value={activeTab}
+        onChange={setActiveTab}
+        items={[
+          { value: 'general', label: 'Organization', icon: Building, org: true },
+          { value: 'account', label: 'Profile', icon: User, org: false },
+          { value: 'notifications', label: 'Notifications', icon: Bell, org: true },
+          { value: 'security', label: 'Security', icon: Lock, org: false },
+        ].filter((t) => !t.org || canSeeOrg).map(({ value, label, icon: Icon }) => ({
+          value,
+          label: <span className="inline-flex items-center gap-2"><Icon size={16} aria-hidden="true" />{label}</span>,
+        }))}
+      />
+      <PageHeader
+        title="Settings"
+        subtitle="Manage system settings and user preferences"
+      />
 
-      {/* Settings Tabs */}
-      <div className="flex gap-2 border-b border-border flex-wrap">
-        {[
-          { id: 'general', label: 'Organization', icon: Building },
-          { id: 'account', label: 'Profile', icon: User },
-          { id: 'notifications', label: 'Notifications', icon: Bell },
-          { id: 'security', label: 'Security', icon: Lock },
-        ].map((tab) => {
-          const Icon = tab.icon
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors border-b-2 ${
-                activeTab === tab.id
-                  ? 'text-primary border-primary'
-                  : 'text-muted-foreground border-transparent hover:text-foreground'
-              }`}
-            >
-              <Icon size={18} />
-              {tab.label}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Content */}
-      <div className="space-y-6">
+      <TabPanel tabKey={activeTab} className="space-y-6">
         {/* General Settings */}
         {activeTab === 'general' && (
           <div className="space-y-6">
@@ -64,22 +57,20 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Unit Name
                   </label>
-                  <input
+                  <Input
                     type="text"
                     defaultValue="Rural Health Unit - Barangay A"
                       disabled={!isAdmin}
-                    className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Unit Code
                   </label>
-                  <input
+                  <Input
                     type="text"
                     defaultValue="RHU-001"
                       disabled={!isAdmin}
-                    className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -87,22 +78,20 @@ export default function SettingsPage() {
                     <label className="block text-sm font-medium text-foreground mb-2">
                       Municipality
                     </label>
-                    <input
+                    <Input
                       type="text"
                       defaultValue="San Isidro"
                       disabled={!isAdmin}
-                      className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
                       Province
                     </label>
-                    <input
+                    <Input
                       type="text"
                       defaultValue="Laguna"
                       disabled={!isAdmin}
-                      className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
                 </div>
@@ -111,22 +100,20 @@ export default function SettingsPage() {
                     <label className="block text-sm font-medium text-foreground mb-2">
                       Contact Number
                     </label>
-                    <input
+                    <Input
                       type="tel"
                       defaultValue="+63 912 345 6789"
                       disabled={!isAdmin}
-                      className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
                       Email
                     </label>
-                    <input
+                    <Input
                       type="email"
                       defaultValue="admin@rhu.gov.ph"
                       disabled={!isAdmin}
-                      className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
                 </div>
@@ -134,11 +121,10 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Barangays
                   </label>
-                  <input
+                  <Input
                     type="text"
                     defaultValue="San Isidro, Poblacion, Mabini, San Roque"
                     disabled={!isAdmin}
-                    className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
               </div>
@@ -176,30 +162,27 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Full Name
                   </label>
-                  <input
+                  <Input
                     type="text"
                     defaultValue="Administrator"
-                    className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Username
                   </label>
-                  <input
+                  <Input
                     type="text"
                     defaultValue="admin"
-                    className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Email Address
                   </label>
-                  <input
+                  <Input
                     type="email"
                     defaultValue="admin@rhu.gov.ph"
-                    className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -207,20 +190,20 @@ export default function SettingsPage() {
                     <label className="block text-sm font-medium text-foreground mb-2">
                       Contact Number
                     </label>
-                    <input type="tel" defaultValue="+63 912 345 6789" className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
+                    <Input type="tel" defaultValue="+63 912 345 6789" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
                       Employee ID
                     </label>
-                    <input type="text" defaultValue="EMP-0001" className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
+                    <Input type="text" defaultValue="EMP-0001" />
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
                     License Number
                   </label>
-                  <input type="text" defaultValue="PRC-123456" className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
+                  <Input type="text" defaultValue="PRC-123456" />
                 </div>
               </div>
             </div>
@@ -252,7 +235,7 @@ export default function SettingsPage() {
               </h2>
               <div className="space-y-4">
                 {[
-                  { title: 'Vaccination Alerts', desc: 'Receive alerts for overdue vaccinations' },
+                  { title: 'Vaccination Alerts', desc: 'Receive alerts for missed vaccinations' },
                   { title: 'Nutrition Alerts', desc: 'Alerts for malnutrition cases' },
                   { title: 'Stock Alerts', desc: 'Low stock and critical alerts' },
                   { title: 'Report Ready', desc: 'Notification when reports are ready' },
@@ -303,27 +286,24 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Current Password
                   </label>
-                  <input
+                  <Input
                     type="password"
-                    className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
                     New Password
                   </label>
-                  <input
+                  <Input
                     type="password"
-                    className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Confirm Password
                   </label>
-                  <input
+                  <Input
                     type="password"
-                    className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
               </div>
@@ -347,11 +327,11 @@ export default function SettingsPage() {
                     <p className="font-medium text-foreground">Session Timeout</p>
                     <p className="text-sm text-muted-foreground">Auto-logout after inactivity</p>
                   </div>
-                  <select className="px-3 py-2 border border-border rounded-lg">
+                  <Select>
                     <option>30 minutes</option>
                     <option>1 hour</option>
                     <option>2 hours</option>
-                  </select>
+                  </Select>
                 </div>
               </div>
             </div>
@@ -364,20 +344,20 @@ export default function SettingsPage() {
                     <p className="font-medium text-foreground">Current Session</p>
                     <p className="text-xs text-muted-foreground">Chrome - Windows 10</p>
                   </div>
-                  <span className="text-xs text-teal-600 font-medium">Active</span>
+                  <span className="text-xs text-teal-700 font-medium">Active</span>
                 </div>
               </div>
             </div>
           </div>
         )}
-      </div>
+      </TabPanel>
 
       {/* Save Button */}
       <div className="flex justify-end">
-        <button className="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary/90 transition-colors font-medium">
+        <Button>
           <Save size={20} />
           Save Changes
-        </button>
+        </Button>
       </div>
     </div>
   )

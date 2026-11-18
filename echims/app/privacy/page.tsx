@@ -1,10 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "@/lib/offline/navigation";
 
 export default function PrivacyPage() {
   const router = useRouter();
+
+  // Return to the referring page (landing, login, or register); fall back to home.
+  const goBack = () => {
+    if (window.history.length > 1) router.back();
+    else router.push("/");
+  };
 
   const handleAccept = () => {
     sessionStorage.setItem("echims_terms_accepted", "true");
@@ -90,12 +95,13 @@ export default function PrivacyPage() {
         </div>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-between">
-          <Link
-            href="/register"
+          <button
+            type="button"
+            onClick={goBack}
             className="rounded-lg border border-slate-300 px-6 py-3 text-center font-medium text-slate-700 hover:bg-slate-50"
           >
-            Back to Registration
-          </Link>
+            Go back
+          </button>
 
           <button
             type="button"

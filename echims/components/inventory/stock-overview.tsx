@@ -1,11 +1,18 @@
 'use client'
 
+import { CountsStrip, REPORT_CARD } from '@/components/ui/report-parts'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, ChevronDown, ChevronRight, PackagePlus, X } from 'lucide-react'
+import { CheckCircle2, ChevronDown, ChevronRight, PackagePlus, X, SearchX, Package } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { createClient } from '@/lib/supabase/client'
 import type { UserRole } from '@/lib/echims-data'
+import { LogoLoader } from '@/components/brand/logo-loader'
+import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ui/page-header'
+import { Modal } from '@/components/ui/modal'
+import { Button } from '@/components/ui/button'
+import { Select, DateInput } from '@/components/ui/form'
 
 // INV-USR001 / INV-USR002 — Stock Overview.
 // Reads go straight to Supabase (RLS applies): PHN sees the RHU, RHM only the
@@ -188,7 +195,7 @@ export function StockOverview() {
     expired: rows.filter((r) => { const b = liveBatches(r)[0]; return !!b && daysUntil(b.expiry_date) < 0 }).length,
   }), [rows, t])
 
-  if (!isReady || !role) return <section className="rounded-xl border border-[#E5E7EB] bg-white p-10 text-center text-[#6B7280]">Loading workspace...</section>
+  if (!isReady || !role) return <LogoLoader label="Loading workspace…" />
 
   const toggle = (id: number) => setOpen((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const showBarangayCol = (data?.barangays.length ?? 0) > 1
@@ -199,21 +206,18 @@ export function StockOverview() {
 
   return (
     <section className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-[#03045E]">Inventory</h1>
-          <p className="mt-1 text-sm text-[#6B7280]">
-            {descriptions[role] ?? 'Review available stock.'}
-            {role === 'Rural Health Midwife' && data?.barangays.length === 1 ? ` (${data.barangays[0].barangay_name})` : ''}
-          </p>
-        </div>
-        {data?.canStockIn && (
-          <button type="button" onClick={() => { setSuccess(''); setShowForm(true) }}
-            className="flex items-center gap-2 rounded-lg bg-[#0077B6] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#03045E]">
-            <PackagePlus size={17} /> Record stock-in
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Inventory"
+        subtitle={<>{descriptions[role] ?? 'Review available stock.'} {role === 'Rural Health Midwife' && data?.barangays.length === 1 ? ` (${data.barangays[0].barangay_name})` : ''}</>}
+        actions={<>
+          {data?.canStockIn && (
+            <button type="button" onClick={() => { setSuccess(''); setShowForm(true) }}
+              className="flex items-center gap-2 rounded-lg bg-[#0077B6] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#03045E]">
+              <PackagePlus size={17} /> Record stock-in
+            </button>
+          )}
+        </>}
+      />
 
       <ModuleTabs parent="Inventory" role={role} />
 
@@ -226,38 +230,32 @@ export function StockOverview() {
       )}
       {loadError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{loadError}</div>}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['Stock lines', summary.lines],
-          ['Low stock', summary.low],
-          [`Expiring within ${t.nearExpiryDays} days`, summary.expiring],
-          ['Expired batches', summary.expired],
-        ].map(([label, value]) => (
-          <div key={label as string} className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
-            <p className="text-xs font-medium text-[#6B7280]">{label}</p>
-            <p className="mt-1 text-2xl font-bold text-[#03045E]">{data ? value : '–'}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <select value={itemFilter} onChange={(e) => setItemFilter(e.target.value)} aria-label="Filter by item"
-          className="min-w-56 rounded-lg border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm">
+      <section aria-label="Filters" className={REPORT_CARD}>
+      <div className="flex flex-wrap items-center gap-3 p-4">
+        <Select value={itemFilter} onChange={(e) => setItemFilter(e.target.value)} aria-label="Filter by item"
+          className="min-w-56">
           <option value="all">All items</option>
           {vaccines.length > 0 && <optgroup label="Vaccines">{vaccines.map((i) => <option key={i.item_id} value={i.item_id}>{i.item_name}</option>)}</optgroup>}
           {supplements.length > 0 && <optgroup label="Supplements">{supplements.map((i) => <option key={i.item_id} value={i.item_id}>{i.item_name}</option>)}</optgroup>}
-        </select>
+        </Select>
         {showBarangayCol && (
-          <select value={barangayFilter} onChange={(e) => setBarangayFilter(e.target.value)} aria-label="Filter by barangay"
-            className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm">
+          <Select value={barangayFilter} onChange={(e) => setBarangayFilter(e.target.value)} aria-label="Filter by barangay"
+           >
             <option value="all">All barangays</option>
             {data!.barangays.map((b) => <option key={b.barangay_id} value={b.barangay_id}>{b.barangay_name}</option>)}
-          </select>
+          </Select>
         )}
         {filtered && (
           <button type="button" onClick={() => { setItemFilter('all'); setBarangayFilter('all') }} className="text-sm font-semibold text-[#0077B6] hover:underline">Clear filters</button>
         )}
       </div>
+      <CountsStrip label="Stock counts" items={[
+        { label: 'Stock lines', value: data ? summary.lines : '–' },
+        { label: 'Low stock', value: data ? summary.low : '–', tone: 'review' },
+        { label: `Expiring within ${t.nearExpiryDays} days`, value: data ? summary.expiring : '–', tone: 'review' },
+        { label: 'Expired batches', value: data ? summary.expired : '–', tone: 'severe' },
+      ]} />
+      </section>
 
       <div className="overflow-x-auto rounded-xl border border-[#E5E7EB] bg-white shadow-sm">
         <table className="w-full min-w-[760px] text-left text-sm">
@@ -270,13 +268,14 @@ export function StockOverview() {
             </tr>
           </thead>
           <tbody>
-            {!data && !loadError && [0, 1, 2, 3].map((i) => (
-              <tr key={i} className="border-b border-[#F3F4F6]"><td colSpan={colSpan} className="px-3 py-4"><div className="h-4 animate-pulse rounded bg-[#F3F4F6]" /></td></tr>
-            ))}
+            {!data && !loadError && (
+              <tr><td colSpan={colSpan} className="px-3 py-4"><LogoLoader size="section" label="Loading stock…" /></td></tr>
+            )}
             {data && !rows.length && (
-              <tr><td colSpan={colSpan} className="px-4 py-12 text-center text-[#6B7280]">
-                {filtered ? 'No stock matches these filters.' : 'No stock recorded yet.'}
-                {!filtered && data.canStockIn ? ' Use “Record stock-in” to add the first batch.' : ''}
+              <tr><td colSpan={colSpan}>
+                {filtered
+                  ? <EmptyState icon={SearchX} title="No stock matches these filters" description="Try a different item, barangay or status." />
+                  : <EmptyState icon={Package} title="No stock recorded yet" description={data.canStockIn ? 'Use “Record stock-in” to add the first batch.' : 'Stock will appear here once the PHN records a stock-in.'} />}
               </td></tr>
             )}
             {rows.map((r) => {
@@ -406,36 +405,35 @@ function StockInForm({ items, barangays, onClose, onSaved }: {
   const supplements = items.filter((i) => i.kind === 'Supplement')
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="stock-in-title">
-      <form onSubmit={submit} noValidate className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-        <div className="mb-5 flex items-start justify-between">
-          <div>
-            <h2 id="stock-in-title" className="text-xl font-bold text-[#03045E]">Record stock-in</h2>
-            <p className="mt-1 text-sm text-[#6B7280]">Log stock received. Quantity on hand updates when saved.</p>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="text-[#6B7280] hover:text-[#03045E]"><X size={20} /></button>
-        </div>
-
+    <Modal
+      open
+      onClose={onClose}
+      busy={saving}
+      title="Record stock-in"
+      subtitle="Log stock received. Quantity on hand updates when saved."
+      onSubmit={submit}
+      footer={<Button type="submit" loading={saving}>{saving ? 'Saving...' : 'Save stock-in'}</Button>}
+    >
         {formError && <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{formError}</div>}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="sm:col-span-2">
             <span className="mb-1 block text-sm font-medium text-[#374151]">Item</span>
-            <select value={form.item_id} onChange={(e) => set('item_id', e.target.value)} className={`${field} ${border('item_id')}`}>
+            <Select value={form.item_id} onChange={(e) => set('item_id', e.target.value)} aria-invalid={Boolean(errors.item_id) || undefined}>
               <option value="">Select vaccine or supplement</option>
               {vaccines.length > 0 && <optgroup label="Vaccines">{vaccines.map((i) => <option key={i.item_id} value={i.item_id}>{i.item_name}</option>)}</optgroup>}
               {supplements.length > 0 && <optgroup label="Supplements">{supplements.map((i) => <option key={i.item_id} value={i.item_id}>{i.item_name}</option>)}</optgroup>}
-            </select>
+            </Select>
             <Err k="item_id" />
           </label>
 
           {barangays.length !== 1 && (
             <label className="sm:col-span-2">
               <span className="mb-1 block text-sm font-medium text-[#374151]">Barangay</span>
-              <select value={form.barangay_id} onChange={(e) => set('barangay_id', e.target.value)} className={`${field} ${border('barangay_id')}`}>
+              <Select value={form.barangay_id} onChange={(e) => set('barangay_id', e.target.value)} aria-invalid={Boolean(errors.barangay_id) || undefined}>
                 <option value="">Select barangay</option>
                 {barangays.map((b) => <option key={b.barangay_id} value={b.barangay_id}>{b.barangay_name}</option>)}
-              </select>
+              </Select>
               <Err k="barangay_id" />
             </label>
           )}
@@ -452,23 +450,16 @@ function StockInForm({ items, barangays, onClose, onSaved }: {
           </label>
           <label>
             <span className="mb-1 block text-sm font-medium text-[#374151]">Received date</span>
-            <input type="date" max={today} value={form.received_date} onChange={(e) => set('received_date', e.target.value)} className={`${field} ${border('received_date')}`} />
+            <DateInput max={today} value={form.received_date} onChange={(e) => set('received_date', e.target.value)} aria-invalid={Boolean(errors.received_date) || undefined} />
             <Err k="received_date" />
           </label>
           <label>
             <span className="mb-1 block text-sm font-medium text-[#374151]">Expiry date</span>
-            <input type="date" min={today} value={form.expiry_date} onChange={(e) => set('expiry_date', e.target.value)} className={`${field} ${border('expiry_date')}`} />
+            <DateInput min={today} value={form.expiry_date} onChange={(e) => set('expiry_date', e.target.value)} aria-invalid={Boolean(errors.expiry_date) || undefined} />
             <Err k="expiry_date" />
           </label>
         </div>
 
-        <div className="mt-6 flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="rounded-lg border border-[#E5E7EB] px-4 py-2.5 text-sm font-semibold text-[#374151] hover:bg-[#F9FAFB]">Cancel</button>
-          <button type="submit" disabled={saving} className="rounded-lg bg-[#0077B6] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#03045E] disabled:opacity-60">
-            {saving ? 'Saving...' : 'Save stock-in'}
-          </button>
-        </div>
-      </form>
-    </div>
+    </Modal>
   )
 }

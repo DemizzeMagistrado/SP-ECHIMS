@@ -14,7 +14,7 @@ export async function POST(request:Request){
    const canEdit=['22023','23514','22P02','22007','22008','23503','23505','23P01','22001'].includes(error.code??'')
    const status=error.code==='42501'?403:canEdit?400:error.code==='P0001'?409:500
    if(status===500)console.error('Safe offline submission:',error)
-   return NextResponse.json({error:status===500?'Unable to confirm submission. Retain this draft and retry unchanged after checking the installed migration.':error.message,canEdit},{status,headers})
+   return NextResponse.json({error:status===500?'The upload could not be confirmed. Your draft is kept on this device; use Retry unchanged submission.':error.message,canEdit,code:status===500?undefined:error.code},{status,headers})
   }
   return NextResponse.json(data,{status:data?.idempotent?200:201,headers})
  }catch(error){console.error('Safe offline submission:',error);return NextResponse.json({error:'Unable to confirm submission. Draft retained; retry unchanged.'},{status:500,headers})}

@@ -7,8 +7,12 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import useSWR from 'swr'
-import { X, ArrowRight, MapPin, Package, Hash, AlertCircle, Loader2, Send } from 'lucide-react'
-import { useToast } from '@/components/ui/toast'
+import { ArrowRight, MapPin, Package, Hash, AlertCircle, Send } from 'lucide-react'
+import { toast } from '@/components/ui/toast'
+import { Spinner } from '@/components/brand/logo-loader'
+import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
+import { Input, Select } from '@/components/ui/form'
 
 type Barangay = { barangay_id: number; barangay_name: string }
 type Batch = {
@@ -50,7 +54,6 @@ function newRequestId(): string {
 type Props = { open: boolean; onClose: () => void; onSaved?: () => void }
 
 export function AllocateStockModal({ open, onClose, onSaved }: Props) {
-  const { showToast } = useToast()
   const invSWR = useSWR<{ inventories: InventoryRow[] }>(open ? '/api/inventory/stock-overview' : null, fetcher)
   const brgysSWR = useSWR<{ barangays: Barangay[] } | Barangay[]>(open ? '/api/barangays' : null, fetcher)
 
@@ -130,7 +133,7 @@ export function AllocateStockModal({ open, onClose, onSaved }: Props) {
       const d = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(d.error || `Save failed (HTTP ${r.status}).`)
       const itemName = selectedBatch ? one(selectedBatch.inv.item)?.item_name ?? 'item' : 'item'
-      showToast({ type: 'success', message: `${qty} ${itemName} (batch ${selectedBatch?.batch.batch_number}) allocated.` })
+      toast.success(`${qty} ${itemName} (batch ${selectedBatch?.batch.batch_number}) allocated.`)
       onSaved?.()
       onClose()
     } catch (err) {
@@ -140,40 +143,38 @@ export function AllocateStockModal({ open, onClose, onSaved }: Props) {
     }
   }
 
-  if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-border p-6">
-          <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-primary">
-              <Send size={18} />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-foreground">Allocate stock to barangay</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                PHN-only. Moves a batch from one barangay to another; batch number + expiry carry over.
-              </p>
-            </div>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-1 text-muted-foreground hover:bg-muted">
-            <X size={20} />
-          </button>
-        </div>
+    <Modal
+      open={open}
+      onClose={onClose}
+      busy={saving}
+      size="lg"
+      icon={<Send />}
+      title="Allocate stock to barangay"
+      subtitle={<>PHN-only. Moves a batch from one barangay to another; batch number + expiry carry over.</>}
+      onSubmit={submit}
+      footer={<>
 
-        <form onSubmit={submit} className="space-y-5 p-6">
+            <Button type="submit" disabled={saving}
+             >
+              {saving ? <Spinner /> : <Send size={14} />}
+              {saving ? 'Allocating…' : 'Allocate'}
+            </Button>
+      </>}
+    >
+        <div className="space-y-5">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-5 md:items-end">
             <div className="md:col-span-2">
               <label htmlFor="al-src-brgy" className="mb-1 block text-sm font-semibold text-foreground">
                 <MapPin size={13} className="mr-1 inline" /> Source barangay *
               </label>
-              <select id="al-src-brgy" value={sourceBarangayId} onChange={(e) => { setSourceBarangayId(e.target.value); setSourceBatchId('') }}
+              <Select id="al-src-brgy" value={sourceBarangayId} onChange={(e) => { setSourceBarangayId(e.target.value); setSourceBatchId('') }}
                 required disabled={invSWR.isLoading}
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50">
+               >
                 <option value="">{invSWR.isLoading ? 'Loading…' : 'Barangay with stock…'}</option>
                 {sourceBarangays.map((b) => <option key={b.barangay_id} value={b.barangay_id}>{b.barangay_name}</option>)}
-              </select>
+              </Select>
             </div>
             <div className="hidden items-center justify-center md:flex">
               <ArrowRight size={20} className="text-muted-foreground" />
@@ -182,12 +183,12 @@ export function AllocateStockModal({ open, onClose, onSaved }: Props) {
               <label htmlFor="al-tgt-brgy" className="mb-1 block text-sm font-semibold text-foreground">
                 <MapPin size={13} className="mr-1 inline" /> Target barangay *
               </label>
-              <select id="al-tgt-brgy" value={targetBarangayId} onChange={(e) => setTargetBarangayId(e.target.value)} required
+              <Select id="al-tgt-brgy" value={targetBarangayId} onChange={(e) => setTargetBarangayId(e.target.value)} required
                 disabled={!sourceBarangayId}
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50">
+               >
                 <option value="">{!sourceBarangayId ? 'Pick source first' : 'Pick target barangay…'}</option>
                 {targetBarangays.map((b) => <option key={b.barangay_id} value={b.barangay_id}>{b.barangay_name}</option>)}
-              </select>
+              </Select>
             </div>
           </div>
 
@@ -195,9 +196,9 @@ export function AllocateStockModal({ open, onClose, onSaved }: Props) {
             <label htmlFor="al-batch" className="mb-1 block text-sm font-semibold text-foreground">
               <Package size={13} className="mr-1 inline" /> Item & batch *
             </label>
-            <select id="al-batch" value={sourceBatchId} onChange={(e) => setSourceBatchId(e.target.value)} required
+            <Select id="al-batch" value={sourceBatchId} onChange={(e) => setSourceBatchId(e.target.value)} required
               disabled={!sourceBarangayId}
-              className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50">
+             >
               <option value="">
                 {!sourceBarangayId ? 'Pick source barangay first' : sourceBatches.length === 0 ? 'No batches with stock here' : 'Pick an item + batch…'}
               </option>
@@ -210,7 +211,7 @@ export function AllocateStockModal({ open, onClose, onSaved }: Props) {
                   </option>
                 )
               })}
-            </select>
+            </Select>
             {selectedBatch && (
               <div className="mt-2 flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
                 <Hash size={12} /> Batch <strong>{selectedBatch.batch.batch_number}</strong> ·
@@ -224,11 +225,11 @@ export function AllocateStockModal({ open, onClose, onSaved }: Props) {
             <label htmlFor="al-qty" className="mb-1 block text-sm font-semibold text-foreground">
               <Package size={13} className="mr-1 inline" /> Quantity to allocate *
             </label>
-            <input id="al-qty" type="number" min="1" step="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} required
+            <Input id="al-qty" type="number" min="1" step="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} required
               max={selectedBatch?.batch.quantity_on_hand}
               placeholder={selectedBatch ? `≤ ${selectedBatch.batch.quantity_on_hand}` : 'Pick a batch first'}
               disabled={!selectedBatch}
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50" />
+              />
           </div>
 
           {formError && (
@@ -237,19 +238,7 @@ export function AllocateStockModal({ open, onClose, onSaved }: Props) {
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-            <button type="button" onClick={onClose} disabled={saving}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50">
-              Cancel
-            </button>
-            <button type="submit" disabled={saving}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60">
-              {saving ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-              {saving ? 'Allocating…' : 'Allocate'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </div>
+    </Modal>
   )
 }

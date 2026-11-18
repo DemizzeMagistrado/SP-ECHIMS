@@ -1,22 +1,14 @@
 'use client'
+import { Select, DateInput } from '@/components/ui/form'
+import { CountsStrip } from '@/components/ui/report-parts'
+import { FilterChips, TabBar } from '@/components/ui/module-tabs'
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineScope } from '@/lib/offline/fetch'
 import { submitSafeDraft } from '@/lib/offline/safe-submit'
 import { listActivityDrafts,saveActivityDraft,deleteActivityDraft,type ActivityDraft } from '@/lib/activity-drafts'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
-import {
-  AlertTriangle,
-  CalendarDays,
-  CheckCircle2,
-  Clock3,
-  Loader2,
-  Plus,
-  RefreshCw,
-  Search,
-  X,
-  XCircle,
-} from 'lucide-react'
+import { AlertTriangle, CalendarDays, CheckCircle2, Plus, RefreshCw, Search, XCircle } from 'lucide-react'
 
 import {
   FormEvent,
@@ -28,6 +20,18 @@ import {
 } from 'react'
 
 import HealthActivityCalendar from './health-activity-calendar'
+import { LogoLoader, Spinner } from '@/components/brand/logo-loader'
+import { usePageLoading } from '@/components/brand/page-gate'
+import { readPageCache, writePageCache } from '@/lib/page-cache'
+import { toast } from '@/components/ui/toast'
+import { useConfirm } from '@/components/ui/confirm-dialog'
+import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { Pagination, usePagination } from '@/components/ui/pagination'
+import { LoadError } from '@/components/ui/load-error'
 
 /* =========================================================
    TYPES
@@ -228,26 +232,6 @@ function getTodayString() {
    STATUS BADGE
 ========================================================= */
 
-function StatusBadge({ status }: { status: ActivityStatus }) {
-  const styles: Record<ActivityStatus, string> = {
-    PENDING: 'bg-amber-50 text-amber-700 ring-amber-200',
-    APPROVED: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-    REJECTED: 'bg-rose-50 text-rose-700 ring-rose-200',
-    ONGOING: 'bg-blue-50 text-blue-700 ring-blue-200',
-    COMPLETED: 'bg-slate-100 text-slate-700 ring-slate-200',
-    CANCELLED: 'bg-gray-100 text-gray-600 ring-gray-200',
-    NEEDS_REVISION: 'bg-orange-50 text-orange-700 ring-orange-200',
-  }
-
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${styles[status]}`}
-    >
-      <span className="size-1.5 rounded-full bg-current" />
-      {STATUS_LABELS[status] ?? status}
-    </span>
-  )
-}
 
 /* =========================================================
    DETAILS MODAL
@@ -308,21 +292,21 @@ function ActivityDetailsModal({
   ]
 
   return (
-    <ModalShell title="Health Activity Details" onClose={onClose}>
+    <ModalShell title="Health Activity Details" onClose={onClose} cancelLabel="Close" footer={canReview && activity.status === 'PENDING' ? <Button onClick={onReview}>Review Request</Button> : null}>
       <div className="space-y-5">
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-[#087db9]">
             Schedule #{activity.schedule_id}
           </p>
 
-          <StatusBadge status={activity.status} />
+          <StatusBadge status={activity.status} label={STATUS_LABELS[activity.status] ?? activity.status} dot />
         </div>
 
         <dl className="grid gap-4 rounded-xl bg-slate-50 p-4 sm:grid-cols-2">
           {details.map(({ label, value }) => (
             <div key={label}>
               <dt className="text-xs text-slate-500">{label}</dt>
-              <dd className="mt-1 break-words text-sm font-bold text-[#0b165d]">
+              <dd className="mt-1 break-words text-sm font-bold text-brand-navy">
                 {value}
               </dd>
             </div>
@@ -330,7 +314,7 @@ function ActivityDetailsModal({
         </dl>
 
         <div>
-          <p className="text-sm font-bold text-[#0b165d]">Activity Remarks</p>
+          <p className="text-sm font-bold text-brand-navy">Activity Remarks</p>
           <p className="mt-1 whitespace-pre-wrap break-words text-sm text-slate-600">
             {activity.remarks?.trim() || 'No remarks provided.'}
           </p>
@@ -338,32 +322,12 @@ function ActivityDetailsModal({
 
         {activity.review_remarks?.trim() && (
           <div>
-            <p className="text-sm font-bold text-[#0b165d]">PHN Review Remarks</p>
+            <p className="text-sm font-bold text-brand-navy">PHN Review Remarks</p>
             <p className="mt-1 whitespace-pre-wrap break-words text-sm text-slate-600">
               {activity.review_remarks}
             </p>
           </div>
         )}
-
-        <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-[#0b165d] hover:bg-slate-50"
-          >
-            Close
-          </button>
-
-          {canReview && activity.status === 'PENDING' && (
-            <button
-              type="button"
-              onClick={onReview}
-              className="rounded-full bg-[#087db9] px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-[#056d9e]"
-            >
-              Review Request
-            </button>
-          )}
-        </div>
       </div>
     </ModalShell>
   )
@@ -375,21 +339,28 @@ function ActivityDetailsModal({
 
 export default function HealthActivitiesClient() {
  const {user,isReady}=useAuth()
- if(!isReady)return <p>Checking account…</p>
+ if(!isReady)return <LogoLoader label="Checking account…" />
  if(!user)return <p>Please sign in to view health activities.</p>
  return <ActivityWorkspace key={user.id+':'+offlineScope(user)}/>
 }
+type ActivitiesCache = { currentUserId: string | null; activities: Activity[]; role: Role | null }
+
 function ActivityWorkspace() {
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const { user } = useAuth()
+  // A revisit starts from the last result for this account and scope, then refreshes quietly.
+  const cacheKey = user ? 'health-activities:' + offlineScope(user) : ''
+  const [cached] = useState(() => readPageCache<ActivitiesCache>(user?.id, cacheKey))
+  const [currentUserId, setCurrentUserId] = useState<string | null>(cached?.currentUserId ?? null)
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null)
   const [statusActivity, setStatusActivity] = useState<Activity | null>(null)
   const [activeTab, setActiveTab] = useState<'Requests' | 'Calendar'>('Requests')
   // NIP-USR012 — Type filter persists across Requests ↔ Calendar so switching
   // tabs never surprises the user with different data.
   const [typeFilter, setTypeFilter] = useState<string>('ALL')
-  const [activities, setActivities] = useState<Activity[]>([])
-  const [role, setRole] = useState<Role | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [activities, setActivities] = useState<Activity[]>(cached?.activities ?? [])
+  const [role, setRole] = useState<Role | null>(cached?.role ?? null)
+  const [loading, setLoading] = useState(!cached)
+  usePageLoading(loading)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
@@ -401,7 +372,7 @@ function ActivityWorkspace() {
   /* LOAD ACTIVITIES */
 
   const loadActivities = useCallback(async () => {
-    setLoading(true)
+    if (!readPageCache(user?.id, cacheKey)) setLoading(true)
     setError('')
 
     try {
@@ -419,6 +390,7 @@ function ActivityWorkspace() {
       setCurrentUserId(data.currentUserId ?? null)
       setActivities(data.activities ?? [])
       setRole(data.role ?? null)
+      writePageCache<ActivitiesCache>(user?.id, cacheKey, { currentUserId: data.currentUserId ?? null, activities: data.activities ?? [], role: data.role ?? null })
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Unable to load health activities.',
@@ -426,7 +398,7 @@ function ActivityWorkspace() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [user?.id, cacheKey])
 
   useEffect(() => {
     void loadActivities()
@@ -464,6 +436,7 @@ function ActivityWorkspace() {
       return matchesStatus && matchesType && matchesSearch
     })
   }, [activities, search, statusFilter, typeFilter])
+  const { visible: pagedActivities, props: activityPager } = usePagination(filteredActivities)
 
   /* COUNTS */
 
@@ -512,74 +485,37 @@ function ActivityWorkspace() {
     .slice(0, 5)
 
   return (
-    <div className="min-h-screen bg-[#c9f1f7] text-[#10215f]">
-      <div className="mx-auto max-w-[1440px] px-5 py-7 sm:px-9 lg:px-10">
+    <div>
+      <div className="space-y-6">
         {/* HEADER */}
 
-        <div className="mb-7 flex flex-col justify-between gap-5 md:flex-row md:items-end">
-          <div>
+        <PageHeader
+          title="Health Activities"
+          subtitle="Request, review, and monitor community health activities."
+          actions={<>
+            {canRequest && (
+              <Button
+                onClick={() => {
+                  setRuleEvaluation(null)
+                  setShowRequestModal(true)
+                }}
+              >
+                <Plus size={18} />
+                Request activity
+              </Button>
+            )}
+          </>}
+        />
 
-            <h1 className="text-3xl font-black tracking-tight text-[#07145e] sm:text-4xl">
-              Health Activities
-            </h1>
-
-            <p className="mt-2 text-sm text-slate-600">
-              Request, review, and monitor community health activities.
-            </p>
-          </div>
-
-          {canRequest && (
-            <button
-              type="button"
-              onClick={() => {
-                setRuleEvaluation(null)
-                setShowRequestModal(true)
-              }}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#087db9] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#056d9e]"
-            >
-              <Plus size={19} />
-              Request activity
-            </button>
-          )}
-        </div>
-
-        <div className="mb-7"><ActivityDraftPanel onUploaded={() => void loadActivities()}/></div>
-
-        {/* SUMMARY */}
-
-        <div className="mb-7 grid gap-4 sm:grid-cols-3">
-          <SummaryCard
-            title={canReview ? 'Pending review' : 'Pending'}
-            value={pendingCount}
-            note="Requests waiting for action"
-            icon={Clock3}
-            iconClass="text-amber-600"
-          />
-
-          <SummaryCard
-            title="Approved activities"
-            value={approvedCount}
-            note="Ready for implementation"
-            icon={CheckCircle2}
-            iconClass="text-emerald-600"
-          />
-
-          <SummaryCard
-            title="Schedule conflicts"
-            value={conflictCount}
-            note="Overlapping schedules detected"
-            icon={AlertTriangle}
-            iconClass="text-[#087db9]"
-          />
-        </div>
+        <ActivityDraftPanel onUploaded={() => void loadActivities()}/>
 
         {/* RULE RESULT */}
 
         {ruleEvaluation?.hasConflict && (
-          <div className="mb-7 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <div className="flex gap-3">
               <AlertTriangle
-                className="mt-0.5 shrink-0 text-amber-600"
+                className="mt-0.5 shrink-0 text-amber-700"
                 size={20}
               />
 
@@ -623,10 +559,10 @@ function ActivityWorkspace() {
         {/* UPCOMING */}
 
         {!loading && !error && (
-          <section className="mb-7 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <section className="rounded-2xl border border-border bg-white p-5">
             <div className="flex items-center gap-2">
               <CalendarDays size={20} className="text-[#087db9]" />
-              <h2 className="text-lg font-bold text-[#0b165d]">
+              <h2 className="text-lg font-bold text-brand-navy">
                 Upcoming activities
               </h2>
             </div>
@@ -636,9 +572,7 @@ function ActivityWorkspace() {
             </p>
 
             {upcomingActivities.length === 0 ? (
-              <p className="mt-4 text-sm text-slate-500">
-                No upcoming approved activities match your filters.
-              </p>
+              <EmptyState icon={CalendarDays} title="No upcoming approved activities" description="None match your current filters." />
             ) : (
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {upcomingActivities.map((activity) => (
@@ -648,7 +582,7 @@ function ActivityWorkspace() {
                     onClick={() => setSelectedActivity(activity)}
                     className="rounded-xl border border-slate-200 p-4 text-left transition hover:border-[#087db9] hover:bg-[#f1fbfd]"
                   >
-                    <p className="text-sm font-bold text-[#0b165d]">
+                    <p className="text-sm font-bold text-brand-navy">
                       {formatActivityType(activity.activity_type)}
                     </p>
 
@@ -667,7 +601,7 @@ function ActivityWorkspace() {
                     </p>
 
                     <div className="mt-3">
-                      <StatusBadge status={activity.status} />
+                      <StatusBadge status={activity.status} label={STATUS_LABELS[activity.status] ?? activity.status} dot />
                     </div>
                   </button>
                 ))}
@@ -678,11 +612,11 @@ function ActivityWorkspace() {
 
         {/* REQUESTS SECTION */}
 
-        <section className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
-          <div className="border-b border-slate-200 px-5 pt-5 sm:px-7">
+        <section className="overflow-hidden rounded-2xl border border-border bg-white">
+          <div className="px-5 pt-5 sm:px-7">
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
               <div>
-                <h2 className="text-lg font-bold text-[#0b165d]">
+                <h2 className="text-lg font-bold text-brand-navy">
                   Activity requests
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
@@ -694,7 +628,7 @@ function ActivityWorkspace() {
                 <label className="relative">
                   <Search
                     size={16}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
                   />
                   <input
                     value={search}
@@ -704,43 +638,33 @@ function ActivityWorkspace() {
                   />
                 </label>
 
-                <button
-                  type="button"
-                  onClick={() => void loadActivities()}
-                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                >
+                <Button variant="tonal" size="sm" onClick={() => void loadActivities()}>
                   <RefreshCw size={15} />
                   Refresh
-                </button>
+                </Button>
               </div>
             </div>
 
-            <div className="mt-5 flex gap-5 overflow-x-auto">
-              {(['Requests', 'Calendar'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveTab(tab)}
-                  className={`whitespace-nowrap border-b-2 px-1 pb-3 text-sm font-semibold ${
-                    activeTab === tab
-                      ? 'border-[#087db9] text-[#087db9]'
-                      : 'border-transparent text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
+            <TabBar
+              className="mt-5 border-b-0"
+              label="Activity views"
+              group="health-activities"
+              value={activeTab}
+              onChange={setActiveTab}
+              items={[{ value: 'Requests', label: 'Requests' }, { value: 'Calendar', label: 'Calendar' }]}
+            />
           </div>
+          {/* Request counts; its top line doubles as the tab underline. */}
+          <CountsStrip label="Request counts" items={[
+            { label: canReview ? 'Pending review' : 'Pending', value: pendingCount, tone: 'review' },
+            { label: 'Approved activities', value: approvedCount },
+            { label: 'Schedule conflicts', value: conflictCount, tone: 'severe' },
+          ]} />
 
           {loading ? (
-            <div className="flex min-h-52 items-center justify-center">
-              <Loader2 className="animate-spin text-[#087db9]" size={28} />
-            </div>
+            <LogoLoader size="section" label="Loading activities…" />
           ) : error ? (
-            <div className="m-5 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
-              {error}
-            </div>
+            <div className="m-5"><LoadError what="health activities" error={new Error(error)} onRetry={() => void loadActivities()} /></div>
           ) : activeTab === 'Calendar' ? (
             <>
               {/* NIP-USR012 — Type filter above the Calendar lets staff slice
@@ -750,20 +674,7 @@ function ActivityWorkspace() {
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                   Type:
                 </span>
-                {TYPE_FILTERS.map((item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    onClick={() => setTypeFilter(item.value)}
-                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                      typeFilter === item.value
-                        ? 'bg-[#e0f6fa] text-[#087db9]'
-                        : 'text-slate-500 hover:bg-slate-100'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
+                <FilterChips label="Filter by type" value={typeFilter} onChange={setTypeFilter} options={TYPE_FILTERS} />
               </div>
               <div className="p-4 sm:p-7">
                 <HealthActivityCalendar
@@ -780,51 +691,17 @@ function ActivityWorkspace() {
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                   Type:
                 </span>
-                {TYPE_FILTERS.map((item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    onClick={() => setTypeFilter(item.value)}
-                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                      typeFilter === item.value
-                        ? 'bg-[#e0f6fa] text-[#087db9]'
-                        : 'text-slate-500 hover:bg-slate-100'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
+                <FilterChips label="Filter by type" value={typeFilter} onChange={setTypeFilter} options={TYPE_FILTERS} />
               </div>
 
               {/* STATUS PILLS */}
 
               <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 py-4 sm:px-7">
-                {STATUS_FILTERS.map((item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    onClick={() => setStatusFilter(item.value)}
-                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                      statusFilter === item.value
-                        ? 'bg-[#e0f6fa] text-[#087db9]'
-                        : 'text-slate-500 hover:bg-slate-100'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
+                <FilterChips label="Filter by status" value={statusFilter} onChange={setStatusFilter} options={STATUS_FILTERS} />
               </div>
 
               {filteredActivities.length === 0 ? (
-                <div className="px-5 py-14 text-center">
-                  <CalendarDays className="mx-auto text-slate-300" size={40} />
-                  <h3 className="mt-4 font-semibold text-slate-800">
-                    No health activities found
-                  </h3>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Scheduled health activities will appear here.
-                  </p>
-                </div>
+                <EmptyState size="page" icon={CalendarDays} title="No health activities found" description="Scheduled health activities will appear here." />
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[940px] text-left">
@@ -842,7 +719,7 @@ function ActivityWorkspace() {
                     </thead>
 
                     <tbody className="divide-y divide-slate-100">
-                      {filteredActivities.map((activity) => {
+                      {pagedActivities.map((activity) => {
                         const canEdit =
                           activity.status === 'NEEDS_REVISION' &&
                           activity.created_by === currentUserId
@@ -863,10 +740,10 @@ function ActivityWorkspace() {
                                 onClick={() => setSelectedActivity(activity)}
                                 className="text-left"
                               >
-                                <p className="font-bold text-[#0b165d] group-hover:text-[#087db9]">
+                                <p className="font-bold text-brand-navy group-hover:text-[#087db9]">
                                   {formatActivityType(activity.activity_type)}
                                 </p>
-                                <p className="mt-1 text-xs text-slate-400">
+                                <p className="mt-1 text-xs text-slate-500">
                                   Schedule #{activity.schedule_id}
                                 </p>
                               </button>
@@ -892,7 +769,7 @@ function ActivityWorkspace() {
                             </td>
 
                             <td className="px-4 py-4">
-                              <StatusBadge status={activity.status} />
+                              <StatusBadge status={activity.status} label={STATUS_LABELS[activity.status] ?? activity.status} dot />
 
                               {activity.conflict_status === 'DETECTED' && (
                                 <p className="mt-2 flex items-center gap-1 text-xs font-medium text-amber-700">
@@ -905,42 +782,26 @@ function ActivityWorkspace() {
                             <td className="px-7 py-4 text-right">
                               <div className="flex justify-end gap-2">
                                 {canReview && activity.status === 'PENDING' && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setReviewActivity(activity)}
-                                    className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
-                                  >
+                                  <Button size="sm" onClick={() => setReviewActivity(activity)}>
                                     Review
-                                  </button>
+                                  </Button>
                                 )}
 
                                 {canEdit && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditingActivity(activity)}
-                                    className="rounded-lg bg-[#087db9] px-3 py-2 text-xs font-bold text-white hover:bg-[#056d9e]"
-                                  >
+                                  <Button size="sm" onClick={() => setEditingActivity(activity)}>
                                     Edit &amp; Resubmit
-                                  </button>
+                                  </Button>
                                 )}
 
                                 {canUpdateStatus && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setStatusActivity(activity)}
-                                    className="rounded-lg bg-[#e0f6fa] px-3 py-2 text-xs font-bold text-[#087db9] hover:bg-[#cdeff6]"
-                                  >
+                                  <Button variant="tonal" size="sm" onClick={() => setStatusActivity(activity)}>
                                     Update status
-                                  </button>
+                                  </Button>
                                 )}
 
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedActivity(activity)}
-                                  className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
-                                >
+                                <Button variant="secondary" size="sm" onClick={() => setSelectedActivity(activity)}>
                                   View details
-                                </button>
+                                </Button>
                               </div>
                             </td>
                           </tr>
@@ -951,13 +812,7 @@ function ActivityWorkspace() {
                 </div>
               )}
 
-              <div className="flex items-center justify-between border-t border-slate-100 px-7 py-4 text-xs text-slate-500">
-                <span>
-                  Showing {filteredActivities.length} of {activities.length}{' '}
-                  requests
-                </span>
-                <span>Last synced just now</span>
-              </div>
+              <Pagination {...activityPager} label="Request pages" />
             </>
           )}
         </section>
@@ -1028,36 +883,6 @@ function ActivityWorkspace() {
           }}
         />
       )}
-    </div>
-  )
-}
-
-/* =========================================================
-   SUMMARY CARD
-========================================================= */
-
-function SummaryCard({
-  title,
-  value,
-  note,
-  icon: Icon,
-  iconClass,
-}: {
-  title: string
-  value: number
-  note: string
-  icon: typeof Clock3
-  iconClass: string
-}) {
-  return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-slate-500">{title}</p>
-        <Icon size={20} className={iconClass} />
-      </div>
-
-      <p className="mt-3 text-3xl font-black text-[#0a165f]">{value}</p>
-      <p className="mt-1 text-xs text-slate-500">{note}</p>
     </div>
   )
 }
@@ -1142,11 +967,12 @@ function EditActivityModal({
   return (
     <ModalShell
       title="Edit & Resubmit Activity"
-      onClose={() => {
-        if (!submitting) onClose()
-      }}
+      onClose={onClose}
+      busy={submitting}
+      onSubmit={handleResubmit}
+      footer={<Button type="submit" loading={submitting}>{submitting ? 'Resubmitting…' : 'Resubmit for Review'}</Button>}
     >
-      <form onSubmit={handleResubmit} className="space-y-5">
+      <div className="space-y-5">
         <div className="rounded-xl bg-orange-50 p-4">
           <p className="text-sm font-semibold text-orange-900">
             PHN Revision Instructions
@@ -1158,7 +984,7 @@ function EditActivityModal({
         </div>
 
         <div className="rounded-2xl bg-[#f1fbfd] p-4">
-          <p className="font-bold text-[#0b165d]">
+          <p className="font-bold text-brand-navy">
             {formatActivityType(activity.activity_type)}
           </p>
           <p className="mt-1 text-sm text-slate-500">
@@ -1168,14 +994,13 @@ function EditActivityModal({
 
         <div className="grid gap-4 sm:grid-cols-3">
           <Field label="Date">
-            <input
-              type="date"
+            <DateInput
               required
               min={getTodayString()}
               value={date}
               onChange={(event) => setDate(event.target.value)}
               disabled={submitting}
-              className={inputClass}
+             
             />
           </Field>
 
@@ -1218,27 +1043,7 @@ function EditActivityModal({
         </p>
 
         {error && <ErrorBox>{error}</ErrorBox>}
-
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-[#0b165d] hover:bg-slate-50 disabled:opacity-50"
-          >
-            Cancel
-          </button>
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="inline-flex items-center gap-2 rounded-full bg-[#087db9] px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-[#056d9e] disabled:opacity-50"
-          >
-            {submitting && <Loader2 size={16} className="animate-spin" />}
-            {submitting ? 'Resubmitting…' : 'Resubmit for Review'}
-          </button>
-        </div>
-      </form>
+      </div>
     </ModalShell>
   )
 }
@@ -1348,16 +1153,14 @@ function UpdateStatusModal({
   return (
     <ModalShell
       title="Update Activity Status"
-      onClose={() => {
-        if (!submitting) onClose()
-      }}
+      onClose={onClose}
+      busy={submitting}
+      onSubmit={handleSubmit}
+      footer={<Button type="submit" loading={submitting} disabled={!status}>{submitting ? 'Saving…' : 'Save status'}</Button>}
     >
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-5"
-      >
+      <div className="space-y-5">
         <div className="rounded-xl bg-slate-50 p-4">
-          <p className="font-bold text-[#0b165d]">
+          <p className="font-bold text-brand-navy">
             {formatActivityType(activity.activity_type)}
           </p>
 
@@ -1367,12 +1170,12 @@ function UpdateStatusModal({
           </p>
 
           <div className="mt-3">
-            <StatusBadge status={activity.status} />
+            <StatusBadge status={activity.status} label={STATUS_LABELS[activity.status] ?? activity.status} dot />
           </div>
         </div>
 
         <Field label="New status">
-          <select
+          <Select
             required
             value={status}
             onChange={(event) =>
@@ -1381,7 +1184,7 @@ function UpdateStatusModal({
               )
             }
             disabled={submitting}
-            className={inputClass}
+           
           >
             {options.length === 0 && (
               <option value="">
@@ -1394,7 +1197,7 @@ function UpdateStatusModal({
                 {STATUS_LABELS[item]}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
 
         {status === 'CANCELLED' && (
@@ -1415,9 +1218,8 @@ function UpdateStatusModal({
 
         {status === 'COMPLETED' && (
           <Field label="Actual completion date">
-            <input
+            <DateInput
               required
-              type="date"
               min={activity.schedule_date}
               max={getTodayString()}
               value={completionDate}
@@ -1425,7 +1227,7 @@ function UpdateStatusModal({
                 setCompletionDate(event.target.value)
               }
               disabled={submitting}
-              className={inputClass}
+             
             />
           </Field>
         )}
@@ -1439,32 +1241,7 @@ function UpdateStatusModal({
         )}
 
         {error && <ErrorBox>{error}</ErrorBox>}
-
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-[#0b165d] hover:bg-slate-50 disabled:opacity-50"
-          >
-            Back
-          </button>
-
-          <button
-            type="submit"
-            disabled={submitting || !status}
-            className="inline-flex items-center gap-2 rounded-full bg-[#087db9] px-5 py-2 text-sm font-bold text-white hover:bg-[#056d9e] disabled:opacity-50"
-          >
-            {submitting && (
-              <Loader2
-                size={16}
-                className="animate-spin"
-              />
-            )}
-            {submitting ? 'Saving…' : 'Save status'}
-          </button>
-        </div>
-      </form>
+      </div>
     </ModalShell>
   )
 }
@@ -1606,17 +1383,27 @@ function RequestActivityModal({
   }
 
   return (
-    <ModalShell title="Request Health Activity" onClose={onClose}>
-      <form ref={formRef} onSubmit={handleSubmit} className="grid gap-4">
+    <ModalShell
+      title="Request Health Activity"
+      onClose={onClose}
+      busy={submitting}
+      onSubmit={handleSubmit}
+      formRef={formRef}
+      footer={<>
+        {online===false && <Button variant="secondary" disabled={submitting} onClick={()=>void saveLocal()}>Save Draft on Device</Button>}
+        {online===true && <Button type="submit" loading={submitting} disabled={loadingOptions || barangays.length === 0 || Boolean(draft&&!reviewed)}>{submitting ? 'Submitting...' : draft?'Submit Reviewed Request':'Submit Request'}</Button>}
+      </>}
+    >
+      <div className="grid gap-4">
         <div className="rounded-2xl bg-[#f1fbfd] px-3 py-3">
-          <p className="text-xs font-medium uppercase text-slate-400">
+          <p className="text-xs font-medium uppercase text-slate-500">
             Requesting as
           </p>
-          <p className="mt-1 text-sm font-bold text-[#0b165d]">{role}</p>
+          <p className="mt-1 text-sm font-bold text-brand-navy">{role}</p>
         </div>
 
         <Field label="Activity Type">
-          <select name="activityType" defaultValue={String(draft?.form.activityType??'')} required className={inputClass}>
+          <Select name="activityType" defaultValue={String(draft?.form.activityType??'')} required>
             <option value="">Select activity</option>
 
             {availableActivityTypes.map((item) => (
@@ -1624,15 +1411,15 @@ function RequestActivityModal({
                 {item.label}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
 
         <Field label="Barangay">
-          <select
+          <Select
             name="barangayId" defaultValue={String(draft?.form.barangayId??'')}
             required
             disabled={loadingOptions || barangays.length === 0}
-            className={inputClass}
+           
           >
             <option value="">
               {loadingOptions
@@ -1648,11 +1435,11 @@ function RequestActivityModal({
                 {barangay.municipality ? ` — ${barangay.municipality}` : ''}
               </option>
             ))}
-          </select>
+          </Select>
 
           {loadingOptions && (
             <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-              <Loader2 size={14} className="animate-spin" />
+              <Spinner />
               Loading your geographic scope...
             </div>
           )}
@@ -1665,12 +1452,11 @@ function RequestActivityModal({
         </Field>
 
         <Field label="Date">
-          <input
-            type="date"
+          <DateInput
             name="scheduleDate" defaultValue={String(draft?.form.scheduleDate??'')}
             min={minDate}
             required
-            className={inputClass}
+           
           />
         </Field>
 
@@ -1695,28 +1481,7 @@ function RequestActivityModal({
         <p className="text-sm text-amber-800">{online===false?'Save on this device, then review and submit after reconnecting. A draft does not reserve a schedule.':'Requests are checked against current scheduling rules when submitted.'}</p>
         {draft&&online===true&&<label className="flex gap-2 text-sm"><input type="checkbox" checked={reviewed} onChange={e=>setReviewed(e.target.checked)}/>I reviewed the date, time, activity and barangay.</label>}
         {error && <ErrorBox>{error}</ErrorBox>}
-
-        <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-[#0b165d] hover:bg-slate-50 disabled:opacity-50"
-          >
-            Cancel
-          </button>
-
-          {online===false && <button type="button" disabled={submitting} onClick={()=>void saveLocal()} className="rounded-full border border-sky-600 px-4 py-2 text-sm font-bold text-sky-800">Save Draft on Device</button>}
-          {online===true && <button
-            type="submit"
-            disabled={submitting || loadingOptions || barangays.length === 0 || Boolean(draft&&!reviewed)}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-[#087db9] px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-[#056d9e] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {submitting && <Loader2 size={16} className="animate-spin" />}
-            {submitting ? 'Submitting...' : draft?'Submit Reviewed Request':'Submit Request'}
-          </button>}
-        </div>
-      </form>
+      </div>
     </ModalShell>
   )
 }
@@ -1798,12 +1563,39 @@ function ReviewActivityModal({
   }
 
   return (
-    <ModalShell title="Review Health Activity" onClose={onClose}>
+    <ModalShell title="Review Health Activity" onClose={onClose} busy={loadingAction !== null} footer={<>
+          <ActionButton
+            label="Reject"
+            icon={XCircle}
+            loading={loadingAction === 'REJECT'}
+            disabled={loadingAction !== null}
+            onClick={() => void review('REJECT')}
+            variant="danger"
+          />
+
+          <ActionButton
+            label="Reschedule"
+            icon={CalendarDays}
+            loading={loadingAction === 'RESCHEDULE'}
+            disabled={loadingAction !== null}
+            onClick={() => void review('RESCHEDULE')}
+            variant="tonal"
+          />
+
+          <ActionButton
+            label="Approve"
+            icon={CheckCircle2}
+            loading={loadingAction === 'APPROVE'}
+            disabled={loadingAction !== null}
+            onClick={() => void review('APPROVE')}
+            variant="primary"
+          />
+      </>}>
       <div className="space-y-5">
         <div className="rounded-xl bg-slate-50 p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="font-bold text-[#0b165d]">
+              <p className="font-bold text-brand-navy">
                 {formatActivityType(activity.activity_type)}
               </p>
               <p className="mt-2 text-sm text-slate-500">
@@ -1811,7 +1603,7 @@ function ReviewActivityModal({
               </p>
             </div>
 
-            <StatusBadge status={activity.status} />
+            <StatusBadge status={activity.status} label={STATUS_LABELS[activity.status] ?? activity.status} dot />
           </div>
         </div>
 
@@ -1827,12 +1619,11 @@ function ReviewActivityModal({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Field label="Date">
-            <input
-              type="date"
+            <DateInput
               min={minDate}
               value={date}
               onChange={(event) => setDate(event.target.value)}
-              className={inputClass}
+             
             />
           </Field>
 
@@ -1865,13 +1656,13 @@ function ReviewActivityModal({
           />
         </Field>
 
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-slate-500">
           Rejection requires a reason. Approval remarks are optional.
         </p>
 
         {suggestions.length > 0 && (
           <div>
-            <p className="text-sm font-bold text-[#0b165d]">
+            <p className="text-sm font-bold text-brand-navy">
               Suggested available schedules
             </p>
 
@@ -1904,35 +1695,6 @@ function ReviewActivityModal({
         )}
 
         {error && <ErrorBox>{error}</ErrorBox>}
-
-        <div className="grid grid-cols-1 gap-2 pt-2 sm:grid-cols-3">
-          <ActionButton
-            label="Reject"
-            icon={XCircle}
-            loading={loadingAction === 'REJECT'}
-            disabled={loadingAction !== null}
-            onClick={() => void review('REJECT')}
-            className="border border-rose-200 bg-white text-rose-700 hover:bg-rose-50"
-          />
-
-          <ActionButton
-            label="Reschedule"
-            icon={CalendarDays}
-            loading={loadingAction === 'RESCHEDULE'}
-            disabled={loadingAction !== null}
-            onClick={() => void review('RESCHEDULE')}
-            className="border border-[#087db9] bg-white text-[#087db9] hover:bg-[#f1fbfd]"
-          />
-
-          <ActionButton
-            label="Approve"
-            icon={CheckCircle2}
-            loading={loadingAction === 'APPROVE'}
-            disabled={loadingAction !== null}
-            onClick={() => void review('APPROVE')}
-            className="bg-[#087db9] text-white shadow-sm hover:bg-[#056d9e]"
-          />
-        </div>
       </div>
     </ModalShell>
   )
@@ -1949,7 +1711,7 @@ const inputClass = `
   outline-none
   disabled:cursor-not-allowed
   disabled:bg-slate-50
-  disabled:text-slate-400
+  disabled:text-slate-500
   focus:ring-2 focus:ring-[#087db9]
 `
 
@@ -1994,81 +1756,36 @@ function ErrorBox({ children }: { children: React.ReactNode }) {
    MODAL SHELL
 ========================================================= */
 
-function ModalShell({
-  title,
-  children,
-  onClose,
-}: {
+function ModalShell({ title, children, onClose, ...rest }: {
   title: string
   children: React.ReactNode
   onClose: () => void
-}) {
-  return (
-    <div
-      className="fixed inset-0 z-40 grid place-items-center bg-slate-950/35 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="mb-6 flex items-start justify-between border-b border-slate-100 pb-5">
-          <h2 className="text-lg font-black text-[#0b165d]">{title}</h2>
-
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="text-slate-400 hover:text-slate-700"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        {children}
-      </div>
-    </div>
-  )
+} & Omit<React.ComponentProps<typeof Modal>, 'open' | 'title' | 'children' | 'onClose'>) {
+  return <Modal open title={title} onClose={onClose} {...rest}>{children}</Modal>
 }
 
 /* =========================================================
    ACTION BUTTON
 ========================================================= */
 
-function ActionButton({
-  label,
-  icon: Icon,
-  loading,
-  disabled,
-  onClick,
-  className,
-}: {
+/** Review footer action: the shared Button with a leading icon (spinner while it runs). */
+function ActionButton({ label, icon: Icon, loading, disabled, onClick, variant }: {
   label: string
   icon: typeof CheckCircle2
   loading: boolean
   disabled: boolean
   onClick: () => void
-  className: string
+  variant: 'primary' | 'tonal' | 'danger'
 }) {
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
-    >
-      {loading ? (
-        <Loader2 size={16} className="animate-spin" />
-      ) : (
-        <Icon size={16} />
-      )}
-
+    <Button variant={variant} disabled={disabled} onClick={onClick}>
+      {loading ? <Spinner /> : <Icon size={16} aria-hidden="true" />}
       {label}
-    </button>
+    </Button>
   )
 }
 function ActivityDraftPanel({onUploaded}:{onUploaded:()=>void}){
- const {user}=useAuth(),scope=user?offlineScope(user):''
+ const {user}=useAuth(),scope=user?offlineScope(user):'',confirm=useConfirm()
  const [online,setOnline]=useState(true),[showReview,setShowReview]=useState(false)
  useEffect(()=>{const update=()=>setOnline(navigator.onLine);update();window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update)}},[])
  const [rows,setRows]=useState<ActivityDraft[]>([]),[selected,setSelected]=useState<ActivityDraft|null>(null),[error,setError]=useState('')
@@ -2076,7 +1793,7 @@ function ActivityDraftPanel({onUploaded}:{onUploaded:()=>void}){
  const aliases:Record<string,HealthWorkerRole>={'Public Health Nurse':'PHN','Rural Health Midwife':'RHM','Barangay Health Worker':'BHW','Barangay Nutrition Scholar':'BNS'}
  const role=user?aliases[user.role]:undefined
  if(!role)return null
- return <section aria-label="Offline activity queue" className="space-y-3 rounded-xl border border-sky-200 bg-sky-50 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">{online?'Pending offline drafts':'Offline'} · {rows.length} local draft{rows.length===1?'':'s'}</h2><p className="text-xs text-muted-foreground">Drafts stay on this device until you review and confirm submission. Scheduling rules are checked online.</p></div><button type="button" disabled={rows.length===0} onClick={()=>setShowReview(v=>!v)} className="rounded-lg border border-border bg-white px-3 py-2 text-sm disabled:opacity-50">{showReview?'Hide pending drafts':'Review pending drafts'}</button></div>{error&&<p role="alert">{error}</p>}
- {showReview&&rows.map(row=><div key={row.requestId} className="flex flex-wrap justify-between gap-2 rounded-lg bg-white p-3 text-sm"><span>{String(row.form.activityType||'Activity draft')} · {String(row.form.scheduleDate||'Date incomplete')}{row.status==='UNCERTAIN'?(row.safeRetry?' — Submission uncertain. Retry the same request safely.':' — Older uncertain request needs reconciliation.'):''}</span>{row.status==='UNCERTAIN'&&row.safeRetry&&<button onClick={async()=>{try{await submitSafeDraft('ACTIVITY',row);onUploaded()}catch(e){setError(e instanceof Error?e.message:'Retry failed.')}}}>Retry unchanged submission</button>}{row.status==='DRAFT'&&<div className="flex gap-3"><button onClick={()=>setSelected(row)}>Review / Edit</button><button onClick={async()=>{if(window.confirm('Delete this local activity draft?'))try{await deleteActivityDraft(row)}catch(e){setError(e instanceof Error?e.message:'Unable to delete draft.')}}}>Delete draft</button></div>}</div>)}
+ return <section aria-label="Offline activity queue" className="space-y-3 rounded-xl border border-sky-200 bg-sky-50 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">{online?'Pending offline drafts':'Offline'} · {rows.length} local draft{rows.length===1?'':'s'}</h2><p className="text-xs text-muted-foreground">Drafts stay on this device until you review and confirm submission. Scheduling rules are checked online.</p></div><Button variant="secondary" disabled={rows.length===0} onClick={()=>setShowReview(v=>!v)}>{showReview?'Hide pending drafts':'Review pending drafts'}</Button></div>{error&&<p role="alert">{error}</p>}
+ {showReview&&rows.map(row=><div key={row.requestId} className="flex flex-wrap justify-between gap-2 rounded-lg bg-white p-3 text-sm"><span>{String(row.form.activityType||'Activity draft')} · {String(row.form.scheduleDate||'Date incomplete')}{row.status==='UNCERTAIN'?(row.safeRetry?' — Submission uncertain. Retry the same request safely.':' — Older uncertain request needs reconciliation.'):''}</span>{row.status==='UNCERTAIN'&&row.safeRetry&&<button onClick={async()=>{try{await submitSafeDraft('ACTIVITY',row);onUploaded()}catch(e){setError(e instanceof Error?e.message:'Retry failed.')}}}>Retry unchanged submission</button>}{row.status==='DRAFT'&&<div className="flex gap-3"><button onClick={()=>setSelected(row)}>Review / Edit</button><button onClick={async()=>{if(await confirm({title:'Delete this local activity draft?',description:'It has not been uploaded. Deleting it cannot be undone.',confirmLabel:'Delete draft',tone:'danger'}))try{await deleteActivityDraft(row);toast.success('Local draft deleted.')}catch(e){setError(e instanceof Error?e.message:'Unable to delete draft.')}}}>Delete draft</button></div>}</div>)}
  {selected&&selected.ownerId===user?.id&&selected.scope===scope&&<RequestActivityModal key={selected.requestId} role={role} draft={selected} onClose={()=>setSelected(null)} onCreated={()=>{setSelected(null);onUploaded()}}/>}</section>
 }

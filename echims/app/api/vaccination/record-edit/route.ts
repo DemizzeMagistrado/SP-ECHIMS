@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
+import { EDITABLE_STATUSES, buildRecordPatch, saveRecordPatch } from '@/lib/vaccination-record-edit'
 
-// NIP-USR003 — Edit an administered-vaccination record (while still PENDING).
+// NIP-USR003 — Edit an administered-vaccination record (while PENDING, or NEEDS_CORRECTION after
+// the PHN returned it; resubmitting is /api/vaccination/record-resubmit).
 // PATCH /api/vaccination/record-edit
 // Body: { record_id: number, vaccination_date?, batch_number?, vaccination_site?, remarks? }
 //
@@ -39,6 +41,8 @@ type EditBody = {
   batch_number?: string | null
   vaccination_site?: string | null
   remarks?: string | null
+  /** The revision the editor loaded; a newer saved revision gets a 409 conflict. */
+  expected_revision?: number
 }
 
 export async function PATCH(request: Request) {
@@ -61,7 +65,7 @@ export async function PATCH(request: Request) {
     .eq('vaccination_record_id', recordId)
     .maybeSingle()
   if (existing.error || !existing.data) return invalid('Record not found or outside your scope.', 404)
-  if (existing.data.status !== 'PENDING') {
+  if (!EDITABLE_STATUSES.includes(existing.data.status)) {
     return invalid(`This record is already ${existing.data.status.toLowerCase()} and can no longer be edited.`)
   }
   const isReviewer = role === 'Public Health Nurse' || role === 'Administrator'
@@ -70,28 +74,19 @@ export async function PATCH(request: Request) {
   }
 
   // Build patch payload — only accept whitelisted editable fields
-  const patch: Record<string, unknown> = {}
-  if (body.vaccination_date !== undefined) {
-    const d = String(body.vaccination_date).trim()
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return invalid('vaccination_date must be yyyy-mm-dd.')
-    if (new Date(d + 'T23:59:59') > new Date()) return invalid('vaccination_date cannot be in the future.')
-    patch.vaccination_date = d
-  }
-  if (body.batch_number !== undefined) patch.batch_number = (body.batch_number ?? '').toString().trim() || null
-  if (body.vaccination_site !== undefined) patch.vaccination_site = (body.vaccination_site ?? '').toString().trim() || null
-  if (body.remarks !== undefined) patch.remarks = (body.remarks ?? '').toString().trim() || null
+  const built = await buildRecordPatch(supabase, body)
+  if ('error' in built) return invalid(built.error)
+  const patch = built.patch
   if (Object.keys(patch).length === 0) return invalid('Nothing to update.')
 
-  const updateRes = await supabase.from('vaccination_record')
-    .update(patch)
-    .eq('vaccination_record_id', recordId)
-    .select('vaccination_record_id, status')
-    .maybeSingle()
-
-  if (updateRes.error) {
-    const code = updateRes.error.code
-    if (code === '42501') return invalid('Not authorized to update this record.', 403)
-    return invalid(`Unable to update record. [${code ?? 'unknown'}] ${updateRes.error.message ?? ''}`.trim(), 500)
+  const saved = await saveRecordPatch(supabase, recordId, patch, body.expected_revision)
+  if ('conflict' in saved) {
+    return NextResponse.json({ error: 'Someone else saved this record after you opened it. Choose which version to keep.', conflict: saved.conflict }, { status: 409 })
   }
-  return NextResponse.json({ vaccination_record_id: updateRes.data?.vaccination_record_id, status: updateRes.data?.status })
+  if ('error' in saved) {
+    const code = saved.error.code
+    if (code === '42501') return invalid('Not authorized to update this record.', 403)
+    return invalid(`Unable to update record. [${code ?? 'unknown'}] ${saved.error.message ?? ''}`.trim(), 500)
+  }
+  return NextResponse.json({ vaccination_record_id: recordId, status: existing.data.status, revision: saved.revision })
 }

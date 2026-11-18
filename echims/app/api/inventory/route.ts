@@ -1,3 +1,6 @@
+import { canPerform } from '@/lib/echims-data'
+import { loadBatchRule } from '@/lib/batch-rule-server'
+import { batchNumberError, normalizeBatchNumber } from '@/lib/vaccination-config'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
@@ -32,7 +35,8 @@ async function authenticate() {
   if (account.data?.account_status !== 'ACTIVE') return { error: json({ error: 'An active account is required.' }, 403) }
   const profile = await db.rpc('get_my_profile').maybeSingle()
   const role = roleAliases[String((profile.data as { role?: string } | null)?.role ?? '').trim().toLowerCase()]
-  if (!role) return { error: json({ error: 'You cannot access inventory.' }, 403) }
+  // Role matrix (lib/echims-data): Inventory is for Admin, PHN and RHM; BHW / BNS have no access.
+  if (!role || !canPerform(role, 'Inventory', 'view')) return { error: json({ error: 'You cannot access inventory.' }, 403) }
   return { db, user, role }
 }
 
@@ -125,7 +129,7 @@ export async function POST(request: Request) {
 
   const itemId = num(body.item_id)
   const barangayId = num(body.barangay_id)
-  const batchNumber = text(body.batch_number)
+  const batchNumber = normalizeBatchNumber(text(body.batch_number))
   const quantity = num(body.quantity)
   const expiry = text(body.expiry_date)
   const received = text(body.received_date)
@@ -135,6 +139,7 @@ export async function POST(request: Request) {
   if (!Number.isSafeInteger(itemId) || itemId <= 0) fieldErrors.item_id = 'Select an item.'
   if (!Number.isSafeInteger(barangayId) || barangayId <= 0) fieldErrors.barangay_id = 'Select a barangay.'
   if (!batchNumber) fieldErrors.batch_number = 'Batch number is required.'
+  else { const rule = await loadBatchRule(db); const e = batchNumberError(batchNumber, rule); if (e) fieldErrors.batch_number = e }
   if (!Number.isFinite(quantity) || quantity <= 0) fieldErrors.quantity = 'Enter a quantity greater than 0.'
   else if (quantity > 1_000_000) fieldErrors.quantity = 'Quantity cannot exceed 1,000,000.'
   if (!isDate(received)) fieldErrors.received_date = 'Received date is required.'

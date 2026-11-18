@@ -1,3 +1,5 @@
+import { loadBatchRule } from '@/lib/batch-rule-server'
+import { batchNumberError, normalizeBatchNumber } from '@/lib/vaccination-config'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
@@ -432,8 +434,9 @@ export async function POST(request: Request) {
         p_assessment_id: sourceId,
       })
     } else if (b.action === 'DISPENSE') {
-      if (!a.permissions.record)
-        return json({ error: 'Only assigned BHW/BNS record dispensing.' }, 403)
+      // BHW records administration only (docs/permissions.md); dispensing is RHM / BNS.
+      if (!a.permissions.record || a.role === 'BHW')
+        return json({ error: 'Only assigned RHM/BNS record dispensing.' }, 403)
       const planId = id(b.planId),
         batchId = id(b.batchId),
         quantity = positive(b.quantity)
@@ -469,11 +472,12 @@ export async function POST(request: Request) {
         !date(b.receivedDate) ||
         !date(b.expiryDate) ||
         !uuid(b.requestId) ||
-        !text(b.batchNumber) ||
+        !normalizeBatchNumber(text(b.batchNumber)) ||
+        batchNumberError(text(b.batchNumber), await loadBatchRule(a.db)) !== null ||
         typeof b.allocateExisting !== 'boolean'
       )
         return json(
-          { error: 'Provide complete, valid batch receipt fields.' },
+          { error: 'Provide complete, valid batch receipt fields. Batch numbers use letters and numbers joined by dashes, e.g. BT-2026-0012.' },
           400,
         )
       if (a.scope !== null && !a.scope.includes(barangayId))
@@ -481,7 +485,7 @@ export async function POST(request: Request) {
       result = await a.db.rpc('msp_receive_batch', {
         p_supplement_id: supplementId,
         p_barangay_id: barangayId,
-        p_batch_number: text(b.batchNumber),
+        p_batch_number: normalizeBatchNumber(text(b.batchNumber)),
         p_expiry_date: b.expiryDate,
         p_received_date: b.receivedDate,
         p_quantity: quantity,

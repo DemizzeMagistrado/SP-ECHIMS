@@ -1,33 +1,24 @@
 'use client'
 
-// RPT-USR001 polish — Collapsible sidebar.
-// State persists in localStorage (`echims-sidebar-collapsed`) so the choice
-// survives page reloads. When collapsed, the sidebar shrinks to a 72px rail
-// showing icons only; tooltips appear on hover via title attribute. Logout
-// moved to top-nav Settings menu — removed from here.
+// Sidebar: user identity at the top (name, with role directly under the eCHIMS logo),
+// modules grouped by purpose. The top bar's hamburger collapses it to an icon rail on
+// desktop and opens it as a drawer on mobile (state lives in ./shell).
+// Logout lives in the top bar's account menu.
 
 import Link from 'next/link'
-import { usePathname } from '@/lib/offline/navigation'
-import { useEffect, useState } from 'react'
+import { usePathname, useRouter } from '@/lib/offline/navigation'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Home, Baby, Syringe, Apple, Package, AlertCircle, FileText, Settings,
-  User, Users, Activity, Map, ChevronLeft, ChevronRight,
+  Users, Activity, Boxes, X,
 } from 'lucide-react'
-import {
-  moduleRoutes,
-  roleModules,
-  type UserRole,
-} from '@/lib/echims-data'
+import { ROLE_NAME, moduleRoutes, roleModules, type UserRole } from '@/lib/echims-data'
 import type { Role } from '@/lib/auth/permissions'
-import Image from 'next/image'
+import { Logo } from '@/components/brand/logo'
+import { useShell } from './shell'
 
-const roleLabels: Record<Role, UserRole> = {
-  Administrator: 'Administrator',
-  PHN: 'Public Health Nurse',
-  RHM: 'Rural Health Midwife',
-  BHW: 'Barangay Health Worker',
-  BNS: 'Barangay Nutrition Scholar',
-}
+// Role code → display name from the one role matrix (lib/echims-data).
+const roleLabels: Record<Role, UserRole> = ROLE_NAME
 
 type MenuItem = {
   icon: typeof Home
@@ -36,122 +27,172 @@ type MenuItem = {
   matchPrefixes?: string[]
 }
 
-const menuItems: MenuItem[] = [
-  { icon: Home, label: 'Dashboard', href: '/dashboard' },
-  { icon: Users, label: 'User Management', href: '/user-management' },
+const menuGroups: { title: string; items: MenuItem[] }[] = [
   {
-    icon: Baby, label: 'Child Profiling', href: moduleRoutes['Child Profiling'],
-    matchPrefixes: ['/child-profiling', '/children', '/geospatial', '/masterlist-upload'],
+    title: 'Overview',
+    items: [
+      { icon: Home, label: 'Dashboard', href: '/dashboard' },
+      { icon: AlertCircle, label: 'Alerts', href: moduleRoutes.Alerts },
+    ],
   },
   {
-    icon: Syringe, label: 'Vaccination', href: moduleRoutes.Vaccination,
-    matchPrefixes: ['/vaccination', '/vaccinations'],
+    title: 'Child health',
+    items: [
+      {
+        icon: Baby, label: 'Child Profiling', href: moduleRoutes['Child Profiling'],
+        matchPrefixes: ['/child-profiling', '/children', '/geospatial', '/masterlist-upload'],
+      },
+      { icon: Syringe, label: 'Vaccination', href: moduleRoutes.Vaccination, matchPrefixes: ['/vaccination', '/vaccinations'] },
+      {
+        icon: Apple, label: 'Nutritional Assessment', href: moduleRoutes['Nutritional Assessment'],
+        matchPrefixes: ['/nutritional-assessment', '/nutrition'],
+      },
+      { icon: Package, label: 'Supplementation', href: moduleRoutes.Supplementation, matchPrefixes: ['/supplementation', '/supplements'] },
+      { icon: Activity, label: 'Health Activities', href: '/health-activities' },
+    ],
   },
-  { icon: Activity, label: 'Health Activities', href: '/health-activities' },
   {
-    icon: Apple, label: 'Nutritional Assessment', href: moduleRoutes['Nutritional Assessment'],
-    matchPrefixes: ['/nutritional-assessment', '/nutrition'],
+    title: 'Operations',
+    items: [
+      { icon: Boxes, label: 'Inventory', href: moduleRoutes.Inventory, matchPrefixes: ['/inventory'] },
+      { icon: FileText, label: 'Reports', href: moduleRoutes.Reports },
+    ],
   },
   {
-    icon: Package, label: 'Supplementation', href: moduleRoutes.Supplementation,
-    matchPrefixes: ['/supplementation', '/supplements'],
+    title: 'Administration',
+    items: [
+      { icon: Users, label: 'User Management', href: '/user-management' },
+      { icon: Settings, label: 'Settings', href: moduleRoutes.Settings, matchPrefixes: ['/settings', '/organization'] },
+    ],
   },
-  { icon: Map, label: 'Inventory', href: moduleRoutes.Inventory, matchPrefixes: ['/inventory'] },
-  { icon: AlertCircle, label: 'Alerts', href: moduleRoutes.Alerts },
-  { icon: FileText, label: 'Reports', href: moduleRoutes.Reports },
-  { icon: Settings, label: 'Settings', href: moduleRoutes.Settings, matchPrefixes: ['/settings', '/organization'] },
 ]
 
-const STORAGE_KEY = 'echims-sidebar-collapsed'
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase() || '?'
+}
 
 export function Sidebar({ role, fullName }: { role: Role; fullName: string }) {
   const pathname = usePathname()
-  const [collapsed, setCollapsed] = useState(false)
-  const [mounted, setMounted] = useState(false)
+  const router = useRouter()
+  const { mobileOpen, setMobileOpen, collapsed } = useShell()
+  // The clicked item turns active at once; the real pathname takes over when the route commits.
+  const [clicked, setClicked] = useState<string | null>(null)
+  useEffect(() => setClicked(null), [pathname])
+  // Next prefetches visible links in production; hover/focus also covers the collapsed rail and dev.
+  const prefetch = (href: string) => { if (navigator.onLine) router.prefetch(href) }
 
-  // Rehydrate collapse preference after mount (avoids SSR mismatch).
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored === '1') setCollapsed(true)
-    } catch { /* localStorage can throw in some sandboxes; ignore */ }
-    setMounted(true)
-  }, [])
+  const label = roleLabels[role]
+  const groups = useMemo(() => menuGroups
+    .map((g) => ({ ...g, items: g.items.filter((item) => roleModules[label].includes(item.label)) }))
+    .filter((g) => g.items.length > 0), [label])
 
-  function toggle() {
-    setCollapsed((c) => {
-      const next = !c
-      try { localStorage.setItem(STORAGE_KEY, next ? '1' : '0') } catch { /* ignore */ }
-      return next
-    })
-  }
-
-  const frontendRole = roleLabels[role]
-  const visibleItems = menuItems.filter((item) => roleModules[frontendRole].includes(item.label))
-
-  // During the pre-mount render we always use the expanded (56) width so SSR
-  // and first client paint agree. Hydration swap happens after the useEffect.
-  const widthClass = mounted && collapsed ? 'w-[72px]' : 'w-56'
+  // The rail only applies on desktop; the mobile drawer is always full width.
+  const rail = collapsed && !mobileOpen
 
   return (
-    <aside className={`sticky top-0 flex max-h-screen min-h-screen ${widthClass} shrink-0 flex-col overflow-y-auto border-r border-[#0B4F8A] bg-[#075985] text-white transition-[width] duration-200`}>
-      {/* Logo + collapse toggle */}
-      <div className="flex items-center justify-between border-b border-white/15 px-3 py-4">
-        {!collapsed ? (
-          <Image src="/sidebar-logo.png" alt="eCHIMS" width={200} height={64} priority
-            className="h-auto max-h-12 w-auto object-contain" />
-        ) : (
-          <span className="mx-auto text-lg font-bold">e</span>
-        )}
-        <button type="button" onClick={toggle} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          title={collapsed ? 'Expand' : 'Collapse'}
-          className="shrink-0 rounded-md p-1.5 text-white/80 hover:bg-white/10 hover:text-white">
-          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-        </button>
-      </div>
+    <>
+      {/* Mobile backdrop */}
+      <div
+        aria-hidden
+        onClick={() => setMobileOpen(false)}
+        className={`fixed inset-0 z-40 bg-[#03045E]/40 backdrop-blur-[2px] transition-opacity duration-300 lg:hidden ${
+          mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+      />
 
-      {/* Menu */}
-      <nav className="flex-1 py-3">
-        <ul className="space-y-1 px-2">
-          {visibleItems.map((item) => {
-            const Icon = item.icon
-            const prefixMatch = item.matchPrefixes?.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ?? false
-            const isActive = pathname === item.href || prefixMatch
-            return (
-              <li key={item.href}>
-                <Link href={item.href}
-                  title={collapsed ? item.label : undefined}
-                  className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'} rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
-                    isActive ? 'bg-white text-[#075985] shadow-md' : 'text-sky-50 hover:bg-white/10 hover:text-white'
-                  }`}>
-                  <Icon size={20} strokeWidth={1.5} />
-                  {!collapsed && <span>{item.label}</span>}
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
-      </nav>
+      <aside
+        id="main-sidebar"
+        aria-label="Main navigation"
+        className={`scroll-subtle-dark fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-[#03045E] text-white shadow-2xl transition-[transform,width] duration-300 ease-out
+          lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0 lg:shadow-none
+          ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
+          ${rail ? 'lg:w-[76px]' : 'lg:w-64'}`}
+      >
+        {/* Brand + user identity, visible as soon as the dashboard opens */}
+        <div className="px-3 pb-4 pt-4">
+          <div className="flex items-center justify-between gap-2 px-1">
+            {/* Wordmark and icon sit on top of each other and crossfade as the rail opens or closes. */}
+            <div className="relative h-10 min-w-0 flex-1 overflow-hidden">
+              {/* left-2 lines the wordmark up with the nav items' icon column (12px nav + 12px item padding). */}
+              <span aria-hidden={rail} className={`absolute inset-y-0 left-2 flex items-center transition-opacity duration-300 ${rail ? 'opacity-0' : 'opacity-100'}`}>
+                <Logo tone="light" size={30} priority />
+              </span>
+              {/* 6px + 16px header padding + half of 32px = 38px, the centre of the 76px rail. */}
+              <span aria-hidden={!rail} className={`absolute inset-y-0 left-[6px] flex items-center transition-opacity duration-300 ${rail ? 'opacity-100' : 'opacity-0'}`}>
+                <Logo variant="icon" tone="light" size={32} />
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMobileOpen(false)}
+              aria-label="Close menu"
+              className="shrink-0 rounded-lg p-2 text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90E0EF] lg:hidden"
+            >
+              <X size={18} />
+            </button>
+          </div>
 
-      {/* User card — simplified in collapsed mode; logout moved to top-nav */}
-      <div className="border-t border-white/15 p-3">
-        {!collapsed ? (
-          <div className="flex items-center gap-3 rounded-xl border border-white/15 bg-white/10 px-3 py-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20">
-              <User size={18} className="text-white" strokeWidth={1.5} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-white">{fullName}</p>
-              <p className="truncate text-xs text-white/70">{roleLabels[role]}</p>
-            </div>
+          <div
+            title={rail ? `${fullName}, ${label}` : undefined}
+            className={`mt-4 flex items-center gap-3 rounded-xl bg-white/[0.07] ${rail ? 'justify-center p-2' : 'p-3'}`}
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#087DB9] text-sm font-bold">
+              {initials(fullName)}
+            </span>
+            {!rail && (
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold">{fullName}</p>
+                <p className="truncate text-xs text-[#90E0EF]">{label}</p>
+              </div>
+            )}
           </div>
-        ) : (
-          <div title={`${fullName} · ${roleLabels[role]}`}
-            className="mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-white/20">
-            <User size={16} className="text-white" />
-          </div>
-        )}
-      </div>
-    </aside>
+        </div>
+
+        {/* Menu */}
+        <nav className="flex-1 overflow-y-auto px-3 pb-6">
+          {groups.map((group) => (
+            <div key={group.title} className="mt-4 first:mt-1">
+              {rail ? (
+                <div aria-hidden className="mx-auto mb-2 h-px w-8 bg-white/10" />
+              ) : (
+                <p className="mb-1.5 px-3 text-xs font-semibold text-white/60">{group.title}</p>
+              )}
+              <ul className="space-y-0.5">
+                {group.items.map((item) => {
+                  const Icon = item.icon
+                  const prefixMatch = item.matchPrefixes?.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ?? false
+                  const isActive = clicked ? clicked === item.href : pathname === item.href || prefixMatch
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        title={rail ? item.label : undefined}
+                        aria-current={isActive ? 'page' : undefined}
+                        onClick={(e) => { if (!e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0) setClicked(item.href) }}
+                        onMouseEnter={() => prefetch(item.href)}
+                        onFocus={() => prefetch(item.href)}
+                        className={`group relative flex items-center ${rail ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#90E0EF] ${
+                          isActive ? 'bg-white text-[#03045E]' : 'text-white/75 hover:bg-white/[0.08] hover:text-white'
+                        }`}
+                      >
+                        <span
+                          aria-hidden
+                          className={`absolute -left-3 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-[#90E0EF] transition-transform duration-300 ${
+                            isActive ? 'scale-y-100' : 'scale-y-0'
+                          }`}
+                        />
+                        <Icon size={19} strokeWidth={1.75} className={isActive ? 'text-[#087DB9]' : ''} />
+                        {!rail && <span className="truncate">{item.label}</span>}
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          ))}
+        </nav>
+      </aside>
+    </>
   )
 }

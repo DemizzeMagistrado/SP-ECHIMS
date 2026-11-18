@@ -1,10 +1,13 @@
 "use client";
+import { TabBar } from '@/components/ui/module-tabs'
 import { routeSearch } from '@/lib/offline/navigation'
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Plus, Package, X, AlertTriangle } from "lucide-react";
+import { Fragment, useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Plus, Package, SearchX, ClipboardList, ChevronDown, FileText, RefreshCw, Search, Send } from "lucide-react";
 import {
   latestNutrition,
   nutritionReview,
@@ -22,7 +25,25 @@ import {
 import { SupplementationMonitoringPanel } from "@/components/supplementation/supplementation-monitoring-panel";
 import { SupplementStockRequestsPanel } from "@/components/supplementation/supplement-stock-requests-panel";
 import { SupplementationSmsPanel } from "@/components/supplementation/supplementation-sms-panel";
-import type { Session, User } from "@supabase/supabase-js";
+import { LogoLoader } from '@/components/brand/logo-loader'
+import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
+import { useRefreshSignal } from '@/components/brand/loader-state'
+import { LoadError } from '@/components/ui/load-error'
+import { readPageCache, writePageCache } from '@/lib/page-cache'
+import { toast } from '@/components/ui/toast'
+import { useConfirm } from '@/components/ui/confirm-dialog'
+import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ui/page-header'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { StatusBadge, type StatusTone } from '@/components/ui/status-badge'
+import { CountsStrip, FilterCard, GuidanceCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
+import { useSingleOpen } from '@/components/ui/accordion-card'
+import { formatChildId } from '@/lib/formatters'
+import { cn } from '@/lib/utils'
+import { nutritionLabel } from '@/lib/nutrition-status'
+import { Modal } from '@/components/ui/modal'
+import { Input, Select, DateInput, controlClass } from '@/components/ui/form'
+import { Pagination, usePagination } from '@/components/ui/pagination'
 
 type Child = {
   child_id: number;
@@ -164,7 +185,7 @@ function catalogDetails(product: Product | undefined) {
     name: product.item?.item_name || "Product name unavailable",
 
     formulation:
-      product.formulation?.replaceAll("_", " ") || "Not stored in catalog",
+      (product.formulation ? nutritionLabel(product.formulation) : "") || "Not stored in catalog",
 
     unit: product.item?.unit || "Unit unavailable",
 
@@ -363,13 +384,23 @@ async function read(response: Response) {
   return data;
 }
 
-const input =
-  "mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm";
+// Modal form controls: the shared control style (form.tsx) under a Field-style label.
+const input = `${controlClass} mt-1.5 block min-h-10 py-2`;
+const fieldLabel = "block text-sm font-semibold text-brand-navy";
 
-const button =
-  "inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50";
+/** Tier pill for an entry: the saved tier, or Supply issue / Legacy for entries without one. */
+const TIER_PILL: Record<string, { label: string; tone: StatusTone }> = {
+  ROUTINE: { label: "Routine", tone: "info" },
+  TARGETED: { label: "Targeted", tone: "review" },
+  CLINICAL: { label: "Clinical", tone: "risk" },
+  SUPPLY_ISSUE: { label: "Supply issue", tone: "neutral" },
+  LEGACY: { label: "Legacy — tier not recorded", tone: "neutral" },
+};
+const tierOf = (r: RecordRow) =>
+  r.tier && TIER_PILL[r.tier] ? r.tier : r.record_type === "DISPENSED" ? "SUPPLY_ISSUE" : "LEGACY";
 
 export default function SupplementsPage() {
+  const confirm = useConfirm();
   const sharedAuth = useAuth();
   const [owner, setOwner] = useState<string | null>(null);
   const ownerRef = useRef<string | null>(null);
@@ -377,21 +408,24 @@ export default function SupplementsPage() {
 
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
+  usePageLoading(loading);
+  useRefreshSignal(loading && Boolean(data));
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [online, setOnline] = useState(true);
 
-  const [tab, setTab] = useState<
-    | "records"
-    | "clinical"
-    | "stock"
-    | "plans"
-    | "guidelines"
-    | "monitoring"
-    | "sms"
-  >("records");
+  // Three tabs (SUP-REV01): Records (entries + supply plans), Supplements (stock + guidelines),
+  // Follow-up (compliance; PHN / Admin only). SMS reminders open from the Records toolbar.
+  const [tab, setTab] = useState<"records" | "supplements" | "followup">("records");
+  const [recordView, setRecordView] = useState<"entries" | "plans">("entries");
+  const [supplyView, setSupplyView] = useState<"stock" | "guidelines">("stock");
+  const [tierFilter, setTierFilter] = useState("ALL");
+  // One detail open at a time across Entries and Supply plans (the Vaccines tab accordion).
+  const { isOpen, toggle } = useSingleOpen<string>();
+  const [smsOpen, setSmsOpen] = useState(false);
+  const router = useRouter();
   const [modal, setModal] = useState<
-    "RECORD" | "RECEIVE" | "PLAN" | "DISPENSE" | "CLINICAL" | null
+    "RECORD" | "PLAN" | "DISPENSE" | "CLINICAL" | null
   >(null);
   const [form, setForm] = useState<Form>(initial);
   const [saving, setSaving] = useState(false);
@@ -419,7 +453,7 @@ export default function SupplementsPage() {
     const user = ownerRef.current;
     if (!user) return;
     const run = ++generation.current;
-    setLoading(true);
+    if (!readPageCache(user, "supplementation")) setLoading(true);
 
     try {
       if (!navigator.onLine) {
@@ -478,6 +512,7 @@ export default function SupplementsPage() {
       };
 
       setData(prepared);
+      writePageCache(user, "supplementation", prepared);
       setCacheDate(null);
       setError("");
 
@@ -516,7 +551,9 @@ export default function SupplementsPage() {
 
       setOwner(id);
 
-      setData(null);
+      // A revisit starts from the last result for this account and refreshes it quietly.
+      const cached = readPageCache<Data>(id, "supplementation");
+      setData(cached ?? null);
 
       setDrafts([]);
 
@@ -532,7 +569,7 @@ export default function SupplementsPage() {
 
       setError("");
 
-      setLoading(Boolean(id));
+      setLoading(Boolean(id) && !cached);
 
       if (!id) {
         setError("Please sign in to access supplementation.");
@@ -609,7 +646,7 @@ export default function SupplementsPage() {
     }));
   }
 
-  function open(kind: "RECORD" | "RECEIVE" | "PLAN" | "DISPENSE" | "CLINICAL") {
+  function open(kind: "RECORD" | "PLAN" | "DISPENSE" | "CLINICAL") {
     setEditingDraft(null);
     setDraftConfirmed(false);
     const id = new URLSearchParams(routeSearch()).get("childId");
@@ -767,14 +804,14 @@ export default function SupplementsPage() {
   const review = nutritionReview(basis);
 
   const nutritionPanel =
-    child && modal !== "RECEIVE" ? (
+    child ? (
       <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm sm:col-span-2">
         <h3 className="font-semibold">Nutrition basis · {review.title}</h3>
         <p className="mt-1">{review.detail}</p>
         <p className="mt-2 text-xs text-muted-foreground">
           {review.rule} ·{" "}
           {basis
-            ? `Assessment #${basis.assessment_id} · ${basis.assessment_date} · ${basis.nutritional_status ?? "Not evaluated"}`
+            ? `Assessment #${basis.assessment_id} · ${basis.assessment_date} · ${basis.nutritional_status ? nutritionLabel(basis.nutritional_status) : "Not evaluated"}`
             : "No saved assessment for this date"}
         </p>
         {basis && (
@@ -787,7 +824,7 @@ export default function SupplementsPage() {
             ].map(([label, value]) => (
               <div key={label}>
                 <dt className="text-xs text-muted-foreground">{label}</dt>
-                <dd>{value?.replaceAll("_", " ") ?? "Unavailable"}</dd>
+                <dd>{value ? nutritionLabel(value) : "Unavailable"}</dd>
               </div>
             ))}
           </dl>
@@ -813,10 +850,11 @@ export default function SupplementsPage() {
     ) : null;
 
   const assessmentSelector = (
-    <label className="text-sm font-medium">
+    <label className={fieldLabel}>
       Saved nutrition assessment
-      <select
-        className={input}
+      <Select
+        className="mt-1.5"
+       
         value={form.assessmentId}
         onChange={(e) => change("assessmentId", e.target.value)}
       >
@@ -828,10 +866,10 @@ export default function SupplementsPage() {
         {availableAssessments.map((a) => (
           <option key={a.assessment_id} value={a.assessment_id}>
             #{a.assessment_id} · {a.assessment_date} ·{" "}
-            {a.nutritional_status ?? "Not evaluated"}
+            {a.nutritional_status ? nutritionLabel(a.nutritional_status) : "Not evaluated"}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   );
 
@@ -936,15 +974,19 @@ export default function SupplementsPage() {
     if (user !== draft.ownerId || saving) return;
 
     if (
-      !window.confirm(
-        "Discard this local draft? This does not delete any saved server record.",
-      )
+      !(await confirm({
+        title: "Discard this local draft?",
+        description: "Saved server records are not affected.",
+        confirmLabel: "Discard draft",
+        tone: "danger",
+      }))
     )
       return;
 
     try {
       await deleteSupplementDraft(user, draft.requestId);
       await refreshDrafts();
+      toast.success("Local draft discarded.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to discard draft.");
     }
@@ -1076,19 +1118,7 @@ export default function SupplementsPage() {
                 remarks: form.remarks,
                 requestId: requestId.current,
               }
-            : modal === "RECEIVE"
-              ? {
-                  action: modal,
-                  supplementId: form.supplementId,
-                  barangayId: form.barangayId,
-                  batchNumber: form.batchNumber,
-                  receivedDate: form.receivedDate,
-                  expiryDate: form.expiryDate,
-                  quantity: form.quantity,
-                  allocateExisting: form.allocateExisting,
-                  requestId: requestId.current,
-                }
-              : {
+            : {
                   action: modal,
                   childId: form.childId,
                   supplementId: form.supplementId,
@@ -1220,11 +1250,12 @@ export default function SupplementsPage() {
     key: keyof Form,
     options: { value: string; label: string }[],
   ) => (
-    <label className="text-sm font-medium">
+    <label className={fieldLabel}>
       {label}
-      <select
+      <Select
+        className="mt-1.5"
         required
-        className={input}
+       
         value={String(form[key])}
         onChange={(e) => change(key, e.target.value as never)}
       >
@@ -1241,7 +1272,7 @@ export default function SupplementsPage() {
             {o.label}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   );
 
@@ -1251,17 +1282,26 @@ export default function SupplementsPage() {
     type = "text",
     required = true,
   ) => (
-    <label className="text-sm font-medium">
+    <label className={fieldLabel}>
       {label}
-      <input
-        required={required}
-        type={type}
-        step={type === "number" ? "any" : undefined}
-        min={type === "number" ? "0.000001" : undefined}
-        className={input}
-        value={String(form[key])}
-        onChange={(e) => change(key, e.target.value as never)}
-      />
+      {type === "date" ? (
+        <DateInput
+          required={required}
+          className="mt-1.5"
+          value={String(form[key])}
+          onChange={(e) => change(key, e.target.value as never)}
+        />
+      ) : (
+        <input
+          required={required}
+          type={type}
+          step={type === "number" ? "any" : undefined}
+          min={type === "number" ? "0.000001" : undefined}
+          className={input}
+          value={String(form[key])}
+          onChange={(e) => change(key, e.target.value as never)}
+        />
+      )}
     </label>
   );
 
@@ -1272,18 +1312,9 @@ export default function SupplementsPage() {
         value: String(p.supplement_id),
         label: `${p.item?.item_name} ${p.dose_strength == null ? "" : `(${p.dose_strength} ${p.dose_unit})`}`,
       })) ?? [];
+  // Supplements › Guidelines & eligibility: the catalog's age limits and administration rules.
   const guidelinesPanel = (
     <div className="space-y-5">
-      <div className="rounded-2xl border border-border bg-white p-5">
-        <h2 className="text-lg font-semibold">
-          Commodity Guidelines & Eligibility
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Age limits and administration rules from the active system catalog and
-          protocols. These reminders support staff review; they do not select
-          treatment or prescribe a dose.
-        </p>
-      </div>
       <div className="grid gap-4 md:grid-cols-2">
         {data?.products
           .filter((p) => p.catalog_code && p.item?.status === "ACTIVE")
@@ -1291,25 +1322,20 @@ export default function SupplementsPage() {
             const details = catalogDetails(p)!;
             const matching = matchingProductProtocols(p, data.protocols);
             return (
-              <article
-                key={p.supplement_id}
-                className="rounded-2xl border border-border bg-white p-5"
-              >
-                <h3 className="font-semibold">{details.name}</h3>
-                <span className="mt-2 inline-block rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-primary">
-                  {productAgeLabel(p, data.protocols)}
-                </span>
-                <p className="mt-3 text-sm">
+              <article key={p.supplement_id} className={cn(REPORT_CARD, "p-5")}>
+                <h3 className="text-base font-semibold text-brand-navy">{details.name}</h3>
+                <StatusBadge status="age" tone="info" label={productAgeLabel(p, data.protocols)} className="mt-2" />
+                <p className="mt-3 text-sm text-brand-navy">
                   Formulation: {details.formulation} · Stock unit:{" "}
                   {details.unit}
                 </p>
-                <p className="mt-1 text-sm">
+                <p className="mt-1 text-sm text-brand-navy">
                   {p.dispensing_only
                     ? "Supply plan and dispensing"
                     : "Actual administration under an eligible protocol"}
                 </p>
                 {p.dispensing_only ? (
-                  <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                  <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-brand-muted">
                     <li>Both plan dates must stay within this age range.</li>
                     <li>
                       Planned and issued quantities use whole {details.unit}{" "}
@@ -1335,12 +1361,9 @@ export default function SupplementsPage() {
                 ) : matching.length ? (
                   <div className="mt-3 space-y-3">
                     {matching.map((r) => (
-                      <div
-                        key={r.protocol_id}
-                        className="rounded-lg bg-muted/40 p-3 text-sm"
-                      >
-                        <p className="font-medium">
-                          {r.tier ?? r.purpose} tier · {r.age_min_months}–
+                      <div key={r.protocol_id} className="rounded-xl border border-brand-line/70 bg-group-a p-3 text-sm text-brand-navy">
+                        <p className="font-semibold">
+                          {nutritionLabel(r.tier ?? r.purpose)} tier · {r.age_min_months}–
                           {r.age_max_months} months · {r.purpose.toLowerCase()}
                         </p>
                         <p>
@@ -1350,7 +1373,7 @@ export default function SupplementsPage() {
                         {r.tier === "CLINICAL" && (
                           <p>
                             Indication:{" "}
-                            {r.clinical_indication?.replaceAll("_", " ") ??
+                            {r.clinical_indication ? nutritionLabel(r.clinical_indication) :
                               "Not configured"}{" "}
                             · Course days:{" "}
                             {r.clinical_dose_offsets_days?.join(", ") ??
@@ -1369,10 +1392,8 @@ export default function SupplementsPage() {
                         </p>
                         {r.source_reference.match(/https:\/\/\S+/)?.[0] && (
                           <a
-                            className="mt-1 inline-block text-primary underline"
-                            href={
-                              r.source_reference.match(/https:\/\/\S+/)?.[0]
-                            }
+                            className="mt-1 inline-block font-semibold text-link underline underline-offset-2"
+                            href={r.source_reference.match(/https:\/\/\S+/)?.[0]}
                             target="_blank"
                             rel="noreferrer"
                           >
@@ -1383,7 +1404,7 @@ export default function SupplementsPage() {
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-3 text-sm text-amber-800">
+                  <p className="mt-3 text-sm font-semibold text-review">
                     No active matching administration protocol. Recording
                     requires a valid protocol.
                   </p>
@@ -1392,9 +1413,8 @@ export default function SupplementsPage() {
             );
           })}
       </div>
-      <div className="rounded-2xl border border-border bg-white p-5">
-        <h3 className="font-semibold">Before saving or issuing supplies</h3>
-        <ul className="mt-3 list-disc space-y-2 pl-5 text-sm">
+      <GuidanceCard title="Before saving or issuing supplies">
+        <ul className="list-disc space-y-2 pl-5">
           <li>
             Review the child profile, saved nutrition results and previous
             supplement entries.
@@ -1414,7 +1434,8 @@ export default function SupplementsPage() {
           </li>
           <li>
             Assigned RHM/PHN register plans and receive batches. Assigned
-            BHW/BNS record routine/targeted administration or dispensing.
+            BHW record routine/targeted administration; assigned BNS also
+            record dispensing.
             Assigned RHM record clinical-tier administration against a verified
             clinical protocol and documented order.
           </li>
@@ -1423,129 +1444,174 @@ export default function SupplementsPage() {
             dates, age, duplicates and stock.
           </li>
         </ul>
-      </div>
+      </GuidanceCard>
     </div>
   );
 
+  // Records: one list of entries (routine, targeted, clinical, supply issues), filtered by tier and child.
+  const childOf = (id: number) => data?.children.find((c) => c.child_id === id);
+  const matchesChild = (id: number) => {
+    if (!filter) return true;
+    const c = childOf(id);
+    return String(id) === filter || (c ? name(c) : "").toLowerCase().includes(filter.toLowerCase());
+  };
   const records =
-    data?.records.filter(
-      (r) =>
-        (tab === "clinical" ? r.tier === "CLINICAL" : r.tier !== "CLINICAL") &&
-        (!filter ||
-          String(r.child_id) === filter ||
-          (data.children.find((c) => c.child_id === r.child_id)
-            ? name(data.children.find((c) => c.child_id === r.child_id)!)
-            : ""
-          )
-            .toLowerCase()
-            .includes(filter.toLowerCase())),
-    ) ?? [];
+    data?.records.filter((r) => (tierFilter === "ALL" || tierOf(r) === tierFilter) && matchesChild(r.child_id)) ?? [];
+  const plans = data?.plans.filter((p) => matchesChild(p.child_id)) ?? [];
+  const { visible: pagedRecords, props: recordPager } = usePagination(records);
+  const { visible: pagedPlans, props: planPager } = usePagination(plans);
+  const canRecord = Boolean(data?.permissions.record || data?.role === "RHM");
+  // BHW: record administration only (docs/permissions.md); dispensing stays with RHM / BNS.
+  const canDispense = canRecord && data?.role !== "BHW";
+  // Only the roles the SMS API lets send (RHM, BHW) get the reminders button.
+  const canSendReminders = data?.role === "RHM" || data?.role === "BHW";
+  const canPlan = Boolean(data?.permissions.stock);
+  const showFollowUp = Boolean(data?.permissions.monitor && (data.role === "PHN" || data.role === "Administrator"));
+  const activeTab = tab === "followup" && !showFollowUp ? "records" : tab;
+  const openChild = (event: MouseEvent, childId: number) => {
+    if (!(event.target as HTMLElement).closest("a,button")) router.push(`/child-profiling/children/${childId}`);
+  };
+  const expiredWithStock = data?.batches.filter((b) => b.expiry_date < today() && Number(b.quantity_on_hand) > 0).length ?? 0;
+  const refreshButton = (
+    <Button variant="secondary" loading={loading && Boolean(data)} disabled={!online} title={online ? undefined : "Reconnect to refresh"} onClick={() => void load()}>
+      {!(loading && data) && <RefreshCw size={16} aria-hidden="true" />}
+      Refresh
+    </Button>
+  );
+  // Primary action first in importance: Record administration (recorders) or Register supply plan (PHN).
+  const recordActions = activeTab === "records" && (
+    <>
+      {clinicalAllowed && (
+        <Button variant="secondary" onClick={() => open("CLINICAL")}>
+          <Plus size={17} aria-hidden="true" /> Record clinical supplementation
+        </Button>
+      )}
+      {canPlan && (
+        <Button variant={canRecord ? "secondary" : "primary"} onClick={() => open("PLAN")}>
+          <Plus size={17} aria-hidden="true" /> Register supply plan
+        </Button>
+      )}
+      {canDispense && (
+        <Button variant="secondary" onClick={() => open("DISPENSE")}>
+          <Plus size={17} aria-hidden="true" /> Record dispensing
+        </Button>
+      )}
+      {canRecord && (
+        <Button onClick={() => open("RECORD")}>
+          <Plus size={17} aria-hidden="true" /> Record administration
+        </Button>
+      )}
+    </>
+  );
+  const head = "px-4 py-3 text-left align-bottom text-[13px] font-semibold text-brand-navy";
+  const cell = "px-4 py-3.5 align-top";
+  const pinned = "relative sm:sticky right-0 w-[208px] min-w-[208px] border-l-brand-line sm:shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]";
+  const firstCell = "transition-[box-shadow,background-color] duration-[120ms] group-hover:shadow-[inset_3px_0_0_var(--brand-navy)]";
+  const childCell = (id: number) => {
+    const c = childOf(id);
+    return (
+      <>
+        <span className="font-semibold">{c ? name(c) : `Child ${id}`}</span>
+        <span className="block text-xs text-brand-muted">{formatChildId(id)}</span>
+      </>
+    );
+  };
+  const rowActions = (childId: number, key: string, detailId: string, hasDetail: boolean, what: string) => (
+    <div className="flex items-center gap-2">
+      <Link href={`/child-profiling/children/${childId}`} className={cn(buttonVariants({ variant: "row", size: "row" }), "flex-1")}>
+        <FileText aria-hidden="true" />View child record
+      </Link>
+      {hasDetail && (
+        <Button
+          variant="row"
+          size="row"
+          className={cn("w-9 shrink-0 px-0", isOpen(key) && "border-brand-navy bg-rowbtn-active")}
+          aria-expanded={isOpen(key)}
+          aria-controls={detailId}
+          aria-label={`Details for ${what}`}
+          onClick={() => toggle(key)}
+        >
+          <ChevronDown aria-hidden="true" className={cn("transition-transform duration-200 ease-out motion-reduce:transition-none", isOpen(key) && "rotate-180")} />
+        </Button>
+      )}
+    </div>
+  );
+  // Expanded details (AccordionCard look): light panel, white card, height + opacity animate
+  // (~220ms ease-out, instant with reduced motion). Closed content is inert.
+  const detailRow = (id: string, open: boolean, title: string, fields: [string, ReactNode][], extra?: ReactNode) => (
+    <tr id={id} data-detail={open ? "open" : "closed"}>
+      <td colSpan={99} className="bg-slate-50 p-0">
+        <div className={cn("grid transition-[grid-template-rows,opacity] duration-[220ms] ease-out motion-reduce:transition-none", open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
+          <div className="overflow-hidden" inert={!open}>
+            <div className={cn("border-t border-primary/15 px-4 py-4 sm:px-6", !open && "border-t-0")}>
+              <div className="sticky left-4 max-w-[calc(100vw-4.5rem)] sm:static sm:max-w-[100ch]">
+                <section aria-label={title} className="rounded-xl border border-brand-line bg-white p-4 shadow-[0_1px_2px_rgba(12,18,96,0.06)]">
+                  <h3 className="mb-3 text-[13px] font-semibold text-brand-navy">{title}</h3>
+                  <dl className="grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                    {fields.map(([label, value]) => (
+                      <div key={label} className="min-w-0">
+                        <dt className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">{label}</dt>
+                        <dd className="mt-0.5 whitespace-pre-wrap break-words text-brand-navy">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  {extra}
+                </section>
+              </div>
+            </div>
+          </div>
+        </div>
+      </td>
+    </tr>
+  );
+  const notRecorded = <span className="text-brand-muted">Not recorded</span>;
 
   return (
-    <div className="space-y-6">
-      <nav
-        aria-label="Supplementation views"
-        className="flex flex-wrap gap-1 border-b border-border"
-      >
-        {(
-          [
-            "records",
-            "clinical",
-            "stock",
-            "plans",
-            "guidelines",
-            "sms",
-            ...(data?.permissions.monitor &&
-            (data.role === "PHN" || data.role === "Administrator")
-              ? ["monitoring" as const]
-              : []),
-          ] as const
-        ).map((t) => (
-          <button
-            key={t}
-            aria-pressed={tab === t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-3 text-sm font-medium ${tab === t ? "border-b-2 border-primary text-primary" : "text-muted-foreground"}`}
-          >
-            {t === "records"
-              ? "Administration & Dispensing"
-              : t === "clinical"
-                ? "Clinical Records"
-                : t === "stock"
-                  ? "Stock & Batches"
-                  : t === "plans"
-                    ? "Supply Plans"
-                    : t === "sms"
-                      ? "SMS Reminders"
-                      : t === "monitoring"
-                        ? "Compliance Monitoring"
-                        : "Guidelines & Eligibility"}
-          </button>
-        ))}
-      </nav>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">
-            Vitamin Supplementation
-          </h1>
-          <p className="mt-1 text-muted-foreground">
-            Child administration records and batch inventory
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {tab === "clinical" && clinicalAllowed && (
-            <button className={button} onClick={() => open("CLINICAL")}>
-              <Plus size={18} />
-              Record Clinical Supplementation
-            </button>
-          )}
-          {tab === "records" &&
-            (data?.permissions.record || data?.role === "RHM") && (
-              <button className={button} onClick={() => open("RECORD")}>
-                <Plus size={18} />
-                Record Administration
-              </button>
-            )}
-          {tab === "records" &&
-            (data?.permissions.record || data?.role === "RHM") && (
-              <button className={button} onClick={() => open("DISPENSE")}>
-                <Plus size={18} />
-                Record Dispensing
-              </button>
-            )}
-          {tab === "plans" && data?.permissions.stock && (
-            <button className={button} onClick={() => open("PLAN")}>
-              <Plus size={18} />
-              Register Supply Plan
-            </button>
-          )}
-        </div>
+    <div className="space-y-5">
+      {/* Header block: title and subtitle, then the module tabs; one divider below. */}
+      <div className="space-y-4">
+        <PageHeader
+          title="Vitamin Supplementation"
+          subtitle="Child administration records and batch inventory"
+          actions={recordActions}
+        />
+        <TabBar
+          className="pb-5"
+          label="Supplementation views"
+          group="supplementation"
+          value={activeTab}
+          onChange={setTab}
+          items={[
+            { value: "records", label: "Records" },
+            { value: "supplements", label: "Supplements" },
+            ...(showFollowUp ? [{ value: "followup" as const, label: "Follow-up" }] : []),
+          ]}
+        />
       </div>
 
       {!online && cacheDate && (
-        <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
+        <p role="status" className="rounded-2xl border border-review-line/40 bg-review-soft p-4 text-sm text-review">
           Cached data from {new Date(cacheDate).toLocaleString()}. A draft does
           not reserve stock or create a saved child-history entry.
         </p>
       )}
 
       {drafts.length > 0 && (
-        <section className="rounded-2xl border border-amber-200 bg-white p-5">
-          <h2 className="font-semibold">
-            Pending Offline / Unconfirmed Submissions ({drafts.length})
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Review, edit and confirm each draft. Nothing uploads automatically.
-            An uncertain submission may already exist on the server; retry it
-            unchanged first.
-          </p>
+        <section aria-label="Pending offline submissions" className="space-y-3 rounded-2xl border border-sky-200 bg-sky-50/70 p-5">
+          <div>
+            <h2 className="font-semibold text-brand-navy">
+              Pending Offline / Unconfirmed Submissions ({drafts.length})
+            </h2>
+            <p className="mt-1 text-sm text-brand-muted">
+              Review, edit and confirm each draft. Nothing uploads automatically.
+              An uncertain submission may already exist on the server; retry it
+              unchanged first.
+            </p>
+          </div>
           {drafts.map((d) => (
-            <div
-              key={d.key}
-              className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3"
-            >
+            <div key={d.key} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-line bg-white p-3">
               <div>
-                <p className="font-medium">
+                <p className="font-semibold text-brand-navy">
                   {d.childName} ·{" "}
                   {d.action === "CLINICAL"
                     ? "Clinical administration"
@@ -1554,30 +1620,18 @@ export default function SupplementsPage() {
                       : "Dispensing"}{" "}
                   · {d.form.date}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  {d.status} · Saved {new Date(d.savedAt).toLocaleString()}
+                <p className="text-xs text-brand-muted">
+                  {nutritionLabel(d.status)} · Saved {new Date(d.savedAt).toLocaleString()}
                 </p>
-                {d.lastError && (
-                  <p className="mt-1 text-sm text-red-700">{d.lastError}</p>
-                )}
+                {d.lastError && <p className="mt-1 text-sm text-danger">{d.lastError}</p>}
               </div>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  disabled={saving || loading}
-                  className="text-sm text-primary underline"
-                  onClick={() => void reviewDraft(d)}
-                >
+              <div className="flex gap-2">
+                <Button variant="secondary" size="sm" disabled={saving || loading} onClick={() => void reviewDraft(d)}>
                   Review / Edit
-                </button>
-                <button
-                  type="button"
-                  disabled={saving}
-                  className="text-sm text-red-700 underline"
-                  onClick={() => void discardDraft(d)}
-                >
+                </Button>
+                <Button variant="ghost" size="sm" className="text-danger" disabled={saving} onClick={() => void discardDraft(d)}>
                   Discard
-                </button>
+                </Button>
               </div>
             </div>
           ))}
@@ -1585,410 +1639,395 @@ export default function SupplementsPage() {
       )}
 
       {!online && (
-        <p className="rounded-xl bg-amber-50 p-4 text-amber-900">
+        <p role="status" className="rounded-2xl border border-review-line/40 bg-review-soft p-4 text-sm text-review">
           Offline: administration and dispensing can be saved as local drafts
           using previously loaded data. Stock and nutrition results may be
           outdated. Reconnection never submits drafts automatically.
         </p>
       )}
-      {error && (
-        <div role="alert" className="rounded-xl bg-red-50 p-4 text-red-800">
-          {error}
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="ml-3 underline"
-          >
-            Refresh
-          </button>
+      {error && !modal && !data && (
+        <LoadError what="supplementation records" error={error} retrying={loading} onRetry={() => void load()} />
+      )}
+      {error && !modal && data && (
+        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-2xl border border-danger/20 bg-danger-soft p-4 text-sm text-brand-navy">
+          <span className="min-w-0 flex-1">{error}</span>
+          <Button variant="secondary" size="sm" onClick={() => void load()}>Refresh</Button>
         </div>
       )}
       {notice && (
-        <p role="status" className="rounded-xl bg-teal-50 p-4 text-teal-800">
+        <p role="status" className="rounded-2xl border border-good/20 bg-good-soft p-4 text-sm font-semibold text-good">
           {notice}
         </p>
       )}
 
-      {tab === "records" && (
-        <div className="grid gap-4 sm:grid-cols-3">
-          {[
-            [
-              "Supplement Products",
-              data?.products.filter((p) => p.catalog_code).length ?? 0,
-            ],
-            [
-              "Saved Administration / Supply Entries",
-              data?.records.length ?? 0,
-            ],
-            [
-              "Expired Batches with Stock",
-              data?.batches.filter(
-                (b) =>
-                  b.expiry_date < today() && Number(b.quantity_on_hand) > 0,
-              ).length ?? 0,
-            ],
-          ].map(([label, count]) => (
-            <div
-              key={label}
-              className="rounded-2xl border border-border bg-white p-6"
-            >
-              <p className="text-sm text-muted-foreground">{label}</p>
-              <p className="mt-2 text-3xl font-bold">{count}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {tab === "stock" && owner && (
-        <SupplementStockRequestsPanel
-          key={owner}
-          ownerId={owner}
-          online={online}
-        />
-      )}
-
-      {tab === "sms" ? (
-        owner ? (
-          <SupplementationSmsPanel
-            key={owner}
-            ownerId={owner}
-            online={online}
-          />
-        ) : (
-          <p>Please sign in to view SMS reminders.</p>
-        )
-      ) : tab === "monitoring" ? (
-        data?.permissions.monitor && owner ? (
-          <SupplementationMonitoringPanel
-            key={owner}
-            ownerId={owner}
-            online={online}
-          />
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Monitoring is available to supervising PHNs and system
-            administrators.
-          </p>
-        )
-      ) : loading ? (
-        <p>Loading supplementation data…</p>
-      ) : data && (tab === "records" || tab === "clinical") ? (
-        <div className="overflow-hidden rounded-2xl border border-border bg-white">
-          <div className="flex flex-wrap justify-between gap-3 border-b border-border p-5">
-            <h2 className="font-semibold">
-              {tab === "clinical"
-                ? "Clinical-Tier Administrations"
-                : "Recorded Administrations & Supply Issues"}
-            </h2>
-            <input
-              aria-label="Search child"
-              placeholder="Search child name"
-              className="rounded-lg border px-3 py-2 text-sm"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+      <TabPanel tabKey={activeTab} className="space-y-4">
+        {activeTab === "records" && (
+          <>
+            <SectionHeader
+              title="Administration and supply records"
+              subtitle="Saved administrations, supply issues and supply plans for children in your scope."
+              about="Entries are saved administrations and supply issues. Clinical-tier entries are recorded by assigned RHMs against a verified clinical protocol and documented order. Supply plans register authorized quantities for a period; issuing supplies does not prove administration or course completion."
             />
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-muted">
-                <tr>
-                  {[
-                    "Child",
-                    "Date",
-                    "Entry Type",
-                    "Supplement",
-                    "Dose",
-                    "Stock Used",
-                    "Batch",
-                    "Nutrition Basis",
-                    "Tier / Order",
-                  ].map((h) => (
-                    <th key={h} className="px-5 py-4 text-left text-sm">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {records.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={9}
-                      className="p-8 text-center text-muted-foreground"
-                    >
-                      No saved entries match this view.
-                    </td>
-                  </tr>
-                ) : (
-                  records.map((r) => {
-                    const c = data.children.find(
-                        (c) => c.child_id === r.child_id,
-                      ),
-                      p = data.products.find(
-                        (p) => p.supplement_id === r.supplement_id,
-                      );
-                    return (
-                      <tr key={r.supplementation_record_id}>
-                        <td className="px-5 py-4 text-sm">
-                          <a
-                            className="text-primary underline"
-                            href={`/child-profiling/children/${r.child_id}`}
-                          >
-                            {c ? name(c) : `Child ${r.child_id}`}
-                          </a>
-                        </td>
-                        <td className="px-5 py-4 text-sm">
-                          {r.supplementation_date}
-                        </td>
-                        <td className="px-5 py-4 text-sm">
-                          {r.record_type === "DISPENSED"
-                            ? "Dispensed"
-                            : r.record_type === "ADMINISTERED"
-                              ? "Administered"
-                              : "Legacy entry"}
-                        </td>
-                        <td className="px-5 py-4 text-sm">
-                          {p?.item?.item_name ?? `Product ${r.supplement_id}`}
-                        </td>
-                        <td className="px-5 py-4 text-sm">
-                          {r.record_type === "DISPENSED"
-                            ? "Not an administered dose"
-                            : r.dose_value == null
-                              ? "Not recorded"
-                              : `${r.dose_value} ${r.dose_unit ?? ""}`}
-                        </td>
-                        <td className="px-5 py-4 text-sm">
-                          {r.quantity_given} {p?.item?.unit}
-                        </td>
-                        <td className="px-5 py-4 text-sm">
-                          {r.batch_number ?? "—"}
-                        </td>
-                        <td className="px-5 py-4 text-sm">
-                          {r.source_assessment_id
-                            ? `Assessment #${r.source_assessment_id}`
-                            : r.plan_id &&
-                                data.plans.find((p) => p.plan_id === r.plan_id)
-                                  ?.source_assessment_id
-                              ? `Plan assessment #${data.plans.find((p) => p.plan_id === r.plan_id)?.source_assessment_id}`
-                              : "No linked assessment"}
-                        </td>
-                        <td className="px-5 py-4 text-sm">
-                          {r.tier ??
-                            (r.record_type === "DISPENSED"
-                              ? "Supply issue"
-                              : "Legacy — tier not recorded")}
-                          {r.order_reference && (
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              Order: {r.order_reference}
-                            </p>
-                          )}
-                          {r.tier === "CLINICAL" && (
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              {r.clinical_indication?.replaceAll("_", " ") ??
-                                "Indication not recorded"}{" "}
-                              · Course {r.course_reference ?? "not recorded"} ·
-                              Dose {r.clinical_dose_number ?? "not recorded"}
-                            </p>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : data && tab === "plans" ? (
-        <div className="rounded-2xl border border-border bg-white p-5">
-          <h2 className="font-semibold">Supply Plans</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Registered supply periods and quantities. Issuing supplies does not
-            prove administration or course completion.
-          </p>
-          {data.plans.length === 0 ? (
-            <p className="py-6 text-muted-foreground">
-              No documented supply plans yet.
-            </p>
-          ) : (
-            data.plans.map((p) => {
-              const used = data.records
-                .filter(
-                  (r) =>
-                    r.plan_id === p.plan_id && r.record_type === "DISPENSED",
-                )
-                .reduce((n, r) => n + Number(r.quantity_given), 0);
-              const c = data.children.find((c) => c.child_id === p.child_id);
-              const product = data.products.find(
-                (x) => x.supplement_id === p.supplement_id,
-              );
-              return (
-                <div
-                  key={p.plan_id}
-                  className="mt-4 rounded-lg border p-4 text-sm"
-                >
-                  <p className="font-semibold">
-                    Plan #{p.plan_id} · {c ? name(c) : `Child ${p.child_id}`} ·{" "}
-                    {product?.item?.item_name}
-                  </p>
-                  <p>
-                    {p.start_date} to {p.end_date} · {used} of{" "}
-                    {p.authorized_quantity} {product?.item?.unit} issued
-                  </p>
-                  <p className="mt-2">Remarks: {p.remarks ?? "—"}</p>
-                  <p className="text-muted-foreground">
-                    Product: {p.product_label}
-                  </p>
-                </div>
-              );
-            })
-          )}
-        </div>
-      ) : data && tab === "guidelines" ? (
-        guidelinesPanel
-      ) : (
-        data && (
-          <div className="overflow-hidden rounded-2xl border border-border bg-white">
-            <h2 className="flex items-center gap-2 border-b p-5 font-semibold">
-              <Package size={18} />
-              Supplement Inventory
-            </h2>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-muted">
-                  <tr>
-                    {[
-                      "Product / Barangay",
-                      "Aggregate Stock",
-                      "Batch",
-                      "Batch Stock",
-                      "Expiry",
-                      "Status",
-                    ].map((h) => (
-                      <th key={h} className="px-5 py-4 text-left text-sm">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {data.inventory.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={6}
-                        className="p-8 text-center text-muted-foreground"
-                      >
-                        No stock yet. RHM can request stock above. Available
-                        batches will be supplied through PHN-approved Inventory
-                        allocation.
-                      </td>
-                    </tr>
-                  ) : (
-                    data.inventory.flatMap((i) => {
-                      const p = data.products.find(
-                          (p) => p.supplement_id === i.item_id,
-                        ),
-                        bs = data.batches.filter(
-                          (b) => b.inventory_id === i.inventory_id,
-                        ),
-                        sum = bs.reduce(
-                          (n, b) => n + Number(b.quantity_on_hand),
-                          0,
-                        );
-                      return (bs.length ? bs : [null]).map((b) => (
-                        <tr key={`${i.inventory_id}:${b?.batch_id ?? "none"}`}>
-                          <td className="px-5 py-4 text-sm">
-                            {p?.item?.item_name}
-                            <p className="text-xs text-muted-foreground">
-                              {
-                                data.barangays.find(
-                                  (x) => x.barangay_id === i.barangay_id,
-                                )?.barangay_name
-                              }
-                            </p>
-                          </td>
-                          <td className="px-5 py-4 text-sm">
-                            {i.quantity_on_hand} {p?.item?.unit}
-                            {sum !== Number(i.quantity_on_hand) && (
-                              <p className="text-amber-700">
-                                Batch reconciliation required
-                              </p>
-                            )}
-                          </td>
-                          <td className="px-5 py-4 text-sm">
-                            {b?.batch_number ?? "Unallocated"}
-                          </td>
-                          <td className="px-5 py-4 text-sm">
-                            {b?.quantity_on_hand ?? "—"}
-                          </td>
-                          <td className="px-5 py-4 text-sm">
-                            {b?.expiry_date ?? "—"}
-                          </td>
-                          <td className="px-5 py-4 text-sm">
-                            {!b
-                              ? "Needs batch allocation"
-                              : b.expiry_date < today()
-                                ? "Expired"
-                                : Number(b.quantity_on_hand) === 0
-                                  ? "Out of stock"
-                                  : "Available"}
-                          </td>
-                        </tr>
-                      ));
-                    })
+            {/* Sub-tabs and filters: one tight block (12px), like Vaccination's toolbar. */}
+            <div className="space-y-3">
+            <TabBar
+              className="border-b-0 pb-0"
+              label="Record views"
+              group="supplementation-records"
+              value={recordView}
+              onChange={setRecordView}
+              items={[
+                { value: "entries", label: <>Entries<span className="ml-1.5 rounded-full bg-brand-ice px-1.5 text-[11px] font-semibold tabular-nums text-brand-navy">{data?.records.length ?? 0}</span></> },
+                { value: "plans", label: <>Supply plans<span className="ml-1.5 rounded-full bg-brand-ice px-1.5 text-[11px] font-semibold tabular-nums text-brand-navy">{data?.plans.length ?? 0}</span></> },
+              ]}
+            />
+            <FilterCard
+              refresh={
+                <>
+                  {owner && canSendReminders && (
+                    <Button variant="secondary" onClick={() => setSmsOpen(true)}>
+                      <Send size={16} aria-hidden="true" /> Send reminders
+                    </Button>
                   )}
-                </tbody>
-              </table>
+                  {refreshButton}
+                </>
+              }
+              below={data && (
+                <CountsStrip
+                  label="Supplementation counts"
+                  items={[
+                    { label: "Supplement Products", value: data.products.filter((p) => p.catalog_code).length },
+                    { label: "Saved Administration / Supply Entries", value: data.records.length },
+                    { label: "Expired Batches with Stock", value: expiredWithStock, tone: "review" },
+                  ]}
+                />
+              )}
+            >
+              <div className="relative sm:col-span-2 lg:col-span-2">
+                <Search size={18} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="search"
+                  aria-label="Search child"
+                  className="pl-10"
+                  placeholder="Search child name"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                />
+              </div>
+              {recordView === "entries" && (
+                <Select aria-label="Tier" value={tierFilter} onChange={(e) => setTierFilter(e.target.value)}>
+                  <option value="ALL">All tiers</option>
+                  {Object.entries(TIER_PILL).map(([value, t]) => (
+                    <option key={value} value={value}>{t.label}</option>
+                  ))}
+                </Select>
+              )}
+            </FilterCard>
             </div>
-          </div>
-        )
-      )}
 
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-        <p className="flex items-center gap-2 font-semibold">
-          <AlertTriangle size={18} />
-          Protocol coverage
-        </p>
-        <p className="mt-1">
-          This catalog contains child commodities only. Vitamin A and authorized
-          deworming are recorded as administrations. LNS-SQ, MNP and iron drops
-          are issued against RHM/PHN-registered supply plans. Issuing supplies
-          does not confirm consumption or course completion. The system does not
-          prescribe iron doses or automatically select treatment from a
-          nutrition classification.
-        </p>
-      </div>
+            {/* Same fade as the module tabs when switching Entries / Supply plans. */}
+            <TabPanel tabKey={recordView}>
+            {loading && !data ? (
+              <LogoLoader size="section" label="Loading supplementation data…" />
+            ) : data && recordView === "entries" ? (
+              <section aria-label="Entries" className={REPORT_CARD}>
+                <div className="scroll-subtle overflow-x-auto">
+                  <table className="data-grid data-grid--hover w-full text-sm text-brand-navy">
+                    <thead>
+                      <tr>
+                        {["Child", "Date", "Entry Type", "Supplement", "Dose", "Stock Used", "Batch", "Nutrition Basis", "Tier"].map((h) => (
+                          <th key={h} scope="col" className={cn(head, "whitespace-nowrap")}>{h}</th>
+                        ))}
+                        <th scope="col" className={cn(head, pinned, "z-[2]")}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {records.length === 0 ? (
+                        <tr>
+                          <td colSpan={10}><EmptyState icon={SearchX} title="No saved entries match this view" description="Try a different filter or date range." /></td>
+                        </tr>
+                      ) : (
+                        pagedRecords.map((r, i) => {
+                          const p = data.products.find((x) => x.supplement_id === r.supplement_id);
+                          const tier = TIER_PILL[tierOf(r)];
+                          const key = `r${r.supplementation_record_id}`;
+                          const detailId = `entry-${r.supplementation_record_id}-detail`;
+                          const clinical = r.tier === "CLINICAL";
+                          const hasDetail = clinical || Boolean(r.order_reference || r.remarks);
+                          const c = childOf(r.child_id);
+                          return (
+                            <Fragment key={key}>
+                              <tr data-zebra={i % 2 === 1 || undefined} data-open={isOpen(key) || undefined} className="group cursor-pointer" onClick={(e) => openChild(e, r.child_id)}>
+                                <td className={cn(cell, firstCell, "min-w-44")}>{childCell(r.child_id)}</td>
+                                <td className={cn(cell, "whitespace-nowrap")}>{r.supplementation_date}</td>
+                                <td className={cell}>
+                                  {r.record_type === "DISPENSED" ? "Dispensed" : r.record_type === "ADMINISTERED" ? "Administered" : "Legacy entry"}
+                                </td>
+                                <td className={cn(cell, "min-w-48")}>{p?.item?.item_name ?? `Product ${r.supplement_id}`}</td>
+                                <td className={cn(cell, "min-w-32")}>
+                                  {r.record_type === "DISPENSED"
+                                    ? <span className="text-brand-muted">Not an administered dose</span>
+                                    : r.dose_value == null
+                                      ? notRecorded
+                                      : `${r.dose_value} ${r.dose_unit ?? ""}`}
+                                </td>
+                                <td className={cn(cell, "whitespace-nowrap")}>{r.quantity_given} {p?.item?.unit}</td>
+                                <td className={cn(cell, "whitespace-nowrap")}>{r.batch_number ?? <span className="text-brand-muted">—</span>}</td>
+                                <td className={cn(cell, "min-w-40")}>
+                                  {r.source_assessment_id
+                                    ? `Assessment #${r.source_assessment_id}`
+                                    : r.plan_id && data.plans.find((x) => x.plan_id === r.plan_id)?.source_assessment_id
+                                      ? `Plan assessment #${data.plans.find((x) => x.plan_id === r.plan_id)?.source_assessment_id}`
+                                      : <span className="text-brand-muted">No linked assessment</span>}
+                                </td>
+                                <td className={cell}><StatusBadge status={tierOf(r)} tone={tier.tone} label={tier.label} /></td>
+                                <td className={cn(cell, pinned, "z-[1]")}>
+                                  {rowActions(r.child_id, key, detailId, hasDetail, `${c ? name(c) : `child ${r.child_id}`}, ${r.supplementation_date}`)}
+                                </td>
+                              </tr>
+                              {hasDetail && detailRow(detailId, isOpen(key), clinical ? "Clinical details" : "Entry details", [
+                                ...(r.order_reference ? [["Order reference", r.order_reference] as [string, ReactNode]] : []),
+                                ...(clinical
+                                  ? ([
+                                      ["Indication", r.clinical_indication ? nutritionLabel(r.clinical_indication) : notRecorded],
+                                      ["Clinical dose", r.dose_value == null ? notRecorded : `${r.dose_value} ${r.dose_unit ?? ""}${r.clinical_dose_number ? ` · dose ${r.clinical_dose_number} of the course` : ""}`],
+                                      ["Course reference", r.course_reference ?? notRecorded],
+                                      ["Course start", r.course_start_date ?? notRecorded],
+                                    ] as [string, ReactNode][])
+                                  : []),
+                                ...(r.remarks ? [["Remarks", r.remarks] as [string, ReactNode]] : []),
+                              ])}
+                            </Fragment>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <Pagination {...recordPager} label="Entry pages" />
+              </section>
+            ) : data ? (
+              <section aria-label="Supply plans" className={REPORT_CARD}>
+                <div className="scroll-subtle overflow-x-auto">
+                  <table className="data-grid data-grid--hover w-full text-sm text-brand-navy">
+                    <thead>
+                      <tr>
+                        {["Plan", "Child", "Supplement", "Period"].map((h) => (
+                          <th key={h} scope="col" className={cn(head, "whitespace-nowrap")}>{h}</th>
+                        ))}
+                        <th scope="col" className={cn(head, "whitespace-nowrap text-right")}>Issued</th>
+                        <th scope="col" className={cn(head, pinned, "z-[2]")}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {plans.length === 0 ? (
+                        <tr>
+                          <td colSpan={6}><EmptyState icon={ClipboardList} title="No supply plans yet" description="Registered supply plans will be listed here." /></td>
+                        </tr>
+                      ) : (
+                        pagedPlans.map((p, i) => {
+                          const used = data.records
+                            .filter((r) => r.plan_id === p.plan_id && r.record_type === "DISPENSED")
+                            .reduce((n, r) => n + Number(r.quantity_given), 0);
+                          const product = data.products.find((x) => x.supplement_id === p.supplement_id);
+                          const key = `p${p.plan_id}`;
+                          const detailId = `plan-${p.plan_id}-detail`;
+                          return (
+                            <Fragment key={key}>
+                              <tr data-zebra={i % 2 === 1 || undefined} data-open={isOpen(key) || undefined} className="group cursor-pointer" onClick={(e) => openChild(e, p.child_id)}>
+                                <td className={cn(cell, firstCell, "whitespace-nowrap font-semibold")}>Plan #{p.plan_id}</td>
+                                <td className={cn(cell, "min-w-44")}>{childCell(p.child_id)}</td>
+                                <td className={cn(cell, "min-w-48")}>
+                                  {product?.item?.item_name ?? `Product ${p.supplement_id}`}
+                                  <span className="block text-xs text-brand-muted">{p.product_label}</span>
+                                </td>
+                                <td className={cn(cell, "whitespace-nowrap")}>{p.start_date} to {p.end_date}</td>
+                                <td className={cn(cell, "whitespace-nowrap text-right tabular-nums")}>
+                                  {used} of {p.authorized_quantity} {product?.item?.unit}
+                                </td>
+                                <td className={cn(cell, pinned, "z-[1]")}>{rowActions(p.child_id, key, detailId, true, `plan ${p.plan_id}`)}</td>
+                              </tr>
+                              {/* Plan details; room for per-month monitoring rows (e.g. LNS-SQ Month 1–3) later. */}
+                              {detailRow(detailId, isOpen(key), "Plan details", [
+                                ["Directions", p.directions ?? notRecorded],
+                                ["Authorization reference", p.authorization_reference ?? notRecorded],
+                                ["Indication", p.indication ?? notRecorded],
+                                ["Source assessment", p.source_assessment_id ? `Assessment #${p.source_assessment_id}` : <span className="text-brand-muted">No linked assessment</span>],
+                                ["Product", p.product_label],
+                                ["Remarks", p.remarks ?? "—"],
+                              ])}
+                            </Fragment>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <Pagination {...planPager} label="Supply plan pages" />
+                <p className="border-t border-brand-line/70 px-4 py-3 text-[13px] text-brand-muted">
+                  Registered supply periods and quantities. Issuing supplies does not
+                  prove administration or course completion.
+                </p>
+              </section>
+            ) : null}
+            </TabPanel>
+          </>
+        )}
+
+        {activeTab === "supplements" && (
+          <>
+            <SectionHeader
+              title="Supplements"
+              subtitle="Stock and batches for your barangays, and the catalog's age limits and administration rules."
+              about="Stock arrives through PHN-approved batch requests. Expired batches with stock and batches that need reconciliation are flagged. The guidelines come from the active system catalog and protocols; they support staff review and do not select treatment or prescribe a dose."
+            />
+            <TabBar
+              className="border-b-0 pb-0"
+              label="Supplement views"
+              group="supplementation-supplements"
+              value={supplyView}
+              onChange={setSupplyView}
+              items={[
+                { value: "stock", label: "Stock & batches" },
+                { value: "guidelines", label: "Guidelines & eligibility" },
+              ]}
+            />
+            <TabPanel tabKey={supplyView} className="space-y-4">
+            {loading && !data ? (
+              <LogoLoader size="section" label="Loading supplementation data…" />
+            ) : supplyView === "guidelines" ? (
+              guidelinesPanel
+            ) : (
+              <>
+                {data && (
+                  <section aria-label="Supplement inventory" className={REPORT_CARD}>
+                    <div className="flex items-center gap-2 border-b border-brand-line px-4 py-3">
+                      <Package size={18} aria-hidden="true" className="text-brand-muted" />
+                      <h3 className="text-base font-semibold text-brand-navy">Supplement Inventory</h3>
+                    </div>
+                    <div className="scroll-subtle overflow-x-auto">
+                      <table className="data-grid w-full text-sm text-brand-navy">
+                        <thead>
+                          <tr>
+                            {["Product / Barangay", "Aggregate Stock", "Batch", "Batch Stock", "Expiry", "Status"].map((h, i) => (
+                              <th key={h} scope="col" className={cn(head, "whitespace-nowrap", (i === 1 || i === 3) && "text-right")}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.inventory.length === 0 ? (
+                            <tr>
+                              <td colSpan={6}><EmptyState icon={Package} title="No supplement stock yet" description="RHM can request stock below. Batches arrive through PHN-approved requests." /></td>
+                            </tr>
+                          ) : (
+                            data.inventory.flatMap((inv) => {
+                              const p = data.products.find((x) => x.supplement_id === inv.item_id);
+                              const bs = data.batches.filter((b) => b.inventory_id === inv.inventory_id);
+                              const sum = bs.reduce((n, b) => n + Number(b.quantity_on_hand), 0);
+                              return (bs.length ? bs : [null]).map((b) => {
+                                const status = !b
+                                  ? { label: "Needs batch allocation", tone: "review" as const }
+                                  : b.expiry_date < today()
+                                    ? { label: "Expired", tone: "danger" as const }
+                                    : Number(b.quantity_on_hand) === 0
+                                      ? { label: "Out of stock", tone: "neutral" as const }
+                                      : { label: "Available", tone: "good" as const };
+                                return { key: `${inv.inventory_id}:${b?.batch_id ?? "none"}`, inv, p, b, sum, status };
+                              });
+                            }).map(({ key, inv, p, b, sum, status }, i) => (
+                              <tr key={key} data-zebra={i % 2 === 1 || undefined}>
+                                <td className={cn(cell, "min-w-48")}>
+                                  {p?.item?.item_name}
+                                  <span className="block text-xs text-brand-muted">
+                                    {data.barangays.find((x) => x.barangay_id === inv.barangay_id)?.barangay_name}
+                                  </span>
+                                </td>
+                                <td className={cn(cell, "whitespace-nowrap text-right tabular-nums")}>
+                                  {inv.quantity_on_hand} {p?.item?.unit}
+                                  {sum !== Number(inv.quantity_on_hand) && (
+                                    <span className="block text-xs font-semibold text-review">Batch reconciliation required</span>
+                                  )}
+                                </td>
+                                <td className={cell}>{b?.batch_number ?? <span className="text-brand-muted">Unallocated</span>}</td>
+                                <td className={cn(cell, "text-right tabular-nums")}>{b?.quantity_on_hand ?? <span className="text-brand-muted">—</span>}</td>
+                                <td className={cn(cell, "whitespace-nowrap")}>{b?.expiry_date ?? <span className="text-brand-muted">—</span>}</td>
+                                <td className={cell}><StatusBadge status={status.label} tone={status.tone} label={status.label} /></td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                )}
+                {owner && <SupplementStockRequestsPanel key={owner} ownerId={owner} online={online} />}
+              </>
+            )}
+            </TabPanel>
+          </>
+        )}
+
+        {activeTab === "followup" && owner && (
+          <SupplementationMonitoringPanel key={owner} ownerId={owner} online={online} />
+        )}
+      </TabPanel>
+
+      <GuidanceCard title="Protocol coverage">
+        This catalog contains child commodities only. Vitamin A and authorized
+        deworming are recorded as administrations. LNS-SQ, MNP and iron drops
+        are issued against RHM/PHN-registered supply plans. Issuing supplies
+        does not confirm consumption or course completion. The system does not
+        prescribe iron doses or automatically select treatment from a
+        nutrition classification.
+      </GuidanceCard>
+
+      {smsOpen && owner && (
+        <Modal
+          open
+          size="xl"
+          title="Send reminders"
+          subtitle="Supplementation reminders to guardians. Sent reminders are listed in Alerts › SMS Overview."
+          onClose={() => setSmsOpen(false)}
+          cancelLabel="Close"
+        >
+          <SupplementationSmsPanel key={owner} ownerId={owner} online={online} />
+        </Modal>
+      )}
 
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-          <form
-            onSubmit={save}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="supplement-dialog"
-            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6"
-          >
-            <div className="mb-5 flex justify-between">
-              <h2 id="supplement-dialog" className="text-xl font-bold">
-                {modal === "CLINICAL"
+        <Modal
+          open
+          size="xl"
+          onClose={() => setModal(null)}
+          busy={saving}
+          title={modal === "CLINICAL"
                   ? "Record Clinical-Tier Supplementation"
                   : modal === "RECORD"
                     ? "Record Actual Administration"
                     : modal === "PLAN"
                       ? "Register Supply Plan"
-                      : modal === "DISPENSE"
-                        ? "Record Supply Dispensing"
-                        : "Receive / Allocate Batch"}
-              </h2>
-              <button
-                type="button"
-                disabled={saving}
-                aria-label="Close"
-                onClick={() => setModal(null)}
-              >
-                <X />
-              </button>
-            </div>
+                      : "Record Supply Dispensing"}
+          onSubmit={save}
+          footer={<Button type="submit" loading={saving} disabled={
+                  saving ||
+                  loading ||
+                  (!online &&
+                    modal !== "RECORD" &&
+                    modal !== "DISPENSE" &&
+                    modal !== "CLINICAL") ||
+                  (editingDraft !== null && online && !draftConfirmed) ||
+                  (modal === "PLAN" && ageEligibility?.eligible === false) ||
+                  (modal === "CLINICAL" && !retryClinicalProtocol())
+                }>
+{saving
+                  ? "Saving…"
+                  : !online
+                    ? "Save Offline Draft"
+                    : editingDraft
+                      ? "Confirm & Submit"
+                      : "Save"}
+          </Button>}
+        >
             {error && (
               <p role="alert" className="mb-4 text-sm text-red-700">
                 {error}
@@ -2049,7 +2088,7 @@ export default function SupplementsPage() {
                     "quantity",
                     "number",
                   )}
-                  <label className="text-sm font-medium sm:col-span-2">
+                  <label className={cn(fieldLabel, "sm:col-span-2")}>
                     Remarks (optional)
                     <textarea
                       rows={3}
@@ -2106,38 +2145,6 @@ export default function SupplementsPage() {
                     not save an administered dose or mark the course completed.
                   </p>
                 </>
-              ) : modal === "RECEIVE" ? (
-                <>
-                  {select("Product", "supplementId", productOptions)}
-                  {productPanel}
-                  {select(
-                    "Barangay",
-                    "barangayId",
-                    data?.barangays.map((b) => ({
-                      value: String(b.barangay_id),
-                      label: b.barangay_name,
-                    })) ?? [],
-                  )}
-                  {field("Batch Number", "batchNumber")}
-                  {field(
-                    `Quantity Received (${catalog?.unit ?? "stock units"})`,
-                    "quantity",
-                    "number",
-                  )}
-                  {field("Receipt Date", "receivedDate", "date")}
-                  {field("Expiry Date", "expiryDate", "date")}
-                  <label className="text-sm sm:col-span-2">
-                    <input
-                      type="checkbox"
-                      checked={form.allocateExisting}
-                      onChange={(e) =>
-                        change("allocateExisting", e.target.checked)
-                      }
-                    />{" "}
-                    Allocate existing unbatched stock instead of adding new
-                    stock
-                  </label>
-                </>
               ) : (
                 <>
                   {select(
@@ -2166,7 +2173,7 @@ export default function SupplementsPage() {
                           ...new Set(clinicalProtocols.map((p) => p.purpose)),
                         ].map((value) => ({
                           value,
-                          label: value.replaceAll("_", " "),
+                          label: nutritionLabel(value),
                         })),
                       )
                     : select("Purpose", "purpose", [
@@ -2232,14 +2239,14 @@ export default function SupplementsPage() {
                   )}
                   {modal === "CLINICAL" && (
                     <>
-                      <label className="text-sm font-medium">
+                      <label className={fieldLabel}>
                         Clinical indication
                         <input
                           readOnly
                           required
                           className={input}
                           value={
-                            form.clinicalIndication?.replaceAll("_", " ") ?? ""
+                            form.clinicalIndication ? nutritionLabel(form.clinicalIndication) : ""
                           }
                         />
                       </label>
@@ -2283,7 +2290,7 @@ export default function SupplementsPage() {
                               className="mt-1"
                             >
                               {r.course_reference} ·{" "}
-                              {r.clinical_indication?.replaceAll("_", " ")} ·
+                              {r.clinical_indication ? nutritionLabel(r.clinical_indication) : "Indication not recorded"} ·
                               started{" "}
                               {r.course_start_date ?? r.supplementation_date}
                             </p>
@@ -2291,7 +2298,7 @@ export default function SupplementsPage() {
                         </div>
                       )}
                       {field("Actual dose", "clinicalDoseValue", "number")}
-                      <label className="text-sm font-medium">
+                      <label className={fieldLabel}>
                         Dose unit
                         <input
                           readOnly
@@ -2347,40 +2354,7 @@ export default function SupplementsPage() {
                 checks still apply.
               </label>
             )}
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => setModal(null)}
-                className="rounded-lg border px-4 py-2"
-              >
-                Cancel
-              </button>
-              <button
-                disabled={
-                  saving ||
-                  loading ||
-                  (!online &&
-                    modal !== "RECORD" &&
-                    modal !== "DISPENSE" &&
-                    modal !== "CLINICAL") ||
-                  (editingDraft !== null && online && !draftConfirmed) ||
-                  (modal === "PLAN" && ageEligibility?.eligible === false) ||
-                  (modal === "CLINICAL" && !retryClinicalProtocol())
-                }
-                className={button}
-              >
-                {saving
-                  ? "Saving…"
-                  : !online
-                    ? "Save Offline Draft"
-                    : editingDraft
-                      ? "Confirm & Submit"
-                      : "Save"}
-              </button>
-            </div>
-          </form>
-        </div>
+        </Modal>
       )}
     </div>
   );

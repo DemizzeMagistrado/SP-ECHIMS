@@ -1,4 +1,5 @@
 'use client'
+import { toSmsGatewayNumber } from '@/lib/phone'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useEffect, useRef, useState } from 'react'
 type Props = {
@@ -6,13 +7,7 @@ type Props = {
   canEdit: boolean
   onSaved: () => Promise<unknown> | void
 }
-function normalizeMobile(value: string | null | undefined) {
-  const number = value?.trim() ?? ''
-  if (/^09\d{9}$/.test(number)) return `63${number.slice(1)}`
-  if (/^639\d{9}$/.test(number)) return number
-  if (/^\+639\d{9}$/.test(number)) return number.slice(1)
-  return null
-}
+const normalizeMobile = toSmsGatewayNumber;
 async function read(response: Response) {
   const body = await response.json().catch(() => null)
   if (!response.ok || !body || typeof body !== 'object') throw new Error(body?.error ?? 'Unable to process guardian SMS preferences.')

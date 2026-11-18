@@ -12,8 +12,13 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import { useEffect, useState } from 'react'
 import useSWR from 'swr'
-import { X, AlertCircle, Loader2, Syringe, Hash, MapPin, Package, FileText } from 'lucide-react'
-import { useToast } from '@/components/ui/toast'
+import { AlertCircle, Syringe, MapPin, Package, FileText } from 'lucide-react'
+import { toast } from '@/components/ui/toast'
+import { Spinner } from '@/components/brand/logo-loader'
+import { Button } from '@/components/ui/button'
+import { BatchNumberField, checkBatchNumber } from '@/components/inventory/batch-number-field'
+import { Modal } from '@/components/ui/modal'
+import { Input, Select, Textarea } from '@/components/ui/form'
 
 type VaccineOption = {
   vaccine_id: number
@@ -40,7 +45,6 @@ function one<T>(v: T | T[] | null | undefined): T | null {
 }
 
 export function BatchRequestModal({ open, onClose, onSaved }: Props) {
-  const { showToast } = useToast()
   const vaccinesSWR = useSWR<{ vaccines: VaccineOption[] }>(open ? '/api/vaccines' : null, fetcher)
   const barangaysSWR = useSWR<{ barangays: BarangayOption[] } | BarangayOption[]>(open ? '/api/barangays' : null, fetcher)
 
@@ -70,7 +74,8 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
     setFormError('')
     if (!vaccineId) return setFormError('Please pick a vaccine.')
     if (!barangayId) return setFormError('Please pick a target barangay.')
-    if (!batchNumber.trim()) return setFormError('Batch number is required.')
+    const batch = checkBatchNumber(batchNumber, true)
+    if (batch.error) return setFormError(`Batch number: ${batch.error}`)
     const qty = Number(quantity)
     if (!Number.isFinite(qty) || qty <= 0) return setFormError('Quantity must be a positive number.')
 
@@ -82,14 +87,14 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
         body: JSON.stringify({
           vaccine_id: Number(vaccineId),
           target_barangay_id: Number(barangayId),
-          batch_number: batchNumber.trim(),
+          batch_number: batch.value,
           requested_quantity: qty,
           remarks: remarks.trim() || undefined,
         }),
       })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(d.error || `Save failed (HTTP ${r.status}).`)
-      showToast({ type: 'success', message: `Batch request #${d.stock_request_id} submitted — awaiting PHN review.` })
+      toast.success(`Batch request #${d.stock_request_id} submitted — awaiting PHN review.`)
       onSaved?.()
       onClose()
     } catch (err) {
@@ -99,46 +104,43 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
     }
   }
 
-  if (!open) return null
 
   const selectedVaccine = vaccines.find((v) => String(v.vaccine_id) === vaccineId) ?? null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 border-b border-border p-6">
-          <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-primary">
-              <Package size={18} />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-foreground">New vaccine batch request</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                Request a vaccine batch to be allocated to a barangay. Submits as <strong>PENDING</strong> for PHN review.
-              </p>
-            </div>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-1 text-muted-foreground hover:bg-muted">
-            <X size={20} />
-          </button>
-        </div>
+    <Modal
+      open={open}
+      onClose={onClose}
+      busy={saving}
+      size="lg"
+      icon={<Package />}
+      title="New vaccine batch request"
+      subtitle={<>Request a vaccine batch to be allocated to a barangay. Submits as <strong>PENDING</strong> for PHN review.</>}
+      onSubmit={submit}
+      footer={<>
 
-        {/* Form */}
-        <form onSubmit={submit} className="space-y-5 p-6">
+            <Button
+              type="submit"
+              disabled={saving}
+            >
+              {saving ? <Spinner /> : <Package size={14} />}
+              {saving ? 'Submitting…' : 'Submit request'}
+            </Button>
+      </>}
+    >
+        <div className="space-y-5">
           {/* Vaccine + Barangay row */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <label htmlFor="br-vaccine" className="mb-1 block text-sm font-semibold text-foreground">
                 <Syringe size={13} className="mr-1 inline" /> Vaccine *
               </label>
-              <select
+              <Select
                 id="br-vaccine"
                 value={vaccineId}
                 onChange={(e) => setVaccineId(e.target.value)}
                 required
                 disabled={vaccinesSWR.isLoading}
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
               >
                 <option value="">
                   {vaccinesSWR.isLoading ? 'Loading…' : 'Select a vaccine…'}
@@ -147,7 +149,7 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
                   const name = one(v.item)?.item_name ?? v.vaccine_type
                   return <option key={v.vaccine_id} value={v.vaccine_id}>{name} ({v.vaccine_type})</option>
                 })}
-              </select>
+              </Select>
               {selectedVaccine && (
                 <p className="mt-1 text-xs text-muted-foreground">Code: {selectedVaccine.vaccine_type}</p>
               )}
@@ -156,13 +158,12 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
               <label htmlFor="br-barangay" className="mb-1 block text-sm font-semibold text-foreground">
                 <MapPin size={13} className="mr-1 inline" /> Target barangay *
               </label>
-              <select
+              <Select
                 id="br-barangay"
                 value={barangayId}
                 onChange={(e) => setBarangayId(e.target.value)}
                 required
                 disabled={barangaysSWR.isLoading}
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
               >
                 <option value="">
                   {barangaysSWR.isLoading ? 'Loading…' : 'Select a barangay…'}
@@ -170,31 +171,18 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
                 {barangays.map((b) => (
                   <option key={b.barangay_id} value={b.barangay_id}>{b.barangay_name}</option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
 
           {/* Batch + Quantity row */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label htmlFor="br-batch" className="mb-1 block text-sm font-semibold text-foreground">
-                <Hash size={13} className="mr-1 inline" /> Batch number *
-              </label>
-              <input
-                id="br-batch"
-                type="text"
-                value={batchNumber}
-                onChange={(e) => setBatchNumber(e.target.value)}
-                required
-                placeholder="e.g. BCG-2026-A001"
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-              />
-            </div>
+            <BatchNumberField id="br-batch" required value={batchNumber} onChange={setBatchNumber} />
             <div>
               <label htmlFor="br-qty" className="mb-1 block text-sm font-semibold text-foreground">
                 <Package size={13} className="mr-1 inline" /> Quantity (doses) *
               </label>
-              <input
+              <Input
                 id="br-qty"
                 type="number"
                 min="1"
@@ -203,7 +191,6 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
                 onChange={(e) => setQuantity(e.target.value)}
                 required
                 placeholder="50"
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
               />
             </div>
           </div>
@@ -213,13 +200,12 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
             <label htmlFor="br-remarks" className="mb-1 block text-sm font-semibold text-foreground">
               <FileText size={13} className="mr-1 inline" /> Remarks <span className="text-muted-foreground font-normal">(optional)</span>
             </label>
-            <textarea
+            <Textarea
               id="br-remarks"
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               rows={2}
               placeholder="Why is this batch needed? (urgency, expiring stock, scheduled campaign…)"
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
             />
           </div>
 
@@ -232,26 +218,7 @@ export function BatchRequestModal({ open, onClose, onSaved }: Props) {
           )}
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
-            >
-              {saving ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />}
-              {saving ? 'Submitting…' : 'Submit request'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </div>
+    </Modal>
   )
 }

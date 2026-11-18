@@ -3,7 +3,12 @@ import { Sidebar } from '@/components/dashboard/sidebar'
 import { TopNav } from '@/components/dashboard/top-nav'
 import { getAuthorizationContext } from '@/lib/auth/authorization'
 import { hasPermission, type Role } from '@/lib/auth/permissions'
-import { ToastProvider } from '@/components/ui/toast'
+import { RouteGate } from '@/components/auth/route-gate'
+import { DashboardShell } from '@/components/dashboard/shell'
+import { SessionGate } from '@/components/auth/session-gate'
+import { NavProgress } from '@/components/dashboard/nav-progress'
+import { LoadingGate } from '@/components/brand/loading-gate'
+import { PrintHeader } from '@/components/ui/print-header'
 
 export default async function DashboardLayout({
   children,
@@ -26,6 +31,8 @@ export default async function DashboardLayout({
         <TopNav />
 
         <main className="flex flex-1 items-center justify-center p-8">
+          {/* Always ready: lets the sign-in overlay know this page has rendered. */}
+          <LoadingGate ready className="w-full max-w-2xl">
           <div className="w-full max-w-2xl rounded-3xl bg-white p-10 text-center shadow-xl">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#CAF0F8]">
               <svg
@@ -86,11 +93,12 @@ export default async function DashboardLayout({
               </div>
             </div>
 
-            <p className="mt-6 text-xs leading-5 text-[#9CA3AF]">
+            <p className="mt-6 text-xs leading-5 text-[#6B7280]">
               You will receive access to eCHIMS functions after
               administrator approval.
             </p>
           </div>
+          </LoadingGate>
         </main>
       </div>
     )
@@ -113,23 +121,27 @@ export default async function DashboardLayout({
   }
 
   return (
-    <ToastProvider>
-      <div className="flex min-h-screen items-stretch bg-[#CAF0F8]">
-        <Sidebar
-          role={context.role}
-          fullName={context.profile.full_name}
-        />
+      <DashboardShell>
+        <a href="#main-content" className="sr-only z-[60] rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4">Skip to main content</a>
+        <NavProgress />
+        {/* Same sky tone as the sign-in page, so arriving after login feels continuous */}
+        <div className={`brand flex min-h-screen items-stretch bg-[linear-gradient(180deg,#CAF0F8_0%,#E4F6FA_40%,#F1FAFC_100%)] bg-fixed text-[#03045E] animate-in fade-in duration-500`}>
+          <Sidebar
+            role={context.role}
+            fullName={context.profile.full_name}
+          />
 
-        <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-          <TopNav />
+          <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+            <TopNav />
 
-          <main className="min-h-0 flex-1 overflow-y-auto bg-[#CAF0F8] p-8">
-            <div className="mx-auto w-full max-w-7xl">
-              {children}
-            </div>
-          </main>
+            <main id="main-content" tabIndex={-1} className="min-h-0 flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8">
+              <div className="mx-auto w-full max-w-7xl">
+                <PrintHeader />
+                <SessionGate><RouteGate>{children}</RouteGate></SessionGate>
+              </div>
+            </main>
+          </div>
         </div>
-      </div>
-    </ToastProvider>
+      </DashboardShell>
   )
 }

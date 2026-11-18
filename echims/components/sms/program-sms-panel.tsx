@@ -2,9 +2,19 @@
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { Spinner } from '@/components/brand/logo-loader'
+import { usePageLoading } from '@/components/brand/page-gate'
+import { EmptyState } from '@/components/ui/empty-state'
+import { MessageSquare } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { DateInput, Input, Select } from '@/components/ui/form'
+import { Pagination, usePagination } from '@/components/ui/pagination'
 
 type Program = "VACCINATION" | "SUPPLEMENTATION";
 type MessageType = "UPCOMING" | "OVERDUE";
+// UI wording: due today or later is "Pending"; past the due date is "Missed".
+const PHASE_LABEL: Record<string, string> = { ALL: "All", UPCOMING: "Pending", DUE_TODAY: "Due today", OVERDUE: "Missed" };
+const phaseLabel = (value: string) => PHASE_LABEL[value] ?? value.replace(/_/g, " ");
 type Outcome = "SIMULATED_SENT" | "SIMULATED_FAILED";
 type ErrorCode = "NETWORK_ERROR" | "INSUFFICIENT_CREDITS" | "PROVIDER_ERROR";
 type Row = {
@@ -83,6 +93,7 @@ export function ProgramSmsPanel({
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [reload, setReload] = useState(0);
+  usePageLoading(loading)
   const [selectedKey, setSelectedKey] = useState(""),
     [errorCode, setErrorCode] = useState<ErrorCode>("NETWORK_ERROR"),
     [busy, setBusy] = useState(false);
@@ -273,24 +284,23 @@ export function ProgramSmsPanel({
     setNotice("");
     setError("");
   }
+  const { visible: pagedRows, props: rowPager } = usePagination(rows);
   return (
     <section className="space-y-4 rounded-2xl border border-border bg-white p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-semibold">Guardian messages</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Upcoming message: one day before due. Overdue follow-up: starts one
-            day after due.
+            Reminder: one day before the due date. Missed-dose follow-up: starts
+            one day after the due date.
           </p>
         </div>
-        <button
-          type="button"
+        <Button variant="secondary"
           disabled={loading || busy || !online}
           onClick={() => setReload((old) => old + 1)}
-          className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
         >
           Refresh
-        </button>
+        </Button>
       </div>
       {!online && (
         <p className="text-sm text-amber-800">
@@ -320,49 +330,43 @@ export function ProgramSmsPanel({
         </p>
       )}
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading SMS reminders…</p>
+        <Spinner showLabel label="Loading SMS reminders…" className="w-full justify-center py-6 text-sm text-muted-foreground" />
       ) : (
         data && (
           <>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <label className="space-y-1 text-xs">
                 <span>Child or service</span>
-                <input
+                <Input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  className="w-full rounded-lg border p-2 text-sm"
                 />
               </label>
               <label className="space-y-1 text-xs">
                 <span>Status</span>
-                <select
+                <Select
                   value={filter}
                   onChange={(event) => setFilter(event.target.value)}
-                  className="w-full rounded-lg border p-2 text-sm"
                 >
                   {["ALL", "UPCOMING", "DUE_TODAY", "OVERDUE"].map((value) => (
                     <option key={value} value={value}>
-                      {value.replace(/_/g, " ")}
+                      {phaseLabel(value)}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label className="space-y-1 text-xs">
                 <span>Due from</span>
-                <input
-                  type="date"
+                <DateInput
                   value={from}
                   onChange={(event) => setFrom(event.target.value)}
-                  className="w-full rounded-lg border p-2 text-sm"
                 />
               </label>
               <label className="space-y-1 text-xs">
                 <span>Due through</span>
-                <input
-                  type="date"
+                <DateInput
                   value={to}
                   onChange={(event) => setTo(event.target.value)}
-                  className="w-full rounded-lg border p-2 text-sm"
                 />
               </label>
             </div>
@@ -388,15 +392,10 @@ export function ProgramSmsPanel({
                 <tbody className="divide-y divide-border">
                   {rows.length === 0 ? (
                     <tr>
-                      <td
-                        colSpan={7}
-                        className="px-3 py-5 text-muted-foreground"
-                      >
-                        No valid saved follow-ups match these filters.
-                      </td>
+                      <td colSpan={6}><EmptyState icon={MessageSquare} title="No follow-ups match these filters" description="Saved follow-ups with a valid number will appear here." /></td>
                     </tr>
                   ) : (
-                    rows.map((row) => (
+                    pagedRows.map((row) => (
                       <tr key={row.service_key}>
                         <td className="px-3 py-3">
                           <Link
@@ -409,7 +408,7 @@ export function ProgramSmsPanel({
                         <td className="px-3 py-3">{row.service_name}</td>
                         <td className="px-3 py-3">{row.due_date}</td>
                         <td className="px-3 py-3">
-                          {row.phase.replace(/_/g, " ")}
+                          {phaseLabel(row.phase)}
                         </td>
                         <td className="px-3 py-3">
                           {row.contact_status !== "CONFIRMED"
@@ -431,12 +430,13 @@ export function ProgramSmsPanel({
                 </tbody>
               </table>
             </div>
+            <Pagination {...rowPager} label="Follow-up pages" />
             {selected && (
               <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
                 <div className="flex flex-wrap justify-between gap-2 text-sm">
                   <label className="min-w-0 flex-1 text-xs">
                     Child / reminder
-                    <select
+                    <Select
                       aria-label="Child reminder preview"
                       disabled={busy}
                       value={selected.service_key}
@@ -446,14 +446,14 @@ export function ProgramSmsPanel({
                         );
                         if (row) select(row);
                       }}
-                      className="mt-1 block w-full rounded-lg border bg-white p-2 text-sm"
+                      className="mt-1 block w-full"
                     >
                       {data.rows.map((row) => (
                         <option key={row.service_key} value={row.service_key}>
                           {row.child_name} · {row.service_name} · {row.due_date}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </label>
                   <span>{selected.masked_number ?? "No confirmed number"}</span>
                 </div>
@@ -462,8 +462,8 @@ export function ProgramSmsPanel({
                     <p>Automatic message</p>
                     <p className="mt-2 rounded-lg border bg-white p-2 text-sm">
                       {messageType === "OVERDUE"
-                        ? "Overdue follow-up"
-                        : "Upcoming reminder"}
+                        ? "Missed-dose follow-up"
+                        : "Reminder before the due date"}
                     </p>
                   </div>
                   <div className="text-xs">
@@ -483,8 +483,8 @@ export function ProgramSmsPanel({
                 )}
                 {!selected.eligible && (
                   <p className="text-xs text-muted-foreground">
-                    Upcoming reminders are eligible on {selected.upcoming_date};
-                    overdue follow-ups start {selected.overdue_date}. Current
+                    The reminder can be sent on {selected.upcoming_date};
+                    the missed-dose follow-up starts {selected.overdue_date}. Current
                     guardian consent and a valid number are required.
                   </p>
                 )}
@@ -502,19 +502,18 @@ export function ProgramSmsPanel({
                 {data.canSend && data.simulationEnabled && (
                   <>
                     <div className="flex flex-wrap items-center gap-3">
-                      <button
-                        type="button"
+                      <Button
                         disabled={!ready}
                         onClick={() => void send("SIMULATED_SENT")}
-                        className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                       >
+                        {busy && <Spinner className="mr-2" />}
                         {busy
                           ? "Saving…"
                           : data.previewEnabled
                             ? "Simulate Send — Preview"
                             : "Simulate Send"}
-                      </button>
-                      <select
+                      </Button>
+                      <Select
                         aria-label="Simulated error scenario"
                         value={errorCode}
                         disabled={busy}
@@ -522,14 +521,14 @@ export function ProgramSmsPanel({
                           setErrorCode(event.target.value as ErrorCode);
                           intent.current = null;
                         }}
-                        className="rounded-lg border bg-white p-2 text-sm"
+                       
                       >
                         {(Object.keys(scenarios) as ErrorCode[]).map((code) => (
                           <option key={code} value={code}>
                             {scenarios[code]}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                       <button
                         type="button"
                         disabled={!ready}

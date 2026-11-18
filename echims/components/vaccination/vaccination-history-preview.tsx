@@ -11,7 +11,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 //     the dose was back-filled (NIP-USR008)
 //   • "Completed" chip grid: ✓ BCG · HEPB-1 · PENTA-1,2,3 … so the recorder
 //     sees what's already in the system at a glance
-//   • "Next due" callout — overdue days or "due today" — so the recorder can
+//   • "Next due" callout — "missed since <date>" or "due today" — so the recorder can
 //     confirm the dose they're about to administer actually matches
 //   • "Review full history →" link to the child profile
 //
@@ -21,8 +21,9 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import useSWR from 'swr'
 import Link from 'next/link'
 import { CheckCircle2, History, CalendarClock, AlertCircle, ArrowRight, Syringe } from 'lucide-react'
+import { Spinner } from '@/components/brand/logo-loader'
 
-type DoseStatus = 'COMPLETE' | 'DUE' | 'OVERDUE' | 'UPCOMING'
+type DoseStatus = 'COMPLETE' | 'DUE' | 'OVERDUE' | 'UPCOMING' | 'NOT_ELIGIBLE'
 
 type DoseRow = {
   dose_number: number
@@ -88,7 +89,7 @@ export function VaccinationHistoryPreview({ childId }: { childId: number }) {
   if (isLoading) {
     return (
       <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-800">
-        Loading vaccination history…
+        <span role="status" className="flex items-center gap-2"><Spinner label="Loading vaccination history…" />Loading vaccination history…</span>
       </div>
     )
   }
@@ -127,7 +128,7 @@ export function VaccinationHistoryPreview({ childId }: { childId: number }) {
     const diff = daysBetween(nextDue.due_date, today)
     if (diff < 0) nextDueLabel = `due in ${-diff} day${-diff === 1 ? '' : 's'}`
     else if (diff === 0) nextDueLabel = 'due today'
-    else nextDueLabel = `overdue by ${diff} day${diff === 1 ? '' : 's'}`
+    else nextDueLabel = `missed since ${new Date(nextDue.due_date + 'T00:00:00').toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}`
     if (diff > 0) nextDueTone = 'rose'
   }
 

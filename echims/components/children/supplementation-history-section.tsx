@@ -1,4 +1,6 @@
 'use client'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { RefreshCw } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import useSWR from 'swr'
@@ -6,6 +8,9 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { buildSupplementationDue, manilaToday } from '@/lib/supplementation-due'
 import type { NutritionBasis } from '@/lib/supplementation-nutrition'
+import { Spinner } from '@/components/brand/logo-loader'
+import { TabBar } from '@/components/ui/module-tabs'
+import { TabPanel } from '@/components/brand/page-gate'
 type Entry={purpose?:string|null;protocol_snapshot?:unknown;clinical_indication?:string|null;course_reference?:string|null;clinical_dose_number?:number|null;course_start_date?:string|null;tier?:string|null;order_reference?:string|null;recorded_by?:string|null;supplementation_record_id:number;supplementation_date:string;supplement_id:number;quantity_given:number;dose_value:number|null;dose_unit:string|null;record_type:string|null;batch_number:string|null;source_assessment_id:number|null;plan_id:number|null;remarks:string|null}
 type SupplyPlan={plan_id:number;supplement_id:number;start_date:string;end_date:string;authorized_quantity:number|string;product_label:string;source_assessment_id:number|null;remarks:string|null}
 type History={children:{child_id:number;date_of_birth:string;status:string}[];permissions?:{record:boolean;clinical:boolean;stock:boolean};records:Entry[];products:{supplement_id:number;item:{item_name:string;unit:string}|null}[];plans:SupplyPlan[];assessments:NutritionBasis[]}
@@ -39,8 +44,8 @@ export function SupplementationHistorySection({childId}:{childId:number}){
     setOwner(sharedAuth.user?.id??null);setAuthError('');setAuthReady(true);
   },[sharedAuth.isReady,sharedAuth.user?.id]);
   const {data,error,isLoading,mutate}=useSWR<History>(owner?[`/api/supplementation?childId=${childId}`,owner]:null,([url]:[string,string])=>fetchHistory(url));
-  const loadState=!authReady?<p className="p-5 text-sm">Verifying session…</p>:authError?<p role="alert" className="p-5 text-red-700">{authError}</p>:error?<div role="alert" className="p-5 text-sm text-red-700">{error.message}<button type="button" className="ml-3 underline" onClick={()=>void mutate()}>Retry</button></div>:isLoading?<p className="p-5 text-sm">Loading supplementation…</p>:!data?<p className="p-5 text-sm">Sign in to view supplementation.</p>:null
-  const historyTable=(entries:Entry[])=>(!authReady?<p className="p-5 text-sm">Verifying session…</p>:authError?<p role="alert" className="p-5 text-red-700">{authError}</p>:error?<div role="alert" className="p-5 text-sm text-red-700">{error.message}<button type="button" className="ml-3 underline" onClick={()=>void mutate()}>Retry</button></div>:isLoading?<p className="p-5 text-sm">Loading history…</p>:!data?<p className="p-5 text-sm">Sign in to view supplementation history.</p>:<div className="overflow-x-auto"><table className="w-full"><thead className="bg-muted/60"><tr>{['Date','Entry','Product','Actual Dose','Quantity Issued / Used','Batch','Nutrition Basis','Order Reference','Recorded By','Remarks'].map(h=><th key={h} className="px-4 py-3 text-left text-xs font-semibold">{h}</th>)}</tr></thead><tbody className="divide-y divide-border">{entries.length===0?<tr><td colSpan={10} className="p-6 text-center text-sm text-muted-foreground">No supplementation entries recorded.</td></tr>:entries.map(r=>{
+  const loadState=!authReady?<Spinner showLabel label="Verifying session…" className="w-full justify-center py-6 text-sm text-muted-foreground" />:authError?<p role="alert" className="p-5 text-red-700">{authError}</p>:error?<div role="alert" className="p-5 text-sm text-red-700">{error.message}<button type="button" className="ml-3 underline" onClick={()=>void mutate()}>Retry</button></div>:isLoading?<p className="p-5 text-sm">Loading supplementation…</p>:!data?<p className="p-5 text-sm">Sign in to view supplementation.</p>:null
+  const historyTable=(entries:Entry[])=>(!authReady?<Spinner showLabel label="Verifying session…" className="w-full justify-center py-6 text-sm text-muted-foreground" />:authError?<p role="alert" className="p-5 text-red-700">{authError}</p>:error?<div role="alert" className="p-5 text-sm text-red-700">{error.message}<button type="button" className="ml-3 underline" onClick={()=>void mutate()}>Retry</button></div>:isLoading?<p className="p-5 text-sm">Loading history…</p>:!data?<p className="p-5 text-sm">Sign in to view supplementation history.</p>:<div className="overflow-x-auto"><table className="w-full"><thead className="bg-muted/60"><tr>{['Date','Entry','Product','Actual Dose','Quantity Issued / Used','Batch','Nutrition Basis','Order Reference','Recorded By','Remarks'].map(h=><th key={h} className="px-4 py-3 text-left text-xs font-semibold">{h}</th>)}</tr></thead><tbody className="divide-y divide-border">{entries.length===0?<tr><td colSpan={10} className="p-6 text-center text-sm text-muted-foreground">No supplementation entries recorded.</td></tr>:entries.map(r=>{
       const product=data.products.find(p=>p.supplement_id===r.supplement_id);
       const source=r.source_assessment_id??data.plans.find(p=>p.plan_id===r.plan_id)?.source_assessment_id;
       const assessment=data.assessments.find(a=>a.assessment_id===source);
@@ -54,9 +59,14 @@ export function SupplementationHistorySection({childId}:{childId:number}){
   return <section className="overflow-hidden rounded-2xl border border-border bg-white">
     <div className="flex flex-wrap items-center justify-between gap-3 border-b p-5">
       <div><h2 className="text-lg font-semibold text-primary">Supplementation</h2><p className="mt-1 text-sm text-muted-foreground">Saved doses, supplies, plans and scheduled follow-up</p></div>
-      <div className="flex gap-3"><button type="button" onClick={()=>void mutate()} className="text-sm text-primary underline">Refresh</button><Link className="text-sm font-medium text-primary underline" href={reviewHref}>{data?.permissions?.record||data?.permissions?.clinical?'Review / Record':'Review supplementation'}</Link></div>
+      <div className="flex flex-wrap items-center gap-2 print:hidden">
+        <Button variant="tonal" size="sm" onClick={()=>void mutate()}><RefreshCw size={14} aria-hidden="true"/>Refresh</Button>
+        <Link className={buttonVariants({variant:'secondary',size:'sm'})} href={reviewHref}>{data?.permissions?.record||data?.permissions?.clinical?'Review / Record':'Review supplementation'}</Link>
+      </div>
     </div>
-    <div role="tablist" aria-label="Supplementation sections" className="flex flex-wrap gap-2 border-b p-3">{(Object.keys(labels) as Array<keyof typeof labels>).map(key=><button type="button" role="tab" aria-selected={tab===key} key={key} onClick={()=>setTab(key)} className={`rounded-lg px-4 py-2 text-sm font-medium ${tab===key?'bg-primary text-white':'bg-muted/40 text-foreground hover:bg-muted'}`}>{labels[key]}</button>)}</div>
+    <TabBar className="border-b p-3" label="Supplementation sections" group="supplementation-history" value={tab} onChange={setTab}
+      items={(Object.keys(labels) as Array<keyof typeof labels>).map((key) => ({ value: key, label: labels[key] }))} />
+    <TabPanel tabKey={tab}>
     <div role="tabpanel" aria-label={labels[tab]}>
       {tab==='PLANS'&&(loadState??(data&&<><div className="overflow-x-auto"><table className="w-full"><thead className="bg-muted/60"><tr>{['Plan','Commodity','Period','Planned Quantity','Quantity Issued','Remaining to Issue','Nutrition Basis','Remarks'].map(h=><th key={h} className="px-4 py-3 text-left text-xs font-semibold">{h}</th>)}</tr></thead><tbody className="divide-y divide-border">{data.plans.length===0?<tr><td colSpan={8} className="p-6 text-center text-sm text-muted-foreground">No supply plans registered for this child.</td></tr>:data.plans.map(plan=>{
       const product=data.products.find(p=>p.supplement_id===plan.supplement_id)
@@ -69,5 +79,6 @@ export function SupplementationHistorySection({childId}:{childId:number}){
       {tab==='DISPENSING'&&<><p className="border-b p-4 text-sm text-muted-foreground">Supplies handed to the guardian. These entries do not confirm administration, consumption or course completion.</p>{historyTable(data?.records.filter(r=>r.record_type==='DISPENSED')??[])}</>}
       {tab==='DUE'&&(loadState??<><p className="border-b p-4 text-sm text-muted-foreground">As of {today} (Philippine time). Dates use saved protocol metadata. Eligibility, current orders and all dose history must be reviewed before recording.</p><div className="overflow-x-auto"><table className="w-full"><thead className="bg-muted/60"><tr>{['Product / Course','Last Administration','Next Date','Next Dose','Status','Basis / Review'].map(h=><th key={h} className="px-4 py-3 text-left text-xs font-semibold">{h}</th>)}</tr></thead><tbody className="divide-y divide-border">{due.length===0?<tr><td colSpan={6} className="p-6 text-center text-sm text-muted-foreground">No saved administrations available to determine a next dose. Supply plans and dispensing alone do not establish an administration date.</td></tr>:due.map(row=><tr key={row.key}><td className="px-4 py-3 text-sm">{data?.products.find(p=>p.supplement_id===row.supplementId)?.item?.item_name??`Product ${row.supplementId}`}<p className="text-xs text-muted-foreground">{row.tier} · {row.reference}</p></td><td className="px-4 py-3 text-sm">{row.lastDate}</td><td className="px-4 py-3 text-sm">{row.dueDate??'—'}</td><td className="px-4 py-3 text-sm">{row.nextDose??'—'}</td><td className="px-4 py-3 text-sm"><span className={`rounded-full px-3 py-1 text-xs font-medium ${row.status==='OVERDUE'?'bg-red-50 text-red-700':row.status==='COURSE_COMPLETED'?'bg-emerald-50 text-emerald-700':'bg-muted text-foreground'}`}>{statusLabel(row.status)}</span></td><td className="max-w-sm px-4 py-3 text-sm">{row.detail}</td></tr>)}</tbody></table></div></>)}
     </div>
+    </TabPanel>
   </section>
 }

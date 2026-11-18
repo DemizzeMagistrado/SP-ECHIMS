@@ -7,8 +7,12 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import useSWR from 'swr'
-import { X, Package, MapPin, AlertCircle, Loader2, PackagePlus } from 'lucide-react'
-import { useToast } from '@/components/ui/toast'
+import { Package, MapPin, AlertCircle, PackagePlus } from 'lucide-react'
+import { toast } from '@/components/ui/toast'
+import { Spinner } from '@/components/brand/logo-loader'
+import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
+import { Input, Select, Textarea } from '@/components/ui/form'
 
 type Item = { item_id: number; item_name: string; unit: string; kind: string }
 type Barangay = { barangay_id: number; barangay_name: string }
@@ -34,7 +38,6 @@ function newRequestId(): string {
 type Props = { open: boolean; onClose: () => void; onSaved?: () => void }
 
 export function ReplenishmentRequestModal({ open, onClose, onSaved }: Props) {
-  const { showToast } = useToast()
   const itemsSWR = useSWR<{ items: Item[] }>(open ? '/api/inventory/items' : null, fetcher)
   const brgysSWR = useSWR<Barangay[] | { barangays: Barangay[] }>(open ? '/api/barangays' : null, fetcher)
   const invSWR = useSWR<{ inventories: Inventory[] }>(open ? '/api/inventory/stock-overview' : null, fetcher)
@@ -87,7 +90,7 @@ export function ReplenishmentRequestModal({ open, onClose, onSaved }: Props) {
       })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`)
-      showToast({ type: 'success', message: `Replenishment request #${d.stock_request_id} submitted — awaiting PHN review.` })
+      toast.success(`Replenishment request #${d.stock_request_id} submitted — awaiting PHN review.`)
       onSaved?.()
       onClose()
     } catch (err) {
@@ -97,54 +100,52 @@ export function ReplenishmentRequestModal({ open, onClose, onSaved }: Props) {
     }
   }
 
-  if (!open) return null
   const selectedItem = items.find((i) => String(i.item_id) === itemId) ?? null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-border p-6">
-          <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-primary">
-              <PackagePlus size={18} />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-foreground">Request replenishment</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                RHM-only. Submits as <strong>PENDING</strong> for PHN review and allocation.
-              </p>
-            </div>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-1 text-muted-foreground hover:bg-muted">
-            <X size={20} />
-          </button>
-        </div>
+    <Modal
+      open={open}
+      onClose={onClose}
+      busy={saving}
+      size="lg"
+      icon={<PackagePlus />}
+      title="Request replenishment"
+      subtitle={<>RHM-only. Submits as <strong>PENDING</strong> for PHN review and allocation.</>}
+      onSubmit={submit}
+      footer={<>
 
-        <form onSubmit={submit} className="space-y-5 p-6">
+            <Button type="submit" disabled={saving}
+             >
+              {saving ? <Spinner /> : <PackagePlus size={14} />}
+              {saving ? 'Submitting…' : 'Submit request'}
+            </Button>
+      </>}
+    >
+        <div className="space-y-5">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <label htmlFor="rr-item" className="mb-1 block text-sm font-semibold text-foreground">
                 <Package size={13} className="mr-1 inline" /> Item *
               </label>
-              <select id="rr-item" value={itemId} onChange={(e) => setItemId(e.target.value)} required disabled={itemsSWR.isLoading}
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50">
+              <Select id="rr-item" value={itemId} onChange={(e) => setItemId(e.target.value)} required disabled={itemsSWR.isLoading}
+               >
                 <option value="">{itemsSWR.isLoading ? 'Loading…' : 'Select an item…'}</option>
                 {items.map((it) => (
                   <option key={it.item_id} value={it.item_id}>
                     {it.kind === 'vaccine' ? '💉' : '💊'} {it.item_name} ({it.unit})
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div>
               <label htmlFor="rr-brgy" className="mb-1 block text-sm font-semibold text-foreground">
                 <MapPin size={13} className="mr-1 inline" /> Receiving barangay *
               </label>
-              <select id="rr-brgy" value={barangayId} onChange={(e) => setBarangayId(e.target.value)} required disabled={brgysSWR.isLoading}
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50">
+              <Select id="rr-brgy" value={barangayId} onChange={(e) => setBarangayId(e.target.value)} required disabled={brgysSWR.isLoading}
+               >
                 <option value="">{brgysSWR.isLoading ? 'Loading…' : 'Select a barangay…'}</option>
                 {barangays.map((b) => <option key={b.barangay_id} value={b.barangay_id}>{b.barangay_name}</option>)}
-              </select>
+              </Select>
             </div>
           </div>
 
@@ -163,18 +164,18 @@ export function ReplenishmentRequestModal({ open, onClose, onSaved }: Props) {
             <label htmlFor="rr-qty" className="mb-1 block text-sm font-semibold text-foreground">
               Quantity requested *
             </label>
-            <input id="rr-qty" type="number" min="1" step="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} required
+            <Input id="rr-qty" type="number" min="1" step="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} required
               placeholder="e.g. 100"
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary" />
+              />
           </div>
 
           <div>
             <label htmlFor="rr-remarks" className="mb-1 block text-sm font-semibold text-foreground">
               Remarks <span className="text-xs font-normal text-muted-foreground">(optional)</span>
             </label>
-            <textarea id="rr-remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} rows={2}
+            <Textarea id="rr-remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} rows={2}
               placeholder="e.g. Expecting campaign next week — need buffer"
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary" />
+              />
           </div>
 
           {formError && (
@@ -183,19 +184,7 @@ export function ReplenishmentRequestModal({ open, onClose, onSaved }: Props) {
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-            <button type="button" onClick={onClose} disabled={saving}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50">
-              Cancel
-            </button>
-            <button type="submit" disabled={saving}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60">
-              {saving ? <Loader2 size={14} className="animate-spin" /> : <PackagePlus size={14} />}
-              {saving ? 'Submitting…' : 'Submit request'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </div>
+    </Modal>
   )
 }

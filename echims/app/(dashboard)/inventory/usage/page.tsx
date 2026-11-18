@@ -9,12 +9,17 @@
 
 import { useEffect, useState } from 'react'
 import { mutate as globalMutate } from 'swr'
-import { Plus, AlertCircle, CloudOff, PackageMinus, Trash2, CheckCircle2 } from 'lucide-react'
+import { Plus, CloudOff, PackageMinus, Trash2 } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { LogUsageModal } from '@/components/inventory/log-usage-modal'
 import { getQueuedUsageCount, replayQueuedUsage } from '@/lib/inventory-offline'
+import { LogoLoader } from '@/components/brand/logo-loader'
+import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { NoAccess } from '@/components/ui/no-access'
+import { toast } from '@/components/ui/toast'
 
 export default function UsageLogPage() {
   const { user, isReady } = useAuth()
@@ -24,7 +29,6 @@ export default function UsageLogPage() {
 
   const [modalOpen, setModalOpen] = useState(false)
   const [queued, setQueued] = useState(0)
-  const [replayed, setReplayed] = useState(0)
 
   // On mount: replay queued entries, then refresh counters. Idempotency on the
   // RPC side means re-sending a successful entry is a safe 409 we drop.
@@ -32,22 +36,19 @@ export default function UsageLogPage() {
     if (!canView) return
     void replayQueuedUsage().then(({ sent }) => {
       if (sent > 0) {
-        setReplayed(sent)
+        toast.success(`Synced ${sent} offline-queued ${sent === 1 ? 'entry' : 'entries'}.`)
         globalMutate('/api/inventory/stock-overview')
       }
       setQueued(getQueuedUsageCount())
     })
   }, [canView])
 
-  if (!isReady) return <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Loading…</div>
+  if (!isReady) return <LogoLoader />
   if (!canView) {
     return (
       <div className="space-y-6">
         <ModuleTabs parent="Inventory" role={role} />
-        <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-6">
-          <AlertCircle size={20} className="mt-0.5 shrink-0 text-rose-700" />
-          <div><h2 className="text-lg font-bold text-rose-900">Not authorized</h2></div>
-        </div>
+        <NoAccess />
       </div>
     )
   }
@@ -61,28 +62,17 @@ export default function UsageLogPage() {
     <div className="space-y-6">
       <ModuleTabs parent="Inventory" role={role} />
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-primary">eCHIMS Workspace</p>
-          <h1 className="mt-1 text-3xl font-bold text-foreground">Usage &amp; Waste Log</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            RHM-only. Record stock used or wasted at your barangay. Entries deduct the batch and the aggregate on-hand immediately.
-          </p>
-        </div>
-        {isRhm && (
-          <button type="button" onClick={() => setModalOpen(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-amber-700">
-            <Plus size={17} /> Log usage/waste
-          </button>
-        )}
-      </div>
-
-      {replayed > 0 && (
-        <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-          <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
-          <span>Synced <strong>{replayed}</strong> offline-queued entries just now.</span>
-        </div>
-      )}
+      <PageHeader
+        title={<>Usage &amp; Waste Log</>}
+        subtitle="RHM-only. Record stock used or wasted at your barangay. Entries deduct the batch and the aggregate on-hand immediately."
+        actions={<>
+          {isRhm && (
+            <Button onClick={() => setModalOpen(true)}>
+              <Plus size={17} aria-hidden="true" /> Log usage/waste
+            </Button>
+          )}
+        </>}
+      />
 
       {queued > 0 && (
         <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">

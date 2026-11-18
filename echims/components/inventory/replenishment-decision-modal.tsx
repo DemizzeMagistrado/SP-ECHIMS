@@ -7,8 +7,13 @@
 // request id for linkage.
 
 import { useState } from 'react'
-import { X, AlertCircle, Loader2, CheckCircle2, XCircle, Package, MapPin, User, Calendar, FileText } from 'lucide-react'
-import { useToast } from '@/components/ui/toast'
+import { AlertCircle, CheckCircle2, XCircle, Package, MapPin, User, Calendar, FileText } from 'lucide-react'
+import { toast } from '@/components/ui/toast'
+
+import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
+import { Textarea } from '@/components/ui/form'
+import { StatusBadge } from '@/components/ui/status-badge'
 
 export type ReplenishmentRequest = {
   stock_request_id: number
@@ -45,13 +50,13 @@ function stripReqMarker(s: string | null): string {
 }
 
 export function ReplenishmentDecisionModal({ open, onClose, onDecided, request }: Props) {
-  const { showToast } = useToast()
   const [mode, setMode] = useState<'review' | 'reject'>('review')
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
 
-  if (!open || !request) return null
+  if (!request) return null
+  const close = () => { setMode('review'); setReason(''); setFormError(''); onClose() }
 
   const item = one(request.item)
   const brgy = one(request.target_barangay)
@@ -72,12 +77,9 @@ export function ReplenishmentDecisionModal({ open, onClose, onDecided, request }
       })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`)
-      showToast({
-        type: 'success',
-        message: decision === 'APPROVE'
+      toast.success(decision === 'APPROVE'
           ? `Request #${request!.stock_request_id} approved — use Stock Allocation to fulfill it.`
-          : `Request #${request!.stock_request_id} rejected.`,
-      })
+          : `Request #${request!.stock_request_id} rejected.`)
       onDecided?.()
       setMode('review'); setReason(''); setFormError('')
       onClose()
@@ -89,26 +91,28 @@ export function ReplenishmentDecisionModal({ open, onClose, onDecided, request }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-border p-6">
-          <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-primary">
-              <Package size={18} />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-foreground">Replenishment request #{request.stock_request_id}</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                Submitted {request.request_date} · <StatusChip status={request.status} />
-              </p>
-            </div>
-          </div>
-          <button type="button" onClick={() => { setMode('review'); setReason(''); setFormError(''); onClose() }} aria-label="Close" className="rounded-lg p-1 text-muted-foreground hover:bg-muted">
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="space-y-4 p-6">
+    <Modal
+      open={open}
+      onClose={close}
+      busy={saving}
+      size="lg"
+      icon={<Package />}
+      title={`Replenishment request #${request.stock_request_id}`}
+      subtitle={<>Submitted {request.request_date} · <StatusBadge status={request.status} /></>}
+      cancelLabel={isPending ? 'Cancel' : 'Close'}
+      footer={!isPending ? null : mode === 'review' ? (
+        <>
+          <Button variant="secondary" className="text-danger" onClick={() => setMode('reject')} disabled={saving}><XCircle size={14} aria-hidden="true" /> Reject</Button>
+          <Button onClick={() => send('APPROVE')} loading={saving}>{!saving && <CheckCircle2 size={14} aria-hidden="true" />}{saving ? 'Approving…' : 'Approve'}</Button>
+        </>
+      ) : (
+        <>
+          <Button variant="secondary" onClick={() => { setMode('review'); setReason(''); setFormError('') }} disabled={saving}>Back</Button>
+          <Button variant="danger" onClick={() => send('REJECT')} loading={saving} disabled={!reason.trim()}>{!saving && <XCircle size={14} aria-hidden="true" />}{saving ? 'Rejecting…' : 'Confirm reject'}</Button>
+        </>
+      )}
+    >
+        <div className="space-y-4">
           <div className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-muted/30 p-4 md:grid-cols-2">
             <Row icon={<Package size={13} />} label="Item" value={item?.item_name ?? '—'} />
             <Row icon={<Package size={13} />} label="Quantity requested" value={`${request.requested_quantity} ${item?.unit ?? ''}`} />
@@ -143,9 +147,9 @@ export function ReplenishmentDecisionModal({ open, onClose, onDecided, request }
               <label htmlFor="rd-reason" className="mb-1 block text-sm font-semibold text-foreground">
                 Reason for rejection *
               </label>
-              <textarea id="rd-reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={3}
+              <Textarea id="rd-reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={3}
                 placeholder="e.g. Central stock insufficient / request duplicate / insufficient justification"
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary" />
+                />
               <p className="mt-1 text-xs text-muted-foreground">Shown to the RHM in their request list.</p>
             </div>
           )}
@@ -156,36 +160,8 @@ export function ReplenishmentDecisionModal({ open, onClose, onDecided, request }
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-            {!isPending ? (
-              <button type="button" onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted">Close</button>
-            ) : mode === 'review' ? (
-              <>
-                <button type="button" onClick={() => setMode('reject')} disabled={saving}
-                  className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50">
-                  <XCircle size={14} /> Reject
-                </button>
-                <button type="button" onClick={() => send('APPROVE')} disabled={saving}
-                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
-                  {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                  {saving ? 'Approving…' : 'Approve'}
-                </button>
-              </>
-            ) : (
-              <>
-                <button type="button" onClick={() => { setMode('review'); setReason(''); setFormError('') }} disabled={saving}
-                  className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted">Back</button>
-                <button type="button" onClick={() => send('REJECT')} disabled={saving || !reason.trim()}
-                  className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60">
-                  {saving ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
-                  {saving ? 'Rejecting…' : 'Confirm reject'}
-                </button>
-              </>
-            )}
-          </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -199,13 +175,4 @@ function Row({ icon, label, value }: { icon: React.ReactNode; label: string; val
     </div>
   )
 }
-function StatusChip({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    PENDING: 'bg-amber-100 text-amber-800',
-    APPROVED: 'bg-emerald-100 text-emerald-800',
-    REJECTED: 'bg-rose-100 text-rose-800',
-    COMPLETED: 'bg-sky-100 text-sky-800',
-    CANCELLED: 'bg-slate-200 text-slate-700',
-  }
-  return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${map[status] ?? 'bg-slate-100 text-slate-700'}`}>{status}</span>
-}
+

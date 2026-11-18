@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { FormEvent, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Logo } from '@/components/brand/logo'
 
 export default function ForgotPasswordPage() {
   const supabase = createClient()
@@ -51,13 +52,7 @@ export default function ForgotPasswordPage() {
         {/* LEFT SIDE */}
         <section className="hidden w-1/2 flex-col justify-between bg-gradient-to-br from-[#123C82] to-[#087DB9] p-14 text-white lg:flex">
           <div>
-            <img
-              src="/login-logo.png"
-              alt="eCHIMS logo"
-              width={430}
-              height={120}
-              className="h-auto w-full max-w-[430px]"
-            />
+            <Logo tone="light" size={96} priority />
 
             <h1 className="mt-14 text-center text-2xl font-bold leading-relaxed">
               Early Child Health Information and Monitoring System
@@ -69,23 +64,8 @@ export default function ForgotPasswordPage() {
           </div>
 
           <div>
-            <div className="flex justify-center gap-16 text-center">
-              <div>
-                <p className="text-4xl font-bold text-cyan-300">500+</p>
-                <p className="mt-2 text-sm text-blue-100">
-                  Children Tracked
-                </p>
-              </div>
 
-              <div className="border-l border-white/20 pl-16">
-                <p className="text-4xl font-bold text-cyan-300">50+</p>
-                <p className="mt-2 text-sm text-blue-100">
-                  Barangays
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-12 border-t border-white/20 pt-8 text-center text-sm text-blue-100">
+            <div className="border-t border-white/20 pt-8 text-center text-sm text-blue-100">
               <p>Bachelor of Science in Information Technology</p>
               <p className="mt-3">© 2025 Rural Health Units</p>
             </div>
@@ -178,7 +158,7 @@ export default function ForgotPasswordPage() {
               </Link>
             </p>
 
-            <p className="mt-8 text-center text-xs text-[#9CA3AF]">
+            <p className="mt-8 text-center text-xs text-[#6B7280]">
               By using eCHIMS, you agree to our{' '}
               <Link
                 href="/terms"

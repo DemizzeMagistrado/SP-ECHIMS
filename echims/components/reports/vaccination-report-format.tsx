@@ -1,4 +1,6 @@
 "use client";
+import { Select } from '@/components/ui/form'
+import { FilterChips } from '@/components/ui/module-tabs'
 import { reportScopeLabel } from "@/lib/reports/report-scope-label";
 import { useState } from "react";
 import { isValidatedReport } from "@/lib/reports/report-output-client";
@@ -101,36 +103,23 @@ export function VaccinationReportFormat({
         "space-y-4 " + (!isValidatedReport(meta) ? "report-output-locked" : "")
       }
     >
-      <nav
-        aria-label="Vaccination report sections"
+      <div
         className="vax-no-print flex flex-wrap gap-2 rounded-lg border bg-white p-3"
       >
-        {[
-          ["SUMMARY", "Overview"],
-          ["REGISTER", "Child Vaccination Register"],
-        ].map(([k, l]) => (
-          <button
-            type="button"
-            key={k}
-            aria-pressed={tab === k}
-            className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${tab === k ? "border-sky-200 bg-sky-100 text-sky-800 hover:bg-sky-200" : "border-transparent text-slate-600 hover:bg-sky-50 hover:text-sky-800"}`}
-            onClick={() => setTab(k as "SUMMARY" | "REGISTER")}
-          >
-            {l}
-          </button>
-        ))}
-        <select
+        <FilterChips label="Vaccination report sections" value={tab} onChange={setTab}
+          options={[{ value: "SUMMARY", label: "Overview" }, { value: "REGISTER", label: "Child Vaccination Register" }] as const} />
+        <Select
           aria-label="Vaccination record group"
           value={mode}
           onChange={(e) => setMode(e.target.value as RecordMode)}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+         
         >
           <option value="SERVICE">
             Doses administered in reporting period
           </option>
           <option value="PRIOR">Prior vaccination records</option>
-        </select>
-      </nav>
+        </Select>
+      </div>
       <div className="vax-report-output space-y-4">
         <header className="rounded-lg border bg-white p-4">
           <h2 className="text-center text-lg font-bold">{meta.title}</h2>
@@ -224,7 +213,7 @@ export function VaccinationReportFormat({
                       )}
                     />
                     <Counts
-                      label="Hepatitis B within24 hours after birth"
+                      label="Hep-B within 24 hours after birth"
                       unavailable="Exact birth/administration times are not recorded."
                     />
                   </tr>
@@ -247,7 +236,7 @@ export function VaccinationReportFormat({
                       )}
                     />
                     <Counts
-                      label="Hepatitis B more than24 hours up to14 days"
+                      label="Hep-B more than 24 hours up to 14 days"
                       unavailable="Exact timing is not verified in the saved records."
                     />
                   </tr>

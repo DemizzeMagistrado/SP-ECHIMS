@@ -1,6 +1,12 @@
 "use client";
+import { Select } from '@/components/ui/form'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useEffect, useState } from "react";
+import { Spinner } from '@/components/brand/logo-loader'
+import { usePageLoading } from '@/components/brand/page-gate'
+import { DataTable } from '@/components/ui/data-table'
+import { MessageSquare } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 type Queue = {
   notification_id: number;
   child_id: number;
@@ -28,6 +34,7 @@ export function SmsSimulationPanel({ ownerId }: { ownerId: string }) {
     [loading, setLoading] = useState(true),
     [reload, setReload] = useState(0),
     [program, setProgram] = useState("ALL");
+  usePageLoading(loading)
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
@@ -93,26 +100,24 @@ export function SmsSimulationPanel({ ownerId }: { ownerId: string }) {
             SMS tabs.
           </p>
         </div>
-        <button
-          type="button"
+        <Button variant="secondary"
           disabled={loading}
           onClick={() => setReload((value) => value + 1)}
-          className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
         >
           Refresh
-        </button>
+        </Button>
       </div>
       <label className="block text-sm">
         Program
-        <select
+        <Select
           value={program}
           onChange={(event) => setProgram(event.target.value)}
-          className="ml-3 rounded-lg border px-3 py-2"
+          className="ml-3"
         >
           <option value="ALL">All programs</option>
           <option value="VACCINATION">Vaccination</option>
           <option value="SUPPLEMENTATION">Supplementation</option>
-        </select>
+        </Select>
       </label>
       {error && (
         <p role="alert" className="text-sm text-red-600">
@@ -120,96 +125,39 @@ export function SmsSimulationPanel({ ownerId }: { ownerId: string }) {
         </p>
       )}
       {loading && (
-        <p className="text-sm text-muted-foreground">Loading SMS overview…</p>
+        <Spinner showLabel label="Loading SMS overview…" className="w-full justify-center py-6 text-sm text-muted-foreground" />
       )}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-muted/50">
-            <tr>
-              {["Child", "Message", "Actual delivery", "Queue status"].map(
-                (value) => (
-                  <th key={value} className="px-3 py-3 text-xs font-medium">
-                    {value}
-                  </th>
-                ),
-              )}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {queue.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="px-3 py-5 text-muted-foreground">
-                  No SMS queue rows match this program.
-                </td>
-              </tr>
-            ) : (
-              queue.map((row) => (
-                <tr key={row.notification_id}>
-                  <td className="px-3 py-3">
-                    {row.child_name}
-                    <p className="text-xs text-muted-foreground">
-                      {row.masked_number}
-                    </p>
-                  </td>
-                  <td className="px-3 py-3">{row.message}</td>
-                  <td className="px-3 py-3">{row.delivery_status}</td>
-                  <td className="px-3 py-3">
-                    {row.queue_status.replace(/_/g, " ")}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={queue}
+        rowKey={(row) => row.notification_id}
+        caption="SMS queue"
+        empty={{ icon: MessageSquare, title: "No queued SMS for this program", description: "Reminders waiting to send will appear here." }}
+        columns={[
+          { key: "child", header: "Child", sortValue: (row) => row.child_name, cell: (row) => <>{row.child_name}<p className="text-xs text-muted-foreground">{row.masked_number}</p></> },
+          { key: "message", header: "Message", cell: (row) => row.message },
+          { key: "delivery", header: "Actual delivery", sortValue: (row) => row.delivery_status, cell: (row) => row.delivery_status },
+          { key: "queue", header: "Queue status", sortValue: (row) => row.queue_status, cell: (row) => row.queue_status.replace(/_/g, " ") },
+        ]}
+      />
       <h3 className="text-sm font-semibold">Simulation attempt history</h3>
       <p className="text-xs text-muted-foreground">
         Historical Administrator demo attempts are retained. New attempts
         require an assigned RHM/BHW. Simulated results do not indicate real
         delivery.
       </p>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-muted/50">
-            <tr>
-              {["Reminder", "Result", "Error", "Performed by", "Time"].map(
-                (value) => (
-                  <th key={value} className="px-3 py-3 text-xs font-medium">
-                    {value}
-                  </th>
-                ),
-              )}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {attempts.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-3 py-5 text-muted-foreground">
-                  No simulation attempts match this program.
-                </td>
-              </tr>
-            ) : (
-              attempts.map((row) => (
-                <tr key={row.simulation_id}>
-                  <td className="px-3 py-3">#{row.notification_id}</td>
-                  <td className="px-3 py-3">
-                    {row.outcome.replace(/_/g, " ")}
-                  </td>
-                  <td className="px-3 py-3">
-                    {row.error_code?.replace(/_/g, " ") ?? "—"}
-                  </td>
-                  <td className="px-3 py-3">{row.performed_by}</td>
-                  <td className="px-3 py-3">
-                    {new Date(row.created_at).toLocaleString("en-PH", {
-                      timeZone: "Asia/Manila",
-                    })}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={attempts}
+        rowKey={(row) => row.simulation_id}
+        caption="Simulation attempt history"
+        empty={{ icon: MessageSquare, title: "No simulation attempts yet", description: "Simulated sends for this program will be logged here." }}
+        columns={[
+          { key: "reminder", header: "Reminder", sortValue: (row) => row.notification_id, cell: (row) => `#${row.notification_id}` },
+          { key: "result", header: "Result", sortValue: (row) => row.outcome, cell: (row) => row.outcome.replace(/_/g, " ") },
+          { key: "error", header: "Error", cell: (row) => row.error_code?.replace(/_/g, " ") ?? "—" },
+          { key: "by", header: "Performed by", sortValue: (row) => row.performed_by, cell: (row) => row.performed_by },
+          { key: "time", header: "Time", sortValue: (row) => row.created_at, cell: (row) => new Date(row.created_at).toLocaleString("en-PH", { timeZone: "Asia/Manila" }) },
+        ]}
+      />
     </section>
   );
 }

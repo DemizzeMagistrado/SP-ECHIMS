@@ -1,5 +1,7 @@
 'use client'
-import { X } from 'lucide-react'
+import { CountsStrip, REPORT_CARD } from '@/components/ui/report-parts'
+import { Modal } from '@/components/ui/modal'
+import { UserX } from 'lucide-react'
 import { UserActions } from '@/components/user-management/user-actions'
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
@@ -9,6 +11,11 @@ import {
   useEffect,
   useState,
 } from 'react'
+import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ui/page-header'
+import { Input, Select } from '@/components/ui/form'
+import { Pagination, usePagination } from '@/components/ui/pagination'
+import { toast } from '@/components/ui/toast'
 
 /* =========================================================
    TYPES
@@ -103,8 +110,9 @@ export default function UserManagementClient({
     null
   )
 
+  // Success goes to a toast; this only clears a stale value when a new action starts.
   const [
-    message,
+    ,
     setMessage,
   ] = useState<string | null>(
     null
@@ -415,7 +423,7 @@ export default function UserManagementClient({
         )
       }
 
-      setMessage(
+      toast.success(
         accountStatus ===
           'ACTIVE'
           ? 'Account approved successfully.'
@@ -566,65 +574,29 @@ export default function UserManagementClient({
      RENDER
   ======================================================= */
 
+  const { visible: pagedUsers, props: userPager } = usePagination(filteredUsers)
   return (
     <div className="space-y-6">
 
       {/* HEADER */}
 
-      <div>
-        <h1 className="text-3xl font-bold text-[#023E8A]">
-          User Management
-        </h1>
-
-        <p className="mt-1 text-sm text-gray-600">
-          Manage registered personnel,
-          account verification, and
-          workplace assignments.
-        </p>
-      </div>
-
-      {/* SUMMARY CARDS */}
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-
-        <SummaryCard
-          title="Pending"
-          value={pendingCount}
-          description="Awaiting verification"
-        />
-
-        <SummaryCard
-          title="Active"
-          value={activeCount}
-          description="Authorized accounts"
-        />
-
-        <SummaryCard
-          title="Inactive"
-          value={inactiveCount}
-          description="Deactivated accounts"
-        />
-
-        <SummaryCard
-          title="Suspended"
-          value={suspendedCount}
-          description="Suspended accounts"
-        />
-
-      </div>
+      <PageHeader
+        title="User Management"
+        subtitle="Manage registered personnel, account verification, and workplace assignments."
+      />
 
       {/* FILTERS */}
 
-      <div className="rounded-2xl bg-white p-5 shadow-sm">
+      <section aria-label="Filters" className={REPORT_CARD}>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-3">
 
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-700">
               Search
             </label>
 
-            <input
+            <Input
               type="text"
               value={search}
               onChange={(
@@ -635,7 +607,6 @@ export default function UserManagementClient({
                 )
               }
               placeholder="Search name, username, or email..."
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/20"
             />
           </div>
 
@@ -644,7 +615,7 @@ export default function UserManagementClient({
               Account Status
             </label>
 
-            <select
+            <Select
               value={
                 statusFilter
               }
@@ -655,7 +626,7 @@ export default function UserManagementClient({
                   event.target.value
                 )
               }
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/20"
+             
             >
               <option value="ALL">
                 All statuses
@@ -676,7 +647,7 @@ export default function UserManagementClient({
               <option value="SUSPENDED">
                 Suspended
               </option>
-            </select>
+            </Select>
           </div>
 
           <div>
@@ -684,7 +655,7 @@ export default function UserManagementClient({
               Role
             </label>
 
-            <select
+            <Select
               value={
                 roleFilter
               }
@@ -695,7 +666,7 @@ export default function UserManagementClient({
                   event.target.value
                 )
               }
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/20"
+             
             >
               <option value="ALL">
                 All roles
@@ -720,19 +691,27 @@ export default function UserManagementClient({
               <option value="Barangay Nutrition Scholar">
                 Barangay Nutrition Scholar
               </option>
-            </select>
+            </Select>
           </div>
 
         </div>
-      </div>
+
+        {/* Account counts; each one filters by that status. */}
+        <CountsStrip
+          label="Account counts"
+          selected={statusFilter}
+          onSelect={(key) => setStatusFilter(statusFilter === key ? 'ALL' : key)}
+          items={[
+            { key: 'PENDING', label: 'Pending', value: pendingCount, tone: 'review' },
+            { key: 'ACTIVE', label: 'Active', value: activeCount },
+            { key: 'INACTIVE', label: 'Inactive', value: inactiveCount },
+            { key: 'SUSPENDED', label: 'Suspended', value: suspendedCount, tone: 'severe' },
+          ]}
+        />
+      </section>
 
       {/* MESSAGES */}
 
-      {message && (
-        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
-          {message}
-        </div>
-      )}
 
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
@@ -779,15 +758,10 @@ export default function UserManagementClient({
               {filteredUsers.length ===
               0 ? (
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="px-6 py-12 text-center text-sm text-gray-500"
-                  >
-                    No users found.
-                  </td>
+                  <td colSpan={5}><EmptyState icon={UserX} title="No users match your search" description="Try a different name, role or status." /></td>
                 </tr>
               ) : (
-                filteredUsers.map(
+                pagedUsers.map(
                   (user) => (
                     <tr
                       key={
@@ -903,45 +877,22 @@ export default function UserManagementClient({
           </table>
 
         </div>
+        <Pagination {...userPager} label="User pages" />
       </div>
 
       {/* USER DETAILS MODAL */}
 
       {selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white shadow-2xl">
-
+        <Modal
+          open
+          size="lg"
+          onClose={closeModal}
+          title="User Details"
+          subtitle="Review account and workplace information."
+          cancelLabel="Close"
+          bodyClassName="space-y-6"
+        >
             {!readOnly && currentUser && <UserActions user={selectedUser} currentUserId={currentUser.id} onChanged={() => window.location.reload()} />}
-            {/* MODAL HEADER */}
-
-            <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5">
-
-              <div>
-                <h2 className="text-xl font-bold text-[#023E8A]">
-                  User Details
-                </h2>
-
-                <p className="mt-1 text-sm text-gray-500">
-                  Review account and
-                  workplace information.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={
-                  closeModal
-                }
-                aria-label="Close user details"
-                className="rounded-lg px-3 py-1 text-2xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-              >
-                <X size={20} aria-hidden="true" />
-              </button>
-
-            </div>
-
-            <div className="space-y-6 p-6">
 
               {/* ACCOUNT INFORMATION */}
 
@@ -1363,7 +1314,7 @@ export default function UserManagementClient({
                               'SUSPENDED'
                             )
                           }
-                          className="rounded-xl border border-orange-200 px-5 py-3 text-sm font-semibold text-orange-600 transition hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded-xl border border-orange-200 px-5 py-3 text-sm font-semibold text-orange-700 transition hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {processingUserId ===
                           selectedUser.user_id
@@ -1573,43 +1524,8 @@ export default function UserManagementClient({
 
                 </div>
               </section>
-
-            </div>
-          </div>
-        </div>
+        </Modal>
       )}
-
-    </div>
-  )
-}
-
-/* =========================================================
-   SUMMARY CARD
-========================================================= */
-
-function SummaryCard({
-  title,
-  value,
-  description,
-}: {
-  title: string
-  value: number
-  description: string
-}) {
-  return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm">
-
-      <p className="text-sm font-medium text-gray-500">
-        {title}
-      </p>
-
-      <p className="mt-2 text-3xl font-bold text-[#023E8A]">
-        {value}
-      </p>
-
-      <p className="mt-1 text-xs text-gray-500">
-        {description}
-      </p>
 
     </div>
   )

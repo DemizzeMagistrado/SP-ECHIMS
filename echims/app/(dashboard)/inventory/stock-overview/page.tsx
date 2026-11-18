@@ -14,12 +14,22 @@
 import { useMemo, useState } from 'react'
 import useSWR, { mutate as globalMutate } from 'swr'
 import {
-  Plus, Package, AlertCircle, CheckCircle2, Clock, CalendarClock, Hash, MapPin, Syringe, Pill, AlertTriangle,
+  Plus, Package, AlertCircle, CalendarClock, Hash, MapPin, Syringe, Pill, AlertTriangle,
+  Layers,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { StockInModal } from '@/components/inventory/stock-in-modal'
+import { LogoLoader } from '@/components/brand/logo-loader'
+import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/form'
+import { Pagination, usePagination } from '@/components/ui/pagination'
+import { NoAccess } from '@/components/ui/no-access'
+import { LoadError } from '@/components/ui/load-error'
+import { StatusBadge } from '@/components/ui/status-badge'
 
 type Batch = { batch_id: number; batch_number: string; expiry_date: string; received_date: string; quantity_on_hand: number }
 type Item = { item_id: number; item_name: string; unit: string; status: string }
@@ -84,26 +94,22 @@ export default function StockOverviewPage() {
     return `/api/inventory/stock-overview${qs.toString() ? `?${qs}` : ''}`
   }, [itemFilter, brgyFilter])
 
-  const { data, error, isLoading } = useSWR<Payload>(isReady && canView ? url : null, fetcher)
+  const { data, error, isLoading, isValidating, mutate } = useSWR<Payload>(isReady && canView ? url : null, fetcher, { keepPreviousData: true })
   const itemsSWR = useSWR<{ items: { item_id: number; item_name: string; kind: string }[] }>(canView ? '/api/inventory/items' : null, fetcher)
   const brgysSWR = useSWR<Barangay[] | { barangays: Barangay[] }>(canView ? '/api/barangays' : null, fetcher)
   const items = itemsSWR.data?.items ?? []
   const barangays = Array.isArray(brgysSWR.data) ? brgysSWR.data : (brgysSWR.data?.barangays ?? [])
 
+  const { visible: pagedRows, props: stockPager } = usePagination(data?.inventories ?? [])
+
   if (!isReady) {
-    return <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Loading…</div>
+    return <LogoLoader />
   }
   if (!canView) {
     return (
       <div className="space-y-6">
         <ModuleTabs parent="Inventory" role={role} />
-        <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-6">
-          <AlertCircle size={20} className="mt-0.5 shrink-0 text-rose-700" />
-          <div>
-            <h2 className="text-lg font-bold text-rose-900">Not authorized</h2>
-            <p className="mt-1 text-sm text-rose-700">You do not have access to Inventory.</p>
-          </div>
-        </div>
+        <NoAccess>You do not have access to Inventory.</NoAccess>
       </div>
     )
   }
@@ -117,60 +123,55 @@ export default function StockOverviewPage() {
       <ModuleTabs parent="Inventory" role={role} />
 
       {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-primary">eCHIMS Workspace</p>
-          <h1 className="mt-1 text-3xl font-bold text-foreground">Stock Overview</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Real-time quantity-on-hand per item and barangay. Each row expands to show its batches with expiry.
-          </p>
-        </div>
-        {isPhn && (
-          <button type="button" onClick={() => setStockInOpen(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90">
-            <Plus size={17} /> Record stock-in
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Stock Overview"
+        subtitle="Real-time quantity-on-hand per item and barangay. Each row expands to show its batches with expiry."
+        actions={<>
+          {isPhn && (
+            <Button onClick={() => setStockInOpen(true)}
+             >
+              <Plus size={17} /> Record stock-in
+            </Button>
+          )}
+        </>}
+      />
 
       {/* Filters */}
       <div className="flex flex-col gap-3 rounded-2xl border border-border bg-white p-4 md:flex-row md:items-center">
         <div className="flex-1">
           <label htmlFor="f-item" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Item</label>
-          <select id="f-item" value={itemFilter} onChange={(e) => setItemFilter(e.target.value)}
-            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary">
+          <Select id="f-item" value={itemFilter} onChange={(e) => setItemFilter(e.target.value)}
+           >
             <option value="">All items</option>
             {items.map((i) => <option key={i.item_id} value={i.item_id}>{i.item_name}</option>)}
-          </select>
+          </Select>
         </div>
         <div className="flex-1">
           <label htmlFor="f-brgy" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Barangay</label>
-          <select id="f-brgy" value={brgyFilter} onChange={(e) => setBrgyFilter(e.target.value)}
-            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary">
+          <Select id="f-brgy" value={brgyFilter} onChange={(e) => setBrgyFilter(e.target.value)}
+           >
             <option value="">All barangays</option>
             {barangays.map((b) => <option key={b.barangay_id} value={b.barangay_id}>{b.barangay_name}</option>)}
-          </select>
+          </Select>
         </div>
       </div>
 
       {/* Table */}
-      {isLoading ? (
-        <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Loading stock…</div>
+      {isLoading && !data ? (
+        <div className="rounded-2xl border border-border bg-white"><LogoLoader size="section" label="Loading stock…" /></div>
       ) : error ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
+        <LoadError what="stock levels" error={error} retrying={isValidating} onRetry={() => void mutate()} />
       ) : rows.length === 0 ? (
-        <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-sky-200 bg-white p-10 text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-sky-100 text-primary">
-            <Package size={22} />
-          </div>
-          <h2 className="mt-4 font-semibold text-foreground">No stock to show</h2>
-          <p className="mt-1 max-w-md text-sm text-muted-foreground">
-            {isPhn ? 'Click “Record stock-in” to receive your first shipment.' : 'Ask the PHN to record a stock-in for this barangay.'}
-          </p>
-        </div>
+        <EmptyState
+          size="page"
+          icon={Package}
+          title="No stock to show"
+          description={isPhn ? 'Use “Record stock-in” to receive your first shipment.' : 'Ask the PHN to record a stock-in for this barangay.'}
+          className="min-h-64 rounded-2xl border border-dashed border-sky-200 bg-white"
+        />
       ) : (
         <div className="space-y-3">
-          {rows.map((inv) => {
+          {pagedRows.map((inv) => {
             const item = one(inv.item)
             const brgy = one(inv.barangay)
             const lowStock = Number(inv.quantity_on_hand) <= LOW_STOCK_UI_THRESHOLD
@@ -221,15 +222,10 @@ export default function StockOverviewPage() {
                     </thead>
                     <tbody className="divide-y divide-border">
                       {inv.batches.length === 0 ? (
-                        <tr><td colSpan={5} className="px-5 py-6 text-center text-xs italic text-muted-foreground">No batches recorded yet.</td></tr>
+                        <tr><td colSpan={5}><EmptyState icon={Layers} title="No batches recorded yet" description="Batches appear here after a stock-in." /></td></tr>
                       ) : inv.batches.map((batch) => {
                         const tone = expiryTone(batch.expiry_date)
                         const days = daysUntil(batch.expiry_date)
-                        const toneChip = {
-                          rose: 'bg-rose-100 text-rose-800',
-                          amber: 'bg-amber-100 text-amber-800',
-                          slate: 'bg-slate-100 text-slate-700',
-                        }[tone]
                         const toneLabel = days <= 0 ? 'Expired' : days <= 90 ? `Expiring in ${days}d` : 'OK'
                         return (
                           <tr key={batch.batch_id} className="hover:bg-muted/30">
@@ -240,10 +236,7 @@ export default function StockOverviewPage() {
                               <CalendarClock size={10} className="mr-1 inline" />{batch.expiry_date}
                             </td>
                             <td className="px-5 py-3">
-                              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${toneChip}`}>
-                                {tone === 'slate' ? <CheckCircle2 size={10} /> : <Clock size={10} />}
-                                {toneLabel}
-                              </span>
+                              <StatusBadge status={tone === 'rose' ? 'expired' : tone === 'amber' ? 'expiring' : 'ok'} tone={tone === 'rose' ? 'danger' : tone === 'amber' ? 'warn' : 'good'} label={toneLabel} />
                             </td>
                           </tr>
                         )
@@ -254,6 +247,9 @@ export default function StockOverviewPage() {
               </article>
             )
           })}
+          <div className="overflow-hidden rounded-2xl border border-brand-line bg-white">
+            <Pagination {...stockPager} label="Stock pages" className="border-t-0" />
+          </div>
         </div>
       )}
 

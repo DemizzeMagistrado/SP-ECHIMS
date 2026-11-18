@@ -1,10 +1,15 @@
 // echims/components/user-management/user-actions.tsx
-// Profile editor + soft-delete with proper confirm modal (no native browser alert).
+// Profile editor + soft-delete behind the shared ConfirmDialog.
 
 'use client'
 
 import { useState } from 'react'
-import { Pencil, Trash2, Save, X, AlertTriangle, ShieldAlert } from 'lucide-react'
+import { Pencil, Trash2, Save, X, AlertTriangle } from 'lucide-react'
+import { Spinner } from '@/components/brand/logo-loader'
+import { toast } from '@/components/ui/toast'
+import { useConfirm } from '@/components/ui/confirm-dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/form'
 
 type UserRow = {
   user_id: string
@@ -24,7 +29,7 @@ type Props = {
 
 export function UserActions({ user, currentUserId, onChanged }: Props) {
   const [editing, setEditing] = useState(false)
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const confirm = useConfirm()
   const [draft, setDraft] = useState({
     fullName: user.full_name,
     email: user.email,
@@ -50,7 +55,7 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error ?? 'Unable to save changes.')
-      setMsg({ kind: 'ok', text: 'Profile updated.' })
+      toast.success('Profile updated.')
       setEditing(false)
       onChanged?.()
     } catch (err) {
@@ -60,23 +65,38 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
     }
   }
 
-  async function performDelete() {
-    setBusy(true); setMsg(null)
+  async function requestDelete() {
+    setMsg(null)
     try {
-      const res = await fetch('/api/admin/users', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.user_id }),
+      const deleted = await confirm({
+        title: 'Delete this account?',
+        tone: 'danger',
+        confirmLabel: 'Delete account',
+        description: (
+          <>
+            <span className="font-semibold text-brand-navy">{user.full_name}</span> will no longer appear in the user list and cannot sign in.
+            <ul className="mt-3 list-inside list-disc space-y-0.5 rounded-xl bg-warn-soft p-3 text-xs text-warn">
+              <li>Account marked as deleted (soft delete).</li>
+              <li>History preserved for audit — records they created remain intact.</li>
+              <li>Reversible: toggle &quot;Show deleted accounts&quot; to restore later.</li>
+            </ul>
+          </>
+        ),
+        action: async () => {
+          const res = await fetch('/api/admin/users', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.user_id }),
+          })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data?.error ?? 'Unable to delete account.')
+        },
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.error ?? 'Unable to delete account.')
-      setMsg({ kind: 'ok', text: 'Account deleted.' })
-      setConfirmingDelete(false)
+      if (!deleted) return
+      toast.success('Account deleted.')
       onChanged?.()
     } catch (err) {
-      setMsg({ kind: 'err', text: err instanceof Error ? err.message : 'Delete failed.' })
-    } finally {
-      setBusy(false)
+      toast.error(err instanceof Error ? err.message : 'Delete failed.')
     }
   }
 
@@ -104,8 +124,7 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
           <div className="grid gap-3 md:grid-cols-2">
             <label className="grid gap-1 text-sm">
               <span className="font-semibold">Full name</span>
-              <input
-                className="rounded-lg border border-border px-3 py-2 outline-none focus:border-primary"
+              <Input
                 value={draft.fullName}
                 onChange={(e) => setDraft({ ...draft, fullName: e.target.value })}
               />
@@ -120,9 +139,8 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
             </label>
             <label className="grid gap-1 text-sm">
               <span className="font-semibold">Email</span>
-              <input
+              <Input
                 type="email"
-                className="rounded-lg border border-border px-3 py-2 outline-none focus:border-primary"
                 value={draft.email}
                 onChange={(e) => setDraft({ ...draft, email: e.target.value })}
               />
@@ -132,15 +150,14 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
             </label>
             <label className="grid gap-1 text-sm">
               <span className="font-semibold">Contact number</span>
-              <input
-                className="rounded-lg border border-border px-3 py-2 outline-none focus:border-primary"
+              <Input
                 value={draft.contactNumber}
                 onChange={(e) => setDraft({ ...draft, contactNumber: e.target.value })}
               />
             </label>
           </div>
           <div className="mt-4 flex justify-end gap-2">
-            <button
+            <Button variant="secondary" size="sm"
               onClick={() => {
                 setEditing(false)
                 setDraft({
@@ -151,24 +168,22 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
                 setMsg(null)
               }}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50"
             >
               <X size={14} /> Cancel
-            </button>
-            <button
+            </Button>
+            <Button size="sm"
               onClick={save}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50"
             >
-              <Save size={14} /> {busy ? 'Saving...' : 'Save changes'}
-            </button>
+              {busy ? <Spinner /> : <Save size={14} />} {busy ? 'Saving...' : 'Save changes'}
+            </Button>
           </div>
         </div>
       )}
 
       {!editing && (
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-4">
-          <button
+          <Button variant="secondary" size="sm"
             onClick={() => {
               setDraft({
                 fullName: user.full_name,
@@ -178,19 +193,15 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
               setEditing(true)
               setMsg(null)
             }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-primary px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary/5"
+           
           >
             <Pencil size={14} /> Edit profile
-          </button>
+          </Button>
 
           {canDelete && (
-            <button
-              onClick={() => setConfirmingDelete(true)}
-              disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
-            >
+            <Button variant="danger" size="sm" onClick={() => void requestDelete()} disabled={busy}>
               <Trash2 size={14} /> Delete account
-            </button>
+            </Button>
           )}
 
           {user.account_status === 'INACTIVE' && isSelf && (
@@ -199,65 +210,6 @@ export function UserActions({ user, currentUserId, onChanged }: Props) {
         </div>
       )}
 
-      {/* Proper confirm modal (replaces browser confirm()) */}
-      {confirmingDelete && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-start gap-4 border-b border-border p-5">
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-700">
-                <ShieldAlert size={22} />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-base font-bold text-foreground">Delete this account?</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  <span className="font-semibold text-foreground">{user.full_name}</span> will no longer appear in the user list and cannot sign in.
-                </p>
-              </div>
-              <button
-                onClick={() => { setConfirmingDelete(false); setMsg(null) }}
-                aria-label="Close"
-                className="rounded-lg p-1 text-muted-foreground hover:bg-muted"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="space-y-3 p-5">
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                <div className="mb-1 font-semibold">What happens</div>
-                <ul className="list-inside list-disc space-y-0.5">
-                  <li>Account marked as deleted (soft delete).</li>
-                  <li>History preserved for audit — records they created remain intact.</li>
-                  <li>Reversible: toggle &quot;Show deleted accounts&quot; to restore later.</li>
-                </ul>
-              </div>
-
-              {msg?.kind === 'err' && (
-                <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
-                  {msg.text}
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end gap-2 border-t border-border p-4">
-              <button
-                onClick={() => { setConfirmingDelete(false); setMsg(null) }}
-                disabled={busy}
-                className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={performDelete}
-                disabled={busy}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
-              >
-                <Trash2 size={14} /> {busy ? 'Deleting...' : 'Delete account'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

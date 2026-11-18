@@ -1,5 +1,8 @@
 "use client";
-import { offlineFetch as fetch } from '@/lib/offline/fetch'
+import { TabBar } from '@/components/ui/module-tabs'
+import { offlineFetch as fetch, offlineScope } from '@/lib/offline/fetch'
+import { useAuth } from '@/components/auth/auth-provider'
+import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { useEffect, useRef, useState } from "react";
 import { ReportDownloadButtons } from "@/components/reports/report-download-buttons";
 import { InventoryReportFormat } from "@/components/reports/inventory-report-format";
@@ -16,6 +19,14 @@ import {
   periodRange,
   type ReportRow,
 } from "@/lib/reports/report-utils";
+import { LogoLoader } from '@/components/brand/logo-loader'
+import { usePageLoading } from '@/components/brand/page-gate'
+import { EmptyState } from '@/components/ui/empty-state'
+import { FileText, SearchX } from 'lucide-react'
+import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
+import { Pagination } from '@/components/ui/pagination'
 type Options = {
   currentUserId: string;
   role: string;
@@ -100,15 +111,19 @@ function stamp(v: string | null) {
   );
 }
 export default function ReportsPage() {
-  const [options, setOptions] = useState<Options | null>(null),
+  const { user } = useAuth();
+  // A revisit starts from the last report list for this account and scope, then refreshes quietly.
+  const cacheKey = user ? "reports:" + offlineScope(user) : "";
+  const [cachedOptions] = useState(() => readPageCache<Options>(user?.id, cacheKey + ":1"));
+  const [options, setOptions] = useState<Options | null>(cachedOptions ?? null),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
-    [loading, setLoading] = useState(true),
+    [loading, setLoading] = useState(!cachedOptions),
     [busy, setBusy] = useState(false),
     [page, setPage] = useState(1),
     [reload, setReload] = useState(0),
     [section, setSection] = useState<"SAVED" | "PREVIEW">("SAVED"),
-    [module, setModule] = useState("CHILD"),
+    [module, setModule] = useState(() => cachedOptions && !cachedOptions.modules.includes("CHILD") ? cachedOptions.modules[0] : "CHILD"),
     [period, setPeriod] = useState("MONTHLY"),
     [range, setRange] = useState({ start: "", end: "" }),
     [barangay, setBarangay] = useState(""),
@@ -119,6 +134,7 @@ export default function ReportsPage() {
     [detail, setDetail] = useState<Detail | null>(null),
     [remarks, setRemarks] = useState(""),
     [visible, setVisible] = useState(100);
+  usePageLoading(loading);
   const intent = useRef<{ signature: string; id: string } | null>(null),
     saving = useRef(false),
     active = useRef(true),
@@ -137,8 +153,9 @@ export default function ReportsPage() {
     const controller = new AbortController();
     let current = true;
     const timeout = setTimeout(() => controller.abort(), 20000);
-    setLoading(true);
-    void fetch("/api/reports?page=" + page, {
+    if (!readPageCache(user?.id, cacheKey + ":" + page)) setLoading(true);
+    // Pages of 6 from the server, with the exact total.
+    void fetch("/api/reports?pageSize=6&page=" + page, {
       cache: "no-store",
       signal: controller.signal,
     })
@@ -152,6 +169,7 @@ export default function ReportsPage() {
           throw new Error("Invalid report-list response.");
         if (current) {
           setOptions(b);
+          writePageCache(user?.id, cacheKey + ":" + page, b);
           setModule((m) => (b.modules.includes(m) ? m : b.modules[0]));
           setError("");
         }
@@ -175,7 +193,7 @@ export default function ReportsPage() {
       clearTimeout(timeout);
       controller.abort();
     };
-  }, [page, reload]);
+  }, [page, reload, user?.id, cacheKey]);
   function clear() {
     generation.current++;
     request.current?.abort();
@@ -311,6 +329,7 @@ export default function ReportsPage() {
       if (active.current) setBusy(false);
     }
   }
+  const reportPagerProps = { page: page - 1, pageCount: Math.max(1, Math.ceil((options?.total ?? 0) / 6)), total: options?.total ?? 0, pageSize: 6, onChange: (p: number) => { clear(); setPage(p + 1); } };
   const shown = detail?.report.snapshot ?? preview;
   const fields = shown
     ? columns[
@@ -319,36 +338,28 @@ export default function ReportsPage() {
           : shown.module
       ]
     : [];
+  // BHW: read-only approved reports for their barangay (no preview / generate / validate).
+  const isBhw = options?.role === "BHW";
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-3xl font-bold">Reports & Analytics</h1>
-        <p className="mt-1 text-muted-foreground">
-          {options?.role === "Administrator"
-            ? "System-wide report viewing."
-            : options?.role === "PHN"
-              ? "Review and validate reports within your RHU."
-              : options?.role === "BNS"
-                ? "Generate nutrition reports within assigned barangays."
-                : "Generate reports within assigned barangays."}
-        </p>
-      </header>
-      <nav className="flex gap-2 border-b" aria-label="Report workflow">
-        {(["SAVED", "PREVIEW"] as const).map((s) => (
-          <button
-            type="button"
-            key={s}
-            disabled={busy}
-            className={`border-b-2 px-4 py-3 ${section === s ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}
-            onClick={() => {
-              clear();
-              setSection(s);
-            }}
-          >
-            {s === "SAVED" ? "Generated Reports" : "Report Preview"}
-          </button>
-        ))}
-      </nav>
+      <TabBar
+        label="Report workflow"
+        group="reports"
+        value={section}
+        onChange={(s) => {
+          clear();
+          setSection(s);
+        }}
+        items={[
+          { value: "SAVED", label: isBhw ? "Approved Reports" : "Generated Reports", disabled: busy },
+          // BHW: read-only approved reports only (no live preview / generate; migration 13).
+          ...(isBhw ? [] : [{ value: "PREVIEW" as const, label: "Report Preview", disabled: busy }]),
+        ]}
+      />
+      <PageHeader
+        title={<>Reports & Analytics</>}
+        subtitle={<>{options?.role === "Administrator" ? "System-wide report viewing." : options?.role === "PHN" ? "Review and validate reports within your RHU." : options?.role === "BNS" ? "Generate nutrition reports within assigned barangays." : isBhw ? "Approved child, vaccination and supplementation reports for your barangay. View, print or download." : "Generate reports within assigned barangays."}</>}
+      />
       {error && (
         <p
           role="alert"
@@ -375,14 +386,12 @@ export default function ReportsPage() {
               ? "Loading report permissions and assigned barangays…"
               : "Report options have not loaded yet."}
           </p>
-          <button
-            type="button"
+          <Button variant="secondary"
             disabled={busy}
-            className="rounded-lg border px-4 py-2"
             onClick={() => setReload((v) => v + 1)}
           >
             Retry loading reports
-          </button>
+          </Button>
           <p className="text-xs text-muted-foreground">
             If this stays loading, check the browser Console for a JavaScript
             error.
@@ -395,16 +404,14 @@ export default function ReportsPage() {
             <h2 className="font-semibold">
               Saved report versions ({options.total})
             </h2>
-            <button
-              type="button"
+            <Button variant="secondary"
               disabled={busy || loading}
-              className="rounded-lg border px-3 py-2"
               onClick={() => setReload((v) => v + 1)}
             >
               Refresh
-            </button>
+            </Button>
           </div>
-          <div className="overflow-x-auto">
+          <div className="scroll-mt-4 overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-muted/50">
                 <tr>
@@ -460,40 +467,18 @@ export default function ReportsPage() {
                 ))}
                 {!options.reports.length && (
                   <tr>
-                    <td colSpan={6} className="p-6 text-center">
-                      No saved reports in your scope.
-                    </td>
+                    <td colSpan={6}>{isBhw
+                      ? <EmptyState icon={FileText} title="No approved reports for your barangay yet" description="Child, vaccination and supplementation reports for your barangay appear here once the PHN approves them." />
+                      : <EmptyState icon={FileText} title="No saved reports yet" description="Reports you generate and save will appear here." />}</td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              disabled={page === 1 || busy || loading}
-              onClick={() => {
-                clear();
-                setPage((v) => v - 1);
-              }}
-              className="rounded-lg border px-3 py-1"
-            >
-              Previous
-            </button>
-            <span>Page {page}</span>
-            <button
-              disabled={page * 50 >= options.total || busy || loading}
-              onClick={() => {
-                clear();
-                setPage((v) => v + 1);
-              }}
-              className="rounded-lg border px-3 py-1"
-            >
-              Next
-            </button>
-          </div>
+          <Pagination {...reportPagerProps} label="Saved report pages" />
         </section>
       )}
-      {section === "PREVIEW" && options && (
+      {section === "PREVIEW" && options && !isBhw && (
         <section className="space-y-4 rounded-2xl border bg-white p-5">
           <nav aria-label="Report modules" className="flex flex-wrap border-b">
             {options.modules.map((m) => (
@@ -514,9 +499,9 @@ export default function ReportsPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <label className="text-sm">
               Period
-              <select
+              <Select
                 disabled={busy}
-                className="mt-1 w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 transition-colors hover:border-sky-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-1 w-full"
                 value={period}
                 onChange={(e) => {
                   clear();
@@ -535,14 +520,13 @@ export default function ReportsPage() {
                     {l}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <label className="text-sm">
               Start
-              <input
+              <DateInput
                 disabled={busy}
-                type="date"
-                className="mt-1 w-full rounded-lg border p-2"
+                className="mt-1"
                 value={range.start}
                 onChange={(e) => {
                   clear();
@@ -553,10 +537,9 @@ export default function ReportsPage() {
             </label>
             <label className="text-sm">
               End
-              <input
+              <DateInput
                 disabled={busy}
-                type="date"
-                className="mt-1 w-full rounded-lg border p-2"
+                className="mt-1"
                 value={range.end}
                 onChange={(e) => {
                   clear();
@@ -567,9 +550,9 @@ export default function ReportsPage() {
             </label>
             <label className="text-sm">
               Barangay
-              <select
+              <Select
                 disabled={busy}
-                className="mt-1 w-full rounded-lg border p-2"
+                className="mt-1"
                 value={barangay}
                 onChange={(e) => {
                   clear();
@@ -582,15 +565,14 @@ export default function ReportsPage() {
                     {b.barangay_name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
           </div>
           {module === "INVENTORY" && (
             <div className="flex gap-3">
-              <select
+              <Select
                 disabled={busy}
                 aria-label="Inventory view"
-                className="rounded-lg border p-2"
                 value={inventoryView}
                 onChange={(e) => {
                   clear();
@@ -599,11 +581,10 @@ export default function ReportsPage() {
               >
                 <option value="STOCK">Current stock</option>
                 <option value="TRANSACTIONS">Transactions in period</option>
-              </select>
-              <select
+              </Select>
+              <Select
                 disabled={busy}
                 aria-label="Item type"
-                className="rounded-lg border p-2"
                 value={itemType}
                 onChange={(e) => {
                   clear();
@@ -613,43 +594,39 @@ export default function ReportsPage() {
                 <option value="ALL">Vaccines and supplements</option>
                 <option value="VACCINE">Vaccines</option>
                 <option value="SUPPLEMENT">Supplements</option>
-              </select>
+              </Select>
             </div>
           )}
-          <button
-            type="button"
+          <Button variant="secondary"
             disabled={loading || busy || !range.start || !range.end}
-            className="rounded-lg border px-4 py-2"
             onClick={() => void loadView()}
           >
             View Preview
-          </button>
+          </Button>
           {options.canGenerate && preview && (
             <div className="flex flex-wrap items-end gap-3">
               <label className="text-sm">
                 Report title
-                <input
+                <Input
                   disabled={busy}
                   maxLength={200}
                   value={title}
                   placeholder={`${labels[module]} ${range.start} to ${range.end}`}
-                  className="mt-1 w-full rounded-lg border p-2"
+                  className="mt-1"
                   onChange={(e) => setTitle(e.target.value)}
                 />
               </label>
-              <button
-                type="button"
+              <Button
                 disabled={busy || loading}
-                className="rounded-lg bg-primary px-4 py-2 text-white"
                 onClick={() => void write("GENERATE")}
               >
                 Generate and Submit to PHN
-              </button>
+              </Button>
             </div>
           )}
         </section>
       )}
-      {loading && <p className="text-sm">Loading reports…</p>}
+      {loading && <LogoLoader size="section" label="Loading reports…" />}
       {shown && (
         <section className="space-y-4 rounded-2xl border bg-white p-5">
           <header>
@@ -773,43 +750,37 @@ export default function ReportsPage() {
             <div className="space-y-3 rounded-lg border p-4">
               <label className="block text-sm">
                 Review remarks
-                <textarea
+                <Textarea
                   disabled={busy}
                   maxLength={2000}
-                  className="mt-1 w-full rounded-lg border p-2"
+                  className="mt-1"
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
                 />
               </label>
               <div className="flex gap-2">
-                <button
-                  type="button"
+                <Button
                   disabled={busy || loading}
-                  className="rounded-lg bg-primary px-4 py-2 text-white"
                   onClick={() => void write("VALIDATE")}
                 >
                   Validate Report
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button variant="secondary"
                   disabled={busy || loading}
-                  className="rounded-lg border px-4 py-2"
                   onClick={() => void write("RETURN")}
                 >
                   Return with Remarks
-                </button>
+                </Button>
               </div>
             </div>
           )}
           {detail?.canRegenerate && (
-            <button
-              type="button"
+            <Button variant="secondary"
               disabled={busy || loading}
-              className="rounded-lg border px-4 py-2"
               onClick={() => void write("GENERATE", true)}
             >
               Generate New Version
-            </button>
+            </Button>
           )}
           {![
             "NUTRITION",
@@ -843,22 +814,18 @@ export default function ReportsPage() {
                     ))}
                     {shown.rows.length === 0 && (
                       <tr>
-                        <td colSpan={fields.length} className="p-6 text-center">
-                          No matching records.
-                        </td>
+                        <td colSpan={fields.length}><EmptyState icon={SearchX} title="No matching records" description="Try a different period or filter." /></td>
                       </tr>
                     )}
                   </tbody>
                 </table>
               </div>
               {visible < shown.rows.length && (
-                <button
-                  type="button"
-                  className="rounded-lg border px-4 py-2"
+                <Button variant="secondary"
                   onClick={() => setVisible((v) => v + 100)}
                 >
                   Show more ({visible} of {shown.rows.length})
-                </button>
+                </Button>
               )}
             </>
           )}

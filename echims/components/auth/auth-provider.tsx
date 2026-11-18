@@ -1,6 +1,9 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { TransitionOverlay } from "@/components/brand/loading-gate";
+import { clearPageCache } from "@/lib/page-cache";
 
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
@@ -105,6 +108,12 @@ type AuthContextValue = {
   isReady: boolean;
 
   user: AuthUser | null;
+
+  /** True from the Log out click until the landing page is showing. Pages show the loader, never "not authorized". */
+  signingOut: boolean;
+
+  /** Sign-in/registration succeeded: cover the page until the dashboard has rendered. */
+  beginEntering: () => void;
 
   login: (email: string, password: string) => Promise<{ error?: string }>;
 
@@ -354,6 +363,10 @@ const AuthContext = createContext<AuthContextValue>({
 
   logout: async () => undefined,
 
+  signingOut: false,
+
+  beginEntering: () => undefined,
+
 });
 
 /* =========================================================
@@ -367,6 +380,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
 
   const [isReady, setIsReady] = useState(false);
+  const userRef = useRef<AuthUser | null>(null);
+  userRef.current = user;
+  const [signingOut, setSigningOut] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const [entering, setEntering] = useState(false);
+  // Both overlays end once their destination has rendered (see TransitionOverlay).
+  const endTransition = useCallback(() => { setEntering(false); setSigningOut(false); }, []);
 
   const supabase = createClient();
 
@@ -458,7 +479,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: listener } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
       // Do not await Supabase operations inside its auth callback.
       if (event === 'SIGNED_OUT') { if (!navigator.onLine && !isOfflineLocked()) window.setTimeout(() => { if(mounted) void loadUser(null); }, 0); else { generation++; void clearActiveIdentity().catch(() => {}); if(mounted){setUser(null);setIsReady(true);} } }
-      else window.setTimeout(() => { if(mounted) void loadUser(session?.user??null); },0);
+      else {
+        // A new sign-in (not the token refresh or tab-focus SIGNED_IN for the same user) holds pages
+        // on their loader until the profile resolves, instead of rendering a signed-out view.
+        if (event === 'SIGNED_IN' && session?.user.id !== userRef.current?.id && mounted) setIsReady(false);
+        window.setTimeout(() => { if(mounted) void loadUser(session?.user??null); },0);
+      }
     });
     const storageChanged = () => { if (isOfflineLocked()) { generation++; if(mounted){setUser(null);setIsReady(true);} } };
     window.addEventListener('storage', storageChanged);
@@ -489,6 +515,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const identity=await unlockOfflineLogin(email,password);
             unlockOfflineDevice();
             await saveIdentity(identity);
+            setSigningOut(false);
             setUser(identity.user);setIsReady(true);
             return {};
           } catch(error) {return {error:error instanceof Error?error.message:'Unable to sign in offline.'};}
@@ -523,6 +550,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         unlockOfflineDevice();
+        setSigningOut(false);
         try {
           const response=await fetch('/api/offline/context',{cache:'no-store',signal:AbortSignal.timeout(10000)});
           if(response.ok){
@@ -761,8 +789,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       ================================================= */
 
+      // Every Log out button calls this. The overlay covers the dashboard first, so neither the
+      // half-signed-out dashboard nor a "not authorized" message is ever visible.
       logout: async () => {
 
+        setSigningOut(true);
+        clearPageCache();
         lockOfflineDevice();
         setUser(null);
         if (user?.id) await forgetIdentity(user.id).catch(() => {});
@@ -772,16 +804,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           supabase.auth.signOut({ scope: "local" }).catch(() => {}),
           new Promise<void>(resolve => window.setTimeout(resolve, 1500)),
         ]);
+        if (!navigator.onLine) { window.location.replace("/"); return; }
+        router.replace("/");
+        // Drops the client router cache, so Back cannot show a cached dashboard page; the proxy sends it to /login.
+        router.refresh();
 
       },
 
+      signingOut,
+
+      beginEntering: () => setEntering(true),
+
     }),
 
-    [isReady, supabase, user],
+    [isReady, supabase, user, signingOut, router],
 
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      <TransitionOverlay
+        show={signingOut || entering}
+        settled={signingOut ? pathname === "/" : !["/login", "/register", "/offline"].includes(pathname)}
+        awaitGate={!signingOut}
+        label={signingOut ? "Signing out…" : "Opening your dashboard…"}
+        onGone={endTransition}
+      />
+    </AuthContext.Provider>
+  );
 
 }
 

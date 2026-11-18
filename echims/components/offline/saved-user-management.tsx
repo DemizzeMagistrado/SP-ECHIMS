@@ -4,6 +4,7 @@ import UserManagementClient from '@/app/(dashboard)/user-management/user-managem
 import { useAuth } from '@/components/auth/auth-provider'
 import { loadData, saveData, loadIdentity } from '@/lib/offline/store'
 import { offlineScope } from '@/lib/offline/fetch'
+import { LogoLoader } from '@/components/brand/logo-loader'
 type Users = ComponentProps<typeof UserManagementClient>['users']
 export function SavedUserManagement({ users, ownerId }: { users?: Users; ownerId?: string }) {
   const { user, isReady } = useAuth()
@@ -24,7 +25,7 @@ export function SavedUserManagement({ users, ownerId }: { users?: Users; ownerId
     }
     return () => { active = false }
   }, [user, scope, ownerId, users])
-  if (!isReady) return <p>Loading account…</p>
+  if (!isReady) return <LogoLoader label="Loading account…" />
   if (user?.role !== 'Administrator') return <p role="alert">Administrator access is required.</p>
   if (users && ownerId === user.id) return <UserManagementClient users={users}/>
   if (!saved || saved.owner !== user.id || saved.scope !== scope) return <p>Open User Management online first to save this view on this device.</p>

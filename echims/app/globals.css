@@ -5,6 +5,51 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* Brand + semantic palette shared by landing, auth and dashboard */
+  --color-brand-navy: var(--brand-navy);
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-sky: var(--brand-sky);
+  --color-brand-aqua: var(--brand-aqua);
+  --color-brand-mist: var(--brand-mist);
+  --color-brand-ice: var(--brand-ice);
+  --color-brand-line: var(--brand-line);
+  --color-brand-muted: var(--brand-muted);
+  --color-danger: var(--tone-danger);
+  --color-danger-soft: var(--tone-danger-soft);
+  --color-warn: var(--tone-warn);
+  --color-warn-soft: var(--tone-warn-soft);
+  --color-good: var(--tone-good);
+  --color-good-soft: var(--tone-good-soft);
+  --color-nutrition: var(--tone-nutrition);
+  --color-nutrition-soft: var(--tone-nutrition-soft);
+  /* Nutritional status only (badges, flagged values): never on buttons */
+  --color-severe: var(--tone-severe);
+  --color-severe-soft: var(--tone-severe-soft);
+  --color-severe-icon: var(--tone-severe-icon);
+  --color-severe-row: var(--tone-severe-row);
+  --color-review: var(--tone-review);
+  --color-review-soft: var(--tone-review-soft);
+  --color-review-line: var(--tone-review-line);
+  --color-severe-line: var(--tone-severe-line);
+  /* Data UI: control borders, zero values, column-group tints, row buttons, total rows, links */
+  --color-control-line: var(--control-line);
+  --color-zero: var(--zero-value);
+  --color-group-a: var(--group-a);
+  --color-group-b: var(--group-b);
+  --color-rowbtn-line: var(--rowbtn-line);
+  --color-rowbtn-hover: var(--rowbtn-hover);
+  --color-rowbtn-active: var(--rowbtn-active);
+  --color-total-line: var(--total-line);
+  --color-total-zero: var(--total-zero);
+  --color-badge: var(--badge-bg);
+  --color-link: var(--link);
+  --color-risk: var(--tone-risk);
+  --color-risk-soft: var(--tone-risk-soft);
+  --color-healthy: var(--tone-healthy);
+  --color-healthy-soft: var(--tone-healthy-soft);
+  --font-display: var(--font-jakarta), system-ui, Helvetica, Arial, sans-serif;
+  --font-sans: var(--font-inter), system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-serif: var(--font-caslon), Georgia, 'Times New Roman', serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -47,6 +92,49 @@
 
 :root {
   color-scheme: light;
+  --brand-navy: #03045E;
+  --brand-blue: #0077B6;
+  --brand-sky: #087DB9;
+  --brand-aqua: #90E0EF;
+  --brand-mist: #CAF0F8;
+  --brand-ice: #F1F7FA;
+  --brand-line: #DCEAF0;
+  --brand-muted: #5B6478;
+  /* Semantic tones: strong value for text/icons/thin marks, soft value for small chip backgrounds */
+  --tone-danger: #BE123C;
+  --tone-danger-soft: #FFF1F2;
+  --tone-warn: #B45309;
+  --tone-warn-soft: #FFF7E6;
+  --tone-good: #047857;
+  --tone-good-soft: #ECFDF5;
+  --tone-nutrition: #6D28D9;
+  --tone-nutrition-soft: #F5F3FF;
+  /* Nutritional status: severe / SAM, risk of overweight, normal (text on soft pill, all >= 4.5:1) */
+  --tone-severe: #A61E1E;
+  --tone-severe-soft: #FBE3E3;
+  --tone-severe-icon: #C42B2B;
+  --tone-severe-row: #FFF8F8; /* table row of a child needing urgent assessment */
+  --tone-severe-line: #F0C4C4;
+  /* Nutritional status: needs review / warning (also inline measurement warnings) */
+  --tone-review: #8A4B00;
+  --tone-review-soft: #FDF3E4;
+  --tone-review-line: #D9861C;
+  --control-line: #BFD3DE;
+  --zero-value: #66728F;
+  --group-a: #F2F8FB;
+  --group-b: #E8F3F8;
+  --row-zebra: #F8FBFD; /* even data rows in .data-grid tables; lighter than hover (brand-ice) and the urgent tint */
+  --rowbtn-line: #9DB6C6;
+  --rowbtn-hover: #E6F1F7;
+  --rowbtn-active: #D6E8F1;
+  --total-line: #2A2A86;
+  --total-zero: #A9B0E0;
+  --badge-bg: #EEF4F8;
+  --link: #0B759A;
+  --tone-risk: #4B3BAE;
+  --tone-risk-soft: #E6E2FA;
+  --tone-healthy: #17694C;
+  --tone-healthy-soft: #DDF1E8;
   --background: #CAF0F8;
   --foreground: #03045E;
   --card: #FFFFFF;
@@ -58,9 +146,9 @@
   --secondary: #0077B6;
   --secondary-foreground: #FFFFFF;
   --muted: #F5F7FA;
-  --muted-foreground: #6B7280;
+  --muted-foreground: #565E6E; /* AA (≥4.5:1) on white, muted and the sky page background */
   --accent: #00B4D8;
-  --accent-foreground: #FFFFFF;
+  --accent-foreground: #03045E; /* white on #00B4D8 is only 2.5:1 */
   --destructive: #EF4444;
   --border: #E5E7EB;
   --input: #F3F4F6;
@@ -154,15 +242,37 @@
 }
 
 @layer base {
+  /* Data tables line numbers up: tabular figures in every table. */
+  table { font-feature-settings: 'tnum' 1; font-variant-numeric: tabular-nums; }
+
+  /* Subtle scrollbars everywhere: a faint thumb in the surface's own color that firms up on hover.
+     The colors are inherited custom properties, so a .scroll-subtle-dark panel (the navy sidebar)
+     re-tints every scroll area inside it. */
+  :root,
+  .scroll-subtle {
+    --scroll-thumb: rgb(3 4 94 / 0.14);
+    --scroll-thumb-active: rgb(3 4 94 / 0.35);
+  }
+
+  .scroll-subtle-dark {
+    --scroll-thumb: rgb(255 255 255 / 0.17);
+    --scroll-thumb-active: rgb(255 255 255 / 0.35);
+  }
+
   * {
     @apply border-border outline-ring/50;
     scrollbar-width: thin;
-    scrollbar-color: #90E0EF transparent;
+    scrollbar-color: var(--scroll-thumb) transparent;
   }
 
+  *:hover {
+    scrollbar-color: var(--scroll-thumb-active) transparent;
+  }
+
+  /* Safari and older Chromium; current Chromium and Firefox use scrollbar-color above. */
   *::-webkit-scrollbar {
-    width: 7px;
-    height: 7px;
+    width: 5px;
+    height: 5px;
   }
 
   *::-webkit-scrollbar-track {
@@ -170,20 +280,318 @@
   }
 
   *::-webkit-scrollbar-thumb {
-    border: 1px solid transparent;
     border-radius: 999px;
-    background-clip: padding-box;
-    background-color: #90E0EF;
+    background-color: var(--scroll-thumb);
   }
 
-  *::-webkit-scrollbar-thumb:hover {
-    background-color: #0077B6;
+  *:hover::-webkit-scrollbar-thumb {
+    background-color: var(--scroll-thumb-active);
   }
 
-  *::-webkit-scrollbar-button {
+  *::-webkit-scrollbar-button,
+  *::-webkit-scrollbar-corner {
     display: none;
+    background: transparent;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
   }
+}
+
+/* Landing page */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Page titles use the display face; section and card headings stay in Inter. */
+.brand h1 {
+  font-family: var(--font-display);
+}
+
+/* Entrance animations wait until their block scrolls into view */
+.in-view:not(.is-visible),
+.in-view:not(.is-visible) * {
+  animation-play-state: paused !important;
+}
+
+@keyframes draw-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+.draw-x {
+  transform-origin: left;
+  animation: draw-x 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Login/register: form rows rise in one after another */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.auth-stagger > * {
+  animation: rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.auth-stagger > :nth-child(1) { animation-delay: 150ms; }
+.auth-stagger > :nth-child(2) { animation-delay: 200ms; }
+.auth-stagger > :nth-child(3) { animation-delay: 250ms; }
+.auth-stagger > :nth-child(4) { animation-delay: 300ms; }
+.auth-stagger > :nth-child(5) { animation-delay: 350ms; }
+.auth-stagger > :nth-child(6) { animation-delay: 400ms; }
+.auth-stagger > :nth-child(7) { animation-delay: 450ms; }
+.auth-stagger > :nth-child(n + 8) { animation-delay: 500ms; }
+
+/* Dashboard charts: bars grow up, donut arcs draw in */
+@keyframes grow-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+.grow-y {
+  transform-origin: bottom;
+  animation: grow-y 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+.grow-x {
+  transform-origin: left;
+  animation: grow-x 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes donut-fill {
+  from {
+    stroke-dasharray: 0 1000;
+  }
+}
+
+.donut-arc {
+  animation: donut-fill 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .grow-y,
+  .grow-x,
+  .donut-arc {
+    animation: none !important;
+  }
+
+  .brand .animate-in,
+  .brand .draw-x,
+  .auth-stagger > * {
+    animation: none !important;
+  }
+}
+
+/* Branded loader (components/brand/logo-loader.tsx). Hidden for the first 200ms so fast loads never flash it. */
+@keyframes logo-reveal { from { opacity: 0; } to { opacity: 1; } }
+@keyframes logo-arm-in { from { opacity: 0; translate: var(--from); } }
+@keyframes logo-pop { 0% { opacity: 0; scale: 0.8; } 65% { opacity: 1; scale: 1.06; } 100% { scale: 1; } }
+@keyframes logo-breathe { 50% { scale: 1.05; } }
+@keyframes logo-spin { to { rotate: 360deg; } }
+@keyframes logo-fade { from { opacity: 0.55; } to { opacity: 1; } }
+.logo-loader { animation: logo-reveal 0.25s ease-out 0.2s both; }
+.logo-loader-arm { animation: logo-arm-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.logo-loader-pop,
+.logo-loader-breathe { transform-box: view-box; transform-origin: 60px 58px; }
+.logo-loader-pop { animation: logo-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both; }
+.logo-loader-breathe { animation: logo-breathe 1.6s ease-in-out 0.9s infinite; }
+.logo-loader-ring { transform-box: view-box; transform-origin: 60px 58px; opacity: 0.7; animation: logo-reveal 0.4s ease-out 0.7s both, logo-spin 1.8s linear 0.7s infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .logo-loader-arm, .logo-loader-pop, .logo-loader-breathe { animation: none; }
+  .logo-loader-ring { display: none; }
+  .logo-loader svg { animation: logo-fade 1.2s ease-in-out 0.2s infinite alternate both; }
+}
+
+/* Loader → content handoff (components/brand/loading-gate.tsx). One easing and one length everywhere;
+   only opacity and transform animate. */
+:root { --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1); --fade: 300ms; }
+
+/* One card hover for the whole system (the dashboard card's shadow). card-hover: clickable cards
+   lift 2px, take the shadow, an aqua border and a faint ice tint. card-hover-soft: the shadow only,
+   for frames that are not clickable themselves (widgets, closed accordion cards). */
+@utility card-hover {
+  transition: translate 200ms var(--ease-smooth), box-shadow 200ms var(--ease-smooth), border-color 200ms var(--ease-smooth), background-color 200ms var(--ease-smooth);
+  &:hover { translate: 0 -2px; box-shadow: 0 14px 30px -22px rgba(3, 4, 94, 0.45); border-color: var(--brand-aqua); background-color: color-mix(in srgb, var(--brand-ice) 60%, white); }
+  @media (prefers-reduced-motion: reduce) { &:hover { translate: none; } }
+}
+@utility card-hover-soft {
+  transition: box-shadow 200ms var(--ease-smooth);
+  &:hover { box-shadow: 0 14px 30px -22px rgba(3, 4, 94, 0.45); }
+}
+html { scrollbar-gutter: stable; }
+
+/* A loader taking over from another one already on screen: no delay, no intro. */
+.logo-loader-instant { animation: none; }
+.logo-loader-instant .logo-loader-arm,
+.logo-loader-instant .logo-loader-pop { animation: none; }
+.logo-loader-instant .logo-loader-ring { animation: logo-spin 1.8s linear infinite; }
+
+.loading-gate { position: relative; }
+/* Until it is done the gate fills the visible content area, so the loader centres there. */
+.loading-gate:not([data-state='done']) { min-height: calc(100dvh - 7rem); }
+@media (min-width: 1024px) { .loading-gate:not([data-state='done']) { min-height: calc(100dvh - 8rem); } }
+/* The loader sits over the content, so leaving never shifts layout. */
+.gate-loader { position: absolute; inset: 0 0 auto 0; z-index: 1; pointer-events: none; transition: opacity 250ms var(--ease-smooth); }
+.gate-content { transition: opacity var(--fade) var(--ease-smooth), transform var(--fade) var(--ease-smooth); }
+.loading-gate[data-state='loading'] > .gate-content { opacity: 0; transform: translateY(8px); visibility: hidden; }
+/* Hidden content lays out at full size but its entrance, chart and donut animations wait for the reveal. */
+.loading-gate[data-state='loading'] > .gate-content * { animation-play-state: paused !important; }
+.loading-gate[data-state='fading'] > .gate-loader { opacity: 0; }
+.loading-gate:not([data-state='done']) > .gate-content,
+.loading-gate[data-state='fading'] > .gate-loader { will-change: opacity, transform; }
+
+.transition-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: linear-gradient(180deg, #CAF0F8 0%, #E4F6FA 40%, #F1FAFC 100%);
+  transition: opacity var(--fade) var(--ease-smooth);
+}
+.transition-overlay[data-state='fading'] { opacity: 0; pointer-events: none; will-change: opacity; }
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --fade: 150ms; }
+  .gate-loader { transition-duration: 150ms; }
+  .loading-gate[data-state='loading'] > .gate-content { transform: none; }
+  .gate-content { transition-property: opacity; }
+}
+.transition-overlay[data-state='loading'] { animation: logo-reveal 200ms var(--ease-smooth) both; }
+
+/* Navigation progress (components/dashboard/nav-progress.tsx): appears only if a route takes over 150ms. */
+.nav-progress {
+  position: fixed; inset: 0 0 auto 0; z-index: 60; height: 2px; pointer-events: none;
+  background: var(--brand-sky); opacity: 0; transform: scaleX(0); transform-origin: left;
+}
+.nav-progress[data-state='running'] {
+  opacity: 0.6; transform: scaleX(0.85);
+  transition: transform 8s cubic-bezier(0.1, 0.6, 0.2, 1), opacity 150ms var(--ease-smooth);
+}
+.nav-progress[data-state='finishing'] {
+  opacity: 0; transform: scaleX(1);
+  transition: transform 200ms var(--ease-smooth), opacity 250ms var(--ease-smooth) 120ms;
+}
+
+/* Page transitions. Only the content area moves; the sidebar and top bar stay in the layout.
+   Exit: the current page fades out as soon as a link is clicked (NavProgress sets data-navigating). */
+html[data-navigating] .page-gate { opacity: 0; transition: opacity 120ms var(--ease-smooth); }
+/* Enter: the page's top-level blocks rise as one group, header first, ~40ms apart (whole entrance < 400ms).
+   backwards fill: no transform remains afterwards, so fixed-position modals keep using the viewport. */
+@keyframes block-rise { from { opacity: 0; transform: translateY(6px); } }
+.page-gate > .gate-content > * > * { animation: block-rise 250ms var(--ease-smooth) backwards; }
+.page-gate > .gate-content > * > :nth-child(2) { animation-delay: 40ms; }
+.page-gate > .gate-content > * > :nth-child(3) { animation-delay: 80ms; }
+.page-gate > .gate-content > * > :nth-child(n + 4) { animation-delay: 120ms; }
+:root { --fade: 250ms; }
+@media (prefers-reduced-motion: reduce) {
+  :root { --fade: 120ms; }
+  @keyframes block-rise { from { opacity: 0; } }
+  .page-gate > .gate-content > * > * { animation-duration: 120ms; animation-delay: 0ms !important; }
+}
+
+/* Tabs (components/dashboard/tab-indicator.tsx, TabPanel in components/brand/page-gate.tsx). */
+.tab-panel { position: relative; }
+.tab-content { transition: opacity 180ms var(--ease-smooth); }
+.tab-panel[data-shown='false'] > .tab-content { opacity: 0; visibility: hidden; }
+.tab-panel[data-shown='false'] > .tab-content * { animation-play-state: paused !important; }
+.tab-loader { position: absolute; inset: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .tab-content { transition-duration: 120ms; }
+}
+.tab-pill {
+  position: absolute; left: 0; top: 0; z-index: 0; opacity: 0; pointer-events: none;
+  transition: transform 250ms var(--ease-smooth), opacity 150ms var(--ease-smooth);
+}
+@media (prefers-reduced-motion: reduce) { .tab-pill { transition: opacity 120ms; } }
+
+/* Visible keyboard focus on every interactive element. In the base layer (and :where(), zero
+   specificity) so a component's own focus ring (ring-*, outline-* utilities) still wins: unlayered
+   CSS would beat every Tailwind utility regardless of specificity. */
+@layer base {
+  :where(a[href], button, summary, select, [role='tab'], [role='option'], [tabindex]:not([tabindex='-1'])):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* "Print next schedule" slip: hidden on screen; when printing it, only the slip prints. */
+.print-slip-root { display: none; }
+
+/* Print: content only, full width, black on white. Report outputs bring their own print rules on top. */
+@media print {
+  @page { margin: 12mm; }
+  html, body, .brand { background: #fff !important; color: #000 !important; }
+  #main-sidebar, .app-topbar, .nav-progress, .print-hide,
+  button, [data-slot='button'], [data-arrow-nav], [role='tablist'], nav[aria-label='Table pages'],
+  input, select, textarea, fieldset, dialog, a[href='#main-content'] { display: none !important; }
+  #main-content { padding: 0 !important; }
+  #main-content > div { max-width: none !important; }
+  .brand * { color: #000 !important; box-shadow: none !important; text-shadow: none !important; }
+  .scroll-subtle, .overflow-x-auto, .overflow-auto { overflow: visible !important; max-height: none !important; }
+  tr, li, .rounded-xl, .rounded-2xl, .rounded-3xl { break-inside: avoid; }
+  thead { display: table-header-group; }
+  h1, h2, h3 { break-after: avoid; }
+  a { text-decoration: none !important; }
+  /* Accordions print expanded with their headers, whatever is open on screen. */
+  button[data-accordion-header] { display: flex !important; }
+  [data-accordion-panel] { grid-template-rows: 1fr !important; opacity: 1 !important; }
+  body.printing-slip > *:not(.print-slip-root) { display: none !important; }
+  body.printing-slip > .print-slip-root { display: block !important; }
+}
+
+/* Data grid (Nutritional Assessment tables): one treatment for every table on the page.
+   Lines: cells and rows brand-line/70; header rule, group dividers and sticky edges brand-line
+   (set per cell with border-l-brand-line etc., which as utilities override these defaults).
+   Rows opt in: data-zebra (even data rows), data-urgent, data-current, data-detail (expanded row
+   that belongs to the row above). .data-grid--hover adds the hover tint for clickable rows.
+   Backgrounds sit on the cells (not the row) so sticky cells match their row. */
+@layer components {
+  .data-grid {
+    --grid-line: color-mix(in srgb, var(--brand-line) 70%, white);
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .data-grid > :is(thead, tbody, tfoot) > tr > * { border-color: var(--grid-line); }
+  .data-grid > :is(thead, tbody, tfoot) > tr > :not(:first-child) { border-left-width: 1px; }
+  /* A sticky first column draws its own right edge; the next cell does not add a second line. */
+  .data-grid > :is(thead, tbody, tfoot) > tr > .grid-pin-left + * { border-left-width: 0; }
+
+  .data-grid > thead > tr > * { background-color: var(--group-a); }
+  .data-grid > thead > tr:not(:last-child) > :not([rowspan]) { border-bottom-width: 1px; }
+  .data-grid > thead > tr:last-child > *,
+  .data-grid > thead > tr > [rowspan] { border-bottom: 2px solid var(--brand-line); }
+
+  .data-grid > tbody > tr > * {
+    background-color: #fff;
+    border-bottom-width: 1px;
+    transition: background-color 120ms;
+  }
+  /* The card (pager, footnote or totals row) closes the table; a detail row joins its parent. */
+  .data-grid > tbody > tr:last-child > *,
+  .data-grid > tbody > tr:has(+ tr[data-detail]:not([data-detail="closed"])) > *,
+  .data-grid > tbody > tr:has(+ tr[data-detail="closed"]:last-child) > *,
+  .data-grid > tbody > tr[data-detail="closed"] > * { border-bottom-width: 0; }
+  .data-grid > tbody > tr[data-zebra] > * { background-color: var(--row-zebra); }
+  .data-grid > tbody > tr[data-current] > * { background-color: var(--brand-ice); }
+  .data-grid > tbody > tr[data-urgent] > * { background-color: var(--tone-severe-row); }
+  /* Row whose details are open (single-open accordion): tinted, navy accent on the first cell. */
+  .data-grid > tbody > tr[data-open] > * { background-color: var(--brand-ice); }
+  .data-grid > tbody > tr[data-open] > :first-child { box-shadow: inset 3px 0 0 var(--brand-navy); }
+  .data-grid--hover > tbody > tr:not([data-detail]):hover > * { background-color: var(--brand-ice); }
+
+  /* Totals row: 2px rule above so it reads as a total. */
+  .data-grid > tfoot > tr > * { border-top: 2px solid var(--total-line); }
+  .data-grid > tfoot > tr > :not(:first-child) { border-left-color: var(--total-line); }
 }

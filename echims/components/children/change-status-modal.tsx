@@ -12,7 +12,11 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 //   ACTIVE   → re-activation note (reason optional)
 
 import { FormEvent, useState } from 'react'
-import { X, AlertTriangle } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
+import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 
 type ChildStatus = 'ACTIVE' | 'INACTIVE' | 'MOVED' | 'LOST' | 'DECEASED'
 
@@ -89,27 +93,25 @@ export function ChangeStatusModal({ childId, currentStatus, childName, onClose, 
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/30 p-4">
-      <form onSubmit={submit} className="mx-auto max-w-xl space-y-5 rounded-2xl bg-white p-6 shadow-xl">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold">Change child status</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {childName} · currently <span className="font-semibold">{currentStatus}</span>
-            </p>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close"><X /></button>
-        </div>
-
+    <Modal
+      open
+      onClose={onClose}
+      busy={saving}
+      title="Change child status"
+      subtitle={<>{childName} · currently <span className="font-semibold">{currentStatus}</span></>}
+      onSubmit={submit}
+      bodyClassName="space-y-5"
+      footer={<Button type="submit" variant={meta?.tone === 'danger' ? 'danger' : 'primary'} loading={saving} disabled={!canSubmit}>{saving ? 'Saving...' : meta ? `Mark as ${meta.label}` : 'Save status change'}</Button>}
+    >
         {message && <p role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{message}</p>}
 
         <label className="grid gap-1 text-sm">
           <span className="font-medium">New status *</span>
-          <select
+          <Select
             required
             value={newStatus}
             onChange={(e) => setNewStatus(e.target.value as ChildStatus | '')}
-            className="h-10 rounded-lg border border-border bg-white px-3"
+            className="h-10"
           >
             <option value="">Choose a new status...</option>
             {(Object.keys(STATUS_META) as ChildStatus[]).map((s) => (
@@ -117,7 +119,7 @@ export function ChangeStatusModal({ childId, currentStatus, childName, onClose, 
                 {STATUS_META[s].label}{s === currentStatus ? ' (current)' : ''}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
 
         {meta && (
@@ -135,22 +137,21 @@ export function ChangeStatusModal({ childId, currentStatus, childName, onClose, 
 
         <label className="grid gap-1 text-sm">
           <span className="font-medium">{dateLabel}</span>
-          <input
-            type="date"
+          <DateInput
             value={movementDate}
             onChange={(e) => setMovementDate(e.target.value)}
             max={new Date().toISOString().slice(0, 10)}
-            className="h-10 rounded-lg border border-border px-3"
+            className="h-10"
           />
         </label>
 
         <label className="grid gap-1 text-sm">
           <span className="font-medium">Reason{requiresReason ? ' *' : ''}</span>
-          <input
+          <Input
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder={newStatus === 'DECEASED' ? 'Cause / brief note' : newStatus === 'LOST' ? 'e.g. family moved without informing, no contact for 3 months' : newStatus === 'MOVED' ? 'e.g. relocated to Manila for work' : 'Short reason for the change'}
-            className="h-10 rounded-lg border border-border px-3"
+            className="h-10"
             required={requiresReason}
           />
         </label>
@@ -158,11 +159,11 @@ export function ChangeStatusModal({ childId, currentStatus, childName, onClose, 
         {showAddressField && (
           <label className="grid gap-1 text-sm">
             <span className="font-medium">New address</span>
-            <input
+            <Input
               value={newAddress}
               onChange={(e) => setNewAddress(e.target.value)}
               placeholder="New residence, if known"
-              className="h-10 rounded-lg border border-border px-3"
+              className="h-10"
             />
             <span className="text-xs text-muted-foreground">If relocating within the system to another household, mention the household number here. Household linking UI will come in a future update.</span>
           </label>
@@ -170,25 +171,14 @@ export function ChangeStatusModal({ childId, currentStatus, childName, onClose, 
 
         <label className="grid gap-1 text-sm">
           <span className="font-medium">Additional remarks (optional)</span>
-          <textarea
+          <Textarea
             value={remarks}
             onChange={(e) => setRemarks(e.target.value)}
             placeholder="Any other context — e.g. source of the information, follow-up actions"
-            className="min-h-20 rounded-lg border border-border p-3"
+            className="min-h-20"
           />
         </label>
 
-        <div className="flex justify-end gap-3 border-t border-border pt-4">
-          <button type="button" onClick={onClose} className="rounded-lg border border-border px-4 py-2">Cancel</button>
-          <button
-            type="submit"
-            disabled={saving || !canSubmit}
-            className={`rounded-lg px-5 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed ${meta?.tone === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-primary/90'}`}
-          >
-            {saving ? 'Saving...' : meta ? `Mark as ${meta.label}` : 'Save status change'}
-          </button>
-        </div>
-      </form>
-    </div>
+    </Modal>
   )
 }

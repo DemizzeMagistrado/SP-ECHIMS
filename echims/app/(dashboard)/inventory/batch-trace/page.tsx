@@ -7,15 +7,24 @@
 //
 // Export: CSV download of the children + transactions tables.
 
-import { useState } from 'react'
+import { CountsStrip, REPORT_CARD } from '@/components/ui/report-parts'
+import { useState, useSyncExternalStore } from 'react'
+import { normalizeBatchNumber } from '@/lib/vaccination-config'
 import useSWR from 'swr'
 import {
-  Search, Package, Hash, MapPin, CalendarClock, AlertCircle, Download, Users, Syringe, Pill,
-  CheckCircle2, Clock, XCircle, Send,
+  Search, Package, Hash, MapPin, CalendarClock, Download, Users,
+  CheckCircle2, Clock,
 } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
+import { LogoLoader } from '@/components/brand/logo-loader'
+import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/form'
+import { NoAccess } from '@/components/ui/no-access'
+import { LoadError } from '@/components/ui/load-error'
 
 type TracePayload = {
   batch_number: string
@@ -56,26 +65,24 @@ export default function BatchTracePage() {
   const canView = role === 'Public Health Nurse' || role === 'Administrator'
   const _hasModule = role ? canPerform(role, 'Inventory', 'view') : false
 
-  const [query, setQuery] = useState('')
-  const [submitted, setSubmitted] = useState('')
+  // Links from vaccination records open this page with ?batch_number=… (read without an effect).
+  const linked = useSyncExternalStore(() => () => {}, () => normalizeBatchNumber(new URLSearchParams(window.location.search).get('batch_number')) ?? '', () => '')
+  const [typed, setQuery] = useState<string | null>(null)
+  const [chosen, setSubmitted] = useState<string | null>(null)
+  const query = typed ?? linked
+  const submitted = chosen ?? linked
 
-  const { data, error, isLoading } = useSWR<TracePayload>(
+  const { data, error, isLoading, isValidating, mutate } = useSWR<TracePayload>(
     canView && submitted ? `/api/inventory/batch-trace?batch_number=${encodeURIComponent(submitted)}` : null,
     fetcher,
   )
 
-  if (!isReady) return <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Loading…</div>
+  if (!isReady) return <LogoLoader />
   if (!canView) {
     return (
       <div className="space-y-6">
         <ModuleTabs parent="Inventory" role={role} />
-        <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-6">
-          <AlertCircle size={20} className="mt-0.5 shrink-0 text-rose-700" />
-          <div>
-            <h2 className="text-lg font-bold text-rose-900">Not authorized</h2>
-            <p className="mt-1 text-sm text-rose-700">Batch tracing is restricted to PHN and Admin.</p>
-          </div>
-        </div>
+        <NoAccess>Batch tracing is restricted to PHN and Admin.</NoAccess>
       </div>
     )
   }
@@ -115,34 +122,40 @@ export default function BatchTracePage() {
     <div className="space-y-6">
       <ModuleTabs parent="Inventory" role={role} />
 
-      <div>
-        <p className="text-sm font-semibold text-primary">eCHIMS Workspace</p>
-        <h1 className="mt-1 text-3xl font-bold text-foreground">Batch Trace</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          PHN/Admin only. Enter a batch number to see where it was received, allocated, used, and which children received doses from it.
-          Essential for recall or defect investigations.
-        </p>
-      </div>
+      <PageHeader
+        title="Batch Trace"
+        subtitle="PHN/Admin only. Enter a batch number to see where it was received, allocated, used, and which children received doses from it. Essential for recall or defect investigations."
+      />
 
-      <form onSubmit={doSearch} className="flex flex-col gap-2 rounded-2xl border border-border bg-white p-4 md:flex-row md:items-end">
+      <section aria-label="Search" className={REPORT_CARD}>
+      <form onSubmit={doSearch} className="flex flex-col gap-2 p-4 md:flex-row md:items-end">
         <div className="flex-1">
           <label htmlFor="bt-q" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Batch number</label>
           <div className="relative">
             <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input id="bt-q" type="text" value={query} onChange={(e) => setQuery(e.target.value)} required placeholder="e.g. BCG-2026-001"
-              className="w-full rounded-lg border border-border pl-9 pr-3 py-2 text-sm outline-none focus:border-primary" />
+            <Input id="bt-q" type="text" value={query} onChange={(e) => setQuery(e.target.value)} required placeholder="e.g. BCG-2026-001"
+              className="pl-9 pr-3" />
           </div>
         </div>
-        <button type="submit" className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
+        <Button type="submit">
           <Search size={14} /> Trace
-        </button>
+        </Button>
         {data && (
-          <button type="button" onClick={downloadCsv}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted">
+          <Button variant="tonal" onClick={downloadCsv}
+           >
             <Download size={14} /> Export CSV
-          </button>
+          </Button>
         )}
       </form>
+      {data && (
+        <CountsStrip label="Batch counts" items={[
+          { label: 'Barangays holding', value: data.counts.batches.toLocaleString() },
+          { label: 'Transactions', value: data.counts.transactions.toLocaleString() },
+          { label: 'Children vaccinated', value: data.counts.children_vaccinated.toLocaleString() },
+          { label: 'Children supplemented', value: data.counts.children_supplemented.toLocaleString() },
+        ]} />
+      )}
+      </section>
 
       {!submitted && (
         <div className="flex min-h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-sky-200 bg-white p-10 text-center text-muted-foreground">
@@ -155,26 +168,18 @@ export default function BatchTracePage() {
         <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">Searching…</div>
       )}
       {submitted && error && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">{error.message}</div>
+        <LoadError what="the batch trace" error={error} retrying={isValidating} onRetry={() => void mutate()} />
       )}
 
       {data && (
         <>
-          {/* Counts */}
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <StatTile icon={<Package size={14} />} label="Barangays holding" value={data.counts.batches} />
-            <StatTile icon={<Send size={14} />} label="Transactions" value={data.counts.transactions} />
-            <StatTile icon={<Syringe size={14} />} label="Children vaccinated" value={data.counts.children_vaccinated} />
-            <StatTile icon={<Pill size={14} />} label="Children supplemented" value={data.counts.children_supplemented} />
-          </div>
-
           {/* Barangay distribution */}
           <section className="rounded-2xl border border-border bg-white p-6">
             <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
               <MapPin size={14} /> Barangay distribution
             </h2>
             {data.batches.length === 0 ? (
-              <p className="text-sm italic text-muted-foreground">No active batches with this number.</p>
+              <EmptyState icon={Package} title="No active batches with this number" description="Check the batch number and search again." />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[600px] text-left text-sm">
@@ -212,7 +217,7 @@ export default function BatchTracePage() {
           <section className="rounded-2xl border border-border bg-white p-6">
             <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold"><Clock size={14} /> Transactions (stock-in · allocations · usage/waste)</h2>
             {data.transactions.length === 0 ? (
-              <p className="text-sm italic text-muted-foreground">No transactions recorded.</p>
+              <EmptyState icon={Clock} title="No transactions recorded" description="Stock-in, allocation and usage entries for this batch appear here." />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[720px] text-left text-sm">
@@ -255,7 +260,7 @@ export default function BatchTracePage() {
           <section className="rounded-2xl border border-border bg-white p-6">
             <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold"><Users size={14} /> Children who received this batch</h2>
             {data.vaccinations.length === 0 && data.supplementations.length === 0 ? (
-              <p className="text-sm italic text-muted-foreground">No children associated with this batch yet.</p>
+              <EmptyState icon={Users} title="No children received this batch yet" description="Doses given from this batch will be listed here." />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[720px] text-left text-sm">
@@ -308,15 +313,6 @@ export default function BatchTracePage() {
           </section>
         </>
       )}
-    </div>
-  )
-}
-
-function StatTile({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
-  return (
-    <div className="rounded-xl border border-border bg-white p-4">
-      <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{icon} {label}</p>
-      <p className="mt-1 text-2xl font-bold text-foreground">{value.toLocaleString()}</p>
     </div>
   )
 }

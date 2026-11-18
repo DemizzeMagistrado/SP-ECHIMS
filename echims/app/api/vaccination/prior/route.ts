@@ -10,7 +10,9 @@
 //     computation (/api/vaccination/history), so the kid doesn't show up as
 //     a defaulter for a shot they actually received before enrollment.
 
+import { loadBatchRule } from '@/lib/batch-rule-server'
 import { NextResponse } from 'next/server'
+import { batchNumberError, isVaccinationSite, normalizeBatchNumber } from '@/lib/vaccination-config'
 import { createClient } from '@/lib/supabase/server'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 
@@ -105,6 +107,11 @@ export async function POST(request: Request) {
     return invalid(`Dose ${doseNumber} of this vaccine is ${label} for this child.`, 409)
   }
 
+  const batchError = batchNumberError(body.batch_number, await loadBatchRule(supabase))
+  if (batchError) return invalid(`Batch number: ${batchError}`)
+  const site = body.vaccination_site?.trim() || null
+  if (!isVaccinationSite(site)) return invalid('Choose a vaccination site from the list.')
+
   // --- Insert as auto-APPROVED prior record ---
   const insertRes = await supabase.from('vaccination_record')
     .insert({
@@ -112,8 +119,8 @@ export async function POST(request: Request) {
       vaccine_id: vaccineId,
       dose_number: doseNumber,
       vaccination_date: vaccinationDate,
-      batch_number: body.batch_number?.trim() || null,
-      vaccination_site: body.vaccination_site?.trim() || null,
+      batch_number: normalizeBatchNumber(body.batch_number),
+      vaccination_site: site,
       remarks: body.remarks?.trim() || null,
       recorded_by: user.id,
       status: 'APPROVED',

@@ -10,8 +10,9 @@ import { SystemOfflineTools } from '@/components/offline/system-offline-tools'
 //   • Notifications bell untouched (same component, same behavior)
 
 import {
-  Bell, CheckCheck, Loader2, RefreshCw, X,
+  Bell, CheckCheck, Menu, RefreshCw, X,
   Settings as SettingsIcon, LogOut, User as UserIcon,
+  BellOff,
 } from 'lucide-react'
 import {
   useCallback, useEffect, useId, useRef, useState,
@@ -19,6 +20,10 @@ import {
 import Link from 'next/link'
 import { useRouter } from '@/lib/offline/navigation'
 import { useAuth } from '@/components/auth/auth-provider'
+import { useShell } from './shell'
+import { Spinner } from '@/components/brand/logo-loader'
+import { EmptyState } from '@/components/ui/empty-state'
+import { OfflineBanner } from '@/components/offline/offline-banner'
 
 type Notification = {
   alert_id: number
@@ -43,6 +48,11 @@ function notificationTarget(item: Notification): { href: string; label: string }
   if (item.source_module === 'SUPPLEMENTATION' && typeof item.child_id === 'number' && item.child_id > 0) {
     return { href: `/child-profiling/children/${item.child_id}`, label: 'View child record' }
   }
+  if (item.source_module === 'VACCINATION') {
+    return typeof item.child_id === 'number' && item.child_id > 0
+      ? { href: `/child-profiling/children/${item.child_id}#vaccination-schedule`, label: 'View child schedule' }
+      : { href: '/vaccination/schedule', label: 'View vaccination schedule' }
+  }
   if (item.source_module === 'HEALTH_ACTIVITY' && typeof item.schedule_id === 'number' && item.schedule_id > 0) {
     return { href: '/health-activities', label: 'View activities' }
   }
@@ -64,6 +74,7 @@ function formatTimestamp(value: string) {
 export function TopNav() {
   const router = useRouter()
   const { logout, user } = useAuth()
+  const { inShell, toggleMenu, mobileOpen, collapsed } = useShell()
   const dropdownId = useId()
   const settingsMenuId = useId()
   const [today, setToday] = useState('')
@@ -171,17 +182,24 @@ export function TopNav() {
     router.push(target.href)
   }
 
-  async function handleLogout() {
-    await logout()
-    window.location.replace('/')
+  // logout() covers the page with the loader and navigates to the landing page itself.
+  function handleLogout() {
+    void logout()
   }
 
   return (
-    <div className="flex h-20 items-center justify-between border-b border-[#E5E7EB] bg-white px-4 shadow-sm sm:px-8">
-      {/* Date */}
-      <div>
-        <p className="text-xs uppercase tracking-wider text-[#6B7280]">Today</p>
-        <p className="text-sm font-medium text-[#03045E]">{today || '—'}</p>
+    <div className="app-topbar sticky top-0 z-30">
+    <div className="flex h-16 items-center justify-between gap-3 border-b border-[#03045E]/[0.07] bg-white/90 px-4 backdrop-blur-md sm:px-6 lg:px-8">
+      <div className="flex min-w-0 items-center gap-2">
+        {inShell && (
+          <button type="button" onClick={toggleMenu} aria-controls="main-sidebar"
+            aria-expanded={mobileOpen || !collapsed}
+            aria-label="Toggle menu" title={collapsed ? 'Expand menu' : 'Collapse menu'}
+            className="-ml-1 rounded-lg p-2 text-[#03045E] transition hover:bg-[#EAF6FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9]">
+            <Menu size={22} />
+          </button>
+        )}
+        <p className="truncate text-sm font-semibold text-[#2D3A55]">{today || ' '}</p>
       </div>
 
       <div className="flex items-center gap-3 sm:gap-4">
@@ -193,7 +211,7 @@ export function TopNav() {
             aria-label={`Notifications, ${unreadCount} unread`}
             aria-expanded={open} aria-controls={dropdownId}
             onClick={() => { const next = !open; setOpen(next); if (next) void loadNotifications() }}
-            className="relative rounded-full p-2.5 text-[#03045E] transition hover:bg-[#F3F4F6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9]">
+            className="relative rounded-lg p-2.5 text-[#03045E] transition hover:bg-[#EAF6FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9]">
             <Bell size={22} />
             {unreadCount > 0 && (
               <span aria-hidden="true"
@@ -205,7 +223,7 @@ export function TopNav() {
 
           {open && (
             <section id={dropdownId} aria-label="Notifications"
-              className="absolute right-0 top-full z-50 mt-3 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+              className="absolute right-0 top-full z-50 mt-3 w-[min(24rem,calc(100vw-2rem))] origin-top-right overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl animate-in fade-in zoom-in-95 slide-in-from-top-1 duration-150">
               <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                 <div>
                   <h2 className="font-bold text-[#03045E]">Notifications</h2>
@@ -215,7 +233,7 @@ export function TopNav() {
                   <button type="button" aria-label="Refresh" disabled={loading || saving}
                     onClick={() => void loadNotifications()}
                     className="rounded-full p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50">
-                    <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                    {loading ? <Spinner /> : <RefreshCw size={16} />}
                   </button>
                   <button type="button" aria-label="Close"
                     onClick={() => { setOpen(false); bellRef.current?.focus() }}
@@ -237,14 +255,11 @@ export function TopNav() {
               )}
               <div className="max-h-[60vh] overflow-y-auto">
                 {loading && notifications.length === 0 ? (
-                  <div role="status" className="flex items-center justify-center gap-2 p-8 text-sm text-slate-500">
-                    <Loader2 size={18} className="animate-spin" /> Loading…
-                  </div>
+                  <Spinner showLabel label="Loading notifications…" className="w-full justify-center py-6 text-sm text-muted-foreground" />
                 ) : notifications.length === 0 ? (
-                  <div className="p-8 text-center text-sm text-slate-500">
-                    <Bell size={28} className="mx-auto mb-3 text-slate-300" />
-                    {error ? 'Notifications could not be loaded.' : 'No notifications yet.'}
-                  </div>
+                  error
+                    ? <EmptyState icon={BellOff} title="Notifications could not be loaded" description="Check your connection and open this menu again." />
+                    : <EmptyState icon={Bell} title="You're all caught up" description="New notifications will appear here." />
                 ) : (
                   <ul className="divide-y divide-slate-100">
                     {notifications.map((item) => (
@@ -257,7 +272,7 @@ export function TopNav() {
                             {item.alert_message}
                           </p>
                         </div>
-                        <p className="mt-2 text-xs text-slate-400">{formatTimestamp(item.created_at)}</p>
+                        <p className="mt-2 text-xs text-slate-500">{formatTimestamp(item.created_at)}</p>
                         <div className="mt-3 flex flex-wrap items-center gap-4">
                           {notificationTarget(item) && (
                             <button type="button" disabled={saving} onClick={() => void viewNotification(item)}
@@ -278,7 +293,7 @@ export function TopNav() {
                   </ul>
                 )}
               </div>
-              <p className="border-t border-slate-100 px-4 py-2 text-xs text-slate-400">
+              <p className="border-t border-slate-100 px-4 py-2 text-xs text-slate-500">
                 Latest 50 notifications · Refreshes every 30 seconds while this tab is visible
               </p>
             </section>
@@ -289,12 +304,12 @@ export function TopNav() {
         <div ref={settingsRef} className="relative">
           <button type="button" aria-label="Settings menu" aria-expanded={settingsOpen} aria-controls={settingsMenuId}
             onClick={() => setSettingsOpen((s) => !s)}
-            className="rounded-full p-2.5 text-[#03045E] transition hover:bg-[#F3F4F6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9]">
+            className="rounded-lg p-2.5 text-[#03045E] transition hover:bg-[#EAF6FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9]">
             <SettingsIcon size={22} />
           </button>
           {settingsOpen && (
             <section id={settingsMenuId} aria-label="Settings"
-              className="absolute right-0 top-full z-50 mt-3 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+              className="absolute right-0 top-full z-50 mt-3 w-60 origin-top-right overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl animate-in fade-in zoom-in-95 slide-in-from-top-1 duration-150">
               <div className="border-b border-slate-100 px-4 py-3">
                 <p className="truncate text-sm font-semibold text-[#03045E]">{user?.fullName ?? 'Account'}</p>
                 <p className="truncate text-xs text-slate-500">{user?.role ?? ''}</p>
@@ -317,6 +332,8 @@ export function TopNav() {
           )}
         </div>
       </div>
+    </div>
+    <OfflineBanner />
     </div>
   )
 }
