@@ -321,9 +321,6 @@ function ActivityWorkspace() {
       <TabPanel tabKey={activeTab} className="space-y-4">
         <SectionHeader title={section.title} subtitle={section.subtitle} about={section.about}
         actions={<>
-            <Button variant="outline" size="icon" className="size-10" aria-label="Refresh activities" title="Refresh" disabled={refreshing} onClick={() => void loadActivities()}>
-              <RefreshCw size={16} aria-hidden="true" className={cn(refreshing && 'animate-spin motion-reduce:animate-none')} />
-            </Button>
             {canRequest && (
               <Button
                 className="bg-[#07075F] hover:bg-[#1A1A80]"
@@ -336,6 +333,7 @@ function ActivityWorkspace() {
                 New request
               </Button>
             )}
+            <Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={refreshing} onClick={() => void loadActivities()} title="Refresh"><RefreshCw size={16} aria-hidden="true" className={refreshing ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>
           </>} />
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

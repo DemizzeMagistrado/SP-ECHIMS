@@ -59,7 +59,7 @@ export function BatchRequestsSection({ userId, canTrace, onTrace, first }: { use
           { label: 'Tip', value: 'Select a batch number to trace where it went' },
         ]}
       />}
-      actions={<>{canCreate && <Button onClick={() => setCreateOpen(true)}><Plus size={17} aria-hidden="true" /> New request</Button>}<Button variant="outline" size="icon" className="size-10" aria-label="Refresh batch requests" title="Refresh" disabled={refreshing || readOnly} onClick={() => void mutate()}><RefreshCw size={16} aria-hidden="true" className={refreshing ? 'animate-spin motion-reduce:animate-none' : undefined} /></Button></>}
+      actions={<>{canCreate && <Button onClick={() => setCreateOpen(true)}><Plus size={17} aria-hidden="true" /> New request</Button>}<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={refreshing || readOnly} onClick={() => void mutate()} title="Refresh"><RefreshCw size={16} aria-hidden="true" className={refreshing ? "animate-spin motion-reduce:animate-none" : undefined} /></Button></>}
     >
       <VaccinationSnapshotNotice savedAt={savedAt} readOnly={readOnly} />
 

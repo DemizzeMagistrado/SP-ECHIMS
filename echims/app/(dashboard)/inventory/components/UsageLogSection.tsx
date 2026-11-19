@@ -70,7 +70,7 @@ export function UsageLogSection({ canLog, canTrace, onTrace, first }: { canLog: 
         bullets={['Offline entries queue on this device and sync on your next visit']}
         note="Only the RHM logs usage and waste."
       />}
-      actions={<>{canLog && <Button onClick={() => setOpen(true)}><Plus size={17} aria-hidden="true" /> Log usage/waste</Button>}<Button variant="outline" size="icon" className="size-10" aria-label="Refresh usage log" title="Refresh" disabled={isValidating} onClick={() => void mutate()}><RefreshCw size={16} aria-hidden="true" className={isValidating ? 'animate-spin motion-reduce:animate-none' : undefined} /></Button></>}
+      actions={<>{canLog && <Button onClick={() => setOpen(true)}><Plus size={17} aria-hidden="true" /> Log usage/waste</Button>}<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={isValidating} onClick={() => void mutate()} title="Refresh"><RefreshCw size={16} aria-hidden="true" className={isValidating ? "animate-spin motion-reduce:animate-none" : undefined} /></Button></>}
     >
       {queued > 0 && (
         <p role="status" className="flex items-start gap-2 rounded-xl border border-[#F3D9A4] bg-[#FFF4DB] px-4 py-3 text-sm text-[#9C6B10]">

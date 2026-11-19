@@ -306,9 +306,7 @@ export function SupplementStockRequestsPanel({
             ))}
           </Select>
         </div>
-        <Button variant="secondary" className="ml-auto" disabled={loading || busy || !online} onClick={() => setReload((v) => v + 1)}>
-          <RefreshCw size={16} aria-hidden="true" /> Refresh
-        </Button>
+        <Button variant="secondary" size="icon" className="ml-auto size-10" aria-label="Refresh" disabled={loading || busy || !online} onClick={() => setReload((v) => v + 1)}><RefreshCw size={16} aria-hidden="true" /></Button>
       </div>
       <div className="space-y-2 px-4 pt-4 empty:hidden">
         <p className="rounded-xl border border-review-line/40 bg-review-soft px-3 py-2 text-sm text-review">

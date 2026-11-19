@@ -1888,16 +1888,7 @@ export default function NutritionPage() {
 
   // Refresh for the filter card (All assessments, Summary, Risk monitoring): secondary, pushed right.
   const refreshButton = ownerId ? (
-    <Button
-      variant="secondary"
-      loading={isValidating && Boolean(data)}
-      disabled={!online || accessDenied}
-      title={online ? undefined : "Reconnect to refresh"}
-      onClick={() => void mutate()}
-    >
-      {!(isValidating && data) && <RefreshCw size={16} aria-hidden="true" />}
-      Refresh
-    </Button>
+    <Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={!online || accessDenied} onClick={() => void mutate()} title={online ? undefined : "Reconnect to refresh"}><RefreshCw size={16} aria-hidden="true" className={isValidating && Boolean(data) ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>
   ) : null;
   const summaryViews = (
     <SummaryViews

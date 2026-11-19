@@ -22,7 +22,7 @@ import {
 import { LogoLoader } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
-import { FileText, SearchX } from 'lucide-react'
+import { FileText, SearchX, RefreshCw } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
@@ -413,12 +413,7 @@ export default function ReportsPage() {
           <SectionHeader
             title={<>Saved report versions ({options.total})</>}
             actions={
-              <Button variant="secondary"
-                disabled={busy || loading}
-                onClick={() => setReload((v) => v + 1)}
-              >
-                Refresh
-              </Button>
+              <Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={busy || loading} onClick={() => setReload((v) => v + 1)}><RefreshCw size={16} aria-hidden="true" /></Button>
             }
           />
           {/* System data grid (as in Supplementation / Nutrition): header strip, hairlines, zebra rows. */}

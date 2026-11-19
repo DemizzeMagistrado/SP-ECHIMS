@@ -314,16 +314,7 @@ export function NutritionAdmissionPanel({
           bullets={['No next follow-up date is required']}
           note="Shows at most the latest 500 entries in your scope."
         />}
-        actions={<Button
-            variant="secondary"
-            loading={loading && Boolean(data)}
-            disabled={loading || busy || !online}
-            title={online ? undefined : "Reconnect to refresh"}
-            onClick={() => setReload((v) => v + 1)}
-          >
-            {!(loading && data) && <RefreshCw size={16} aria-hidden="true" />}
-            Refresh
-          </Button>}
+        actions={<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={loading || busy || !online} onClick={() => setReload((v) => v + 1)} title={online ? undefined : "Reconnect to refresh"}><RefreshCw size={16} aria-hidden="true" className={loading && Boolean(data) ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>}
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="relative lg:col-span-2">

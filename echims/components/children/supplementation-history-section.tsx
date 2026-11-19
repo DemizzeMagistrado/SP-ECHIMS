@@ -60,8 +60,8 @@ export function SupplementationHistorySection({childId}:{childId:number}){
     <div className="flex flex-wrap items-center justify-between gap-3 border-b p-5">
       <div><h2 className="text-lg font-semibold text-primary">Supplementation</h2><p className="mt-1 text-sm text-muted-foreground">Saved doses, supplies, plans and scheduled follow-up</p></div>
       <div className="flex flex-wrap items-center gap-2 print:hidden">
-        <Button variant="tonal" size="sm" onClick={()=>void mutate()}><RefreshCw size={14} aria-hidden="true"/>Refresh</Button>
         <Link className={buttonVariants({variant:'secondary'})} href={reviewHref}>{data?.permissions?.record||data?.permissions?.clinical?'Review / Record':'Review supplementation'}</Link>
+        <Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" onClick={()=>void mutate()}><RefreshCw size={16} aria-hidden="true" /></Button>
       </div>
     </div>
     <TabBar variant="sub" className="border-b p-3" label="Supplementation sections" group="supplementation-history" value={tab} onChange={setTab}

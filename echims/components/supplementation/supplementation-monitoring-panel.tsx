@@ -182,10 +182,7 @@ export function SupplementationMonitoringPanel({
           bullets={['Children without a saved schedule are not counted as missed', 'Clinical results require RHM review']}
           note="Counts are tracked schedules or courses, not unique children."
         />}
-        actions={<Button variant="secondary" loading={loading} disabled={!online} onClick={refresh}>
-                  {!loading && <RefreshCw size={16} aria-hidden="true" />}
-                  Refresh
-                </Button>}
+        actions={<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={!online} onClick={refresh}><RefreshCw size={16} aria-hidden="true" className={loading ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>}
       />
       {!online ? (
         <p role="status" className="rounded-2xl border border-review-line/40 bg-review-soft p-4 text-sm text-review">

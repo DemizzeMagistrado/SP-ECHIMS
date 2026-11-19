@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
-import { MessageSquare } from 'lucide-react'
+import { MessageSquare, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DateInput, Input, Select } from '@/components/ui/form'
 import { Pagination, usePagination } from '@/components/ui/pagination'
@@ -297,12 +297,7 @@ export function ProgramSmsPanel({
         <p className="text-sm text-brand-muted">
           Reminder 1 day before the due date · missed-dose follow-up from 1 day after.
         </p>
-        <Button variant="secondary" size="sm"
-          disabled={loading || busy || !online}
-          onClick={() => setReload((old) => old + 1)}
-        >
-          Refresh
-        </Button>
+        <Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={loading || busy || !online} onClick={() => setReload((old) => old + 1)}><RefreshCw size={16} aria-hidden="true" /></Button>
       </div>
       {!online && (
         <p className="text-sm text-warn">Reconnect to load current reminder eligibility.</p>

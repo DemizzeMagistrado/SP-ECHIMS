@@ -52,7 +52,7 @@ export function ReplenishmentSection({ userId, canRequest, canReview, first }: {
         ]}
         note="Approving does not move stock by itself; allocate it to the barangay after."
       />}
-      actions={<>{canRequest && <Button onClick={() => setCreateOpen(true)}><Plus size={17} aria-hidden="true" /> New request</Button>}<Button variant="outline" size="icon" className="size-10" aria-label="Refresh replenishment requests" title="Refresh" disabled={isValidating} onClick={refresh}><RefreshCw size={16} aria-hidden="true" className={isValidating ? 'animate-spin motion-reduce:animate-none' : undefined} /></Button></>}
+      actions={<>{canRequest && <Button onClick={() => setCreateOpen(true)}><Plus size={17} aria-hidden="true" /> New request</Button>}<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={isValidating} onClick={refresh} title="Refresh"><RefreshCw size={16} aria-hidden="true" className={isValidating ? "animate-spin motion-reduce:animate-none" : undefined} /></Button></>}
     >
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="relative sm:col-span-2">

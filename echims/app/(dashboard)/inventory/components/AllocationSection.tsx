@@ -62,7 +62,7 @@ export function AllocationSection({ canAllocate, canTrace, onTrace, first }: { c
         sections={[{ label: 'Format', value: 'ALLOC:[reference]' }, { label: 'Tip', value: 'Trace batch shows where a batch went and which children received it' }]}
         note="Only the PHN allocates stock. Both barangays' on-hand figures update together."
       />}
-      actions={<>{canAllocate && <Button onClick={() => setOpen(true)}><Plus size={17} aria-hidden="true" /> New allocation</Button>}<Button variant="outline" size="icon" className="size-10" aria-label="Refresh allocations" title="Refresh" disabled={isValidating} onClick={() => void mutate()}><RefreshCw size={16} aria-hidden="true" className={isValidating ? 'animate-spin motion-reduce:animate-none' : undefined} /></Button></>}
+      actions={<>{canAllocate && <Button onClick={() => setOpen(true)}><Plus size={17} aria-hidden="true" /> New allocation</Button>}<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={isValidating} onClick={() => void mutate()} title="Refresh"><RefreshCw size={16} aria-hidden="true" className={isValidating ? "animate-spin motion-reduce:animate-none" : undefined} /></Button></>}
     >
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="relative sm:col-span-2">

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
-import { MessageSquare } from 'lucide-react'
+import { MessageSquare, RefreshCw } from 'lucide-react'
 
 type Attempt = {
   simulation_id: number;
@@ -199,9 +199,7 @@ export function GuardianSmsHistory({
       <div className="space-y-3 border-t border-border p-4">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold">Message history</h3>
-          <Button variant="ghost" size="sm" disabled={!owner} loading={loading && Boolean(data)} onClick={() => void refresh()}>
-            Refresh
-          </Button>
+          <Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={!owner} onClick={() => void refresh()}><RefreshCw size={16} aria-hidden="true" className={loading && Boolean(data) ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>
         </div>
         <p className="text-xs text-muted-foreground">
           Simulated results are for presentation. Simulation times do not mean

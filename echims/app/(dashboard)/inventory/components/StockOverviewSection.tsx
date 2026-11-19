@@ -84,7 +84,7 @@ export function StockOverviewSection({ canStockIn, first }: { canStockIn: boolea
         bullets={['Open a row to see its batches, received and expiry dates']}
         note="Only Admin and the PHN record stock-in."
       />}
-      actions={<>{canStockIn && <Button onClick={() => setStockInOpen(true)}><Plus size={17} aria-hidden="true" /> Record stock-in</Button>}<Button variant="outline" size="icon" className="size-10" aria-label="Refresh stock" title="Refresh" disabled={isValidating} onClick={() => void mutate()}><RefreshCw size={16} aria-hidden="true" className={isValidating ? 'animate-spin motion-reduce:animate-none' : undefined} /></Button></>}
+      actions={<>{canStockIn && <Button onClick={() => setStockInOpen(true)}><Plus size={17} aria-hidden="true" /> Record stock-in</Button>}<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={isValidating} onClick={() => void mutate()} title="Refresh"><RefreshCw size={16} aria-hidden="true" className={isValidating ? "animate-spin motion-reduce:animate-none" : undefined} /></Button></>}
     >
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Select aria-label="Item" value={itemFilter} onChange={(e) => setItemFilter(e.target.value)}>

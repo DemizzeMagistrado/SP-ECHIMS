@@ -3,7 +3,7 @@
 import {saveChildChangeDraft} from '@/lib/offline/child-change-drafts'
 import {offlineScope} from '@/lib/offline/fetch'
 import {offlineFetch as fetch} from '@/lib/offline/fetch'
-import {Search} from 'lucide-react'
+import {Search, RefreshCw } from 'lucide-react'
 import {Input} from '@/components/ui/form'
 import {Button,buttonVariants} from '@/components/ui/button'
 import {Pagination,usePagination} from '@/components/ui/pagination'
@@ -80,7 +80,7 @@ function TransferPanel({child,canEdit:permissionToEdit,onSaved,owner}:Props & {o
  }
  const review=(row:Transfer,a:typeof action)=>{close();setTarget(row);setAction(a);setAddress('');setReceivedOn(today());setBarangay(row.to_barangay_id?String(row.to_barangay_id):'');setFailure('');setMessage('')}
  return <section className="rounded-2xl border border-border bg-white p-5 space-y-4">
-  <div className="flex flex-wrap justify-between gap-3"><div><h2 className="font-semibold text-primary">{child?'Movement & Transfers':'Transfer requests and history'}</h2><p className="text-sm text-muted-foreground">Request a barangay or RHU transfer. Records remain linked to the same child.</p></div><div className="flex gap-2">{child && <a className={buttonVariants({variant:'secondary'})} href="/child-profiling/transfers">Transfer inbox</a>}<Button variant="secondary" onClick={()=>void mutate()}>Refresh</Button>{child && canEdit && child.registryStatus==='ACTIVE' && !pending && !target && !newRequest && <Button onClick={()=>{close();setNewRequest(true);setFailure('');setMessage('')}}>Request transfer</Button>}</div></div>
+  <div className="flex flex-wrap justify-between gap-3"><div><h2 className="font-semibold text-primary">{child?'Movement & Transfers':'Transfer requests and history'}</h2><p className="text-sm text-muted-foreground">Request a barangay or RHU transfer. Records remain linked to the same child.</p></div><div className="flex gap-2">{child && <a className={buttonVariants({variant:'secondary'})} href="/child-profiling/transfers">Transfer inbox</a>}<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" onClick={()=>void mutate()}><RefreshCw size={16} aria-hidden="true" /></Button>{child && canEdit && child.registryStatus==='ACTIVE' && !pending && !target && !newRequest && <Button onClick={()=>{close();setNewRequest(true);setFailure('');setMessage('')}}>Request transfer</Button>}</div></div>
   {!online && <p role="status" className="text-sm text-amber-900">Prepare movement requests or receiving decisions offline using saved details. Review and sync after reconnecting; assignments do not change until the server confirms them. Receiving household registration still requires a connection.</p>}
   {message && <p role="status" className="text-sm text-emerald-700">{message}</p>}{failure && <p role="alert" className="text-sm text-red-700">{failure}</p>}
   {pending?<div className="rounded-xl border bg-amber-50 p-4 space-y-3 text-sm"><p>The result may be uncertain. Retry sends the same request and details. Keep this page open until confirmed.</p><Button disabled={busy} onClick={()=>void send(pending)}>{busy?'Saving…':'Retry same request'}</Button></div>:(newRequest || target) && <form onSubmit={submit} className="rounded-xl border bg-slate-50 p-4 space-y-4">

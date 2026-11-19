@@ -507,10 +507,7 @@ function AlertsWorkspace() {
           title="Alert Management"
           subtitle="Monitor system alerts and configure evaluation rules"
           actions={
-            <Button variant="secondary" disabled={loading || !owner} onClick={() => void load()}>
-              <RefreshCw size={16} aria-hidden="true" className={loading ? "animate-spin motion-reduce:animate-none" : undefined} />
-              Refresh
-            </Button>
+            <Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={loading || !owner} onClick={() => void load()}><RefreshCw size={16} aria-hidden="true" className={loading ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>
           }
         />
         {data?.canConfigure && (

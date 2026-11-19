@@ -162,7 +162,7 @@ export default function UserManagementClient({ users, readOnly: savedReadOnly = 
 
   return (
     <div className="space-y-5">
-      <PageHeader title="User Management" subtitle="Manage registered personnel, account verification, and workplace assignments." actions={<Button variant="outline" size="icon" className="size-10" aria-label="Refresh users" title="Refresh" onClick={reload}><RefreshCw size={16} aria-hidden="true" /></Button>} />
+      <PageHeader title="User Management" subtitle="Manage registered personnel, account verification, and workplace assignments." actions={<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" onClick={reload} title="Refresh"><RefreshCw size={16} aria-hidden="true" /></Button>} />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="relative">

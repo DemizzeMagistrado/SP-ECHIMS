@@ -1578,10 +1578,7 @@ export default function SupplementsPage() {
   const activeTab = tab === "followup" && !showFollowUp ? "records" : tab;
   const expiredWithStock = data?.batches.filter((b) => b.expiry_date < today() && Number(b.quantity_on_hand) > 0).length ?? 0;
   const refreshButton = (
-    <Button variant="secondary" loading={loading && Boolean(data)} disabled={!online} title={online ? undefined : "Reconnect to refresh"} onClick={() => void load()}>
-      {!(loading && data) && <RefreshCw size={16} aria-hidden="true" />}
-      Refresh
-    </Button>
+    <Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={!online} onClick={() => void load()} title={online ? undefined : "Reconnect to refresh"}><RefreshCw size={16} aria-hidden="true" className={loading && Boolean(data) ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>
   );
   // Split-button menu: the main click fires Record administration (the most common
   // field action); the chevron lists the other three permitted entry forms.
@@ -1756,7 +1753,7 @@ export default function SupplementsPage() {
       {error && !modal && data && (
         <div role="alert" className="flex flex-wrap items-center gap-3 rounded-2xl border border-danger/20 bg-danger-soft p-4 text-sm text-brand-navy">
           <span className="min-w-0 flex-1">{error}</span>
-          <Button variant="secondary" size="sm" onClick={() => void load()}>Refresh</Button>
+          <Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" onClick={() => void load()}><RefreshCw size={16} aria-hidden="true" /></Button>
         </div>
       )}
       {notice && (

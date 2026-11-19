@@ -109,7 +109,7 @@ export function SmsSimulationPanel({ ownerId }: { ownerId: string }) {
           sections={[{ label: "Values", value: ["Actual delivery = what the SMS gateway reported", "Queue status = where the reminder is in the send queue"] }]}
           note="Simulated results do not indicate real delivery."
         />}
-        actions={<Button variant="secondary" disabled={loading} onClick={() => setReload((value) => value + 1)}><RefreshCw size={16} aria-hidden="true" className={loading ? "animate-spin motion-reduce:animate-none" : undefined} /> Refresh</Button>}
+        actions={<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={loading} onClick={() => setReload((value) => value + 1)}><RefreshCw size={16} aria-hidden="true" className={loading ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>}
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Select aria-label="Program" value={program} onChange={(event) => setProgram(event.target.value)}>
