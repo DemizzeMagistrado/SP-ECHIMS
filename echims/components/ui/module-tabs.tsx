@@ -3,6 +3,7 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import { TabIndicator } from '@/components/dashboard/tab-indicator'
 
 export type TabItem<T extends string = string> = {
   value: T
@@ -19,32 +20,50 @@ export type TabItem<T extends string = string> = {
  *  - sub: tabs nested in a section, card or dialog (and the sticky section bar). No strip: separate
  *    13px pills (subPill), inactive = white with the main tabs' light border, active = solid navy.
  * State tabs: pass onChange and wrap the content in <TabPanel tabKey={value}> for the fade.
+ *
+ * Every strip (main and sub tabs, view switches, joined strips, the sticky section bar) slides one
+ * navy fill (TabIndicator) behind the active item instead of recolouring it in place. Items keep a
+ * white (or clear) background in both states and wrap their label in <PillLabel>, so the fill
+ * crosses neighbours visibly and the text stays on top. Text and border colours change over the
+ * same 250ms as the slide; both states share one font weight, so the pill never changes size.
  */
-/** Sub-level pill shared by sub tabs, view switches and the sticky section bar. Same weight in both
- *  states so switching never shifts the row; colours cross-fade in 150ms. */
+const slideColors = 'transition-[color,border-color,background-color] duration-[250ms] [transition-timing-function:var(--ease-smooth)] motion-reduce:transition-none'
+/** The strip around the items: the sliding fill is positioned inside it. */
+export const strip = 'relative isolate'
+/** Label inside a strip item: above the sliding fill. */
+export function PillLabel({ children }: { children: ReactNode }) {
+  return <span className="relative z-[1] inline-flex items-center gap-1.5">{children}</span>
+}
+/** Sliding fill for pills (sub tabs, view switches, sticky bar) and for the main tabs. */
+export const pillFill = 'rounded-lg bg-[#07075F] shadow-[0_1px_3px_rgba(12,18,96,0.18)]'
+
+/** Sub-level pill shared by sub tabs, view switches and the sticky section bar. */
 export const subPill = (active: boolean) => cn(
-  'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-4 py-1.5 text-[13px] font-semibold outline-none transition-[background-color,color,border-color,box-shadow] duration-150 ease-out focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-1 focus-visible:outline-link disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none',
+  'relative inline-flex shrink-0 items-center whitespace-nowrap rounded-lg border bg-white px-4 py-1.5 text-[13px] font-semibold outline-none focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-1 focus-visible:outline-link disabled:cursor-not-allowed disabled:opacity-60',
+  slideColors,
   active
-    ? 'border-[#07075F] bg-[#07075F] text-white shadow-[0_1px_3px_rgba(12,18,96,0.18)]'
-    : 'border-[#D5E2EA] bg-white text-[#55617F] hover:border-[#8896B0] hover:bg-[#F5F8FA] hover:text-[#0C1260] active:bg-brand-ice',
+    ? 'border-[#07075F] text-white'
+    : 'border-[#D5E2EA] text-[#55617F] hover:border-[#8896B0] hover:bg-[#F5F8FA] hover:text-[#0C1260] active:bg-brand-ice',
 )
 
-/** Joined strip for short toggles (2–3 options, e.g. Month / Week): no border; a light brand-ice
- *  track with a soft inner shadow, so it reads as one recessed control. The selected segment is
- *  solid navy and lifts with a small shadow. Same 150ms colour fade as subPill. */
-export const segmentGroup = 'inline-flex gap-0.5 rounded-lg bg-brand-ice p-0.5 shadow-[inset_0_1px_3px_rgba(12,18,96,0.12)]'
+/** Joined strip for short toggles (2-3 options, e.g. Month / Week): no border; a light brand-ice
+ *  track with a soft inner shadow, so it reads as one recessed control. The navy fill
+ *  (segmentFill) slides to the selected segment. */
+export const segmentGroup = 'relative isolate inline-flex gap-0.5 rounded-lg bg-brand-ice p-0.5 shadow-[inset_0_1px_3px_rgba(12,18,96,0.12)]'
+export const segmentFill = 'rounded-md bg-[#07075F] shadow-[0_1px_3px_rgba(12,18,96,0.25)]'
 export const segmentButton = (active: boolean) => cn(
-  'inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-1.5 text-[13px] font-semibold outline-none transition-[background-color,color,box-shadow] duration-150 ease-out focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-link motion-reduce:transition-none',
-  active ? 'bg-[#07075F] text-white shadow-[0_1px_3px_rgba(12,18,96,0.25)]' : 'text-[#07075F] hover:bg-white/70 active:bg-white',
+  'relative inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-1.5 text-[13px] font-semibold outline-none focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-link',
+  slideColors,
+  active ? 'text-white' : 'text-[#07075F] hover:bg-white/70 active:bg-white',
 )
 
-export function TabBar<T extends string>({ items, value, onChange, label, idBase, className, variant = 'main' }: {
+export function TabBar<T extends string>({ items, value, onChange, label, group, idBase, className, variant = 'main' }: {
   items: readonly TabItem<T>[]
   value: T
   onChange?: (value: T) => void
   /** Accessible name, e.g. "Vaccination sections". */
   label: string
-  /** Kept for callers; sub tabs no longer slide a shared indicator. */
+  /** Keeps the slide position across remounts (route tabs); defaults to label. */
   group?: string
   /** Gives tabs ids `${idBase}-tab-${value}` and aria-controls `${idBase}-panel-${value}`. */
   idBase?: string
@@ -68,8 +87,9 @@ export function TabBar<T extends string>({ items, value, onChange, label, idBase
   const tabClass = (active: boolean) => sub
     ? subPill(active)
     : cn(
-      'shrink-0 whitespace-nowrap rounded-lg border px-5 py-2 text-sm transition-all duration-150 outline-none focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-link disabled:cursor-not-allowed disabled:opacity-60',
-      active ? 'border-[#07075F] bg-[#07075F] font-semibold text-white' : 'border-[#D5E2EA] bg-white font-medium text-[#55617F] hover:border-[#8896B0] hover:bg-[#F5F8FA]',
+      'relative shrink-0 whitespace-nowrap rounded-lg border bg-white px-5 py-2 text-sm font-semibold outline-none focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-link disabled:cursor-not-allowed disabled:opacity-60',
+      slideColors,
+      active ? 'border-[#07075F] text-white' : 'border-[#D5E2EA] text-[#55617F] hover:border-[#8896B0] hover:bg-[#F5F8FA]',
     )
   const links = items.some((i) => i.href)
 
@@ -79,15 +99,15 @@ export function TabBar<T extends string>({ items, value, onChange, label, idBase
         ref={row}
         role={links ? undefined : 'tablist'}
         aria-label={links ? undefined : label}
-        className={sub
+        className={cn(strip, sub
           ? 'flex w-fit max-w-full gap-1.5 overflow-x-auto p-px [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-          : 'flex flex-wrap gap-1.5'}
+          : 'flex flex-wrap gap-1.5')}
       >
         {links ? (
           <nav aria-label={label} data-arrow-nav className="contents">
             {items.map((item) => (
               <Link key={item.value} href={item.href!} aria-current={item.value === value ? 'page' : undefined} className={tabClass(item.value === value)}>
-                {item.label}
+                <PillLabel>{item.label}</PillLabel>
               </Link>
             ))}
           </nav>
@@ -104,9 +124,10 @@ export function TabBar<T extends string>({ items, value, onChange, label, idBase
             onClick={() => onChange?.(item.value)}
             className={tabClass(item.value === value)}
           >
-            {item.label}
+            <PillLabel>{item.label}</PillLabel>
           </button>
         ))}
+        <TabIndicator group={group ?? label} activeKey={value} className={pillFill} />
       </div>
     </div>
   )

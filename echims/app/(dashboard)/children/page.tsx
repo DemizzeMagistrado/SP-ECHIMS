@@ -16,7 +16,8 @@ import { Plus, Search, SearchX, Baby, X, Upload } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
-import { segmentButton, segmentGroup } from '@/components/ui/module-tabs'
+import { PillLabel, segmentButton, segmentFill, segmentGroup } from '@/components/ui/module-tabs'
+import { TabIndicator } from '@/components/dashboard/tab-indicator'
 import { ChildDraftPanel } from '@/components/children/child-draft-panel'
 import { ChildFormModal } from '@/components/children/child-form-modal'
 import { toast } from '@/components/ui/toast'
@@ -196,9 +197,10 @@ export default function ChildHealthPage() {
               onClick={() => setView(opt.value)}
               className={segmentButton(view === opt.value)}
             >
-              {opt.label}
+              <PillLabel>{opt.label}</PillLabel>
             </button>
           ))}
+          <TabIndicator group="children-view" activeKey={view} className={segmentFill} />
         </div>
         <InfoTip label="About this view" text="About this view" align="end">
           <InfoContent

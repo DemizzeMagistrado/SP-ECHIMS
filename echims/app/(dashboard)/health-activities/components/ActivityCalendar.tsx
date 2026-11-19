@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Modal } from '@/components/ui/modal'
 import { cn } from '@/lib/utils'
-import { segmentButton, segmentGroup } from '@/components/ui/module-tabs'
+import { PillLabel, segmentButton, segmentFill, segmentGroup } from '@/components/ui/module-tabs'
+import { TabIndicator } from '@/components/dashboard/tab-indicator'
 import { ACTIVITY_TYPES, ACTIVITY_TYPE_META, activityTypeMeta } from '@/lib/constants/activity-types'
 import { type Activity, activityName, addDays, dateKey, formatTime, formatTimeRange, getBarangayName, minutesOf } from './activity-utils'
 import { ActivityStatusBadge } from './StatusBadge'
@@ -103,9 +104,10 @@ export function ActivityCalendar({ activities, onOpen }: { activities: Activity[
                 onClick={() => setView(option)}
                 className={segmentButton(view === option)}
               >
-                {option === 'MONTH' ? 'Month' : 'Week'}
+                <PillLabel>{option === 'MONTH' ? 'Month' : 'Week'}</PillLabel>
               </button>
             ))}
+            <TabIndicator group="calendar-view" activeKey={view} className={segmentFill} />
           </div>
         </div>
       </div>

@@ -21,7 +21,8 @@ import { AlertCircle, AlertTriangle, ArrowUpRight, Info } from 'lucide-react'
 import { manilaTodayYMD } from '@/lib/nip-schedule'
 import { alertDestination } from '@/lib/alerts/alert-destination'
 import { Donut } from './mini-charts'
-import { segmentButton, segmentGroup } from '@/components/ui/module-tabs'
+import { PillLabel, segmentButton, segmentFill, segmentGroup } from '@/components/ui/module-tabs'
+import { TabIndicator } from '@/components/dashboard/tab-indicator'
 import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/ui/empty-state'
 
@@ -199,9 +200,10 @@ export function BarangayRankingWidget({ style, size = 'tall' }: WidgetProps) {
         {([['overdue', 'Missed vaccines'], ['at_risk', 'Malnourished']] as const).map(([key, label]) => (
           <button key={key} type="button" role="tab" aria-selected={by === key} onClick={() => setBy(key)}
             className={cn(segmentButton(by === key), 'flex-1 leading-tight')}>
-            {label}
+            <PillLabel>{label}</PillLabel>
           </button>
         ))}
+        <TabIndicator group="barangay-ranking" activeKey={by} className={segmentFill} />
       </div>
       {top.length === 0 ? (
         <p className="flex flex-1 items-center justify-center rounded-xl bg-brand-ice/60 p-4 text-center text-sm text-brand-muted">No barangay has {what}.</p>

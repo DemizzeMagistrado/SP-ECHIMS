@@ -5,7 +5,8 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { AlertCircle, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { InfoTip } from '@/components/ui/info-tip'
-import { subPill } from '@/components/ui/module-tabs'
+import { PillLabel, pillFill, strip, subPill } from '@/components/ui/module-tabs'
+import { TabIndicator } from '@/components/dashboard/tab-indicator'
 
 /** Card used by every report block (filters, reports, tables): same radius, border and shadow. */
 export const REPORT_CARD = 'overflow-hidden rounded-2xl border border-brand-line bg-white shadow-sm'
@@ -125,7 +126,7 @@ export function ViewSwitch<T extends string>({ label, value, onChange, items }: 
     else if (list.scrollLeft < right) list.scrollLeft = right
   }, [value])
   return (
-    <div ref={row} role="group" aria-label={label} className="flex w-fit min-w-0 max-w-full flex-nowrap gap-1.5 overflow-x-auto p-px [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div ref={row} role="group" aria-label={label} className={cn(strip, "flex w-fit min-w-0 max-w-full flex-nowrap gap-1.5 overflow-x-auto p-px [scrollbar-width:none] [&::-webkit-scrollbar]:hidden")}>
       {items.map((item) => {
         const active = item.value === value
         return (
@@ -136,15 +137,18 @@ export function ViewSwitch<T extends string>({ label, value, onChange, items }: 
             onClick={() => onChange(item.value)}
             className={subPill(active)}
           >
-            {item.label}
-            {item.count != null && (
-              <span className={cn('rounded-full px-1.5 text-[11px] font-semibold tabular-nums', active ? 'bg-white/20 text-white' : 'bg-brand-ice text-[#07075F]')}>
-                {item.count}
-              </span>
-            )}
+            <PillLabel>
+              {item.label}
+              {item.count != null && (
+                <span className={cn('rounded-full px-1.5 text-[11px] font-semibold tabular-nums transition-colors duration-[250ms]', active ? 'bg-white/20 text-white' : 'bg-brand-ice text-[#07075F]')}>
+                  {item.count}
+                </span>
+              )}
+            </PillLabel>
           </button>
         )
       })}
+      <TabIndicator group={label} activeKey={value} className={pillFill} />
     </div>
   )
 }

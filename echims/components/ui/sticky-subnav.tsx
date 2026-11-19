@@ -14,7 +14,8 @@
 //   the page cannot scroll that far) until the user scrolls on their own.
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { subPill } from '@/components/ui/module-tabs'
+import { PillLabel, pillFill, strip, subPill } from '@/components/ui/module-tabs'
+import { TabIndicator } from '@/components/dashboard/tab-indicator'
 import { cn } from '@/lib/utils'
 
 const GAP = 14
@@ -163,7 +164,7 @@ export function StickySubnav({ items, extra, label }: {
           'pointer-events-none absolute inset-x-0 top-full h-4 bg-gradient-to-b from-[#D8F3F9]/80 to-transparent opacity-0 transition-opacity duration-200 ease-out motion-reduce:transition-none',
           stuck && 'opacity-100',
         )} />
-        <div className="flex w-fit max-w-full gap-1.5 overflow-x-auto p-px [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className={cn(strip, "flex w-fit max-w-full gap-1.5 overflow-x-auto p-px [scrollbar-width:none] [&::-webkit-scrollbar]:hidden")}>
           {items.map((item) => (
             <a
               key={item.id}
@@ -172,10 +173,12 @@ export function StickySubnav({ items, extra, label }: {
               onClick={(e) => { e.preventDefault(); jump(item.id) }}
               className={subnavPill(active === item.id)}
             >
-              {item.label}
+              <PillLabel>{item.label}</PillLabel>
             </a>
           ))}
           {extra}
+          {/* The navy fill slides to the current section as you scroll or jump. */}
+          <TabIndicator group={label} activeKey={active ?? ''} className={pillFill} />
         </div>
       </nav>
     </>

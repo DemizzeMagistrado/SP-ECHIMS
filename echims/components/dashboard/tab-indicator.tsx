@@ -5,11 +5,16 @@ import { useLayoutEffect, useRef } from 'react'
 // where the indicator was instead of appearing in place.
 const last = new Map<string, string>()
 
+// The active item of a strip: tabs (aria-selected), route links (aria-current="page"), the sticky
+// section bar (aria-current="location") and toggle buttons (aria-pressed).
+const ACTIVE = '[aria-selected="true"], [aria-current="page"], [aria-current="location"], [aria-pressed="true"]'
+
 /**
- * Sliding background behind the active tab ([aria-selected="true"] or [aria-current="page"]) of its
- * parent, which must be position: relative. Give the tab buttons `relative z-10` and no active
- * background. It slides with translate and takes the new tab's size without animating it, so its
- * corners never stretch. Module tabs use it through components/ui/module-tabs.tsx.
+ * Sliding fill behind the active item of its parent strip, which must be `relative isolate`.
+ * Items stay `relative` with no z-index and wrap their label in `relative z-[1]`, so the fill
+ * paints over the items' own backgrounds (it stays visible while crossing them) and under their
+ * text. It slides with translate (.tab-pill, 250ms) and takes the new item's size without
+ * animating it, so its corners never stretch. With no active item it fades out.
  */
 export function TabIndicator({ group, activeKey, className = '' }: {
   group: string; activeKey: string; className?: string
@@ -21,7 +26,7 @@ export function TabIndicator({ group, activeKey, className = '' }: {
     const list = el?.parentElement
     if (!el || !list) return
     const place = (animate: boolean) => {
-      const tab = list.querySelector<HTMLElement>('[aria-selected="true"], [aria-current="page"]')
+      const tab = list.querySelector<HTMLElement>(ACTIVE)
       if (!tab) { el.style.opacity = '0'; return }
       const to = `translate(${tab.offsetLeft}px, ${tab.offsetTop}px)`
       el.style.width = `${tab.offsetWidth}px`; el.style.height = `${tab.offsetHeight}px`
@@ -30,12 +35,20 @@ export function TabIndicator({ group, activeKey, className = '' }: {
       el.style.transform = to
       last.set(group, to)
     }
+    let frame = 0
     const from = last.get(group)
     if (from && el.style.transform === '') {
-      // Remounted after a route change: start at the old spot, then slide.
+      // Remounted after a route change: start at the old spot, wait until the page gate reveals
+      // the page (a slide behind the loader would be invisible), then slide.
       el.style.transition = 'none'
       el.style.transform = from
-      requestAnimationFrame(() => requestAnimationFrame(() => place(true)))
+      el.style.opacity = '1'
+      let tries = 0
+      const go = () => {
+        if (el.closest('.loading-gate[data-state="loading"]') && tries++ < 600) { frame = requestAnimationFrame(go); return }
+        frame = requestAnimationFrame(() => place(true))
+      }
+      frame = requestAnimationFrame(go)
     } else {
       place(el.style.transform !== '')
     }
@@ -44,7 +57,7 @@ export function TabIndicator({ group, activeKey, className = '' }: {
     let initial = true
     const ro = new ResizeObserver(() => { if (initial) { initial = false; return } place(false) })
     ro.observe(list)
-    return () => ro.disconnect()
+    return () => { cancelAnimationFrame(frame); ro.disconnect() }
   }, [group, activeKey])
 
   return <span ref={bar} aria-hidden className={`tab-pill ${className}`} />

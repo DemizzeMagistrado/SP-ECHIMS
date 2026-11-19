@@ -31,7 +31,8 @@ import {
   SystemActivityWidget, UpcomingWidget, WeighingDueWidget, type QuickAction,
 } from './widgets'
 import { Spinner } from '@/components/brand/logo-loader'
-import { segmentButton, segmentGroup } from '@/components/ui/module-tabs'
+import { PillLabel, segmentButton, segmentFill, segmentGroup } from '@/components/ui/module-tabs'
+import { TabIndicator } from '@/components/dashboard/tab-indicator'
 import { EmptyState } from '@/components/ui/empty-state'
 
 type Payload = {
@@ -389,9 +390,10 @@ function ActivityChart({ trends, trendKey, onTrend, totals, metrics, loading, di
             {trends.map((t) => (
               <button key={t.key} type="button" role="tab" aria-selected={trend.key === t.key} onClick={() => onTrend(t.key)}
                 className={segmentButton(trend.key === t.key)}>
-                {t.label}
+                <PillLabel>{t.label}</PillLabel>
               </button>
             ))}
+            <TabIndicator group="overview-chart" activeKey={trend.key} className={segmentFill} />
           </div>
         )}
       </div>
