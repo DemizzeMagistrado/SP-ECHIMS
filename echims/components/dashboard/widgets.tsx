@@ -454,7 +454,7 @@ export function MasterlistWidget({ style, size = 'compact' }: WidgetProps) {
   ] as const : []
   return (
     <WidgetShell id="masterlist" title="Latest masterlist upload" note={b ? new Date(b.uploaded_at).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' }) : 'Most recent import'}
-      link={{ href: '/masterlist-upload', label: 'Imports' }} style={style} size={size}
+      link={{ href: '/child-profiling/children?masterlist=1', label: 'Imports' }} style={style} size={size}
       loading={isLoading} error={error} empty={data && !b && 'No masterlist has been uploaded yet.'}>
       {b && (
         <>

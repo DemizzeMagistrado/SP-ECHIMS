@@ -20,12 +20,14 @@ import { PillLabel, segmentButton, segmentFill, segmentGroup } from '@/component
 import { TabIndicator } from '@/components/dashboard/tab-indicator'
 import { ChildDraftPanel } from '@/components/children/child-draft-panel'
 import { ChildFormModal } from '@/components/children/child-form-modal'
+import { MasterlistUploadPanel } from '@/components/children/masterlist-upload-panel'
+import { Modal } from '@/components/ui/modal'
 import { toast } from '@/components/ui/toast'
 import { LogoLoader } from '@/components/brand/logo-loader'
 import { TabPanel } from '@/components/brand/page-gate'
 import { PageHeader } from '@/components/ui/page-header'
 import { LoadError } from '@/components/ui/load-error'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/form'
 import { DataTable, type Column } from '@/components/ui/data-table'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -89,10 +91,13 @@ export default function ChildHealthPage() {
   const [view, setView] = useState<'active' | 'archived'>('active')
   // Keep the URL synced so notification deep links (?view=archived) and the legacy
   // /child-profiling/archived route can land straight on the archive without a flash.
+  const [masterlistOpen, setMasterlistOpen] = useState(false)
   useEffect(() => {
     if (typeof window === 'undefined') return
     const q = new URLSearchParams(window.location.search)
     if (q.get('view') === 'archived') setView('archived')
+    // /masterlist-upload (old page) redirects here with ?masterlist=1 to open the upload popup.
+    if (q.get('masterlist') === '1') setMasterlistOpen(true)
   }, [])
   const [search, setSearch] = useState('')
   const [barangayFilter, setBarangayFilter] = useState('all')
@@ -172,9 +177,9 @@ export default function ChildHealthPage() {
         actions={
           <>
             {canUploadMasterlist && (
-              <Link href="/masterlist-upload" className={buttonVariants({ variant: 'secondary' })}>
+              <Button variant="secondary" onClick={() => setMasterlistOpen(true)}>
                 <Upload size={17} aria-hidden="true" /> Upload masterlist
-              </Link>
+              </Button>
             )}
             {canRegister && view === 'active' && (
               <Button onClick={() => setRegisterOpen(true)}><Plus size={17} aria-hidden="true" />Register child</Button>
@@ -288,6 +293,20 @@ export default function ChildHealthPage() {
           }
         />
         </TabPanel>
+      )}
+
+      {/* Same rule as the old page's guard: 'Masterlist Upload' view (PHN, Administrator). */}
+      {masterlistOpen && canUploadMasterlist && (
+        <Modal
+          open
+          size="xl"
+          title="Upload masterlist"
+          subtitle="Bulk-register children, households and guardians from a CSV masterlist."
+          onClose={() => { setMasterlistOpen(false); void mutate() }}
+          cancelLabel="Close"
+        >
+          <MasterlistUploadPanel />
+        </Modal>
       )}
 
       {registerOpen && canRegister && (
