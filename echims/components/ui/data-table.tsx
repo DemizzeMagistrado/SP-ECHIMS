@@ -62,6 +62,9 @@ export function DataTable<T>({
     tabIndex: 0,
     'aria-label': rowLabel?.(row),
     onClick: (e: React.MouseEvent) => {
+      // Popups opened from a row (Correct & resubmit, History) are portaled, but React still bubbles
+      // their clicks to the row: ignore clicks that did not happen inside the row's own DOM.
+      if (!e.currentTarget.contains(e.target as Node)) return
       if ((e.target as HTMLElement).closest('a,button,input,select,textarea,label')) return
       onRowClick(row)
     },
