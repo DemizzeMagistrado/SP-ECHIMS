@@ -228,7 +228,9 @@ export default function BarangayMap({
   }
 
   return (
-    <div className="relative" style={{ height }}>
+    // isolate: Leaflet panes use z-index 400+; without a stacking context they cover the page's
+    // dropdown menus and modals (portaled to <body> at z-80 / z-50). The map's own z-indexes are unchanged.
+    <div className="relative isolate" style={{ height }}>
       <MapContainer center={center} zoom={zoom} maxBoundsViscosity={lockToBounds ? 1 : undefined} className={`h-full w-full rounded-xl border border-border ${onPick ? 'cursor-crosshair [&_.leaflet-container]:cursor-crosshair' : ''}`}>
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="OpenStreetMap">
