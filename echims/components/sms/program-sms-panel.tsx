@@ -9,6 +9,12 @@ import { MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DateInput, Input, Select } from '@/components/ui/form'
 import { Pagination, usePagination } from '@/components/ui/pagination'
+import { cn } from '@/lib/utils'
+
+// Form labels and table cells: the shared muted label and .data-grid cell values.
+const fieldLabel = 'space-y-1.5 text-xs font-medium text-brand-muted'
+const gridHead = 'px-4 py-3 text-left align-bottom text-[13px] font-semibold text-brand-navy whitespace-nowrap'
+const gridCell = 'px-4 py-3 align-top'
 
 type Program = "VACCINATION" | "SUPPLEMENTATION";
 type MessageType = "UPCOMING" | "OVERDUE";
@@ -286,16 +292,12 @@ export function ProgramSmsPanel({
   }
   const { visible: pagedRows, props: rowPager } = usePagination(rows);
   return (
-    <section className="space-y-4 rounded-2xl border border-border bg-white p-5">
+    <section className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-semibold">Guardian messages</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Reminder: one day before the due date. Missed-dose follow-up: starts
-            one day after the due date.
-          </p>
-        </div>
-        <Button variant="secondary"
+        <p className="text-sm text-brand-muted">
+          Reminder 1 day before the due date · missed-dose follow-up from 1 day after.
+        </p>
+        <Button variant="secondary" size="sm"
           disabled={loading || busy || !online}
           onClick={() => setReload((old) => old + 1)}
         >
@@ -303,9 +305,7 @@ export function ProgramSmsPanel({
         </Button>
       </div>
       {!online && (
-        <p className="text-sm text-amber-800">
-          Reconnect to load current reminder eligibility.
-        </p>
+        <p className="text-sm text-warn">Reconnect to load current reminder eligibility.</p>
       )}
       {error && (
         <p
@@ -324,9 +324,8 @@ export function ProgramSmsPanel({
         </p>
       )}
       {data && !data.canSend && (
-        <p className="rounded-lg bg-muted/40 p-3 text-sm">
-          Viewing access. SMS sending and simulation are available only to RHM
-          and BHW.
+        <p className="rounded-lg bg-brand-ice p-3 text-sm text-brand-navy">
+          View only. Sending is available to RHM and BHW.
         </p>
       )}
       {loading ? (
@@ -335,14 +334,15 @@ export function ProgramSmsPanel({
         data && (
           <>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <label className="space-y-1 text-xs">
+              <label className={fieldLabel}>
                 <span>Child or service</span>
                 <Input
                   value={search}
+                  placeholder="Search child or service"
                   onChange={(event) => setSearch(event.target.value)}
                 />
               </label>
-              <label className="space-y-1 text-xs">
+              <label className={fieldLabel}>
                 <span>Status</span>
                 <Select
                   value={filter}
@@ -355,14 +355,14 @@ export function ProgramSmsPanel({
                   ))}
                 </Select>
               </label>
-              <label className="space-y-1 text-xs">
+              <label className={fieldLabel}>
                 <span>Due from</span>
                 <DateInput
                   value={from}
                   onChange={(event) => setFrom(event.target.value)}
                 />
               </label>
-              <label className="space-y-1 text-xs">
+              <label className={fieldLabel}>
                 <span>Due through</span>
                 <DateInput
                   value={to}
@@ -370,9 +370,9 @@ export function ProgramSmsPanel({
                 />
               </label>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-muted/50">
+            <div className="scroll-subtle overflow-x-auto rounded-xl border border-brand-line">
+              <table className="data-grid w-full text-left text-sm text-brand-navy">
+                <thead>
                   <tr>
                     {[
                       "Child",
@@ -383,34 +383,34 @@ export function ProgramSmsPanel({
                       "Live sending status",
                       "Demo result",
                     ].map((label, index) => (
-                      <th key={index} className="px-3 py-3 text-xs font-medium">
+                      <th key={index} scope="col" className={gridHead}>
                         {label}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody>
                   {rows.length === 0 ? (
                     <tr>
-                      <td colSpan={6}><EmptyState icon={MessageSquare} title="No follow-ups match these filters" description="Saved follow-ups with a valid number will appear here." /></td>
+                      <td colSpan={7}><EmptyState icon={MessageSquare} title="No follow-ups match these filters" description="Saved follow-ups with a valid number will appear here." /></td>
                     </tr>
                   ) : (
-                    pagedRows.map((row) => (
-                      <tr key={row.service_key}>
-                        <td className="px-3 py-3">
+                    pagedRows.map((row, i) => (
+                      <tr key={row.service_key} data-zebra={i % 2 === 1 || undefined}>
+                        <td className={gridCell}>
                           <Link
                             href={`/child-profiling/children/${row.child_id}`}
-                            className="font-medium text-primary underline"
+                            className="font-semibold text-link underline-offset-4 hover:underline"
                           >
                             {row.child_name}
                           </Link>
                         </td>
-                        <td className="px-3 py-3">{row.service_name}</td>
-                        <td className="px-3 py-3">{row.due_date}</td>
-                        <td className="px-3 py-3">
+                        <td className={gridCell}>{row.service_name}</td>
+                        <td className={gridCell}>{row.due_date}</td>
+                        <td className={gridCell}>
                           {phaseLabel(row.phase)}
                         </td>
-                        <td className="px-3 py-3">
+                        <td className={gridCell}>
                           {row.contact_status !== "CONFIRMED"
                             ? contacts[row.contact_status]
                             : row.notification_id
@@ -419,8 +419,8 @@ export function ProgramSmsPanel({
                                 ? "Ready to queue"
                                 : `Next reminder: ${row.phase === "OVERDUE" ? row.overdue_date : row.upcoming_date}`}
                         </td>
-                        <td className="px-3 py-3">{row.live_status?.replace(/_/g, ' ') ?? (row.live_contact_verified ? 'Not submitted' : 'OTP verification required')}</td>
-                        <td className="px-3 py-3">
+                        <td className={gridCell}>{row.live_status?.replace(/_/g, ' ') ?? (row.live_contact_verified ? 'Not submitted' : 'OTP verification required')}</td>
+                        <td className={gridCell}>
                           {row.simulation_status?.replace(/_/g, " ") ??
                             "No simulation yet"}
                         </td>
@@ -432,10 +432,10 @@ export function ProgramSmsPanel({
             </div>
             <Pagination {...rowPager} label="Follow-up pages" />
             {selected && (
-              <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
-                <div className="flex flex-wrap justify-between gap-2 text-sm">
-                  <label className="min-w-0 flex-1 text-xs">
-                    Child / reminder
+              <div className="space-y-4 rounded-xl border border-brand-line bg-brand-ice/40 p-4">
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <label className={cn(fieldLabel, 'min-w-0 flex-1')}>
+                    <span>Child / reminder</span>
                     <Select
                       aria-label="Child reminder preview"
                       disabled={busy}
@@ -446,7 +446,7 @@ export function ProgramSmsPanel({
                         );
                         if (row) select(row);
                       }}
-                      className="mt-1 block w-full"
+                      className="block w-full"
                     >
                       {data.rows.map((row) => (
                         <option key={row.service_key} value={row.service_key}>
@@ -455,49 +455,43 @@ export function ProgramSmsPanel({
                       ))}
                     </Select>
                   </label>
-                  <span>{selected.masked_number ?? "No confirmed number"}</span>
+                  <span className="pb-2.5 text-sm font-medium tabular-nums text-brand-navy">{selected.masked_number ?? "No confirmed number"}</span>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="text-xs">
-                    <p>Automatic message</p>
-                    <p className="mt-2 rounded-lg border bg-white p-2 text-sm">
+                  <div className={fieldLabel}>
+                    <p>Message</p>
+                    <p className="rounded-lg border border-brand-line bg-white px-3 py-2 text-sm font-normal text-brand-navy">
                       {messageType === "OVERDUE"
                         ? "Missed-dose follow-up"
                         : "Reminder before the due date"}
                     </p>
                   </div>
-                  <div className="text-xs">
-                    <p>Automatic reminder date</p>
-                    <p className="mt-2 rounded-lg border bg-white p-2 text-sm">
+                  <div className={fieldLabel}>
+                    <p>Reminder date</p>
+                    <p className="rounded-lg border border-brand-line bg-white px-3 py-2 text-sm font-normal text-brand-navy">
                       {reminderDate}
                     </p>
                   </div>
                 </div>
-                <p className="whitespace-pre-wrap rounded-lg bg-white p-3 text-sm">
+                <p className="whitespace-pre-wrap rounded-lg border border-brand-line bg-white p-3 text-sm text-brand-navy">
                   {message}
                 </p>
                 {!selected.rule_active && (
-                  <p className="text-xs text-amber-800">
-                    The reminder rule is inactive.
-                  </p>
+                  <p className="text-xs text-warn">The reminder rule is inactive.</p>
                 )}
                 {!selected.eligible && (
-                  <p className="text-xs text-muted-foreground">
-                    The reminder can be sent on {selected.upcoming_date};
-                    the missed-dose follow-up starts {selected.overdue_date}. Current
-                    guardian consent and a valid number are required.
+                  <p className="text-xs text-brand-muted">
+                    Sendable from {selected.upcoming_date}; follow-up from {selected.overdue_date}. Needs guardian consent and a valid number.
                   </p>
                 )}
                 {selected.phase !== messageType && (
-                  <p className="text-xs text-muted-foreground">
-                    This preview is not the eligible message for today's date.
-                  </p>
+                  <p className="text-xs text-brand-muted">Preview only: not today&apos;s eligible message.</p>
                 )}
                 {data.canSend && data.mode === 'live' && <div className="space-y-2">
-                  {!data.liveEnabled && <p className="text-sm text-amber-800">Live sending requires complete iProg server configuration and a supported account route.</p>}
-                  {!selected.live_contact_verified && <p className="text-sm text-amber-800">Verify the guardian mobile number by OTP in the child profile first.</p>}
-                  {selected.live_status && <p className="text-sm">Live attempt: {selected.live_status.replace(/_/g, ' ')}. A submitted message is not yet confirmed delivered.</p>}
-                  <button type="button" disabled={!liveReady} onClick={() => void sendLive()} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{busy ? 'Submitting...' : 'Send guardian SMS'}</button>
+                  {!data.liveEnabled && <p className="text-xs text-warn">Live sending is not configured on the server.</p>}
+                  {!selected.live_contact_verified && <p className="text-xs text-warn">Verify the guardian&apos;s number by OTP in the child profile first.</p>}
+                  {selected.live_status && <p className="text-xs text-brand-muted">Live attempt: {selected.live_status.replace(/_/g, ' ')} (not yet confirmed delivered).</p>}
+                  <Button disabled={!liveReady} onClick={() => void sendLive()}>{busy ? 'Submitting…' : 'Send guardian SMS'}</Button>
                 </div>}
                 {data.canSend && data.simulationEnabled && (
                   <>
@@ -529,27 +523,24 @@ export function ProgramSmsPanel({
                           </option>
                         ))}
                       </Select>
-                      <button
-                        type="button"
+                      <Button
+                        variant="secondary"
                         disabled={!ready}
                         onClick={() => void send("SIMULATED_FAILED")}
-                        className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 disabled:opacity-50"
+                        className="text-danger"
                       >
                         Simulate Error
-                      </button>
+                      </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Presentation preview can run before the reminder date when
-                      enabled. It records a labelled demo only. Live sending uses separate provider attempts and requires verified consent.
+                    <p className="text-xs text-brand-muted">
+                      Simulation records a labelled demo only; nothing is sent to the guardian.
                     </p>
                   </>
                 )}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">
-              Up to 200 scoped follow-ups. Existing event keys prevent
-              hourly/daily queue duplicates. Guardian Information shows saved
-              message and attempt history.
+            <p className="text-xs text-brand-muted">
+              Shows up to 200 follow-ups. Message history is in the child&apos;s Guardian Information.
             </p>
           </>
         )

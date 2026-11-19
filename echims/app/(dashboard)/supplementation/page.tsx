@@ -2095,7 +2095,7 @@ export default function SupplementsPage() {
           open
           size="xl"
           title="Send reminders"
-          subtitle="Supplementation reminders to guardians. Sent reminders are listed in Alerts › SMS Overview."
+          subtitle="Reminders to guardians. Sent messages appear in Alerts › SMS Overview."
           onClose={() => setSmsOpen(false)}
           cancelLabel="Close"
         >
