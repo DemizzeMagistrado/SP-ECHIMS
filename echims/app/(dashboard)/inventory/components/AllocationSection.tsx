@@ -5,7 +5,7 @@ import useSWR, { mutate as globalMutate } from 'swr'
 import { ArrowRight, Plus, RefreshCw, Search, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/form'
-import { FilterCard } from '@/components/ui/report-parts'
+import { CountsStrip, FilterCard } from '@/components/ui/report-parts'
 import { InfoContent } from '@/components/ui/info-tip'
 import { GridTable, RowButton } from '@/components/ui/grid-table'
 import { LoadError } from '@/components/ui/load-error'
@@ -39,6 +39,16 @@ export function AllocationSection({ canAllocate, canTrace, onTrace, first }: { c
     const all = data?.entries ?? []
     return q ? all.filter((m) => [m.item_name, m.batch_number, m.from, m.to, m.recorded_by].some((v) => v?.toLowerCase().includes(q))) : all
   }, [data, search])
+  // Counts row like the sibling sections (Stock overview, Usage log): from the loaded entries only.
+  const counts = useMemo(() => {
+    const all = data?.entries ?? []
+    return {
+      allocations: all.length,
+      barangays: new Set(all.map((m) => m.to).filter(Boolean)).size,
+      batches: new Set(all.map((m) => m.batch_number).filter(Boolean)).size,
+      units: all.reduce((sum, m) => sum + (Number(m.quantity) || 0), 0),
+    }
+  }, [data])
 
   return (
     <InventorySection
@@ -54,7 +64,13 @@ export function AllocationSection({ canAllocate, canTrace, onTrace, first }: { c
       />}
       actions={canAllocate && <Button onClick={() => setOpen(true)}><Plus size={17} aria-hidden="true" /> New allocation</Button>}
     >
-      <FilterCard refresh={<Button variant="outline" size="icon" className="size-10" aria-label="Refresh allocations" title="Refresh" disabled={isValidating} onClick={() => void mutate()}><RefreshCw size={16} aria-hidden="true" className={isValidating ? 'animate-spin motion-reduce:animate-none' : undefined} /></Button>}>
+      <FilterCard refresh={<Button variant="outline" size="icon" className="size-10" aria-label="Refresh allocations" title="Refresh" disabled={isValidating} onClick={() => void mutate()}><RefreshCw size={16} aria-hidden="true" className={isValidating ? 'animate-spin motion-reduce:animate-none' : undefined} /></Button>}
+        below={data && <CountsStrip label="Allocation counts" items={[
+          { label: 'Allocations', value: counts.allocations },
+          { label: 'Barangays', value: counts.barangays },
+          { label: 'Batches', value: counts.batches },
+          { label: 'Units allocated', value: counts.units.toLocaleString() },
+        ]} />}>
         <div className="relative sm:col-span-2">
           <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input aria-label="Search allocations" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search item, batch or barangay…" className="pl-9" />
