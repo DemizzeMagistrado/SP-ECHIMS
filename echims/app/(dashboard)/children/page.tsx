@@ -21,6 +21,7 @@ import { ChildDraftPanel } from '@/components/children/child-draft-panel'
 import { ChildFormModal } from '@/components/children/child-form-modal'
 import { toast } from '@/components/ui/toast'
 import { LogoLoader } from '@/components/brand/logo-loader'
+import { TabPanel } from '@/components/brand/page-gate'
 import { PageHeader } from '@/components/ui/page-header'
 import { LoadError } from '@/components/ui/load-error'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -165,7 +166,7 @@ export default function ChildHealthPage() {
       <PageHeader
         title="Child Profiling: Children"
         subtitle={view === 'archived'
-          ? 'Age-based archive: children who have reached their fifth birthday. Profiles, service histories and continuing care are preserved.'
+          ? 'Children who turned five. Profiles and service histories are kept.'
           : 'Register and monitor children aged 0–59 months.'}
         actions={
           <>
@@ -226,6 +227,8 @@ export default function ChildHealthPage() {
       ) : isLoading && !children ? (
         <LogoLoader size="section" label="Loading child records…" />
       ) : (
+        // Active <-> Archived: holds the table's height and fades, so the page does not jump.
+        <TabPanel tabKey={view}>
         <DataTable
           stableHeight
           rows={filtered}
@@ -282,6 +285,7 @@ export default function ChildHealthPage() {
             </div>
           }
         />
+        </TabPanel>
       )}
 
       {registerOpen && canRegister && (
