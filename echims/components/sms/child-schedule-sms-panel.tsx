@@ -6,7 +6,8 @@ type Panel={currentUserId:string;childId:number;childName:string;contactStatus:s
 type Intent={requestId:string;requestOwnerId:string;childId:number;sourceKey:string;previewSignature:string;language:string;venue:string;confirmedDetails:true}
 const storageKey='echims.child-schedule-sms.pending.v1'
 const field='rounded-lg border border-slate-300 bg-white p-2 text-sm'
-export function ChildScheduleSmsPanel({childId}:{childId?:number}){
+/** `embedded`: shown in the child profile's popup, which gives the title; no card, heading or profile link. */
+export function ChildScheduleSmsPanel({childId,embedded=false}:{childId?:number;embedded?:boolean}){
  const [id,setId]=useState(childId?String(childId):''),[language,setLanguage]=useState('TL'),[venue,setVenue]=useState(''),[data,setData]=useState<Panel|null>(null),[selected,setSelected]=useState('')
  const [confirmed,setConfirmed]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[online,setOnline]=useState(true),[pending,setPending]=useState<Intent|null>(null)
  useEffect(()=>{const update=()=>setOnline(navigator.onLine);update();window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update)}},[])
@@ -41,9 +42,9 @@ export function ChildScheduleSmsPanel({childId}:{childId?:number}){
    setData(d=>d?{...d,records:d.records.map(r=>r.source_key===intent.sourceKey?{...r,can_send:false,last_status:b.result?.status??'UNCERTAIN'}:r)}:d)
   }catch(e){setMessage(e instanceof Error?e.message:'Connection interrupted. Inspect the same saved request.')}finally{setBusy(false)}
  }
- return <section className="rounded-2xl border border-slate-200 bg-white p-5 text-blue-950">
-  <h1 className="text-xl font-semibold">Child schedule SMS reminders</h1>
-  <p className="mt-2 text-sm text-slate-600">Vaccination, follow-up checkups and supplementation for one child. Guardian SMS consent and OTP verification of the current phone are required.</p>
+ return <section className={embedded?'text-blue-950':'rounded-2xl border border-slate-200 bg-white p-5 text-blue-950'}>
+  {!embedded&&<h1 className="text-xl font-semibold">Child schedule SMS reminders</h1>}
+  <p className={embedded?'text-sm text-slate-600':'mt-2 text-sm text-slate-600'}>Vaccination, follow-up checkups and supplementation for one child. Guardian SMS consent and OTP verification of the current phone are required.</p>
   {!online&&<p className="mt-3 text-sm text-amber-800">Reconnect to preview or send SMS.</p>}
   {message&&<p role="status" className="my-3 rounded-lg bg-amber-50 p-3 text-sm">{message}</p>}
   {pending&&<div className="my-3 rounded-lg bg-amber-50 p-3 text-sm"><p>Saved send for child #{pending.childId}. Inspect its result before starting another send.</p><button className={field+' mt-2'} disabled={busy||!online||pending.requestOwnerId!==data?.currentUserId} onClick={()=>void send()}>Inspect same saved request</button></div>}
@@ -55,7 +56,7 @@ export function ChildScheduleSmsPanel({childId}:{childId?:number}){
   </div>
   {data&&<>
    <p className="text-sm font-medium">{data.childName} · {data.maskedNumber??'No valid number'} · {data.contactStatus.replaceAll('_',' ')}</p>
-   <Link className="mt-2 inline-block text-sm underline" href={'/child-profiling/children/'+data.childId}>Open child profile / guardian SMS verification</Link>
+   {!embedded&&<Link className="mt-2 inline-block text-sm underline" href={'/child-profiling/children/'+data.childId}>Open child profile / guardian SMS verification</Link>}
    {!data.liveEnabled&&<p className="mt-2 text-sm text-amber-800">Live iProg sending is disabled in server configuration.</p>}
    <label className="mt-4 flex flex-col gap-1 text-sm">Saved service<select className={field} disabled={busy||!!pending} value={selected} onChange={e=>{setSelected(e.target.value);setConfirmed(false)}}><option value="">Choose service</option>{data.records.map(r=><option key={r.source_key} value={r.source_key}>{r.title} · {r.due_date} · {r.kind} · {r.phase}{r.last_status?' · '+r.last_status:''}</option>)}</select></label>
    {!data.records.length&&<p className="mt-3 text-sm">No current reminders. Completed, cancelled and rescheduled entries are excluded; routine under-five reminders end at the fifth birthday.</p>}

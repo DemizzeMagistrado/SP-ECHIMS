@@ -1,11 +1,12 @@
 'use client'
-import Link from 'next/link'
 import {offlineFetch as fetch} from '@/lib/offline/fetch'
 
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import useSWR from 'swr'
 import { CalendarDays, CheckCircle2, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
+import { Modal } from '@/components/ui/modal'
+import { ChildScheduleSmsPanel } from '@/components/sms/child-schedule-sms-panel'
 import { canPerform } from '@/lib/echims-data'
 import { childProgramEligibility, manilaDate } from '@/lib/child-program-eligibility'
 
@@ -72,6 +73,8 @@ function Appointments({childId,dateOfBirth,registryStatus,canEdit,owner}: Props 
   const endpoint=`/api/children/${childId}/checkup-appointments`
   const storageKey=pendingKey(owner,childId)
   const [online,setOnline]=useState(true)
+  // SMS reminders open in a popup over the profile (was a separate page with no way back).
+  const [smsOpen,setSmsOpen]=useState(false)
   const [cursor,setCursor]=useState<number|null>(null)
   const [draft,setDraft]=useState<Draft|null>(null)
   const [pending,setPending]=useState<Payload|null>(null)
@@ -156,7 +159,7 @@ function Appointments({childId,dateOfBirth,registryStatus,canEdit,owner}: Props 
   return <section aria-labelledby="checkup-title" className="space-y-4 rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-6">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div><h2 id="checkup-title" className="flex items-center gap-2 text-lg font-semibold text-primary"><CalendarDays size={20}/>Follow-up checkups</h2><p className="mt-1 text-sm text-muted-foreground">Appointments, completed visits and reschedule history.</p></div>
-      <div className="flex flex-wrap gap-2"><Link className={button} href={`/child-profiling/sms?childId=${childId}`}>SMS reminders</Link><button type="button" className={button} disabled={!online || busy} onClick={()=>void mutate()} aria-label="Refresh checkup appointments"><RefreshCw size={16}/></button>
+      <div className="flex flex-wrap gap-2"><button type="button" className={button} onClick={()=>setSmsOpen(true)}>SMS reminders</button><button type="button" className={button} disabled={!online || busy} onClick={()=>void mutate()} aria-label="Refresh checkup appointments"><RefreshCw size={16}/></button>
         {canEdit && <button type="button" className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" disabled={!canSchedule || busy || Boolean(pending) || !restored} onClick={()=>open('CREATE')}>Schedule checkup</button>}</div>
     </div>
     {!online && <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">You are offline. Reconnect to refresh appointments or save changes.</p>}
@@ -179,6 +182,11 @@ function Appointments({childId,dateOfBirth,registryStatus,canEdit,owner}: Props 
     {isLoading && !page && <p role="status" className="py-6 text-center text-sm text-muted-foreground">Loading appointments…</p>}
     {!error && page && <><CheckupAppointmentTable records={page.records} canEdit={canEdit && online && !busy && !pending} canSchedule={canSchedule} onAction={open}/>
       <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground"><span>Showing {page.records.length} appointment{page.records.length===1?'':'s'} · {online?'Online view':'Saved on this device; reconnect to refresh'}</span><div className="flex gap-2">{cursor && <button type="button" className={button} onClick={()=>setCursor(null)}>Newest</button>}{page.nextBeforeId && <button type="button" className={button} onClick={()=>setCursor(page.nextBeforeId)}>Older appointments</button>}</div></div></>}
+    {smsOpen && (
+      <Modal open size="xl" title="SMS reminders" subtitle="Vaccination, follow-up checkup and supplementation reminders for this child." onClose={()=>setSmsOpen(false)} cancelLabel="Close">
+        <ChildScheduleSmsPanel childId={childId} embedded />
+      </Modal>
+    )}
   </section>
 }
 
