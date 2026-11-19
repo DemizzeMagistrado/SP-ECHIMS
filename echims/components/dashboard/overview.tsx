@@ -399,7 +399,7 @@ function ActivityChart({ trends, trendKey, onTrend, totals, metrics, loading, di
         {loading || !trend.data ? (
           <div className="flex h-full items-center justify-center text-brand-muted"><Spinner label="Loading chart" /></div>
         ) : (
-          <div key={trend.key}><TrendBars data={trend.data} color={trend.color} label={trend.label} /></div>
+          <div key={trend.key} className="animate-in fade-in duration-200 motion-reduce:animate-none"><TrendBars data={trend.data} color={trend.color} label={trend.label} /></div>
         )}
       </div>
       {totals.length > 0 && (

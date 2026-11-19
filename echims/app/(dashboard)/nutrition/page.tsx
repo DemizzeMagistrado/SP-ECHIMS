@@ -2114,6 +2114,9 @@ export default function NutritionPage() {
       {tab === "Summary" && (
         <FilterCard refresh={refreshButton}>{periodFields}</FilterCard>
       )}
+      {/* Overview <-> List UW … List SW: same height-holding fade as the module tabs. */}
+      {tab === "Summary" && (
+      <TabPanel tabKey={reportView} className="space-y-5">
       {reportView === "Summary" && (
         <SummaryReport
           records={latest}
@@ -2146,6 +2149,8 @@ export default function NutritionPage() {
             views={summaryViews}
           />
         )}
+      </TabPanel>
+      )}
       {reportView === "Assessments" && (
         <>
           {/* Filters and counts: one card. Controls share one bottom edge. */}

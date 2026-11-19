@@ -206,7 +206,7 @@ export function BarangayRankingWidget({ style, size = 'tall' }: WidgetProps) {
       {top.length === 0 ? (
         <p className="flex flex-1 items-center justify-center rounded-xl bg-brand-ice/60 p-4 text-center text-sm text-brand-muted">No barangay has {what}.</p>
       ) : (
-        <BarList label={`Barangays by ${what}`} color={by === 'overdue' ? 'var(--tone-danger)' : 'var(--tone-nutrition)'}
+        <BarList key={by} label={`Barangays by ${what}`} color={by === 'overdue' ? 'var(--tone-danger)' : 'var(--tone-nutrition)'}
           items={top.map((b) => ({ key: String(b.id), label: b.name, value: b[by], hint: `${b.children.toLocaleString()} children` }))} />
       )}
     </WidgetShell>
