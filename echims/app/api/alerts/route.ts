@@ -57,6 +57,9 @@ export async function GET(request: Request) {
       return q;
     };
     // The session client applies all existing restrictive scope/recipient policies.
+    // Program list for the filter: started with the other queries, not after them (one round trip less).
+    // .then() sends it now (Supabase queries are lazy until awaited).
+    const programQuery = supabase.from("alert_notification_feed").select("source_module,alert_type").limit(2000).then((r) => r);
     const results = await Promise.all([
       applyFilters(supabase
         .from("alert_notification_feed")
@@ -120,7 +123,7 @@ export async function GET(request: Request) {
       .find((result) => result.error)?.error;
     if (monitoringFailure)
       console.error("Alert monitoring GET:", monitoringFailure);
-    const programRows = await supabase.from("alert_notification_feed").select("source_module,alert_type").limit(2000);
+    const programRows = await programQuery;
     return NextResponse.json(
       {
         currentUserId: userId,
