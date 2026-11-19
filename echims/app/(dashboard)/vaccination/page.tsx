@@ -580,20 +580,25 @@ function ScheduleSection() {
 
   const reminders = useMemo(() => remindersByChild(sms.data), [sms.data])
 
-  const shown = useMemo(() => {
+  // One check for both the list and the chip counts, so each count equals the rows that chip shows.
+  const { shown, chipCount } = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return cards.filter((c) => {
-      if (c.completed && chip !== 'all') return false
-      if (chip === 'missed' && c.missed.length === 0) return false
-      if (chip === 'pending' && c.pending.length === 0) return false
-      if (chip === 'assist' && !c.bhw_assist) return false
+    const matches = (c: ChildCard, tab: StatusChip) => {
+      if (c.completed && tab !== 'all') return false
+      if (tab === 'missed' && c.missed.length === 0) return false
+      if (tab === 'pending' && c.pending.length === 0) return false
+      if (tab === 'assist' && !c.bhw_assist) return false
       if (requestFilter && c.request?.status !== requestFilter) return false
       if (from && (!c.nextDate || c.nextDate < from)) return false
       if (to && (!c.nextDate || c.nextDate > to)) return false
       if (!q) return true
       return [c.child_name, c.child_code, c.family_serial_no, c.barangay_name, ...c.missed.map((d) => d.vaccine_type), ...c.pending.map((d) => d.vaccine_type)]
         .filter(Boolean).join(' ').toLowerCase().includes(q)
-    })
+    }
+    return {
+      shown: cards.filter((c) => matches(c, chip)),
+      chipCount: Object.fromEntries(CHIPS.map((tab) => [tab, cards.filter((c) => matches(c, tab)).length])) as Record<StatusChip, number>,
+    }
   }, [cards, chip, requestFilter, from, to, search])
   const pageControl = useMemo(() => ({ page, onPageChange: setPage }), [page, setPage])
   const { visible, bindList, listStyle, props: pagerProps } = usePagination(shown, PAGE_SIZE, pageControl)
@@ -606,10 +611,6 @@ function ScheduleSection() {
   if (!canView) return <div className="rounded-2xl border border-border bg-white p-10 text-center text-red-600">You are not authorized to view the vaccination schedule.</div>
 
   const canReview = !readOnly && (requests.data?.can_review ?? false)
-  const missedCards = cards.filter((c) => c.missed.length)
-  const chipCount: Record<StatusChip, number> = {
-    all: cards.length, pending: cards.filter((c) => c.pending.length).length, missed: missedCards.length, assist: cards.filter((c) => c.bhw_assist).length,
-  }
   const counts = doses.data?.counts
 
   function openReview(row: ScheduleRow, action: 'APPROVE' | 'REVISE') {
