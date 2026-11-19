@@ -43,6 +43,7 @@ type DoseRow = {
   // NIP-USR008 — flag + source for retrospective records (Baby Book, prior RHU).
   is_prior?: boolean
   prior_source?: string | null
+  recorded_by_name?: string | null
   /** Given, but the record is still awaiting PHN approval. */
   pending_approval?: boolean
   /** Open dose whose date depends on a dose awaiting approval. */
@@ -388,5 +389,5 @@ function PriorChip({ source }: { source: string | null | undefined }) {
 }
 
 function doseRemarks(r: DoseRow): string {
-  return [r.vaccination_site, r.is_prior && r.prior_source ? `From ${r.prior_source}` : null].filter(Boolean).join(' · ') || '—'
+  return [r.vaccination_site, r.is_prior && r.prior_source ? `From ${r.prior_source}` : null, r.recorded_by_name ? `By ${r.recorded_by_name}` : null].filter(Boolean).join(' · ') || '—'
 }

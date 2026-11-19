@@ -25,7 +25,12 @@ export async function GET(request: Request) {
     console.error('Record history GET:', error)
     return json({ error: 'Unable to load the record history.' }, 500)
   }
-  const rows = (data ?? []) as { actor_id: string | null }[]
+  // The first entry is the original save: who recorded the dose and when (from the record itself).
+  const { data: record } = await db.from('vaccination_record').select('recorded_by, created_at, is_prior').eq('vaccination_record_id', recordId).maybeSingle()
+  const rows = [
+    ...((data ?? []) as { event_id: number | string; actor_id: string | null; created_at: string }[]),
+    ...(record ? [{ event_id: `recorded-${recordId}`, action: record.is_prior ? 'RECORDED_PRIOR' : 'RECORDED', from_status: null, to_status: null, note: null, actor_id: record.recorded_by as string | null, created_at: record.created_at as string }] : []),
+  ]
   const ids = [...new Set(rows.map((r) => r.actor_id).filter((v): v is string => Boolean(v)))]
   const names = new Map<string, string>()
   if (ids.length) {

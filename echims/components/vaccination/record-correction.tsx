@@ -134,12 +134,14 @@ export function CorrectRecordButton({ record, title, onDone }: { record: Correct
   )
 }
 
-type HistoryRow = { event_id: number; action: 'RETURNED' | 'RESUBMITTED' | 'APPROVED' | 'MIGRATED'; note: string | null; actor_name: string | null; created_at: string }
+type HistoryRow = { event_id: number | string; action: 'RETURNED' | 'RESUBMITTED' | 'APPROVED' | 'MIGRATED' | 'RECORDED' | 'RECORDED_PRIOR'; note: string | null; actor_name: string | null; created_at: string }
 const ACTION: Record<HistoryRow['action'], { label: string; tone: 'warn' | 'info' | 'good' | 'neutral' }> = {
   RETURNED: { label: 'Returned for correction', tone: 'warn' },
   RESUBMITTED: { label: 'Resubmitted', tone: 'info' },
   APPROVED: { label: 'Approved', tone: 'good' },
   MIGRATED: { label: 'Needs correction (was Rejected)', tone: 'neutral' },
+  RECORDED: { label: 'Recorded', tone: 'neutral' },
+  RECORDED_PRIOR: { label: 'Recorded (past vaccination)', tone: 'neutral' },
 }
 const stamp = (ts: string) => new Date(ts).toLocaleString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 const fetcher = async (url: string) => {
@@ -160,7 +162,7 @@ function HistoryList({ recordId }: { recordId: number }) {
         <li key={r.event_id} className="space-y-1 px-4 py-3 text-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <StatusBadge status={r.action.toLowerCase()} tone={ACTION[r.action].tone} label={ACTION[r.action].label} />
-            <span className="text-xs text-brand-muted">{stamp(r.created_at)}{r.actor_name ? ` · ${r.actor_name}` : ''}</span>
+            <span className="text-xs text-brand-muted">{stamp(r.created_at)}{r.actor_name ? ` · by ${r.actor_name}` : ''}</span>
           </div>
           {r.note && <p className="text-brand-navy">{r.note}</p>}
         </li>

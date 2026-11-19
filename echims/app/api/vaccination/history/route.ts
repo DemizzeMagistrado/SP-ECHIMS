@@ -57,6 +57,8 @@ type DoseRow = {
   vaccination_record_id: number | null
   is_prior: boolean
   prior_source: string | null
+  /** Who recorded the dose (users.full_name), null when unknown. */
+  recorded_by_name: string | null
   /** Given, but the record is still awaiting PHN approval. */
   pending_approval: boolean
   /** An open dose whose date depends on a dose awaiting approval. */
@@ -148,6 +150,7 @@ export async function GET(request: Request) {
         created_at,
         is_prior,
         prior_source,
+        recorded_by,
         vaccine:vaccine(
           vaccine_id,
           vaccine_type,
@@ -173,6 +176,13 @@ export async function GET(request: Request) {
     // All approved records (non-routine vaccines too) are returned as history; doses still awaiting
     // approval only count provisionally in the schedule below.
     const allRecords = recRes.data ?? []
+    // Recorder names (same lookup as the record review history).
+    const recorderIds = [...new Set(allRecords.map((r) => r.recorded_by).filter((v): v is string => Boolean(v)))]
+    const recorderNames = new Map<string, string>()
+    if (recorderIds.length) {
+      const { data: users } = await supabase.from('users').select('user_id, full_name').in('user_id', recorderIds)
+      for (const u of (users ?? []) as { user_id: string; full_name: string | null }[]) if (u.full_name) recorderNames.set(u.user_id, u.full_name)
+    }
     const approvedRecords = allRecords.filter((r) => r.status === 'APPROVED')
     const today = manilaTodayYMD()
     const vaccineStatus: VaccineStatusRow[] = []
@@ -206,6 +216,7 @@ export async function GET(request: Request) {
           vaccination_record_id: match?.vaccination_record_id ?? null,
           is_prior: Boolean(match?.is_prior),
           prior_source: match?.prior_source ?? null,
+          recorded_by_name: match?.recorded_by ? recorderNames.get(match.recorded_by) ?? null : null,
           pending_approval: match?.status === 'PENDING',
           // Open doses: their date depends on a dose awaiting approval.
           provisional: provisional && (t.status === 'OVERDUE' || t.status === 'UPCOMING'),

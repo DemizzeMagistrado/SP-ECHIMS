@@ -2,10 +2,9 @@
 
 import { canPerform, toUserRole } from '@/lib/echims-data'
 import { useState } from 'react'
-import { Save, Lock, Bell, Shield, User, Building, LogOut } from 'lucide-react'
+import { Lock, Bell, Shield, User, Building, LogOut } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { PageHeader } from '@/components/ui/page-header'
-import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/form'
 import { TabBar } from '@/components/ui/module-tabs'
 import { TabPanel } from '@/components/brand/page-gate'
@@ -156,56 +155,25 @@ export default function SettingsPage() {
         {activeTab === 'account' && (
           <div className="space-y-6">
             <div className="bg-white rounded-2xl border border-border p-6">
-              <h2 className="text-lg font-semibold text-foreground mb-4">User Profile</h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Full Name
-                  </label>
-                  <Input
-                    type="text"
-                    defaultValue="Administrator"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Username
-                  </label>
-                  <Input
-                    type="text"
-                    defaultValue="admin"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Email Address
-                  </label>
-                  <Input
-                    type="email"
-                    defaultValue="admin@rhu.gov.ph"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      Contact Number
-                    </label>
-                    <Input type="tel" defaultValue="+63 912 345 6789" />
+              <h2 className="text-lg font-semibold text-foreground mb-1">User Profile</h2>
+              <p className="mb-4 text-sm text-muted-foreground">Your account details. Ask an administrator to change them.</p>
+              {/* Read-only: there is no self-service profile update; User Management edits accounts. */}
+              <dl className="grid gap-4 sm:grid-cols-2">
+                {[
+                  ['Full name', user?.fullName],
+                  ['Username', user?.username],
+                  ['Email address', user?.email],
+                  ['Role', user?.role],
+                  ['Contact number', user?.contactNumber],
+                  ['Employee ID', user?.employeeId],
+                  ['License number', user?.licenseNumber],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="text-sm font-medium text-foreground">{label}</dt>
+                    <dd className="mt-1 break-words text-sm text-muted-foreground">{value || 'Not set'}</dd>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      Employee ID
-                    </label>
-                    <Input type="text" defaultValue="EMP-0001" />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    License Number
-                  </label>
-                  <Input type="text" defaultValue="PRC-123456" />
-                </div>
-              </div>
+                ))}
+              </dl>
             </div>
 
             <div className="bg-white rounded-2xl border border-border p-6">
@@ -352,13 +320,6 @@ export default function SettingsPage() {
         )}
       </TabPanel>
 
-      {/* Save Button */}
-      <div className="flex justify-end">
-        <Button>
-          <Save size={20} />
-          Save Changes
-        </Button>
-      </div>
     </div>
   )
 }
