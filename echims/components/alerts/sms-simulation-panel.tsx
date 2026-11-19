@@ -6,7 +6,7 @@ import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { GridTable } from '@/components/ui/grid-table'
-import { SectionHeader } from '@/components/ui/report-parts'
+import { FilterCard, SectionHeader } from '@/components/ui/report-parts'
 import { InfoContent } from '@/components/ui/info-tip'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { MessageSquare, RefreshCw } from 'lucide-react'
@@ -111,13 +111,13 @@ export function SmsSimulationPanel({ ownerId }: { ownerId: string }) {
         />}
         actions={<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={loading} onClick={() => setReload((value) => value + 1)}><RefreshCw size={16} aria-hidden="true" className={loading ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>}
       />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <FilterCard>
         <Select aria-label="Program" value={program} onChange={(event) => setProgram(event.target.value)}>
           <option value="ALL">All programs</option>
           <option value="VACCINATION">Vaccination</option>
           <option value="SUPPLEMENTATION">Supplementation</option>
         </Select>
-      </div>
+      </FilterCard>
       {error && <p role="alert" className="text-sm text-[#C42B2B]">{error}</p>}
       {loading && <Spinner showLabel label="Loading SMS overview…" className="w-full justify-center py-6 text-sm text-muted-foreground" />}
       <GridTable

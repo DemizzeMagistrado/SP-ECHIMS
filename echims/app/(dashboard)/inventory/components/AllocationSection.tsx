@@ -5,7 +5,7 @@ import useSWR, { mutate as globalMutate } from 'swr'
 import { ArrowRight, Plus, RefreshCw, Search, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/form'
-import { CountsStrip } from '@/components/ui/report-parts'
+import { CountsStrip, FilterCard } from '@/components/ui/report-parts'
 import { InfoContent } from '@/components/ui/info-tip'
 import { GridTable, RowButton } from '@/components/ui/grid-table'
 import { LoadError } from '@/components/ui/load-error'
@@ -62,20 +62,20 @@ export function AllocationSection({ canAllocate, canTrace, onTrace, first }: { c
         sections={[{ label: 'Format', value: 'ALLOC:[reference]' }, { label: 'Tip', value: 'Trace batch shows where a batch went and which children received it' }]}
         note="Only the PHN allocates stock. Both barangays' on-hand figures update together."
       />}
-      actions={<>{canAllocate && <Button onClick={() => setOpen(true)}><Plus size={17} aria-hidden="true" /> New allocation</Button>}<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={isValidating} onClick={() => void mutate()} title="Refresh"><RefreshCw size={16} aria-hidden="true" className={isValidating ? "animate-spin motion-reduce:animate-none" : undefined} /></Button></>}
+      actions={canAllocate && <Button onClick={() => setOpen(true)}><Plus size={17} aria-hidden="true" /> New allocation</Button>}
     >
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="relative sm:col-span-2">
-          <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input aria-label="Search allocations" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search item, batch or barangay…" className="pl-9" />
-        </div>
-      </div>
-      {data && <CountsStrip label="Allocation counts" items={[
+      <FilterCard refresh={<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={isValidating} onClick={() => void mutate()} title="Refresh"><RefreshCw size={16} aria-hidden="true" className={isValidating ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>}
+        below={data && <CountsStrip label="Allocation counts" items={[
           { label: 'Allocations', value: counts.allocations },
           { label: 'Barangays', value: counts.barangays },
           { label: 'Batches', value: counts.batches },
           { label: 'Units allocated', value: counts.units.toLocaleString() },
-        ]} />}
+        ]} />}>
+        <div className="relative sm:col-span-2">
+          <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input aria-label="Search allocations" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search item, batch or barangay…" className="pl-9" />
+        </div>
+      </FilterCard>
 
       {isLoading && !data ? (
         <LogoLoader size="section" label="Loading allocations…" />

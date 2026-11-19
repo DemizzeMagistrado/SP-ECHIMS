@@ -12,7 +12,7 @@ import { useRefreshSignal } from '@/components/brand/loader-state'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { StatusBadge, type StatusTone } from '@/components/ui/status-badge'
-import { CountsStrip, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
+import { CountsStrip, FilterCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
 import { InfoContent } from '@/components/ui/info-tip'
 import { cn } from '@/lib/utils'
 import { nutritionLabel } from '@/lib/nutrition-status'
@@ -182,7 +182,6 @@ export function SupplementationMonitoringPanel({
           bullets={['Children without a saved schedule are not counted as missed', 'Clinical results require RHM review']}
           note="Counts are tracked schedules or courses, not unique children."
         />}
-        actions={<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={!online} onClick={refresh}><RefreshCw size={16} aria-hidden="true" className={loading ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>}
       />
       {!online ? (
         <p role="status" className="rounded-2xl border border-review-line/40 bg-review-soft p-4 text-sm text-review">
@@ -199,7 +198,24 @@ export function SupplementationMonitoringPanel({
       ) : (
         result && (
           <>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <FilterCard
+              refresh={
+                <Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={!online} onClick={refresh}><RefreshCw size={16} aria-hidden="true" className={loading ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>
+              }
+              below={
+                <CountsStrip
+                  label="Schedules by status"
+                  selected={status}
+                  onSelect={(key) => setStatus(status === key ? 'ALL' : (key as Status))}
+                  items={statuses.map((value) => ({
+                    key: value,
+                    label: labels[value],
+                    value: scoped.filter((row) => row.status === value).length,
+                    tone: value === 'MISSED' ? 'severe' : value === 'DUE_TODAY' || value === 'NEEDS_REVIEW' ? 'review' : undefined,
+                  }))}
+                />
+              }
+            >
               <Select aria-label="Barangay" value={barangay} onChange={(e) => setBarangay(e.target.value)}>
                 <option value="ALL">All barangays</option>
                 {options.barangays.map(([id, name]) => (
@@ -235,20 +251,7 @@ export function SupplementationMonitoringPanel({
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-            </div>
-            {
-                <CountsStrip
-                  label="Schedules by status"
-                  selected={status}
-                  onSelect={(key) => setStatus(status === key ? 'ALL' : (key as Status))}
-                  items={statuses.map((value) => ({
-                    key: value,
-                    label: labels[value],
-                    value: scoped.filter((row) => row.status === value).length,
-                    tone: value === 'MISSED' ? 'severe' : value === 'DUE_TODAY' || value === 'NEEDS_REVIEW' ? 'review' : undefined,
-                  }))}
-                />
-              }
+            </FilterCard>
             <section aria-label="Tracked schedules" className={REPORT_CARD}>
               <div className="scroll-subtle overflow-x-auto">
                 <table className="data-grid w-full text-sm text-brand-navy">

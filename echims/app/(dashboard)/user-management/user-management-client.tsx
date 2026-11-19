@@ -7,7 +7,7 @@ import { Ban, CheckCircle2, Pencil, PowerOff, RefreshCw, RotateCcw, Search, User
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { cn } from '@/lib/utils'
-import { CountsStrip } from '@/components/ui/report-parts'
+import { CountsStrip, FilterCard } from '@/components/ui/report-parts'
 import { GridTable, RowButton } from '@/components/ui/grid-table'
 import { Modal } from '@/components/ui/modal'
 import { PageHeader } from '@/components/ui/page-header'
@@ -162,9 +162,17 @@ export default function UserManagementClient({ users, readOnly: savedReadOnly = 
 
   return (
     <div className="space-y-5">
-      <PageHeader title="User Management" subtitle="Manage registered personnel, account verification, and workplace assignments." actions={<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" onClick={reload} title="Refresh"><RefreshCw size={16} aria-hidden="true" /></Button>} />
+      <PageHeader title="User Management" subtitle="Manage registered personnel, account verification, and workplace assignments." />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <FilterCard
+        refresh={<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" onClick={reload} title="Refresh"><RefreshCw size={16} aria-hidden="true" /></Button>}
+        below={<CountsStrip
+          label="Account counts"
+          selected={statusFilter}
+          onSelect={(key) => setStatusFilter(statusFilter === key ? 'ALL' : key)}
+          items={STATUSES.map((s) => ({ key: s, label: statusLabel(s), value: count(s) }))}
+        />}
+      >
         <div className="relative">
           <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input aria-label="Search users" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, username or email…" className="pl-9" />
@@ -177,13 +185,7 @@ export default function UserManagementClient({ users, readOnly: savedReadOnly = 
           <option value="ALL">All roles</option>
           {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
         </Select>
-      </div>
-      <CountsStrip
-          label="Account counts"
-          selected={statusFilter}
-          onSelect={(key) => setStatusFilter(statusFilter === key ? 'ALL' : key)}
-          items={STATUSES.map((s) => ({ key: s, label: statusLabel(s), value: count(s) }))}
-        />
+      </FilterCard>
 
       <GridTable
         caption="Users"

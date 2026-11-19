@@ -5,7 +5,7 @@ import useSWR, { mutate as globalMutate } from 'swr'
 import { AlertCircle, Layers, Package, Plus, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/form'
-import { CountsStrip } from '@/components/ui/report-parts'
+import { CountsStrip, FilterCard } from '@/components/ui/report-parts'
 import { InfoContent } from '@/components/ui/info-tip'
 import { GridTable, RowButton } from '@/components/ui/grid-table'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -84,9 +84,17 @@ export function StockOverviewSection({ canStockIn, first }: { canStockIn: boolea
         bullets={['Open a row to see its batches, received and expiry dates']}
         note="Only Admin and the PHN record stock-in."
       />}
-      actions={<>{canStockIn && <Button onClick={() => setStockInOpen(true)}><Plus size={17} aria-hidden="true" /> Record stock-in</Button>}<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={isValidating} onClick={() => void mutate()} title="Refresh"><RefreshCw size={16} aria-hidden="true" className={isValidating ? "animate-spin motion-reduce:animate-none" : undefined} /></Button></>}
+      actions={canStockIn && <Button onClick={() => setStockInOpen(true)}><Plus size={17} aria-hidden="true" /> Record stock-in</Button>}
     >
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <FilterCard
+        refresh={<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={isValidating} onClick={() => void mutate()} title="Refresh"><RefreshCw size={16} aria-hidden="true" className={isValidating ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>}
+        below={<CountsStrip label="Stock counts" items={[
+          { label: 'Stock lines', value: data ? counts.lines : '–' },
+          { label: 'Low stock', value: data ? counts.low : '–', tone: 'review' },
+          { label: `Expiring within ${NEAR_EXPIRY_DAYS} days`, value: data ? counts.expiring : '–', tone: 'review' },
+          { label: 'Expired batches', value: data ? counts.expired : '–', tone: 'severe' },
+        ]} />}
+      >
         <Select aria-label="Item" value={itemFilter} onChange={(e) => setItemFilter(e.target.value)}>
           <option value="">All items</option>
           {items.map((i) => <option key={i.item_id} value={i.item_id}>{i.item_name}</option>)}
@@ -95,13 +103,7 @@ export function StockOverviewSection({ canStockIn, first }: { canStockIn: boolea
           <option value="">All barangays</option>
           {barangays.map((b) => <option key={b.barangay_id} value={b.barangay_id}>{b.barangay_name}</option>)}
         </Select>
-      </div>
-      <CountsStrip label="Stock counts" items={[
-          { label: 'Stock lines', value: data ? counts.lines : '–' },
-          { label: 'Low stock', value: data ? counts.low : '–', tone: 'review' },
-          { label: `Expiring within ${NEAR_EXPIRY_DAYS} days`, value: data ? counts.expiring : '–', tone: 'review' },
-          { label: 'Expired batches', value: data ? counts.expired : '–', tone: 'severe' },
-        ]} />
+      </FilterCard>
 
       {isLoading && !data ? (
         <LogoLoader size="section" label="Loading stock…" />

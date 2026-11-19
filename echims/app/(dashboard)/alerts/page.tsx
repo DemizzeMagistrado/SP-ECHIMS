@@ -1,5 +1,5 @@
 "use client";
-import { CountsStrip, SectionHeader } from '@/components/ui/report-parts'
+import { CountsStrip, FilterCard, SectionHeader } from '@/components/ui/report-parts'
 import { InfoContent } from '@/components/ui/info-tip'
 import { GridTable, RowButton } from '@/components/ui/grid-table'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
@@ -564,7 +564,14 @@ function AlertsWorkspace() {
                 note="Counts cover every alert you can access; the chips and program filter the list."
               />}
             />
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <FilterCard
+              below={<CountsStrip label="Alert counts" items={[
+                { label: "Total alerts", value: summary?.total ?? 0 },
+                { label: "Critical", value: summary?.critical ?? 0, tone: "severe" },
+                { label: "Warning", value: summary?.warning ?? 0, tone: "review" },
+                { label: "Resolved", value: summary?.resolved ?? 0, tone: "good" },
+              ]} />}
+            >
               <div className="flex items-center sm:col-span-2">
                 <FilterChips
                   label="Filter alerts"
@@ -586,13 +593,7 @@ function AlertsWorkspace() {
                   <option key={value} value={value}>{titleCase(value)}</option>
                 ))}
               </Select>
-            </div>
-            <CountsStrip label="Alert counts" items={[
-                { label: "Total alerts", value: summary?.total ?? 0 },
-                { label: "Critical", value: summary?.critical ?? 0, tone: "severe" },
-                { label: "Warning", value: summary?.warning ?? 0, tone: "review" },
-                { label: "Resolved", value: summary?.resolved ?? 0, tone: "good" },
-              ]} />
+            </FilterCard>
             <div key={`${filter}|${program}|${page}`} className={`space-y-3 animate-in fade-in duration-150 motion-reduce:animate-none ${loading ? "opacity-60 transition-opacity" : ""}`}>
               {alerts.length === 0 ? (
                 <EmptyState icon={CheckCircle} title="No matching alerts" description="Try another filter or program." className="rounded-xl border border-[#D5E2EA] bg-white" />

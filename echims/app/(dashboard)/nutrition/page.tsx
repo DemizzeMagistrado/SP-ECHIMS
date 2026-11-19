@@ -22,7 +22,7 @@ import { AlertCircle, BarChart3, ChevronDown, FileText, Plus, RefreshCw, Printer
 import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
-import { REPORT_CARD, ViewSwitch } from '@/components/ui/report-parts'
+import { FilterCard, REPORT_CARD, ViewSwitch } from '@/components/ui/report-parts'
 import { TabBar } from '@/components/ui/module-tabs'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
@@ -1948,6 +1948,7 @@ export default function NutritionPage() {
         subtitle="OPT Plus measurements, WHO classifications, and follow-up monitoring"
         className="nutrition-no-print"
         actions={<>
+          {/* Refresh sits in each tab's filter card. */}
           {canRecord && (
             <Button
               disabled={!ownerId || accessDenied}
@@ -1967,7 +1968,6 @@ export default function NutritionPage() {
               <Plus size={17} aria-hidden="true" />Record assessment
             </Button>
           )}
-          {refreshButton}
         </>}
       />
       <TabBar
@@ -2099,11 +2099,11 @@ export default function NutritionPage() {
           }
           error={error?.message}
           offline={!online}
+          refresh={refreshButton}
         />
       )}
       {tab === "Summary" && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{periodFields}
-        </div>
+        <FilterCard refresh={refreshButton}>{periodFields}</FilterCard>
       )}
       {/* Overview <-> List UW … List SW: same height-holding fade as the module tabs. */}
       {tab === "Summary" && (
@@ -2145,22 +2145,16 @@ export default function NutritionPage() {
       {reportView === "Assessments" && (
         <>
           {/* Filters and counts: one card. Controls share one bottom edge. */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {periodFields}
-            <Select aria-label="Classification view" value={category} onChange={(event) => setCategory(event.target.value)}>
-              {allCategories.map((name) => (
-                <option key={name} value={name}>{name === "All" ? "All classifications" : name}</option>
-              ))}
-            </Select>
-            <div className="flex h-10 items-center self-end">{
+          <FilterCard
+            refresh={refreshButton}
+            extra={
               <Checkbox
                 label="Include assessment history"
                 checked={history}
                 onChange={(event) => setHistory(event.target.checked)}
               />
-            }</div>
-          </div>
-          {
+            }
+            below={
               // Counts (latest assessment per child); each one filters the table. Same look as the shared
               // clickable CountsStrip: separate buttons, light border like the tabs, solid navy when on.
               <div className="grid grid-cols-2 gap-2 border-t border-brand-line p-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -2186,6 +2180,14 @@ export default function NutritionPage() {
                 })}
               </div>
             }
+          >
+            {periodFields}
+            <Select aria-label="Classification view" value={category} onChange={(event) => setCategory(event.target.value)}>
+              {allCategories.map((name) => (
+                <option key={name} value={name}>{name === "All" ? "All classifications" : name}</option>
+              ))}
+            </Select>
+          </FilterCard>
 
           {/* Follow-up banner: only when a child needs urgent clinical assessment. */}
           {urgent.length > 0 && (

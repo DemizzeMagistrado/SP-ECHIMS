@@ -3,7 +3,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { Fragment, useEffect, useRef, useState } from "react";
 import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { AlertTriangle, ChevronDown, HeartPulse, RefreshCw, Search } from "lucide-react";
-import { CountsStrip, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
+import { CountsStrip, FilterCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
 import { InfoContent } from '@/components/ui/info-tip'
 import { cn } from '@/lib/utils'
 import { Pagination, usePagination } from '@/components/ui/pagination'
@@ -314,9 +314,20 @@ export function NutritionAdmissionPanel({
           bullets={['No next follow-up date is required']}
           note="Shows at most the latest 500 entries in your scope."
         />}
-        actions={<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={loading || busy || !online} onClick={() => setReload((v) => v + 1)} title={online ? undefined : "Reconnect to refresh"}><RefreshCw size={16} aria-hidden="true" className={loading && Boolean(data) ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>}
       />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <FilterCard
+        refresh={
+          <Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={loading || busy || !online} onClick={() => setReload((v) => v + 1)} title={online ? undefined : "Reconnect to refresh"}><RefreshCw size={16} aria-hidden="true" className={loading && Boolean(data) ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>
+        }
+        below={data && (
+          // Counts for the current search (applying the care-status filter would zero the other two).
+          <CountsStrip label="Admission counts" items={[
+            { label: "Pending confirmation", value: searched.filter((r) => r.status === "PENDING").length, tone: "review" },
+            { label: "Active", value: searched.filter((r) => r.status === "ACTIVE").length },
+            { label: "Done", value: searched.filter((r) => r.status === "DONE").length },
+          ]} />
+        )}
+      >
         <div className="relative lg:col-span-2">
           <Search size={18} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -335,15 +346,7 @@ export function NutritionAdmissionPanel({
             </option>
           ))}
         </Select>
-      </div>
-      {data && (
-          // Counts for the current search (applying the care-status filter would zero the other two).
-          <CountsStrip label="Admission counts" items={[
-            { label: "Pending confirmation", value: searched.filter((r) => r.status === "PENDING").length, tone: "review" },
-            { label: "Active", value: searched.filter((r) => r.status === "ACTIVE").length },
-            { label: "Done", value: searched.filter((r) => r.status === "DONE").length },
-          ]} />
-        )}
+      </FilterCard>
       {!online && (
         <p className="text-sm text-amber-800">
           Reconnect to confirm care. Admission changes are not queued offline.
