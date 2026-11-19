@@ -29,7 +29,7 @@ import { LogoLoader } from '@/components/brand/logo-loader'
 import { TabPanel } from '@/components/brand/page-gate'
 import { FilterChips, TabBar } from '@/components/ui/module-tabs'
 import { EmptyState } from '@/components/ui/empty-state'
-import { CountsStrip, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
+import { REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
 import { LoadError } from '@/components/ui/load-error'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
@@ -479,7 +479,6 @@ type ChildCard = {
 
 type StatusChip = 'all' | 'pending' | 'missed' | 'assist'
 const CHIPS: StatusChip[] = ['all', 'pending', 'missed', 'assist']
-const days = (n: number) => `${n} ${n === 1 ? 'day' : 'days'}`
 const doseDate = (d: DoseRow) => d.rescheduled_date ?? d.due_date
 /** Is `a` the better "next dose" than `b`? Missed doses first, then the earliest date. */
 function nextFirst(a: DoseRow, b: DoseRow | undefined) {
@@ -608,8 +607,6 @@ function ScheduleSection() {
 
   const canReview = !readOnly && (requests.data?.can_review ?? false)
   const missedCards = cards.filter((c) => c.missed.length)
-  const worstOverall = missedCards.reduce<DoseRow | null>((w, c) => (c.worst && (!w || c.worst.days_overdue > w.days_overdue) ? c.worst : w), null)
-  const awaiting = cards.filter((c) => c.request?.status === 'PENDING').length
   const chipCount: Record<StatusChip, number> = {
     all: cards.length, pending: cards.filter((c) => c.pending.length).length, missed: missedCards.length, assist: cards.filter((c) => c.bhw_assist).length,
   }
@@ -684,19 +681,6 @@ function ScheduleSection() {
             <DateInput value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} aria-label="Next date from" placeholder="Next date from (MM/DD/YYYY)" />
             <DateInput value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} aria-label="Next date to" placeholder="Next date to (MM/DD/YYYY)" />
           </FilterBar>
-          {/* Counts strip (Nutritional Assessment's): each cell toggles its filter. */}
-          <CountsStrip
-            label="Schedule counts"
-            selected={[chip, requestFilter === 'PENDING' ? 'awaiting' : '']}
-            onSelect={(key) => (key === 'awaiting' ? setRequestFilter(requestFilter === 'PENDING' ? '' : 'PENDING') : setChip(chip === key ? 'all' : key as StatusChip))}
-            items={[
-              { key: 'missed', label: 'Missed doses', value: counts?.overdue ?? 0, tone: 'severe',
-                hint: worstOverall && <>Longest missed: <span className="font-semibold text-brand-navy">{worstOverall.vaccine_type} {worstOverall.dose_number}</span> · {days(worstOverall.days_overdue)} · {worstOverall.child_name}</> },
-              { key: 'pending', label: 'Pending', value: chipCount.pending },
-              { key: 'assist', label: 'BHW to assist', value: chipCount.assist },
-              { key: 'awaiting', label: 'Awaiting approval', value: awaiting, tone: 'review' },
-            ]}
-          />
         </fieldset>
 
         <div key={`${chip}|${vaccineFilter}|${requestFilter}`} className={`animate-in fade-in duration-150 motion-reduce:animate-none ${doses.refreshing ? 'opacity-60 transition-opacity' : ''}`}>
