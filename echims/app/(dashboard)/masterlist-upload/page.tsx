@@ -9,7 +9,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { useAuth } from '@/components/auth/auth-provider'
-import type { UserRole } from '@/lib/echims-data'
+import { canPerform, type UserRole } from '@/lib/echims-data'
+import { LogoLoader } from '@/components/brand/logo-loader'
+import { NoAccess } from '@/components/ui/no-access'
 import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -46,7 +48,17 @@ type StagingRow = {
   matched_child_id: number | null
 }
 
+// Role guard, same as Inventory / Vaccination: roles without 'Masterlist Upload' view see NoAccess.
+// The import API and database still refuse the action on their own (403).
 export default function MasterlistUploadPage() {
+  const { user, isReady } = useAuth()
+  if (!isReady) return <LogoLoader />
+  const role = user?.role as UserRole | undefined
+  if (!role || !canPerform(role, 'Masterlist Upload', 'view')) return <NoAccess>You do not have access to Masterlist Upload.</NoAccess>
+  return <MasterlistUploadWorkspace />
+}
+
+function MasterlistUploadWorkspace() {
   const { user } = useAuth()
   const confirm = useConfirm()
   const [batch, setBatch] = useState<Batch | null>(null)
