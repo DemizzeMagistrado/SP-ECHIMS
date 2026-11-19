@@ -14,7 +14,7 @@ import Link from 'next/link'
 import { useRouter } from '@/lib/offline/navigation'
 import { Plus, Search, SearchX, Baby, X, Upload } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
-import { canPerform, type UserRole } from '@/lib/echims-data'
+import { AGE_ARCHIVE_ROLES, canPerform, type UserRole } from '@/lib/echims-data'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
 import { PillLabel, segmentButton, segmentFill, segmentGroup } from '@/components/ui/module-tabs'
 import { TabIndicator } from '@/components/dashboard/tab-indicator'
@@ -81,14 +81,17 @@ export default function ChildHealthPage() {
   const isApproved = user?.accountStatus === 'APPROVED'
   const canRegister = Boolean(role && isApproved && canPerform(role, 'Child Profiling', 'create'))
   const canUploadMasterlist = Boolean(role && isApproved && canPerform(role, 'Masterlist Upload', 'view'))
+  const canSeeArchive = Boolean(role && isApproved && AGE_ARCHIVE_ROLES.includes(role))
 
-  const { data: children, error, isLoading, mutate } = useSWR<Child[]>('/api/children', fetcher, { keepPreviousData: true })
   const { data: barangays } = useSWR<Barangay[]>('/api/barangays', fetcher)
 
   // FINAL-POLISH: the former "Archived Children" tab now lives here as a view toggle.
   // Active = under-five (0–59 months). Archived = aged out on the fifth birthday
   // (echims_list_age_archived_children in the backend has the same source rule).
-  const [view, setView] = useState<'active' | 'archived'>('active')
+  const [chosenView, setView] = useState<'active' | 'archived'>('active')
+  // Admin and BNS never get the archive, even from a ?view=archived link (the API also refuses it).
+  const view = canSeeArchive ? chosenView : 'active'
+  const { data: children, error, isLoading, mutate } = useSWR<Child[]>(view === 'archived' ? '/api/children?archived=1' : '/api/children', fetcher, { keepPreviousData: true })
   // Keep the URL synced so notification deep links (?view=archived) and the legacy
   // /child-profiling/archived route can land straight on the archive without a flash.
   const [masterlistOpen, setMasterlistOpen] = useState(false)
@@ -189,7 +192,7 @@ export default function ChildHealthPage() {
       />
       {/* View switch (FINAL-POLISH: merged Archived Children into this tab). */}
       <div className="-mt-2 flex flex-wrap items-center gap-2">
-        <div role="tablist" aria-label="Children view" className={segmentGroup}>
+        {canSeeArchive && <div role="tablist" aria-label="Children view" className={segmentGroup}>
           {([
             { value: 'active' as const, label: 'Active (0–59 mos)' },
             { value: 'archived' as const, label: 'Archived (age-out)' },
@@ -206,7 +209,7 @@ export default function ChildHealthPage() {
             </button>
           ))}
           <TabIndicator group="children-view" activeKey={view} className={segmentFill} />
-        </div>
+        </div>}
         <InfoTip label="About this view" text="About this view" align="end">
           <InfoContent
             title={view === 'archived' ? 'Archived (age-out) children' : 'Active children (0–59 months)'}
@@ -219,10 +222,10 @@ export default function ChildHealthPage() {
                 ? ['Age-out is not an Inactive status', 'History stays available']
                 : ['Status = registry state', 'Monitoring = latest service rules']
               },
-              { label: 'Tip', value: view === 'archived'
+              ...(canSeeArchive ? [{ label: 'Tip' as const, value: view === 'archived'
                 ? 'Switch to Active to register a child.'
                 : 'Switch to Archived (age-out) for children past age five.'
-              },
+              }] : []),
             ]}
           />
         </InfoTip>

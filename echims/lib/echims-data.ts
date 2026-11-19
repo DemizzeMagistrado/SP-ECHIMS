@@ -1,6 +1,9 @@
 export type UserRole = 'Administrator' | 'Public Health Nurse' | 'Barangay Health Worker' | 'Rural Health Midwife' | 'Barangay Nutrition Scholar'
 
 /** Role codes used by the auth layer (lib/auth/permissions.ts) and their display names. */
+/** Roles that see age-out (archived) children; same set as the offline archive list. */
+export const AGE_ARCHIVE_ROLES: readonly UserRole[] = ['Public Health Nurse', 'Rural Health Midwife', 'Barangay Health Worker']
+
 export type RoleCode = 'Administrator' | 'PHN' | 'RHM' | 'BHW' | 'BNS'
 export const ROLE_NAME: Record<RoleCode, UserRole> = {
   Administrator: 'Administrator',

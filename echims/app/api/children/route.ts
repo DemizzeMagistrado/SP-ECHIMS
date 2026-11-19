@@ -2,7 +2,7 @@ import {childProgramEligibility,manilaDate} from '@/lib/child-program-eligibilit
 import { NextResponse } from "next/server";
 import { withHistoryComparisons } from "@/lib/nutrition-history";
 import { createClient } from "@/lib/supabase/server";
-import { canPerform, type UserRole } from "@/lib/echims-data";
+import { AGE_ARCHIVE_ROLES, canPerform, type UserRole } from "@/lib/echims-data";
 import { formatChildId, formatHouseholdId } from "@/lib/formatters";
 import { MOBILE_ERROR, normalizePhMobile } from "@/lib/phone";
 const roleAliases: Record<string, UserRole> = {
@@ -112,6 +112,10 @@ export async function GET(request: Request) {
   if ("forbidden" in auth)
     return invalid("You are not authorized to access child records.", 403);
   const childId = parseId(new URL(request.url).searchParams.get("childId"));
+  // ?archived=1: children who turned five (Children › Archived). PHN, RHM and BHW only.
+  const archived = new URL(request.url).searchParams.get("archived") === "1";
+  if (archived && !(auth.role && AGE_ARCHIVE_ROLES.includes(auth.role)))
+    return invalid("Assigned PHN, RHM or BHW access is required.", 403);
   let query = auth.supabase
     .from("child_program_roster")
     .select(
@@ -119,7 +123,7 @@ export async function GET(request: Request) {
     )
     .order("child_id", { ascending: false });
   if (childId) query = query.eq("child_id", childId);
-  else query = query.eq("program_archive_status", "UNDER_FIVE");
+  else query = query.eq("program_archive_status", archived ? "AGED_OUT" : "UNDER_FIVE");
   const { data, error } = await query;
   if (error) return invalid("Unable to load child records.", 500);
   const rows = data ?? [];
