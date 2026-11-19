@@ -2159,8 +2159,9 @@ export default function NutritionPage() {
               />
             }
             below={
-              // Counts (latest assessment per child); each one filters the table. 1px dividers between cells.
-              <div className="grid grid-cols-2 gap-px border-t border-brand-line/70 bg-brand-line/70 sm:grid-cols-3 lg:grid-cols-5">
+              // Counts (latest assessment per child); each one filters the table. Same look as the shared
+              // clickable CountsStrip: separate buttons, thin navy border, solid navy when on.
+              <div className="grid grid-cols-2 gap-2 border-t border-brand-line p-3 sm:grid-cols-3 lg:grid-cols-5">
                 {["SAM", "MAM", "Stunted", "Wasted", "Overweight / obesity"].map((name) => {
                   const count = latest.filter((item) => matches(item, name)).length;
                   return (
@@ -2170,14 +2171,14 @@ export default function NutritionPage() {
                       aria-pressed={category === name}
                       onClick={() => setCategory(category === name ? "All" : name)}
                       className={cn(
-                        "flex items-baseline gap-2 bg-white px-4 py-3 text-left outline-none transition-colors hover:bg-brand-ice focus-visible:outline-3 focus-visible:outline-solid focus-visible:-outline-offset-3 focus-visible:outline-link",
-                        category === name && "bg-brand-ice",
+                        "flex items-baseline gap-2 rounded-lg border border-[#07075F] px-4 py-3 text-left outline-none transition-[background-color,box-shadow] duration-150 ease-out focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-link motion-reduce:transition-none",
+                        category === name ? "bg-[#07075F] shadow-[0_1px_3px_rgba(12,18,96,0.18)]" : "bg-white hover:bg-brand-ice active:bg-[#E3EEF5]",
                         // 5 cells: the last one fills the spare slot at 2 and 3 columns (no empty divider cell).
                         name === "Overweight / obesity" && "col-span-2 lg:col-span-1",
                       )}
                     >
-                      <span className={cn("text-2xl font-bold tabular-nums", count === 0 ? "text-zero" : name === "SAM" ? "text-severe" : "text-brand-navy")}>{count}</span>
-                      <span className="text-sm text-brand-muted">{name}</span>
+                      <span className={cn("text-2xl font-bold tabular-nums transition-colors duration-150", category === name ? "text-white" : count === 0 ? "text-zero" : name === "SAM" ? "text-severe" : "text-brand-navy")}>{count}</span>
+                      <span className={cn("text-sm transition-colors duration-150", category === name ? "text-white" : "text-brand-muted")}>{name}</span>
                     </button>
                   );
                 })}
@@ -2468,16 +2469,17 @@ export default function NutritionPage() {
                       </Link>
                     </div>
                   )}
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="mt-3"
                     onClick={() => {
                       setSyncReview(null);
                       editQueued(row);
                     }}
-                    className="mt-3 text-sm text-primary underline"
                   >
                     Edit this draft
-                  </button>
+                  </Button>
                 </section>
               );
             })}

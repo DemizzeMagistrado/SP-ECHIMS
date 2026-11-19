@@ -16,6 +16,7 @@ import { Plus, Search, SearchX, Baby, X, Upload } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { canPerform, type UserRole } from '@/lib/echims-data'
 import { ModuleTabs } from '@/components/dashboard/module-tabs'
+import { segmentButton, segmentGroup } from '@/components/ui/module-tabs'
 import { ChildDraftPanel } from '@/components/children/child-draft-panel'
 import { ChildFormModal } from '@/components/children/child-form-modal'
 import { toast } from '@/components/ui/toast'
@@ -28,7 +29,6 @@ import { DataTable, type Column } from '@/components/ui/data-table'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { CHILD_ID_HELP, FSN_HELP, InfoContent, InfoTip } from '@/components/ui/info-tip'
 import { monthsOld } from '@/lib/children/profile-fields'
-import { cn } from '@/lib/utils'
 
 type Child = {
   child_id: number
@@ -182,7 +182,7 @@ export default function ChildHealthPage() {
       />
       {/* View switch (FINAL-POLISH: merged Archived Children into this tab). */}
       <div className="-mt-2 flex flex-wrap items-center gap-2">
-        <div role="tablist" aria-label="Children view" className="inline-flex rounded-xl border border-brand-line bg-white p-1">
+        <div role="tablist" aria-label="Children view" className={segmentGroup}>
           {([
             { value: 'active' as const, label: 'Active (0–59 mos)' },
             { value: 'archived' as const, label: 'Archived (age-out)' },
@@ -193,10 +193,7 @@ export default function ChildHealthPage() {
               role="tab"
               aria-selected={view === opt.value}
               onClick={() => setView(opt.value)}
-              className={cn(
-                'rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-colors',
-                view === opt.value ? 'bg-primary text-white shadow-sm' : 'text-brand-navy hover:bg-brand-ice',
-              )}
+              className={segmentButton(view === opt.value)}
             >
               {opt.label}
             </button>
