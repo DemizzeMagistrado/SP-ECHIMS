@@ -11,7 +11,7 @@ import { SmsSimulationPanel } from "@/components/alerts/sms-simulation-panel";
 import { useAuth } from "@/components/auth/auth-provider";
 import { offlineScope } from "@/lib/offline/fetch";
 import { LogoLoader } from '@/components/brand/logo-loader'
-import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
+import { PagePending, TabPanel, usePageLoading } from '@/components/brand/page-gate'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { FilterChips, TabBar } from '@/components/ui/module-tabs'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -272,15 +272,18 @@ const ALERT_PAGE_SIZE = 5;
 
 export default function AlertsPage() {
   const {user,isReady}=useAuth();
-  if(!isReady)return <LogoLoader label="Checking account…" />;
+  // The page gate shows the logo while the account loads, so the page then enters like every other.
+  if(!isReady)return <PagePending />;
   return <AlertsWorkspace key={user?user.id+':'+offlineScope(user):'signed-out'}/>;
 }
 function AlertsWorkspace() {
   const {user,isReady:authReady}=useAuth();
   const owner=user?.id??null;
   // A revisit starts from the last result for this account (no loader) and refreshes it quietly.
-  const [data, setData] = useState<Data | null>(() => readPageCache<Data>(owner, "alerts:1") ?? null);
-  const [loading, setLoading] = useState(false);
+  // Same key load() writes for the default view (page 1, unresolved, all programs).
+  const [data, setData] = useState<Data | null>(() => readPageCache<Data>(owner, "alerts:1:unresolved:ALL") ?? null);
+  // Starts loading when nothing is cached, so the page gate holds from the first render.
+  const [loading, setLoading] = useState(() => Boolean(owner) && !data);
   usePageLoading(!authReady || (loading && !data));
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
