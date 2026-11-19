@@ -6,6 +6,7 @@ import useSWR from 'swr'
 import { CalendarDays, CheckCircle2, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { Modal } from '@/components/ui/modal'
+import { Button } from '@/components/ui/button'
 import { ChildScheduleSmsPanel } from '@/components/sms/child-schedule-sms-panel'
 import { canPerform } from '@/lib/echims-data'
 import { childProgramEligibility, manilaDate } from '@/lib/child-program-eligibility'
@@ -159,16 +160,31 @@ function Appointments({childId,dateOfBirth,registryStatus,canEdit,owner}: Props 
   return <section aria-labelledby="checkup-title" className="space-y-4 rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-6">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div><h2 id="checkup-title" className="flex items-center gap-2 text-lg font-semibold text-primary"><CalendarDays size={20}/>Follow-up checkups</h2><p className="mt-1 text-sm text-muted-foreground">Appointments, completed visits and reschedule history.</p></div>
-      <div className="flex flex-wrap gap-2"><button type="button" className={button} onClick={()=>setSmsOpen(true)}>SMS reminders</button><button type="button" className={button} disabled={!online || busy} onClick={()=>void mutate()} aria-label="Refresh checkup appointments"><RefreshCw size={16}/></button>
-        {canEdit && <button type="button" className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" disabled={!canSchedule || busy || Boolean(pending) || !restored} onClick={()=>open('CREATE')}>Schedule checkup</button>}</div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="tonal" onClick={()=>setSmsOpen(true)}>SMS reminders</Button>
+        <Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={!online || busy} onClick={()=>void mutate()}><RefreshCw size={16} aria-hidden="true" className={isLoading && page ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>
+        {canEdit && <Button disabled={!canSchedule || busy || Boolean(pending) || !restored} onClick={()=>open('CREATE')}>Schedule checkup</Button>}
+      </div>
     </div>
     {!online && <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">You are offline. Reconnect to refresh appointments or save changes.</p>}
     {canEdit && !canSchedule && online && <p className="text-sm text-muted-foreground">New appointments require an active child within the under-five age scope.</p>}
     {message && <p role="status" className="flex gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900"><CheckCircle2 size={18}/>{message}</p>}
     {failure && <p role="alert" className="rounded-lg bg-rose-50 p-3 text-sm text-rose-900">{failure}</p>}
     {pending && <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><p>A {pending.action.toLowerCase()} request is awaiting confirmation. Retry the same request before starting another action.</p><p className="mt-2">{pending.date?displayDate(pending.date):'Cancellation'}{pending.appointmentId?` · Appointment #${pending.appointmentId}`:''}</p><p className="mt-1 whitespace-pre-wrap">{pending.notes}</p><button type="button" className={`${button} mt-3`} disabled={busy || !online || !canEdit} onClick={()=>void submit()}>{busy?'Checking…':'Retry saved request'}</button></div>}
-    {draft && !pending && <form onSubmit={submit} className="space-y-4 rounded-xl border border-border bg-slate-50 p-4">
-      <div className="flex items-center justify-between gap-3"><h3 className="font-semibold text-primary">{labels[draft.action]}</h3><button type="button" className={button} onClick={()=>setDraft(null)}>Close</button></div>
+    {/* Schedule / reschedule / complete / cancel: the same form, in a popup. Submit, validation and
+        the saved retry request are unchanged. */}
+    {draft && !pending && (
+      <Modal
+        open
+        size="md"
+        title={draft.action==='CREATE'?'Schedule follow-up checkup':labels[draft.action]}
+        onClose={()=>setDraft(null)}
+        busy={busy}
+        onSubmit={submit}
+        bodyClassName="space-y-4"
+        cancelLabel="Cancel"
+        footer={<Button type="submit" loading={busy} disabled={!online || busy || !draft.notes.trim()}>{draft.action==='COMPLETE'?'Save completed checkup':draft.action==='CANCEL'?'Confirm cancellation':draft.action==='CREATE'?'Save checkup':'Save appointment'}</Button>}
+      >
       {draft.appointment && <p className="text-sm text-muted-foreground">Appointment #{draft.appointment.appointment_id} · Scheduled {displayDate(draft.appointment.scheduled_on)}</p>}
       {draft.action!=='CANCEL' && <div className="space-y-2"><label className="block text-sm font-medium" htmlFor="checkup-date">{draft.action==='COMPLETE'?'Actual checkup date':'Appointment date'} *</label><input id="checkup-date" type="date" required value={draft.date} min={draft.action==='COMPLETE'?dateOfBirth??undefined:today} max={draft.action==='COMPLETE'?today:undefined} onChange={e=>setDraft({...draft,date:e.target.value})} className="rounded-lg border border-border bg-white px-3 py-2 text-sm"/>
         {['CREATE','RESCHEDULE'].includes(draft.action) && <><button type="button" className={`${button} ml-2`} disabled={suggesting || !online} onClick={()=>void suggest()}>{suggesting?'Loading…':'Suggest dates'}</button><div className="flex flex-wrap gap-2">{dates.map(date=><button type="button" key={date} aria-pressed={draft.date===date} className={`${button} ${draft.date===date?'ring-2 ring-primary':''}`} onClick={()=>setDraft({...draft,date})}>{displayDate(date)}</button>)}</div>{suggestionNote && <p className="text-xs text-muted-foreground">{suggestionNote} No appointment is booked until you save.</p>}</>}
@@ -176,8 +192,8 @@ function Appointments({childId,dateOfBirth,registryStatus,canEdit,owner}: Props 
       <div><label htmlFor="checkup-notes" className="mb-1 block text-sm font-medium">{draft.action==='RESCHEDULE' || draft.action==='CANCEL'?'Reason':'Notes'} *</label><textarea id="checkup-notes" required maxLength={2000} value={draft.notes} onChange={e=>setDraft({...draft,notes:e.target.value})} rows={3} className="w-full rounded-lg border border-border bg-white p-3 text-sm" placeholder="Record the appointment details or reason for this action."/><p className="text-xs text-muted-foreground">{draft.notes.length}/2000 characters</p></div>
       {draft.action==='COMPLETE' && <label className="flex items-start gap-2 text-sm"><input type="checkbox" required checked={draft.confirmed} onChange={e=>setDraft({...draft,confirmed:e.target.checked})} className="mt-1"/>I confirm that this checkup took place on the actual date entered.</label>}
       {draft.action==='CANCEL' && <p className="text-sm text-muted-foreground">The appointment and cancellation reason will remain in history.</p>}
-      <button type="submit" disabled={!online || busy || !draft.notes.trim()} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{draft.action==='COMPLETE'?'Save completed checkup':draft.action==='CANCEL'?'Confirm cancellation':'Save appointment'}</button>
-    </form>}
+      </Modal>
+    )}
     {error && <div role="alert" className="rounded-lg bg-rose-50 p-3 text-sm text-rose-900">{error.message} <button type="button" className="underline" onClick={()=>void mutate()}>Try again</button></div>}
     {isLoading && !page && <p role="status" className="py-6 text-center text-sm text-muted-foreground">Loading appointments…</p>}
     {!error && page && <><CheckupAppointmentTable records={page.records} canEdit={canEdit && online && !busy && !pending} canSchedule={canSchedule} onAction={open}/>
