@@ -17,7 +17,7 @@ export type TabItem<T extends string = string> = {
  *  - main (default): page-level tabs under the title, on the page (no strip): active = solid #07075F
  *    with white text; inactive = white with a #D5E2EA border. Wraps on phones.
  *  - sub: tabs nested in a section, card or dialog (and the sticky section bar). No strip: separate
- *    13px pills (subPill), inactive = white with a thin navy border, active = solid navy, white text.
+ *    13px pills (subPill), inactive = white with the main tabs' light border, active = solid navy.
  * State tabs: pass onChange and wrap the content in <TabPanel tabKey={value}> for the fade.
  */
 /** Sub-level pill shared by sub tabs, view switches and the sticky section bar. Same weight in both
@@ -26,7 +26,7 @@ export const subPill = (active: boolean) => cn(
   'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-4 py-1.5 text-[13px] font-semibold outline-none transition-[background-color,color,border-color,box-shadow] duration-150 ease-out focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-1 focus-visible:outline-link disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none',
   active
     ? 'border-[#07075F] bg-[#07075F] text-white shadow-[0_1px_3px_rgba(12,18,96,0.18)]'
-    : 'border-[#07075F] bg-white text-[#07075F] hover:bg-brand-ice active:bg-[#E3EEF5]',
+    : 'border-[#D5E2EA] bg-white text-[#55617F] hover:border-[#8896B0] hover:bg-[#F5F8FA] hover:text-[#0C1260] active:bg-brand-ice',
 )
 
 /** Joined strip for short toggles (2–3 options, e.g. Month / Week): no border; a light brand-ice

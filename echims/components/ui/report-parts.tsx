@@ -53,7 +53,7 @@ export function CountsStrip({ label, items, selected, onSelect }: {
   const grid = cn('grid gap-px border-t border-[#EAF0F4] bg-[#EAF0F4]', COUNT_GRID[items.length] ?? 'grid-cols-2 sm:grid-cols-4')
   if (onSelect) {
     return (
-      // Filter buttons: no strip; each count is its own button, thin navy border, solid navy when on.
+      // Filter buttons: no strip; each count is its own button (light border like the tabs), solid navy when on.
       <div role="group" aria-label={label} className={cn('grid gap-2 border-t border-brand-line p-3', COUNT_GRID[items.length] ?? 'grid-cols-2 sm:grid-cols-4')}>
         {items.map((item, i) => {
           const key = item.key ?? item.label
@@ -64,8 +64,8 @@ export function CountsStrip({ label, items, selected, onSelect }: {
               aria-pressed={isOn(key)}
               onClick={() => onSelect(key)}
               className={cn(
-                'flex flex-wrap items-baseline gap-x-2 rounded-lg border border-[#07075F] px-4 py-3 text-left outline-none transition-[background-color,box-shadow] duration-150 ease-out focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-link motion-reduce:transition-none',
-                isOn(key) ? 'bg-[#07075F] shadow-[0_1px_3px_rgba(12,18,96,0.18)]' : 'bg-white hover:bg-brand-ice active:bg-[#E3EEF5]',
+                'flex flex-wrap items-baseline gap-x-2 rounded-lg border px-4 py-3 text-left outline-none transition-[background-color,border-color,box-shadow] duration-150 ease-out focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-link motion-reduce:transition-none',
+                isOn(key) ? 'border-[#07075F] bg-[#07075F] shadow-[0_1px_3px_rgba(12,18,96,0.18)]' : 'border-[#D5E2EA] bg-white hover:border-[#8896B0] hover:bg-[#F5F8FA] active:bg-brand-ice',
                 span(i),
               )}
             >
