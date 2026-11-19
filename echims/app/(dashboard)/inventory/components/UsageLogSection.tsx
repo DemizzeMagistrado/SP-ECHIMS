@@ -5,7 +5,7 @@ import useSWR, { mutate as globalMutate } from 'swr'
 import { CloudOff, PackageMinus, Plus, RefreshCw, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/form'
-import { CountsStrip, FilterCard } from '@/components/ui/report-parts'
+import { FilterCard } from '@/components/ui/report-parts'
 import { InfoContent } from '@/components/ui/info-tip'
 import { GridTable, RowButton } from '@/components/ui/grid-table'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -81,11 +81,6 @@ export function UsageLogSection({ canLog, canTrace, onTrace, first }: { canLog: 
 
       <FilterCard
         refresh={<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={isValidating} onClick={() => void mutate()} title="Refresh"><RefreshCw size={16} aria-hidden="true" className={isValidating ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>}
-        below={data && <CountsStrip label="Usage counts" selected={kind} onSelect={(k) => setKind(kind === k ? '' : k)} items={[
-          { key: 'USAGE', label: 'Usage entries', value: all.filter((e) => e.subtype === 'USAGE').length },
-          { key: 'WASTE', label: 'Waste entries', value: all.filter((e) => e.subtype === 'WASTE').length, tone: 'severe' },
-          { key: '', label: 'All entries', value: all.length },
-        ]} />}
       >
         <div className="relative">
           <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />

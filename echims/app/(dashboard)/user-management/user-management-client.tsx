@@ -1,5 +1,5 @@
 'use client'
-// User Management (USRMGMT-REV01): shared page header, filter card with the account counts, the
+// User Management (USRMGMT-REV01): shared page header, filter card (search and status), the
 // system table (5 per page) and a User details modal in the Activity-detail style. Admin only
 // (page.tsx). Status changes go through PATCH /api/admin/users and reload the server data.
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
@@ -7,7 +7,7 @@ import { Ban, CheckCircle2, Pencil, PowerOff, RefreshCw, RotateCcw, Search, User
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { cn } from '@/lib/utils'
-import { CountsStrip, FilterCard } from '@/components/ui/report-parts'
+import { FilterCard } from '@/components/ui/report-parts'
 import { GridTable, RowButton } from '@/components/ui/grid-table'
 import { Modal } from '@/components/ui/modal'
 import { PageHeader } from '@/components/ui/page-header'
@@ -131,7 +131,6 @@ export default function UserManagementClient({ users, readOnly: savedReadOnly = 
       && (roleFilter === 'ALL' || u.role === roleFilter))
   }, [users, search, statusFilter, roleFilter])
 
-  const count = (status: string) => users.filter((u) => u.account_status === status).length
 
   async function updateAccountStatus(user: UserRow, accountStatus: AccountStatus, success: string) {
     if (readOnly || processing) return
@@ -166,12 +165,6 @@ export default function UserManagementClient({ users, readOnly: savedReadOnly = 
 
       <FilterCard
         refresh={<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" onClick={reload} title="Refresh"><RefreshCw size={16} aria-hidden="true" /></Button>}
-        below={<CountsStrip
-          label="Account counts"
-          selected={statusFilter}
-          onSelect={(key) => setStatusFilter(statusFilter === key ? 'ALL' : key)}
-          items={STATUSES.map((s) => ({ key: s, label: statusLabel(s), value: count(s) }))}
-        />}
       >
         <div className="relative">
           <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />

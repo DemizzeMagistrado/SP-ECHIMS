@@ -1,6 +1,6 @@
 'use client'
 import { Select, DateInput, Input } from '@/components/ui/form'
-import { CountsStrip, FilterCard, GuidanceCard, SectionHeader } from '@/components/ui/report-parts'
+import { FilterCard, GuidanceCard, SectionHeader } from '@/components/ui/report-parts'
 import { InfoContent } from '@/components/ui/info-tip'
 import { TabBar } from '@/components/ui/module-tabs'
 import { useAuth } from '@/components/auth/auth-provider'
@@ -106,8 +106,8 @@ const SECTIONS: Record<Tab, { title: string; subtitle: string; about: React.Reac
     about: <InfoContent
       title="Activity requests"
       description="All requests within your scope, latest schedule first."
-      sections={[{ label: 'Tip', value: 'Select a count card to filter by that status' }]}
-      bullets={['Counts follow the type, barangay and search filters', 'Open a request to see details and available actions']}
+      sections={[{ label: 'Tip', value: 'Use the Status filter to show one status' }]}
+      bullets={['Open a request to see details and available actions']}
     />,
   },
   calendar: {
@@ -214,7 +214,7 @@ function ActivityWorkspace() {
     return [...seen].sort((a, b) => a[1].localeCompare(b[1]))
   }, [activities])
 
-  // Everything but status: the counts strip counts these, so a count always matches its filter.
+  // Everything but status (type, barangay, search); the status filter is applied on top.
   const scopedActivities = useMemo(() => {
     const q = search.trim().toLowerCase()
     return activities.filter((activity) =>
@@ -232,7 +232,6 @@ function ActivityWorkspace() {
     [scopedActivities, statusFilter],
   )
 
-  const countOf = (status: ActivityStatus) => scopedActivities.filter((activity) => activity.status === status).length
 
   function handleCreated(evaluation?: RuleEvaluation) {
     setShowRequestModal(false)
@@ -338,20 +337,6 @@ function ActivityWorkspace() {
               </Button>
             )}
           </>}
-          below={activeTab === 'requests' ? (
-            <CountsStrip
-              label="Activity counts"
-              selected={statusFilter}
-              onSelect={(key) => setStatusFilter(statusFilter === key ? 'ALL' : key)}
-              items={[
-                { key: 'PENDING', label: 'Pending', value: countOf('PENDING') },
-                { key: 'NEEDS_REVISION', label: 'Needs revision', value: countOf('NEEDS_REVISION'), tone: 'review' },
-                { key: 'APPROVED', label: 'Approved', value: countOf('APPROVED'), tone: 'good' },
-                { key: 'ONGOING', label: 'Ongoing', value: countOf('ONGOING'), tone: 'info' },
-                { key: 'COMPLETED', label: 'Completed', value: countOf('COMPLETED'), tone: 'muted' },
-              ]}
-            />
-          ) : undefined}
         >
           <div className="relative">
             <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
