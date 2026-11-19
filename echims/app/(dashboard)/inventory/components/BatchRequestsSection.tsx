@@ -14,7 +14,7 @@ import { BatchRequestDecisionModal, type BatchRequestRow } from '@/components/va
 import { ResubmitStockRequestModal } from '@/components/inventory/resubmit-stock-request-modal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/form'
-import { CountsStrip, FilterCard } from '@/components/ui/report-parts'
+import { CountsStrip } from '@/components/ui/report-parts'
 import { InfoContent } from '@/components/ui/info-tip'
 import { GridTable, RowButton } from '@/components/ui/grid-table'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -59,23 +59,21 @@ export function BatchRequestsSection({ userId, canTrace, onTrace, first }: { use
           { label: 'Tip', value: 'Select a batch number to trace where it went' },
         ]}
       />}
-      actions={canCreate && <Button onClick={() => setCreateOpen(true)}><Plus size={17} aria-hidden="true" /> New request</Button>}
+      actions={<>{canCreate && <Button onClick={() => setCreateOpen(true)}><Plus size={17} aria-hidden="true" /> New request</Button>}<Button variant="outline" size="icon" className="size-10" aria-label="Refresh batch requests" title="Refresh" disabled={refreshing || readOnly} onClick={() => void mutate()}><RefreshCw size={16} aria-hidden="true" className={refreshing ? 'animate-spin motion-reduce:animate-none' : undefined} /></Button></>}
     >
       <VaccinationSnapshotNotice savedAt={savedAt} readOnly={readOnly} />
 
-      <FilterCard
-        refresh={<Button variant="outline" size="icon" className="size-10" aria-label="Refresh batch requests" title="Refresh" disabled={refreshing || readOnly} onClick={() => void mutate()}><RefreshCw size={16} aria-hidden="true" className={refreshing ? 'animate-spin motion-reduce:animate-none' : undefined} /></Button>}
-        below={data && <CountsStrip label="Batch request counts" selected={status} onSelect={(k) => setStatus(status === k ? '' : k)} items={[
-          { key: 'PENDING', label: 'Pending', value: count('PENDING') },
-          { key: 'NEEDS_REVISION', label: 'Needs revision', value: count('NEEDS_REVISION'), tone: 'review' },
-          { key: 'APPROVED', label: 'Approved', value: count('APPROVED'), tone: 'good' },
-        ]} />}
-      >
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="relative sm:col-span-2">
           <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input aria-label="Search batch requests" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search vaccine, batch or barangay…" className="pl-9" />
         </div>
-      </FilterCard>
+      </div>
+      {data && <CountsStrip label="Batch request counts" selected={status} onSelect={(k) => setStatus(status === k ? '' : k)} items={[
+          { key: 'PENDING', label: 'Pending', value: count('PENDING') },
+          { key: 'NEEDS_REVISION', label: 'Needs revision', value: count('NEEDS_REVISION'), tone: 'review' },
+          { key: 'APPROVED', label: 'Approved', value: count('APPROVED'), tone: 'good' },
+        ]} />}
 
       {isLoading ? (
         <LogoLoader size="section" label="Loading requests…" />

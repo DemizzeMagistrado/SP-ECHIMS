@@ -27,7 +27,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 import { Pagination } from '@/components/ui/pagination'
-import { FilterCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
+import { REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { TabPanel } from '@/components/brand/page-gate'
 import { cn } from '@/lib/utils'
@@ -502,46 +502,7 @@ export default function ReportsPage() {
             }}
             items={options.modules.map((m) => ({ value: m, label: labels[m], disabled: busy }))}
           />
-          <FilterCard
-            wide
-            refresh={
-              <Button variant="secondary"
-                disabled={loading || busy || !range.start || !range.end}
-                onClick={() => void loadView()}
-              >
-                View Preview
-              </Button>
-            }
-            below={module === "INVENTORY" && (
-              <div className="flex flex-wrap gap-3 border-t border-brand-line p-4">
-                <Select
-                  disabled={busy}
-                  aria-label="Inventory view"
-                  value={inventoryView}
-                  onChange={(e) => {
-                    clear();
-                    setInventoryView(e.target.value);
-                  }}
-                >
-                  <option value="STOCK">Current stock</option>
-                  <option value="TRANSACTIONS">Transactions in period</option>
-                </Select>
-                <Select
-                  disabled={busy}
-                  aria-label="Item type"
-                  value={itemType}
-                  onChange={(e) => {
-                    clear();
-                    setItemType(e.target.value);
-                  }}
-                >
-                  <option value="ALL">Vaccines and supplements</option>
-                  <option value="VACCINE">Vaccines</option>
-                  <option value="SUPPLEMENT">Supplements</option>
-                </Select>
-              </div>
-            )}
-          >
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             <label className="text-sm">
               Period
               <Select
@@ -612,7 +573,45 @@ export default function ReportsPage() {
                 ))}
               </Select>
             </label>
-          </FilterCard>
+            {/* The preview's submit stays with its filters (it is not a page-level tool). */}
+            <div className="flex items-end">
+              <Button variant="secondary"
+                disabled={loading || busy || !range.start || !range.end}
+                onClick={() => void loadView()}
+              >
+                View Preview
+              </Button>
+            </div>
+          </div>
+          {module === "INVENTORY" && (
+              <div className="flex flex-wrap gap-3">
+                <Select
+                  disabled={busy}
+                  aria-label="Inventory view"
+                  value={inventoryView}
+                  onChange={(e) => {
+                    clear();
+                    setInventoryView(e.target.value);
+                  }}
+                >
+                  <option value="STOCK">Current stock</option>
+                  <option value="TRANSACTIONS">Transactions in period</option>
+                </Select>
+                <Select
+                  disabled={busy}
+                  aria-label="Item type"
+                  value={itemType}
+                  onChange={(e) => {
+                    clear();
+                    setItemType(e.target.value);
+                  }}
+                >
+                  <option value="ALL">Vaccines and supplements</option>
+                  <option value="VACCINE">Vaccines</option>
+                  <option value="SUPPLEMENT">Supplements</option>
+                </Select>
+              </div>
+            )}
           {options.canGenerate && preview && (
             <section aria-label="Generate report" className={cn(REPORT_CARD, "flex flex-wrap items-end gap-3 p-5")}>
               <label className="text-sm">

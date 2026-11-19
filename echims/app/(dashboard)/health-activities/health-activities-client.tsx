@@ -1,6 +1,6 @@
 'use client'
 import { Select, DateInput, Input } from '@/components/ui/form'
-import { CountsStrip, FilterCard, GuidanceCard, SectionHeader } from '@/components/ui/report-parts'
+import { CountsStrip, GuidanceCard, SectionHeader } from '@/components/ui/report-parts'
 import { InfoContent } from '@/components/ui/info-tip'
 import { TabBar } from '@/components/ui/module-tabs'
 import { useAuth } from '@/components/auth/auth-provider'
@@ -319,11 +319,8 @@ function ActivityWorkspace() {
       )}
 
       <TabPanel tabKey={activeTab} className="space-y-4">
-        <SectionHeader title={section.title} subtitle={section.subtitle} about={section.about} />
-
-        <FilterCard
-          wide
-          refresh={<>
+        <SectionHeader title={section.title} subtitle={section.subtitle} about={section.about}
+        actions={<>
             <Button variant="outline" size="icon" className="size-10" aria-label="Refresh activities" title="Refresh" disabled={refreshing} onClick={() => void loadActivities()}>
               <RefreshCw size={16} aria-hidden="true" className={cn(refreshing && 'animate-spin motion-reduce:animate-none')} />
             </Button>
@@ -339,22 +336,9 @@ function ActivityWorkspace() {
                 New request
               </Button>
             )}
-          </>}
-          below={activeTab === 'requests' ? (
-            <CountsStrip
-              label="Activity counts"
-              selected={statusFilter}
-              onSelect={(key) => setStatusFilter(statusFilter === key ? 'ALL' : key)}
-              items={[
-                { key: 'PENDING', label: 'Pending', value: countOf('PENDING') },
-                { key: 'NEEDS_REVISION', label: 'Needs revision', value: countOf('NEEDS_REVISION'), tone: 'review' },
-                { key: 'APPROVED', label: 'Approved', value: countOf('APPROVED'), tone: 'good' },
-                { key: 'ONGOING', label: 'Ongoing', value: countOf('ONGOING'), tone: 'info' },
-                { key: 'COMPLETED', label: 'Completed', value: countOf('COMPLETED'), tone: 'muted' },
-              ]}
-            />
-          ) : undefined}
-        >
+          </>} />
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <div className="relative">
             <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input aria-label="Search activities" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search activities…" className="pl-9" />
@@ -371,7 +355,21 @@ function ActivityWorkspace() {
             <option value="ALL">All barangays</option>
             {barangayOptions.map(([id, name]) => <option key={id} value={String(id)}>{name}</option>)}
           </Select>
-        </FilterCard>
+        </div>
+        {activeTab === 'requests' ? (
+            <CountsStrip
+              label="Activity counts"
+              selected={statusFilter}
+              onSelect={(key) => setStatusFilter(statusFilter === key ? 'ALL' : key)}
+              items={[
+                { key: 'PENDING', label: 'Pending', value: countOf('PENDING') },
+                { key: 'NEEDS_REVISION', label: 'Needs revision', value: countOf('NEEDS_REVISION'), tone: 'review' },
+                { key: 'APPROVED', label: 'Approved', value: countOf('APPROVED'), tone: 'good' },
+                { key: 'ONGOING', label: 'Ongoing', value: countOf('ONGOING'), tone: 'info' },
+                { key: 'COMPLETED', label: 'Completed', value: countOf('COMPLETED'), tone: 'muted' },
+              ]}
+            />
+          ) : undefined}
 
         {loading ? (
           <LogoLoader size="section" label="Loading activities…" />

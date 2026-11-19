@@ -5,7 +5,7 @@ import useSWR, { mutate as globalMutate } from 'swr'
 import { CloudOff, PackageMinus, Plus, RefreshCw, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/form'
-import { CountsStrip, FilterCard } from '@/components/ui/report-parts'
+import { CountsStrip } from '@/components/ui/report-parts'
 import { InfoContent } from '@/components/ui/info-tip'
 import { GridTable, RowButton } from '@/components/ui/grid-table'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -70,7 +70,7 @@ export function UsageLogSection({ canLog, canTrace, onTrace, first }: { canLog: 
         bullets={['Offline entries queue on this device and sync on your next visit']}
         note="Only the RHM logs usage and waste."
       />}
-      actions={canLog && <Button onClick={() => setOpen(true)}><Plus size={17} aria-hidden="true" /> Log usage/waste</Button>}
+      actions={<>{canLog && <Button onClick={() => setOpen(true)}><Plus size={17} aria-hidden="true" /> Log usage/waste</Button>}<Button variant="outline" size="icon" className="size-10" aria-label="Refresh usage log" title="Refresh" disabled={isValidating} onClick={() => void mutate()}><RefreshCw size={16} aria-hidden="true" className={isValidating ? 'animate-spin motion-reduce:animate-none' : undefined} /></Button></>}
     >
       {queued > 0 && (
         <p role="status" className="flex items-start gap-2 rounded-xl border border-[#F3D9A4] bg-[#FFF4DB] px-4 py-3 text-sm text-[#9C6B10]">
@@ -79,14 +79,7 @@ export function UsageLogSection({ canLog, canTrace, onTrace, first }: { canLog: 
         </p>
       )}
 
-      <FilterCard
-        refresh={<Button variant="outline" size="icon" className="size-10" aria-label="Refresh usage log" title="Refresh" disabled={isValidating} onClick={() => void mutate()}><RefreshCw size={16} aria-hidden="true" className={isValidating ? 'animate-spin motion-reduce:animate-none' : undefined} /></Button>}
-        below={data && <CountsStrip label="Usage counts" selected={kind} onSelect={(k) => setKind(kind === k ? '' : k)} items={[
-          { key: 'USAGE', label: 'Usage entries', value: all.filter((e) => e.subtype === 'USAGE').length },
-          { key: 'WASTE', label: 'Waste entries', value: all.filter((e) => e.subtype === 'WASTE').length, tone: 'severe' },
-          { key: '', label: 'All entries', value: all.length },
-        ]} />}
-      >
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="relative">
           <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input aria-label="Search usage" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search item, batch or barangay…" className="pl-9" />
@@ -96,7 +89,12 @@ export function UsageLogSection({ canLog, canTrace, onTrace, first }: { canLog: 
           <option value="USAGE">Usage only</option>
           <option value="WASTE">Waste only</option>
         </Select>
-      </FilterCard>
+      </div>
+      {data && <CountsStrip label="Usage counts" selected={kind} onSelect={(k) => setKind(kind === k ? '' : k)} items={[
+          { key: 'USAGE', label: 'Usage entries', value: all.filter((e) => e.subtype === 'USAGE').length },
+          { key: 'WASTE', label: 'Waste entries', value: all.filter((e) => e.subtype === 'WASTE').length, tone: 'severe' },
+          { key: '', label: 'All entries', value: all.length },
+        ]} />}
 
       {isLoading && !data ? (
         <LogoLoader size="section" label="Loading usage…" />

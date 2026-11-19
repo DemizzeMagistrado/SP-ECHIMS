@@ -13,7 +13,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { buttonVariants } from '@/components/ui/button'
 import { Pagination, usePagination } from '@/components/ui/pagination'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { CountsStrip, FilterCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
+import { CountsStrip, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
 import { InfoContent } from '@/components/ui/info-tip'
 
 const PRIORITY_TONE = { CRITICAL: 'severe', HIGH: 'review', MEDIUM: 'neutral', LOW: 'neutral' } as const
@@ -47,25 +47,24 @@ export function NutritionRiskMonitor({ monitoring, error, loading, offline, refr
         bullets={['Counts cover your full accessible scope']}
         note="Children needing review are not assumed to be normal."
       />}
+        actions={refresh}
     />
     {offline && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Offline: this is the last account-specific snapshot. Reconnect and refresh to verify current risks and assignments.</p>}
     {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}{monitoring && ' Showing the last available results; refresh successfully before treating them as current.'}</p>}
     {loading && !monitoring ? <Spinner showLabel label="Loading risk monitoring…" className="w-full justify-center py-6 text-sm text-muted-foreground" /> : !monitoring ? <p className="rounded-lg bg-muted p-4 text-sm">Risk monitoring data is unavailable. Refresh online after installing the updated API and SQL migration.</p> : <>
-      <FilterCard
-        refresh={refresh}
-        extra={<Checkbox label="Worsened only" checked={worsenedOnly} onChange={(event) => setWorsenedOnly(event.target.checked)} />}
-        below={<CountsStrip label="Risk counts" items={[
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Select aria-label="Barangay" value={barangay} onChange={(event) => setBarangay(event.target.value)}><option value="All">All accessible barangays</option>{barangays.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</Select>
+        <Select aria-label="Classification" value={classification} onChange={(event) => setClassification(event.target.value)}><option value="All">All classifications</option>{codes.map((code) => <option key={code} value={code}>{labelClassification(code)}</option>)}</Select>
+        <Select aria-label="Priority" value={severity} onChange={(event) => setSeverity(event.target.value)}>{['All', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map((value) => <option key={value} value={value}>{value === 'All' ? 'All priorities' : value}</option>)}</Select>
+        <div className="flex h-10 items-center self-end">{<Checkbox label="Worsened only" checked={worsenedOnly} onChange={(event) => setWorsenedOnly(event.target.checked)} />}</div>
+      </div>
+      <CountsStrip label="Risk counts" items={[
           { label: 'At-risk children', value: counts!.at_risk },
           { label: 'Critical', value: counts!.critical, tone: 'severe' },
           { label: 'High priority', value: counts!.high, tone: 'review' },
           { label: 'Worsened', value: counts!.worsened, tone: 'severe' },
           { label: 'Needs review', value: counts!.needs_review, tone: 'review' },
-        ]} />}
-      >
-        <Select aria-label="Barangay" value={barangay} onChange={(event) => setBarangay(event.target.value)}><option value="All">All accessible barangays</option>{barangays.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</Select>
-        <Select aria-label="Classification" value={classification} onChange={(event) => setClassification(event.target.value)}><option value="All">All classifications</option>{codes.map((code) => <option key={code} value={code}>{labelClassification(code)}</option>)}</Select>
-        <Select aria-label="Priority" value={severity} onChange={(event) => setSeverity(event.target.value)}>{['All', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map((value) => <option key={value} value={value}>{value === 'All' ? 'All priorities' : value}</option>)}</Select>
-      </FilterCard>
+        ]} />
       <div className={REPORT_CARD}>
         <div ref={bindList} style={listStyle} className="scroll-subtle overflow-x-auto">
           <table className="data-grid data-grid--hover w-full text-sm text-brand-navy">

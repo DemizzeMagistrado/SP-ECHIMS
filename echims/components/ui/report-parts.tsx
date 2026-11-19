@@ -11,6 +11,8 @@ import { TabIndicator } from '@/components/dashboard/tab-indicator'
 /** Card used by every report block (filters, reports, tables): same radius, border and shadow. */
 export const REPORT_CARD = 'overflow-hidden rounded-2xl border border-brand-line bg-white shadow-sm'
 
+/** Only used on map views now (list pages render their filters without a card). The map pages do
+ *  not currently use it either; it is kept exported for them. */
 /** Filter card: Child Profiling's filter container, one row of controls on a shared bottom edge
  *  (gap 16px), Refresh (and any toolbar buttons) pushed right at the select height. The optional
  *  row below holds the counts. */

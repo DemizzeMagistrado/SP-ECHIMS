@@ -35,7 +35,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { StatusBadge, type StatusTone } from '@/components/ui/status-badge'
-import { CountsStrip, FilterCard, GuidanceCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
+import { CountsStrip, GuidanceCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
 import { InfoContent } from '@/components/ui/info-tip'
 import { useSingleOpen } from '@/components/ui/accordion-card'
 import { formatChildId } from '@/lib/formatters'
@@ -1669,7 +1669,16 @@ export default function SupplementsPage() {
         <PageHeader
           title="Vitamin Supplementation"
           subtitle="Child administration records and batch inventory"
-          actions={recordActions}
+          actions={<>{recordActions}
+                <>
+                  {owner && canSendReminders && (
+                    <Button variant="secondary" onClick={() => setSmsOpen(true)}>
+                      <Send size={16} aria-hidden="true" /> Send reminders
+                    </Button>
+                  )}
+                  {refreshButton}
+                </>
+              </>}
         />
         <TabBar
           className="pb-5"
@@ -1785,28 +1794,7 @@ export default function SupplementsPage() {
                 { value: "plans", label: <>Supply plans<span className="ml-1.5 rounded-full bg-brand-ice px-1.5 text-[11px] font-semibold tabular-nums text-brand-navy">{data?.plans.length ?? 0}</span></> },
               ]}
             />
-            <FilterCard
-              refresh={
-                <>
-                  {owner && canSendReminders && (
-                    <Button variant="secondary" onClick={() => setSmsOpen(true)}>
-                      <Send size={16} aria-hidden="true" /> Send reminders
-                    </Button>
-                  )}
-                  {refreshButton}
-                </>
-              }
-              below={data && (
-                <CountsStrip
-                  label="Supplementation counts"
-                  items={[
-                    { label: "Supplement Products", value: data.products.filter((p) => p.catalog_code).length },
-                    { label: "Saved Administration / Supply Entries", value: data.records.length },
-                    { label: "Expired Batches with Stock", value: expiredWithStock, tone: "review" },
-                  ]}
-                />
-              )}
-            >
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div className="relative sm:col-span-2 lg:col-span-2">
                 <Search size={18} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -1826,7 +1814,17 @@ export default function SupplementsPage() {
                   ))}
                 </Select>
               )}
-            </FilterCard>
+            </div>
+            {data && (
+                <CountsStrip
+                  label="Supplementation counts"
+                  items={[
+                    { label: "Supplement Products", value: data.products.filter((p) => p.catalog_code).length },
+                    { label: "Saved Administration / Supply Entries", value: data.records.length },
+                    { label: "Expired Batches with Stock", value: expiredWithStock, tone: "review" },
+                  ]}
+                />
+              )}
             </div>
 
             {/* Same fade as the module tabs when switching Entries / Supply plans. */}
