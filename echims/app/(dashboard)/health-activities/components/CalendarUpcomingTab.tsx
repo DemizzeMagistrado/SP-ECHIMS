@@ -37,7 +37,7 @@ export function CalendarUpcomingTab({ activities, onOpen }: { activities: Activi
           ) : visible.map((activity) => <UpcomingActivityCard key={activity.schedule_id} activity={activity} onOpen={onOpen} />)}
         </div>
 
-        <Pagination {...pager} label="Upcoming activity pages" className="mt-3.5 shrink-0 border-t border-brand-line pt-3.5" />
+        <Pagination {...pager} label="Upcoming activity pages" className="mt-3.5 shrink-0 flex-wrap border-t border-brand-line px-0 pt-3.5" />
       </section>
     </div>
   )

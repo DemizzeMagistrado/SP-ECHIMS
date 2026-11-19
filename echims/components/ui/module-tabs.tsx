@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
-import { TabIndicator } from '@/components/dashboard/tab-indicator'
 import { cn } from '@/lib/utils'
 
 export type TabItem<T extends string = string> = {
@@ -17,17 +16,35 @@ export type TabItem<T extends string = string> = {
  * Tab rows, two levels that must look different at a glance:
  *  - main (default): page-level tabs under the title, on the page (no strip): active = solid #07075F
  *    with white text; inactive = white with a #D5E2EA border. Wraps on phones.
- *  - sub: tabs nested in a section, card or dialog (and the sticky section bar). A gray #F0F2F5 strip;
- *    a white pill slides under the active tab (#07075F text); inactive tabs are transparent. 13px.
+ *  - sub: tabs nested in a section, card or dialog (and the sticky section bar). No strip: separate
+ *    13px pills (subPill), inactive = white with a thin navy border, active = solid navy, white text.
  * State tabs: pass onChange and wrap the content in <TabPanel tabKey={value}> for the fade.
  */
-export function TabBar<T extends string>({ items, value, onChange, label, group, idBase, className, variant = 'main' }: {
+/** Sub-level pill shared by sub tabs, view switches and the sticky section bar. Same weight in both
+ *  states so switching never shifts the row; colours cross-fade in 150ms. */
+export const subPill = (active: boolean) => cn(
+  'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-4 py-1.5 text-[13px] font-semibold outline-none transition-[background-color,color,border-color,box-shadow] duration-150 ease-out focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-1 focus-visible:outline-link disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none',
+  active
+    ? 'border-[#07075F] bg-[#07075F] text-white shadow-[0_1px_3px_rgba(12,18,96,0.18)]'
+    : 'border-[#07075F] bg-white text-[#07075F] hover:bg-brand-ice active:bg-[#E3EEF5]',
+)
+
+/** Joined strip for short toggles (2–3 options, e.g. Month / Week): no border; a light brand-ice
+ *  track with a soft inner shadow, so it reads as one recessed control. The selected segment is
+ *  solid navy and lifts with a small shadow. Same 150ms colour fade as subPill. */
+export const segmentGroup = 'inline-flex gap-0.5 rounded-lg bg-brand-ice p-0.5 shadow-[inset_0_1px_3px_rgba(12,18,96,0.12)]'
+export const segmentButton = (active: boolean) => cn(
+  'inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-1.5 text-[13px] font-semibold outline-none transition-[background-color,color,box-shadow] duration-150 ease-out focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-link motion-reduce:transition-none',
+  active ? 'bg-[#07075F] text-white shadow-[0_1px_3px_rgba(12,18,96,0.25)]' : 'text-[#07075F] hover:bg-white/70 active:bg-white',
+)
+
+export function TabBar<T extends string>({ items, value, onChange, label, idBase, className, variant = 'main' }: {
   items: readonly TabItem<T>[]
   value: T
   onChange?: (value: T) => void
   /** Accessible name, e.g. "Vaccination sections". */
   label: string
-  /** Keeps the slide position across remounts (sub tabs); defaults to label. */
+  /** Kept for callers; sub tabs no longer slide a shared indicator. */
   group?: string
   /** Gives tabs ids `${idBase}-tab-${value}` and aria-controls `${idBase}-panel-${value}`. */
   idBase?: string
@@ -49,10 +66,7 @@ export function TabBar<T extends string>({ items, value, onChange, label, group,
   }, [value])
 
   const tabClass = (active: boolean) => sub
-    ? cn(
-      'relative z-10 shrink-0 whitespace-nowrap rounded-lg px-4 py-1.5 text-[13px] transition-all duration-150 outline-none focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-1 focus-visible:outline-link disabled:cursor-not-allowed disabled:opacity-60',
-      active ? 'font-semibold text-[#07075F]' : 'font-medium text-[#55617F] hover:bg-[rgba(7,7,95,0.05)] hover:text-[#0C1260]',
-    )
+    ? subPill(active)
     : cn(
       'shrink-0 whitespace-nowrap rounded-lg border px-5 py-2 text-sm transition-all duration-150 outline-none focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-link disabled:cursor-not-allowed disabled:opacity-60',
       active ? 'border-[#07075F] bg-[#07075F] font-semibold text-white' : 'border-[#D5E2EA] bg-white font-medium text-[#55617F] hover:border-[#8896B0] hover:bg-[#F5F8FA]',
@@ -66,7 +80,7 @@ export function TabBar<T extends string>({ items, value, onChange, label, group,
         role={links ? undefined : 'tablist'}
         aria-label={links ? undefined : label}
         className={sub
-          ? 'relative flex w-fit max-w-full gap-1 overflow-x-auto rounded-[10px] bg-[#F0F2F5] p-[3px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+          ? 'flex w-fit max-w-full gap-1.5 overflow-x-auto p-px [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
           : 'flex flex-wrap gap-1.5'}
       >
         {links ? (
@@ -93,7 +107,6 @@ export function TabBar<T extends string>({ items, value, onChange, label, group,
             {item.label}
           </button>
         ))}
-        {sub && <TabIndicator group={group ?? label} activeKey={value} className="rounded-lg bg-white shadow-[0_1px_3px_rgba(12,18,96,0.08)]" />}
       </div>
     </div>
   )

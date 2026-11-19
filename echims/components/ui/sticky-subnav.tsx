@@ -1,10 +1,11 @@
 'use client'
 
 // Sticky section jump bar (first used on the child profile).
-// - Not stuck: no background, border or shadow; only the pill buttons show on the page gradient.
+// - Not stuck: no background, border or shadow; only the pills show on the page gradient.
 // - Stuck under the top bar (seen by an IntersectionObserver sentinel, no scroll handler): fades
-//   in the page gradient (slightly translucent, light blur) and a soft bottom fade instead of a
-//   hard line, ~200ms ease-out, instant with reduced motion.
+//   in the page gradient itself (fixed, so it lines up; slightly translucent, light blur) and a soft
+//   bottom fade instead of a hard line, so the bar blends into the page. ~200ms ease-out, instant
+//   with reduced motion.
 // - Jumping lands the section title just below the bar: offset = measured top bar + bar height +
 //   GAP, re-measured on resize / font load; it is also exposed as --subnav-offset for
 //   scroll-margin-top (give sections `scroll-mt-[var(--subnav-offset,8rem)]`). After a smooth
@@ -13,14 +14,16 @@
 //   the page cannot scroll that far) until the user scrolls on their own.
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { subPill } from '@/components/ui/module-tabs'
 import { cn } from '@/lib/utils'
 
 const GAP = 14
 
-// Pills use the sub-tab look (TabBar variant="sub"): on the gray strip, the current section is white.
+// Pills: the shared sub-level look (subPill) for the current section (solid navy); the others are
+// plain white (no navy outline) with a faint shadow so they lift off the gradient.
 export const subnavPill = (active: boolean) => cn(
-  'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-1.5 text-[13px] transition-all duration-150 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
-  active ? 'bg-white font-semibold text-[#07075F] shadow-[0_1px_3px_rgba(12,18,96,0.08)]' : 'font-medium text-[#55617F] hover:bg-[rgba(7,7,95,0.05)] hover:text-[#0C1260]',
+  subPill(active),
+  !active && 'border-white shadow-[0_1px_2px_rgba(12,18,96,0.08)] hover:border-brand-ice',
 )
 
 export function StickySubnav({ items, extra, label }: {
@@ -160,7 +163,7 @@ export function StickySubnav({ items, extra, label }: {
           'pointer-events-none absolute inset-x-0 top-full h-4 bg-gradient-to-b from-[#D8F3F9]/80 to-transparent opacity-0 transition-opacity duration-200 ease-out motion-reduce:transition-none',
           stuck && 'opacity-100',
         )} />
-        <div className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-[10px] bg-[#F0F2F5] p-[3px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex w-fit max-w-full gap-1.5 overflow-x-auto p-px [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {items.map((item) => (
             <a
               key={item.id}

@@ -5,6 +5,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { AlertCircle, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { InfoTip } from '@/components/ui/info-tip'
+import { subPill } from '@/components/ui/module-tabs'
 
 /** Card used by every report block (filters, reports, tables): same radius, border and shadow. */
 export const REPORT_CARD = 'overflow-hidden rounded-2xl border border-brand-line bg-white shadow-sm'
@@ -47,14 +48,13 @@ export function CountsStrip({ label, items, selected, onSelect }: {
   onSelect?: (key: string) => void
 }) {
   const isOn = (key: string) => (Array.isArray(selected) ? selected.includes(key) : selected === key)
-  // Secondary line under the number and label (e.g. Vaccination's "Longest missed").
-  const hint = (item: CountItem) => item.hint && <span className="basis-full text-xs text-brand-muted">{item.hint}</span>
-  const number = (item: CountItem) => cn('text-[28px] font-bold leading-none tabular-nums', item.value === 0 ? 'text-zero' : item.tone ? COUNT_TONE[item.tone] : 'text-[#07075F]')
+  const number = (item: CountItem, on = false) => cn('text-[28px] font-bold leading-none tabular-nums transition-colors duration-150', on ? 'text-white' : item.value === 0 ? 'text-zero' : item.tone ? COUNT_TONE[item.tone] : 'text-[#07075F]')
   const span = (i: number) => items.length === 5 && i === 4 && 'col-span-2 lg:col-span-1'
   const grid = cn('grid gap-px border-t border-[#EAF0F4] bg-[#EAF0F4]', COUNT_GRID[items.length] ?? 'grid-cols-2 sm:grid-cols-4')
   if (onSelect) {
     return (
-      <div role="group" aria-label={label} className={grid}>
+      // Filter buttons: no strip; each count is its own button, thin navy border, solid navy when on.
+      <div role="group" aria-label={label} className={cn('grid gap-2 border-t border-brand-line p-3', COUNT_GRID[items.length] ?? 'grid-cols-2 sm:grid-cols-4')}>
         {items.map((item, i) => {
           const key = item.key ?? item.label
           return (
@@ -64,14 +64,14 @@ export function CountsStrip({ label, items, selected, onSelect }: {
               aria-pressed={isOn(key)}
               onClick={() => onSelect(key)}
               className={cn(
-                'flex flex-wrap items-baseline gap-x-2 bg-white px-5 py-3.5 text-left outline-none transition-colors hover:bg-[#F5F8FA] focus-visible:outline-3 focus-visible:outline-solid focus-visible:-outline-offset-3 focus-visible:outline-link',
-                isOn(key) && 'bg-[#F0F4FF] shadow-[inset_0_-3px_0_#07075F] hover:bg-[#F0F4FF]',
+                'flex flex-wrap items-baseline gap-x-2 rounded-lg border border-[#07075F] px-4 py-3 text-left outline-none transition-[background-color,box-shadow] duration-150 ease-out focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-link motion-reduce:transition-none',
+                isOn(key) ? 'bg-[#07075F] shadow-[0_1px_3px_rgba(12,18,96,0.18)]' : 'bg-white hover:bg-brand-ice active:bg-[#E3EEF5]',
                 span(i),
               )}
             >
-              <span className={number(item)}>{item.value}</span>
-              <span className="text-sm font-medium text-[#55617F]">{item.label}</span>
-              {hint(item)}
+              <span className={number(item, isOn(key))}>{item.value}</span>
+              <span className={cn('text-sm font-medium transition-colors duration-150', isOn(key) ? 'text-white' : 'text-[#55617F]')}>{item.label}</span>
+              {item.hint && <span className={cn('basis-full text-xs', isOn(key) ? 'text-white/80' : 'text-brand-muted')}>{item.hint}</span>}
             </button>
           )
         })}
@@ -106,7 +106,7 @@ export function SectionHeader({ title, subtitle, about, actions }: { title: Reac
 }
 
 /** Sub-views inside a tab (the Summary "Overview / List UW …" pills), styled as sub-tabs (TabBar
- *  variant="sub"): gray strip, white active pill with navy text. One row that scrolls sideways when narrow, the
+ *  variant="sub"): separate pills, thin navy border, solid navy when active. One row that scrolls sideways when narrow, the
  *  active pill kept in view; optional count badges. */
 export function ViewSwitch<T extends string>({ label, value, onChange, items }: {
   label: string
@@ -125,7 +125,7 @@ export function ViewSwitch<T extends string>({ label, value, onChange, items }: 
     else if (list.scrollLeft < right) list.scrollLeft = right
   }, [value])
   return (
-    <div ref={row} role="group" aria-label={label} className="flex w-fit min-w-0 max-w-full flex-nowrap gap-1 overflow-x-auto rounded-[10px] bg-[#F0F2F5] p-[3px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div ref={row} role="group" aria-label={label} className="flex w-fit min-w-0 max-w-full flex-nowrap gap-1.5 overflow-x-auto p-px [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {items.map((item) => {
         const active = item.value === value
         return (
@@ -134,14 +134,11 @@ export function ViewSwitch<T extends string>({ label, value, onChange, items }: 
             type="button"
             aria-pressed={active}
             onClick={() => onChange(item.value)}
-            className={cn(
-              'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-1.5 text-[13px] outline-none transition-all duration-150 focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-1 focus-visible:outline-link',
-              active ? 'bg-white font-semibold text-[#07075F] shadow-[0_1px_3px_rgba(12,18,96,0.08)]' : 'font-medium text-[#55617F] hover:bg-[rgba(7,7,95,0.05)] hover:text-[#0C1260]',
-            )}
+            className={subPill(active)}
           >
             {item.label}
             {item.count != null && (
-              <span className={cn('rounded-full px-1.5 text-[11px] font-semibold tabular-nums', active ? 'bg-[#F0F2F5] text-[#07075F]' : 'bg-white text-[#55617F]')}>
+              <span className={cn('rounded-full px-1.5 text-[11px] font-semibold tabular-nums', active ? 'bg-white/20 text-white' : 'bg-brand-ice text-[#07075F]')}>
                 {item.count}
               </span>
             )}

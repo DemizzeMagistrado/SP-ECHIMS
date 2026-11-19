@@ -46,7 +46,7 @@ import { LogoLoader } from '@/components/brand/logo-loader'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { StickySubnav, subnavPill } from "@/components/ui/sticky-subnav";
+import { StickySubnav } from "@/components/ui/sticky-subnav";
 import { BackToTop } from "@/components/landing/section-nav";
 import { CHILD_ID_HELP, FSN_HELP, InfoTip } from '@/components/ui/info-tip'
 type ChildRow = {
@@ -486,7 +486,6 @@ export function ChildProfileView({childId}: {childId: string}) {
   const canEdit = Boolean(
     role && isApproved && canPerform(role, "Child Profiling", "edit"),
   );
-  const canViewAlerts = Boolean(role && isApproved && canPerform(role, "Alerts", "view"));
   const canAddNutrition = Boolean(
     role && isApproved && canPerform(role, "Nutritional Assessment", "create"),
   );
@@ -581,7 +580,6 @@ export function ChildProfileView({childId}: {childId: string}) {
     rhu,
     assessments,
     siblings = [],
-    openAlertCount,
   } = data;
   const programEligibility = childProgramEligibility(child.date_of_birth, child.status ?? '', manilaDate());
   const fullName = [child.first_name, child.middle_name, child.last_name]
@@ -663,14 +661,6 @@ export function ChildProfileView({childId}: {childId: string}) {
           { id: "supplementation", label: "Supplementation" },
           { id: "checkups-transfers", label: "Checkups & transfers" },
         ]}
-        extra={canViewAlerts && (
-          <Link href="/alerts" className={subnavPill(false)}>
-            Alerts
-            {typeof openAlertCount === "number" && openAlertCount > 0 && (
-              <StatusBadge status="open" tone="danger" label={`${openAlertCount} open`} className="py-0.5" />
-            )}
-          </Link>
-        )}
       />
       <BackToTop />
       {/* The three profiling sections, in the same order as the registration form. */}

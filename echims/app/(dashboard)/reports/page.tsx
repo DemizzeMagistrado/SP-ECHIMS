@@ -104,6 +104,9 @@ async function response(r: Response) {
   if (!r.ok) throw new Error(b.error || "Unable to process report.");
   return b;
 }
+// Table cells for the shared .data-grid style (same values as Supplementation's tables).
+const gridHead = "px-4 py-3 text-left align-bottom text-[13px] font-semibold text-brand-navy";
+const gridCell = "px-4 py-3.5 align-top";
 function stamp(v: string | null) {
   if (!v) return "—";
   return (
@@ -418,9 +421,10 @@ export default function ReportsPage() {
               </Button>
             }
           />
-          <div className="scroll-mt-4 overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-muted/50">
+          {/* System data grid (as in Supplementation / Nutrition): header strip, hairlines, zebra rows. */}
+          <div className="scroll-subtle scroll-mt-4 overflow-x-auto rounded-xl border border-brand-line">
+            <table className="data-grid w-full text-left text-sm text-brand-navy">
+              <thead>
                 <tr>
                   {[
                     "Report",
@@ -430,37 +434,37 @@ export default function ReportsPage() {
                     "Validated by",
                     "Action",
                   ].map((h) => (
-                    <th key={h} className="p-3">
+                    <th key={h} scope="col" className={gridHead}>
                       {h}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y">
-                {options.reports.map((r) => (
-                  <tr key={r.report_id}>
-                    <td className="p-3">
-                      {r.title}
-                      <p className="text-xs text-muted-foreground">
+              <tbody>
+                {options.reports.map((r, i) => (
+                  <tr key={r.report_id} data-zebra={i % 2 === 1 || undefined}>
+                    <td className={gridCell}>
+                      <span className="font-semibold">{r.title}</span>
+                      <p className="text-xs text-brand-muted">
                         #{r.report_id} · Version {r.version} · {r.row_count}{" "}
                         rows
                       </p>
                     </td>
-                    <td className="p-3">
+                    <td className={gridCell}>
                       {r.period_start} to {r.period_end}
                     </td>
-                    <td className="p-3">
+                    <td className={gridCell}>
                       {r.generated_by_name}
-                      <p className="text-xs">{stamp(r.generated_at)}</p>
+                      <p className="text-xs text-brand-muted">{stamp(r.generated_at)}</p>
                     </td>
-                    <td className="p-3"><StatusBadge status={r.status} label={r.status.replace(/_/g, " ")} /></td>
-                    <td className="p-3">
+                    <td className={gridCell}><StatusBadge status={r.status} label={r.status.replace(/_/g, " ")} /></td>
+                    <td className={gridCell}>
                       {r.validated_by_name ?? "Not validated"}
                       {r.validated_at && (
-                        <p className="text-xs">{stamp(r.validated_at)}</p>
+                        <p className="text-xs text-brand-muted">{stamp(r.validated_at)}</p>
                       )}
                     </td>
-                    <td className="p-3">
+                    <td className={gridCell}>
                       <Button
                         variant="row"
                         size="row"
@@ -796,22 +800,22 @@ export default function ReportsPage() {
             "INVENTORY",
           ].includes(shown.module) && (
             <>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-muted/50">
+              <div className="scroll-subtle overflow-x-auto rounded-xl border border-brand-line">
+                <table className="data-grid w-full text-left text-sm text-brand-navy">
+                  <thead>
                     <tr>
                       {fields.map((f) => (
-                        <th key={f} className="whitespace-nowrap p-3">
+                        <th key={f} scope="col" className={cn(gridHead, "whitespace-nowrap")}>
                           {heading(f)}
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y">
+                  <tbody>
                     {shown.rows.slice(0, visible).map((r, n) => (
-                      <tr key={n}>
+                      <tr key={n} data-zebra={n % 2 === 1 || undefined}>
                         {fields.map((f) => (
-                          <td key={f} className="max-w-sm break-words p-3">
+                          <td key={f} className={cn(gridCell, "max-w-sm break-words")}>
                             {cell(r[f])}
                           </td>
                         ))}

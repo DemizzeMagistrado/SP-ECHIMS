@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Modal } from '@/components/ui/modal'
 import { cn } from '@/lib/utils'
+import { segmentButton, segmentGroup } from '@/components/ui/module-tabs'
 import { ACTIVITY_TYPES, ACTIVITY_TYPE_META, activityTypeMeta } from '@/lib/constants/activity-types'
 import { type Activity, activityName, addDays, dateKey, formatTime, formatTimeRange, getBarangayName, minutesOf } from './activity-utils'
 import { ActivityStatusBadge } from './StatusBadge'
@@ -93,14 +94,14 @@ export function ActivityCalendar({ activities, onOpen }: { activities: Activity[
               </button>
             ))}
           </div>
-          <div role="group" aria-label="Calendar view" className="inline-flex gap-1 rounded-[10px] bg-[#F0F2F5] p-[3px]">
+          <div role="group" aria-label="Calendar view" className={segmentGroup}>
             {(['MONTH', 'WEEK'] as const).map((option) => (
               <button
                 key={option}
                 type="button"
                 aria-pressed={view === option}
                 onClick={() => setView(option)}
-                className={cn('rounded-lg px-4 py-1.5 text-[13px] transition-all duration-150 focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-[#0B759A]', view === option ? 'bg-white font-semibold text-[#07075F] shadow-[0_1px_3px_rgba(12,18,96,0.08)]' : 'font-medium text-[#55617F] hover:bg-[rgba(7,7,95,0.05)] hover:text-[#0C1260]')}
+                className={segmentButton(view === option)}
               >
                 {option === 'MONTH' ? 'Month' : 'Week'}
               </button>
