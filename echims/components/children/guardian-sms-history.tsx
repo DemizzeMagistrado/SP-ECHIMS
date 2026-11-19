@@ -2,6 +2,7 @@
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { useAuth } from "@/components/auth/auth-provider";
 import { Spinner } from '@/components/brand/logo-loader'
 import { Button } from '@/components/ui/button'
@@ -71,7 +72,10 @@ export function GuardianSmsHistory({
   const [data, setData] = useState<History | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  usePageLoading(loading)
+  // Last result per child and guardian: reopening the profile shows it at once, and the 30s
+  // background refresh never holds the page.
+  const cacheKey = `guardian-sms:${childId}:${guardianId}`;
+  usePageLoading(loading && !data)
   const ownerRef = useRef<string | null>(null);
   const generation = useRef(0);
   const mounted = useRef(true);
@@ -95,7 +99,7 @@ export function GuardianSmsHistory({
       pending.current.forEach((controller) => controller.abort());
       pending.current.clear();
       setOwner(id);
-      setData(null);
+      setData(readPageCache<History>(id, cacheKey) ?? null);
       setError("");
       setLoading(Boolean(id));
     };
@@ -106,7 +110,7 @@ export function GuardianSmsHistory({
       activeRequests.forEach((controller) => controller.abort());
       activeRequests.clear();
     };
-  }, [sharedAuth.isReady, sharedAuth.user?.id]);
+  }, [sharedAuth.isReady, sharedAuth.user?.id, cacheKey]);
 
   const refresh = useCallback(async () => {
     if (!owner || ownerRef.current !== owner) return;
@@ -149,8 +153,10 @@ export function GuardianSmsHistory({
         mounted.current &&
         generation.current === current &&
         ownerRef.current === owner
-      )
+      ) {
         setData(result as History);
+        writePageCache(owner, cacheKey, result);
+      }
     } catch (cause) {
       if (
         mounted.current &&
@@ -168,9 +174,9 @@ export function GuardianSmsHistory({
       pending.current.delete(controller);
       if (mounted.current && generation.current === current) setLoading(false);
     }
-  }, [owner, childId, guardianId]);
+  }, [owner, childId, guardianId, cacheKey]);
   useEffect(() => {
-    setData(null);
+    setData(readPageCache<History>(ownerRef.current, cacheKey) ?? null);
     void refresh();
     const id = setInterval(() => {
       if (document.visibilityState === "visible") void refresh();
@@ -179,7 +185,7 @@ export function GuardianSmsHistory({
       clearInterval(id);
       generation.current++;
     };
-  }, [refresh]);
+  }, [refresh, cacheKey]);
 
   return (
     <details className="group mt-4 rounded-xl border border-border">

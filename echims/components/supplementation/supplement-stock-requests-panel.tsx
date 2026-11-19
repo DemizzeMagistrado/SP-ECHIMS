@@ -1,6 +1,7 @@
 "use client";
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useEffect, useRef, useState } from "react";
+import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { Package, Plus, RefreshCw } from "lucide-react";
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
@@ -69,10 +70,12 @@ export function SupplementStockRequestsPanel({
   online?: boolean;
   onStockChanged?: () => void;
 }) {
-  const [data, setData] = useState<Data | null>(null);
+  // Revisiting the tab starts from the last result: only a first load holds the tab; a refresh
+  // behind data on screen drives the top progress bar instead.
+  const [data, setData] = useState<Data | null>(() => readPageCache<Data>(ownerId, "supplement-stock-requests") ?? null);
   const [reload, setReload] = useState(0);
   const [loading, setLoading] = useState(true);
-  usePageLoading(loading)
+  usePageLoading(loading && !data)
   useRefreshSignal(loading && Boolean(data))
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -137,6 +140,7 @@ export function SupplementStockRequestsPanel({
           throw new Error("Invalid stock-request response or session changed.");
         if (current) {
           setData(body);
+          writePageCache(ownerId, "supplement-stock-requests", body);
           setError("");
         }
       } catch (e) {

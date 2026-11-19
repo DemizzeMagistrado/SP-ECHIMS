@@ -2,6 +2,7 @@
 import { Select } from '@/components/ui/form'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useEffect, useState } from "react";
+import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { GridTable } from '@/components/ui/grid-table'
@@ -32,18 +33,18 @@ type Attempt = {
 };
 type Data = { currentUserId: string; queue: Queue[]; attempts: Attempt[] };
 export function SmsSimulationPanel({ ownerId }: { ownerId: string }) {
-  const [data, setData] = useState<Data | null>(null),
+  // Revisiting the tab starts from the last result (no loader) and refreshes it quietly.
+  const [data, setData] = useState<Data | null>(() => readPageCache<Data>(ownerId, "sms-overview") ?? null),
     [error, setError] = useState(""),
-    [loading, setLoading] = useState(true),
+    [loading, setLoading] = useState(() => !readPageCache(ownerId, "sms-overview")),
     [reload, setReload] = useState(0),
     [program, setProgram] = useState("ALL");
   usePageLoading(loading)
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
-    setData(null);
     setError("");
-    setLoading(true);
+    setLoading(!readPageCache(ownerId, "sms-overview"));
     void (async () => {
       try {
         const response = await fetch("/api/sms/simulation", {
@@ -71,7 +72,7 @@ export function SmsSimulationPanel({ ownerId }: { ownerId: string }) {
           !Array.isArray(body.attempts)
         )
           throw new Error("SMS session changed. Refresh the page.");
-        if (active) setData(body as Data);
+        if (active) { setData(body as Data); writePageCache(ownerId, "sms-overview", body); }
       } catch (cause) {
         if (active && !(cause instanceof Error && cause.name === "AbortError"))
           setError(

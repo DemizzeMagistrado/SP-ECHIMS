@@ -4,6 +4,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { RefreshCw, SearchX, CalendarClock, FileText, Search } from 'lucide-react'
 import { Spinner } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
@@ -80,9 +81,11 @@ export function SupplementationMonitoringPanel({
   ownerId: string
   online: boolean
 }) {
-  const [result, setResult] = useState<Result | null>(null)
+  // Revisiting the tab starts from the last result: only a first load holds the tab; a refresh
+  // behind data on screen drives the top progress bar instead.
+  const [result, setResult] = useState<Result | null>(() => readPageCache<Result>(ownerId, 'supplementation-follow-up') ?? null)
   const [loading, setLoading] = useState(true)
-  usePageLoading(loading)
+  usePageLoading(loading && !result)
   const [error, setError] = useState('')
   const [reload, setReload] = useState(0)
   const [barangay, setBarangay] = useState('ALL')
@@ -122,7 +125,7 @@ export function SupplementationMonitoringPanel({
           throw new Error('Account changed. Refresh the page.')
         if (!Array.isArray(body.rows))
           throw new Error('Invalid monitoring response.')
-        if (!controller.signal.aborted) setResult(body)
+        if (!controller.signal.aborted) { setResult(body); writePageCache(ownerId, 'supplementation-follow-up', body) }
       } catch (error) {
         if (!controller.signal.aborted)
           setError(

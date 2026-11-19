@@ -1,6 +1,7 @@
 "use client";
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { Fragment, useEffect, useRef, useState } from "react";
+import { readPageCache, writePageCache } from '@/lib/page-cache'
 import { AlertTriangle, ChevronDown, HeartPulse, RefreshCw, Search } from "lucide-react";
 import { CountsStrip, FilterCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-parts'
 import { InfoContent } from '@/components/ui/info-tip'
@@ -160,8 +161,9 @@ export function NutritionAdmissionPanel({
   ownerId: string;
   online?: boolean;
 }) {
-  const [data, setData] = useState<Data | null>(null),
-    [loading, setLoading] = useState(true),
+  // Revisiting the tab starts from the last result (no loader) and refreshes it quietly.
+  const [data, setData] = useState<Data | null>(() => readPageCache<Data>(ownerId, "nutrition-admissions") ?? null),
+    [loading, setLoading] = useState(() => !readPageCache(ownerId, "nutrition-admissions")),
     [error, setError] = useState("");
   usePageLoading(loading)
   const [reload, setReload] = useState(0),
@@ -195,7 +197,7 @@ export function NutritionAdmissionPanel({
       setLoading(false);
       return () => abort.abort();
     }
-    setLoading(true);
+    setLoading(!readPageCache(ownerId, "nutrition-admissions"));
     void fetch(endpoint, { cache: "no-store", signal: abort.signal })
       .then(read)
       .then((body) => {
@@ -203,6 +205,7 @@ export function NutritionAdmissionPanel({
           throw new Error("Session changed or invalid admission response.");
         if (current) {
           setData(body);
+          writePageCache(ownerId, "nutrition-admissions", body);
           setError("");
         }
       })
