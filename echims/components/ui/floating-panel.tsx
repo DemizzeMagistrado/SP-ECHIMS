@@ -96,7 +96,7 @@ export function FloatingPanel({ anchor, open, onClose, children, minWidth = 0, m
         aria-label={label}
         style={style}
         className={cn(
-          'scroll-subtle z-[80] overflow-auto rounded-xl border border-brand-line bg-white text-sm text-brand-navy shadow-[0_16px_40px_-12px_rgba(3,4,94,0.28)] outline-none animate-in fade-in zoom-in-95 duration-150',
+          'scroll-subtle z-[80] overflow-auto rounded-xl border border-brand-line bg-white text-sm text-brand-navy shadow-[0_16px_40px_-12px_rgba(3,4,94,0.28)] outline-none animate-in fade-in zoom-in-95 duration-150 ease-out motion-reduce:animate-none',
           sheet && 'fixed inset-x-0 bottom-0 max-h-[85vh] rounded-b-none rounded-t-2xl pb-[env(safe-area-inset-bottom)] slide-in-from-bottom-8 zoom-in-100',
           className,
         )}

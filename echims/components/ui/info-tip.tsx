@@ -35,14 +35,19 @@ export function InfoTip({ label, children, className, align = 'start', text }: {
   const [pos, setPos] = useState<{ style: CSSProperties; arrowLeft: number; up: boolean } | null>(null)
   // A tap fires focus then click; a click right after an open must not close it again.
   const openedAt = useRef(0)
-  const show = () => { openedAt.current = Date.now(); setOpen(true) }
-  const hide = () => { setOpen(false); setPos(null) }
+  // Hover close waits briefly, so moving from the icon onto the bubble (a portal) does not flicker it.
+  const closeTimer = useRef<number | undefined>(undefined)
+  const cancelClose = () => window.clearTimeout(closeTimer.current)
+  const show = () => { cancelClose(); if (!open) openedAt.current = Date.now(); setOpen(true) }
+  const hide = () => { cancelClose(); setOpen(false); setPos(null) }
+  const hideSoon = () => { cancelClose(); closeTimer.current = window.setTimeout(hide, 120) }
+  useEffect(() => cancelClose, [])
 
   useEffect(() => {
     if (!open) return
     const outside = (e: PointerEvent) => {
       const t = e.target as Node
-      if (!box.current?.contains(t) && !bubble.current?.contains(t)) hide()
+      if (!box.current?.contains(t) && !bubble.current?.contains(t)) { window.clearTimeout(closeTimer.current); setOpen(false); setPos(null) }
     }
     document.addEventListener('pointerdown', outside)
     return () => document.removeEventListener('pointerdown', outside)
@@ -76,7 +81,7 @@ export function InfoTip({ label, children, className, align = 'start', text }: {
   return (
     <span ref={box} className={cn('relative inline-flex align-middle normal-case tracking-normal', className)}
       onPointerEnter={(e) => { if (e.pointerType === 'mouse') show() }}
-      onPointerLeave={(e) => { if (e.pointerType === 'mouse') hide() }}>
+      onPointerLeave={(e) => { if (e.pointerType === 'mouse') hideSoon() }}>
       <button
         ref={button}
         type="button"
@@ -100,7 +105,14 @@ export function InfoTip({ label, children, className, align = 'start', text }: {
           id={id}
           role="tooltip"
           style={pos?.style ?? { position: 'fixed', left: 0, top: 0, width: Math.min(WIDTH, window.innerWidth - MARGIN * 2), visibility: 'hidden' }}
-          className="z-[90] block whitespace-normal break-words rounded-xl border border-[#D5E2EA] bg-white p-4 text-left text-[13px] font-normal normal-case leading-[1.5] tracking-normal text-[#1E2A55] shadow-[0_4px_16px_rgba(12,18,96,0.12)] [overflow-wrap:anywhere] animate-in fade-in duration-100"
+          onPointerEnter={(e) => { if (e.pointerType === 'mouse') cancelClose() }}
+          onPointerLeave={(e) => { if (e.pointerType === 'mouse') hideSoon() }}
+          className={cn(
+            'z-[90] block whitespace-normal break-words rounded-xl border border-[#D5E2EA] bg-white p-4 text-left text-[13px] font-normal normal-case leading-[1.5] tracking-normal text-[#1E2A55] shadow-[0_4px_16px_rgba(12,18,96,0.12)] [overflow-wrap:anywhere]',
+            // Soft entrance: fade with a 4px drift from the icon's side; none with reduced motion.
+            'animate-in fade-in duration-150 ease-out motion-reduce:animate-none',
+            pos?.up ? 'slide-in-from-bottom-1' : 'slide-in-from-top-1',
+          )}
         >
           {pos && (
             <span aria-hidden="true" style={{ left: pos.arrowLeft }}
