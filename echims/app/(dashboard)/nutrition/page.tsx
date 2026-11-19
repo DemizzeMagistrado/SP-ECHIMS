@@ -2154,32 +2154,6 @@ export default function NutritionPage() {
                 onChange={(event) => setHistory(event.target.checked)}
               />
             }
-            below={
-              // Counts (latest assessment per child); each one filters the table. Same look as the shared
-              // clickable CountsStrip: separate buttons, light border like the tabs, solid navy when on.
-              <div className="grid grid-cols-2 gap-2 border-t border-brand-line p-3 sm:grid-cols-3 lg:grid-cols-5">
-                {["SAM", "MAM", "Stunted", "Wasted", "Overweight / obesity"].map((name) => {
-                  const count = latest.filter((item) => matches(item, name)).length;
-                  return (
-                    <button
-                      key={name}
-                      type="button"
-                      aria-pressed={category === name}
-                      onClick={() => setCategory(category === name ? "All" : name)}
-                      className={cn(
-                        "flex items-baseline gap-2 rounded-lg border px-4 py-3 text-left outline-none transition-[background-color,border-color,box-shadow] duration-150 ease-out focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-link motion-reduce:transition-none",
-                        category === name ? "border-[#07075F] bg-[#07075F] shadow-[0_1px_3px_rgba(12,18,96,0.18)]" : "border-[#D5E2EA] bg-white hover:border-[#8896B0] hover:bg-[#F5F8FA] active:bg-brand-ice",
-                        // 5 cells: the last one fills the spare slot at 2 and 3 columns (no empty divider cell).
-                        name === "Overweight / obesity" && "col-span-2 lg:col-span-1",
-                      )}
-                    >
-                      <span className={cn("text-2xl font-bold tabular-nums transition-colors duration-150", category === name ? "text-white" : count === 0 ? "text-zero" : name === "SAM" ? "text-severe" : "text-brand-navy")}>{count}</span>
-                      <span className={cn("text-sm transition-colors duration-150", category === name ? "text-white" : "text-brand-muted")}>{name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            }
           >
             {periodFields}
             <Select aria-label="Classification view" value={category} onChange={(event) => setCategory(event.target.value)}>
