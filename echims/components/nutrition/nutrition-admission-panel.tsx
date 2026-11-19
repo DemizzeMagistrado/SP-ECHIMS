@@ -15,6 +15,7 @@ import { usePageLoading } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
+import { useSingleOpen } from '@/components/ui/accordion-card'
 import { DateInput, Input, Select, Textarea } from '@/components/ui/form'
 
 type Event = {
@@ -169,8 +170,7 @@ export function NutritionAdmissionPanel({
   const [reload, setReload] = useState(0),
     [filter, setFilter] = useState("OPEN"),
     [search, setSearch] = useState(""),
-    [selected, setSelected] = useState<Entry | null>(null),
-    [expanded, setExpanded] = useState<number[]>([]);
+    [selected, setSelected] = useState<Entry | null>(null);
   const [form, setForm] = useState<Form>({
       careType: "",
       status: "ACTIVE",
@@ -293,8 +293,8 @@ export function NutritionAdmissionPanel({
     (r) => filter === "ALL" || (filter === "OPEN" ? r.status !== "DONE" : r.status === filter),
   );
   const { visible: pageRows, bindList, listStyle, props: pager } = usePagination(rows);
-  const toggle = (id: number) =>
-    setExpanded((list) => (list.includes(id) ? list.filter((v) => v !== id) : [...list, id]));
+  // One history open at a time (same as the Supplementation records table): opening a row closes the last.
+  const { isOpen, toggle } = useSingleOpen<number>();
   // Same table styling as All assessments (.data-grid lines, zebra, hover with a navy bar, pinned Action column).
   const head = "px-4 py-3 text-left align-bottom text-[13px] font-semibold text-brand-navy";
   const cell = "px-4 py-3.5 align-top";
@@ -380,7 +380,7 @@ export function NutritionAdmissionPanel({
                   </tr>
                 ) : (
                   pageRows.map((r, i) => {
-                    const expandedRow = expanded.includes(r.admission_id);
+                    const expandedRow = isOpen(r.admission_id);
                     const historyId = `admission-${r.admission_id}-history`;
                     // History is newest first: a correction of the source assessment is the latest UPDATED event.
                     const latest = r.history[0];
@@ -446,21 +446,27 @@ export function NutritionAdmissionPanel({
                                 aria-label={`History for ${r.child_name}`}
                                 onClick={() => toggle(r.admission_id)}
                               >
-                                <ChevronDown aria-hidden="true" className={cn("transition-transform duration-200 motion-reduce:transition-none", expandedRow && "rotate-180")} />
+                                <ChevronDown aria-hidden="true" className={cn("transition-transform duration-150 ease-out motion-reduce:transition-none", expandedRow && "rotate-180")} />
                               </Button>
                             </div>
                           </td>
                         </tr>
-                        {expandedRow && (
-                          <tr id={historyId} data-detail>
-                            <td colSpan={7} className="bg-group-a px-4 py-4 sm:px-6">
-                              {/* Pinned to the visible width when the table scrolls sideways (phones). */}
-                              <div className="sticky left-4 max-w-[calc(100vw-4.5rem)] sm:static sm:max-w-none">
-                              <AdmissionHistory events={r.history} statusLabel={statusLabel} careLabel={careLabel} />
+                        {/* Always rendered so it can slide open/closed (150ms, like the Supplementation
+                            records rows); closed content is inert. */}
+                        <tr id={historyId} data-detail={expandedRow ? "open" : "closed"}>
+                          <td colSpan={7} className="bg-group-a p-0">
+                            <div className={cn("grid transition-[grid-template-rows,opacity] duration-150 ease-out motion-reduce:transition-none", expandedRow ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
+                              <div className="overflow-hidden" inert={!expandedRow}>
+                                <div className="px-4 py-4 sm:px-6">
+                                  {/* Pinned to the visible width when the table scrolls sideways (phones). */}
+                                  <div className="sticky left-4 max-w-[calc(100vw-4.5rem)] sm:static sm:max-w-none">
+                                  <AdmissionHistory events={r.history} statusLabel={statusLabel} careLabel={careLabel} />
+                                  </div>
+                                </div>
                               </div>
-                            </td>
-                          </tr>
-                        )}
+                            </div>
+                          </td>
+                        </tr>
                       </Fragment>
                     );
                   })
