@@ -13,8 +13,8 @@ import { BatchRequestModal } from '@/components/vaccination/batch-request-modal'
 import { BatchRequestDecisionModal, type BatchRequestRow } from '@/components/vaccination/batch-request-decision-modal'
 import { ResubmitStockRequestModal } from '@/components/inventory/resubmit-stock-request-modal'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/form'
-import { CountsStrip, FilterCard } from '@/components/ui/report-parts'
+import { Input, Select } from '@/components/ui/form'
+import { FilterCard } from '@/components/ui/report-parts'
 import { InfoContent } from '@/components/ui/info-tip'
 import { GridTable, RowButton } from '@/components/ui/grid-table'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -65,16 +65,18 @@ export function BatchRequestsSection({ userId, canTrace, onTrace, first }: { use
 
       <FilterCard
         refresh={<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={refreshing || readOnly} onClick={() => void mutate()} title="Refresh"><RefreshCw size={16} aria-hidden="true" className={refreshing ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>}
-        below={data && <CountsStrip label="Batch request counts" selected={status} onSelect={(k) => setStatus(status === k ? '' : k)} items={[
-          { key: 'PENDING', label: 'Pending', value: count('PENDING') },
-          { key: 'NEEDS_REVISION', label: 'Needs revision', value: count('NEEDS_REVISION'), tone: 'review' },
-          { key: 'APPROVED', label: 'Approved', value: count('APPROVED'), tone: 'good' },
-        ]} />}
       >
         <div className="relative sm:col-span-2">
           <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input aria-label="Search batch requests" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search vaccine, batch or barangay…" className="pl-9" />
         </div>
+        {/* Status filter (was the Pending / Needs revision / Approved count buttons); same filtering. */}
+        <Select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="">All statuses</option>
+          <option value="PENDING">Pending{data ? ` (${count('PENDING')})` : ''}</option>
+          <option value="NEEDS_REVISION">Needs revision{data ? ` (${count('NEEDS_REVISION')})` : ''}</option>
+          <option value="APPROVED">Approved{data ? ` (${count('APPROVED')})` : ''}</option>
+        </Select>
       </FilterCard>
 
       {isLoading ? (

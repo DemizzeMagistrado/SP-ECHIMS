@@ -35,7 +35,6 @@ function csvEscape(v: unknown) {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 
-const subTitle = 'mb-2 flex items-center gap-2 text-sm font-semibold text-[#0C1260]'
 
 export function BatchTraceSection({ first }: { first?: boolean }) {
   // Opened with ?batch_number=… (Trace batch, vaccination records): start on that batch.
@@ -120,10 +119,9 @@ export function BatchTraceSection({ first }: { first?: boolean }) {
       ) : error ? (
         <LoadError what="the batch trace" error={error} retrying={isValidating} onRetry={() => void mutate()} />
       ) : data && (
-        <div className="space-y-5 animate-in fade-in duration-150 motion-reduce:animate-none">
-          <div>
-            <h3 className={subTitle}><MapPin size={14} aria-hidden="true" /> Barangay distribution</h3>
-            <GridTable
+        <div className="space-y-3 animate-in fade-in duration-150 motion-reduce:animate-none">
+          <GridTable
+              title={<><MapPin size={14} aria-hidden="true" /> Barangay distribution</>}
               caption="Barangays holding this batch"
               pageSize={5}
               rows={data.batches}
@@ -138,11 +136,9 @@ export function BatchTraceSection({ first }: { first?: boolean }) {
                 { key: 'received', header: 'Received', cell: (b) => formatYmd(b.received_date) },
               ]}
             />
-          </div>
 
-          <div>
-            <h3 className={subTitle}><Clock size={14} aria-hidden="true" /> Transactions</h3>
-            <GridTable
+          <GridTable
+              title={<><Clock size={14} aria-hidden="true" /> Transactions</>}
               caption="Batch transactions"
               pageSize={5}
               rows={data.transactions}
@@ -158,11 +154,9 @@ export function BatchTraceSection({ first }: { first?: boolean }) {
                 { key: 'remarks', header: 'Remarks', cell: (t) => <span className="text-xs text-[#55617F]">{t.remarks ?? ''}</span> },
               ]}
             />
-          </div>
 
-          <div>
-            <h3 className={subTitle}><Users size={14} aria-hidden="true" /> Children who received this batch</h3>
-            <GridTable
+          <GridTable
+              title={<><Users size={14} aria-hidden="true" /> Children who received this batch</>}
               caption="Children who received this batch"
               pageSize={5}
               rows={children}
@@ -177,7 +171,6 @@ export function BatchTraceSection({ first }: { first?: boolean }) {
                 { key: 'status', header: 'Status · Qty', cell: (c) => c.status ? <StatusBadge status={c.status} /> : <span className="font-semibold">{c.qty}</span> },
               ]}
             />
-          </div>
         </div>
       )}
     </InventorySection>

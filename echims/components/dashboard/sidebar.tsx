@@ -40,7 +40,7 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
     items: [
       {
         icon: Baby, label: 'Child Profiling', href: moduleRoutes['Child Profiling'],
-        matchPrefixes: ['/child-profiling', '/children', '/geospatial', '/masterlist-upload'],
+        matchPrefixes: ['/child-profiling', '/children', '/geospatial'],
       },
       { icon: Syringe, label: 'Vaccination', href: moduleRoutes.Vaccination, matchPrefixes: ['/vaccination', '/vaccinations'] },
       {

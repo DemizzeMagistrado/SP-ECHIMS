@@ -14,13 +14,15 @@ export const REPORT_CARD = 'overflow-hidden rounded-2xl border border-brand-line
 /** Filter card: Child Profiling's filter container, one row of controls on a shared bottom edge
  *  (gap 16px), Refresh (and any toolbar buttons) pushed right at the select height. The optional
  *  row below holds the counts. */
-export function FilterCard({ children, refresh, extra, below, wide }: {
+export function FilterCard({ children, refresh, extra, below, wide, flush }: {
   children: ReactNode; refresh?: ReactNode; extra?: ReactNode; below?: ReactNode
   /** Four controls on one row at wide screens (search + three selects). */
   wide?: boolean
+  /** Inside another card (between its header and table): no own border, radius or shadow; a divider below. */
+  flush?: boolean
 }) {
   return (
-    <section aria-label="Filters" className={cn(REPORT_CARD, 'nutrition-no-print')}>
+    <section aria-label="Filters" className={cn(flush ? 'border-b border-brand-line bg-white' : REPORT_CARD, 'nutrition-no-print')}>
       <div className="flex flex-wrap items-end gap-4 p-4">
         <div className={cn('grid min-w-0 flex-[1_1_28rem] gap-4 sm:grid-cols-2 lg:grid-cols-3', wide && 'xl:grid-cols-4')}>{children}</div>
         {extra && <div className="flex h-10 items-center">{extra}</div>}

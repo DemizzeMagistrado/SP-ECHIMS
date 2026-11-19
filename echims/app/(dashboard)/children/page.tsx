@@ -99,7 +99,7 @@ export default function ChildHealthPage() {
     if (typeof window === 'undefined') return
     const q = new URLSearchParams(window.location.search)
     if (q.get('view') === 'archived') setView('archived')
-    // /masterlist-upload (old page) redirects here with ?masterlist=1 to open the upload popup.
+    // ?masterlist=1 (Dashboard Imports widget) opens the upload popup.
     if (q.get('masterlist') === '1') setMasterlistOpen(true)
   }, [])
   const [search, setSearch] = useState('')
@@ -179,7 +179,7 @@ export default function ChildHealthPage() {
           : 'Register and monitor children aged 0–59 months.'}
         actions={
           <>
-            {canUploadMasterlist && (
+            {canUploadMasterlist && view === 'active' && (
               <Button variant="secondary" onClick={() => setMasterlistOpen(true)}>
                 <Upload size={17} aria-hidden="true" /> Upload masterlist
               </Button>

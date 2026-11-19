@@ -70,7 +70,6 @@ export const moduleRoutes: Record<string, string> = {
   'User Management': '/user-management',
   'Child Profiling': '/child-profiling/children',
   Geospatial: '/geospatial',
-  'Masterlist Upload': '/masterlist-upload',
   // NIP-USR010 — sidebar clicks on Vaccination land directly on the Records tab
   // (the first + most-used sub-tab). /vaccination bare path has no page.tsx and
   // would otherwise fall through to the [...slug] catch-all placeholder.
@@ -187,7 +186,6 @@ const ROUTE_MODULES: Record<string, string> = {
   '/user-management': 'User Management',
   '/children': 'Child Profiling', '/child-profiling': 'Child Profiling',
   '/geospatial': 'Geospatial',
-  '/masterlist-upload': 'Masterlist Upload',
   '/vaccination/vaccines': 'NIP Catalog', '/vaccination/catalog': 'NIP Catalog',
   '/vaccination': 'Vaccination', '/vaccinations': 'Vaccination',
   '/nutrition': 'Nutritional Assessment', '/nutritional-assessment': 'Nutritional Assessment',

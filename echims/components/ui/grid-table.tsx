@@ -23,13 +23,15 @@ export type GridColumn<T> = {
 
 export const GRID_PAGE_SIZE = 10
 
-export function GridTable<T>({ rows, columns, rowKey, onRowClick, empty, caption, minWidth = 860, pageSize = GRID_PAGE_SIZE, className }: {
+export function GridTable<T>({ rows, columns, rowKey, onRowClick, empty, caption, title, minWidth = 860, pageSize = GRID_PAGE_SIZE, className }: {
   rows: T[]
   columns: GridColumn<T>[]
   rowKey: (row: T) => string | number
   onRowClick?: (row: T) => void
   empty: { icon: LucideIcon; title: string; description?: string }
   caption?: string
+  /** Visible heading bar inside the card, directly above the table. */
+  title?: ReactNode
   /** The box scrolls sideways below this width instead of the page. */
   minWidth?: number
   pageSize?: number
@@ -40,6 +42,7 @@ export function GridTable<T>({ rows, columns, rowKey, onRowClick, empty, caption
 
   return (
     <section aria-label={caption} className={cn('overflow-hidden rounded-xl border border-[#D5E2EA] bg-white', className)}>
+      {title && <h3 className="flex items-center gap-2 border-b border-[#D5E2EA] px-4 py-2.5 text-sm font-semibold text-[#0C1260]">{title}</h3>}
       <div className="scroll-subtle overflow-x-auto">
         <table className={cn('w-full border-collapse text-sm', fixed && 'table-fixed')} style={{ minWidth }}>
           {caption && <caption className="sr-only">{caption}</caption>}

@@ -129,7 +129,7 @@ export function SmsSimulationPanel({ ownerId }: { ownerId: string }) {
         empty={{ icon: MessageSquare, title: "No queued SMS for this program", description: "Reminders waiting to send will appear here." }}
         columns={[
           { key: "child", header: "Child", width: "22%", cell: (row) => <><span className="block font-semibold text-[#0C1260]">{row.child_name}</span><span className="block text-xs text-[#8896B0]">{row.masked_number}</span></> },
-          { key: "message", header: "Message", width: "44%", cell: (row) => <span className="block break-words">{row.message}</span> },
+          { key: "message", header: "Message", width: "44%", cell: (row) => <span title={row.message} className="line-clamp-2 break-words text-[13px] leading-5 text-[#55617F]">{row.message}</span> },
           { key: "delivery", header: "Actual delivery", width: "17%", cell: (row) => <StatusBadge status={row.delivery_status} tone={tone(row.delivery_status)} label={label(row.delivery_status)} /> },
           { key: "queue", header: "Queue status", width: "17%", cell: (row) => <StatusBadge status={row.queue_status} tone={tone(row.queue_status)} label={label(row.queue_status)} /> },
         ]}

@@ -508,6 +508,17 @@ const TIER_PILL: Record<string, { label: string; tone: StatusTone }> = {
 const tierOf = (r: RecordRow) =>
   r.tier && TIER_PILL[r.tier] ? r.tier : r.record_type === "DISPENSED" ? "SUPPLY_ISSUE" : "LEGACY";
 
+// Sets --view-w on a sideways-scrolling table box to its visible width, so an expanded row's
+// details can stay pinned in view (see detailRow).
+function trackViewWidth(el: HTMLDivElement | null) {
+  if (!el) return
+  const set = () => el.style.setProperty("--view-w", `${el.clientWidth}px`)
+  set()
+  const observer = new ResizeObserver(set)
+  observer.observe(el)
+  return () => observer.disconnect()
+}
+
 export default function SupplementsPage() {
   const confirm = useConfirm();
   const sharedAuth = useAuth();
@@ -1635,9 +1646,11 @@ export default function SupplementsPage() {
     <tr id={id} data-detail={open ? "open" : "closed"}>
       <td colSpan={99} className="bg-slate-50 p-0">
         <div className={cn("grid transition-[grid-template-rows,opacity] duration-[220ms] ease-out motion-reduce:transition-none", open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
-          <div className="overflow-hidden" inert={!open}>
+          {/* overflow-y-clip, not overflow-hidden: hidden would make this the sticky scroll box. */}
+          <div className="overflow-y-clip" inert={!open}>
             <div className={cn("border-t border-primary/15 px-4 py-4 sm:px-6", !open && "border-t-0")}>
-              <div className="sticky left-4 max-w-[calc(100vw-4.5rem)] sm:static sm:max-w-[100ch]">
+              {/* Pinned to the left of the visible table area (--view-w from trackViewWidth) while it scrolls sideways. */}
+              <div className="sticky left-4 w-[calc(var(--view-w,100%)-2rem)] max-w-[100ch] sm:left-6 sm:w-[calc(var(--view-w,100%)-3rem)]">
                 <section aria-label={title} className="rounded-xl border border-brand-line bg-white p-4 shadow-[0_1px_2px_rgba(12,18,96,0.06)]">
                   <h3 className="mb-3 text-[13px] font-semibold text-brand-navy">{title}</h3>
                   <dl className="grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
@@ -1832,7 +1845,7 @@ export default function SupplementsPage() {
               <LogoLoader size="section" label="Loading supplementation data…" />
             ) : data && recordView === "entries" ? (
               <section aria-label="Entries" className={REPORT_CARD}>
-                <div className="scroll-subtle overflow-x-auto">
+                <div ref={trackViewWidth} className="scroll-subtle overflow-x-auto">
                   <table className="data-grid data-grid--hover w-full text-sm text-brand-navy">
                     <thead>
                       <tr>
@@ -1909,7 +1922,7 @@ export default function SupplementsPage() {
               </section>
             ) : data ? (
               <section aria-label="Supply plans" className={REPORT_CARD}>
-                <div className="scroll-subtle overflow-x-auto">
+                <div ref={trackViewWidth} className="scroll-subtle overflow-x-auto">
                   <table className="data-grid data-grid--hover w-full text-sm text-brand-navy">
                     <thead>
                       <tr>

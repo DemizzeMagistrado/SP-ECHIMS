@@ -18,8 +18,9 @@ assert.ok(roleModules[PHN].includes('Health Activities'))
 for (const r of [PHN, RHM, BHW, BNS] as const) assert.ok(!roleModules[r].includes('User Management'))
 
 // Masterlist: PHN and Admin only
-assert.ok(canAccess(PHN, '/masterlist-upload') && canAccess('Administrator', '/masterlist-upload'))
-for (const r of [RHM, BHW, BNS] as const) assert.ok(!canAccess(r, '/masterlist-upload'), `${r} masterlist`)
+// (The upload is a popup in Children now; the role rule is the 'Masterlist Upload' permission.)
+assert.ok(canPerform(PHN, 'Masterlist Upload', 'view') && canPerform('Administrator', 'Masterlist Upload', 'view'))
+for (const r of [RHM, BHW, BNS] as const) assert.ok(!canPerform(r, 'Masterlist Upload', 'view'), `${r} masterlist`)
 
 // Vaccination: PHN never creates; RHM / BHW record
 assert.ok(!canPerform(PHN, 'Vaccination', 'create') && canPerform(PHN, 'Vaccination', 'approve'))

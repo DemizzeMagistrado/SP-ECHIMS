@@ -1,10 +1,8 @@
 'use client'
-import { StatCard } from '@/components/ui/stat-card'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 // NIP-USR004 — Immunization history section (replaces the inline Vaccination History
 // SectionCard on the child profile page). Shows:
 //   - Missed summary card (count, longest missed) + next dose (rescheduled date when Missed)
-//   - Summary counts
 //   - Vaccine filter dropdown
 //   - Table with every dose + status badge (COMPLETE / DUE / OVERDUE / UPCOMING)
 // *- "Prior" chip on COMPLETE doses that were back-filled (NIP-USR008)
@@ -219,13 +217,6 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
                 </div>
               )
             })()}
-            {/* Summary counts */}
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <SummaryTile label="Completed" value={data.counts.complete} tone="emerald" />
-              <SummaryTile label="Missed" value={data.counts.overdue} tone="rose" />
-              <SummaryTile label="Pending" value={data.counts.upcoming} tone="amber" />
-              <SummaryTile label="Not eligible" value={data.counts.not_eligible ?? 0} tone="slate" />
-            </div>
             {/* Filters: two compact selects side by side (stacked on narrow phones), then the
                 expand/collapse controls on their own row, aligned right. */}
             <div className="space-y-3 print:hidden">
@@ -363,10 +354,6 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
       )}
     </section>
   )
-}
-function SummaryTile({ label, value, tone }: { label: string; value: number; tone: 'emerald' | 'amber' | 'rose' | 'slate' }) {
-  const map = { emerald: 'good', amber: 'warn', rose: 'danger', slate: 'default' } as const
-  return <StatCard className="p-4" label={label} value={value} tone={map[tone]} />
 }
 
 function BatchLink({ batch, canTrace }: { batch: string | null; canTrace: boolean }) {

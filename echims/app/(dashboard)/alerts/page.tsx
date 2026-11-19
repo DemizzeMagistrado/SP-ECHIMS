@@ -1,5 +1,5 @@
 "use client";
-import { CountsStrip, FilterCard, SectionHeader } from '@/components/ui/report-parts'
+import { FilterCard, SectionHeader } from '@/components/ui/report-parts'
 import { InfoContent } from '@/components/ui/info-tip'
 import { GridTable, RowButton } from '@/components/ui/grid-table'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
@@ -494,7 +494,6 @@ function AlertsWorkspace() {
   const matched = data?.matched ?? alerts.length;
   const alertPagerProps = { page: page - 1, pageCount: Math.max(1, Math.ceil(matched / ALERT_PAGE_SIZE)), total: matched, pageSize: ALERT_PAGE_SIZE, onChange: (p: number) => setPage(p + 1) };
   const programs = data?.programs ?? [...new Set(alerts.map((alert) => alert.source_module ?? alert.alert_type))].sort();
-  const summary = data?.summary;
   // ?tab=SMS / ?tab=RULES only apply to roles that can configure alerts; everyone else gets the list.
   const view = data?.canConfigure ? tab : "ALERTS";
   const inputClass =
@@ -507,7 +506,8 @@ function AlertsWorkspace() {
           title="Alert Management"
           subtitle="Monitor system alerts and configure evaluation rules"
           actions={
-            <Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={loading || !owner} onClick={() => void load()}><RefreshCw size={16} aria-hidden="true" className={loading ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>
+            // SMS overview has its own refresh next to "About this view".
+            view !== "SMS" && <Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={loading || !owner} onClick={() => void load()}><RefreshCw size={16} aria-hidden="true" className={loading ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>
           }
         />
         {data?.canConfigure && (
@@ -565,12 +565,6 @@ function AlertsWorkspace() {
               />}
             />
             <FilterCard
-              below={<CountsStrip label="Alert counts" items={[
-                { label: "Total alerts", value: summary?.total ?? 0 },
-                { label: "Critical", value: summary?.critical ?? 0, tone: "severe" },
-                { label: "Warning", value: summary?.warning ?? 0, tone: "review" },
-                { label: "Resolved", value: summary?.resolved ?? 0, tone: "good" },
-              ]} />}
             >
               <div className="flex items-center sm:col-span-2">
                 <FilterChips

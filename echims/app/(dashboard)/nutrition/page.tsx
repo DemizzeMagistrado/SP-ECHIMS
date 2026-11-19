@@ -2144,25 +2144,6 @@ export default function NutritionPage() {
       )}
       {reportView === "Assessments" && (
         <>
-          {/* Filters and counts: one card. Controls share one bottom edge. */}
-          <FilterCard
-            refresh={refreshButton}
-            extra={
-              <Checkbox
-                label="Include assessment history"
-                checked={history}
-                onChange={(event) => setHistory(event.target.checked)}
-              />
-            }
-          >
-            {periodFields}
-            <Select aria-label="Classification view" value={category} onChange={(event) => setCategory(event.target.value)}>
-              {allCategories.map((name) => (
-                <option key={name} value={name}>{name === "All" ? "All classifications" : name}</option>
-              ))}
-            </Select>
-          </FilterCard>
-
           {/* Follow-up banner: only when a child needs urgent clinical assessment. */}
           {urgent.length > 0 && (
             <div role="status" className="nutrition-no-print flex flex-wrap items-center gap-3 rounded-2xl border border-severe-line bg-white p-4 shadow-sm">
@@ -2205,6 +2186,25 @@ export default function NutritionPage() {
                 {visible.length} assessment{visible.length === 1 ? "" : "s"} · {category === "All" ? "all classifications" : category}
               </p>
             </div>
+            {/* Filters sit inside the table card, between its header and the table. */}
+            <FilterCard
+              flush
+              refresh={refreshButton}
+              extra={
+                <Checkbox
+                  label="Include assessment history"
+                  checked={history}
+                  onChange={(event) => setHistory(event.target.checked)}
+                />
+              }
+            >
+              {periodFields}
+              <Select aria-label="Classification view" value={category} onChange={(event) => setCategory(event.target.value)}>
+                {allCategories.map((name) => (
+                  <option key={name} value={name}>{name === "All" ? "All classifications" : name}</option>
+                ))}
+              </Select>
+            </FilterCard>
             {data && visible.length === 0 ? (
               <EmptyState icon={SearchX} title="No assessments match this view" description="Try a different filter or date range." className="bg-white" />
             ) : (
