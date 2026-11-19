@@ -168,12 +168,12 @@ export function ImmunizationHistorySection({ childId, childName }: { childId: nu
         </div>
         <div className="flex flex-wrap items-center gap-2 print:hidden">
           {canAddPrior && (
-            <Button variant="secondary" size="sm" onClick={() => setPriorModalOpen(true)} title="Record a vaccination given before eCHIMS enrollment (Baby Book, prior RHU, etc.)">
+            <Button variant="secondary" onClick={() => setPriorModalOpen(true)} title="Record a vaccination given before eCHIMS enrollment (Baby Book, prior RHU, etc.)">
               <Plus size={14} aria-hidden="true" /> Add past vaccination
             </Button>
           )}
           {canFlag && data && <BhwAssistToggle childId={childId} childName={childName ?? [data.child.first_name, data.child.last_name].join(' ')} assist={data.bhw_assist ?? null} onChanged={() => mutate()} />}
-          <Button variant="tonal" size="sm" onClick={handlePrint}>
+          <Button variant="tonal" onClick={handlePrint}>
             <Printer size={14} aria-hidden="true" /> Print
           </Button>
         </div>

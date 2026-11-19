@@ -813,7 +813,7 @@ export function ChildProfileView({childId}: {childId: string}) {
       <div id="nutrition-history" className="scroll-mt-[var(--subnav-offset,8rem)]">
         <NutritionHistorySection
           assessments={assessments ?? []}
-          actions={canViewNutrition && <Link href="/nutritional-assessment/records" className={buttonVariants({ variant: "secondary", size: "sm" })}>{canAddNutrition ? "Review / Record" : "Review nutrition"}</Link>}
+          actions={canViewNutrition && <Link href="/nutritional-assessment/records" className={buttonVariants({ variant: "secondary" })}>{canAddNutrition ? "Review / Record" : "Review nutrition"}</Link>}
         />
       </div>
       {/* Full saved administration, dispensing, plans and due dates. */}

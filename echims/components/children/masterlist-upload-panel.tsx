@@ -230,10 +230,10 @@ export function MasterlistUploadPanel() {
                 ]}
               />
               <div className="flex gap-2">
-                <Button variant="secondary" size="sm" onClick={reset}>
+                <Button variant="secondary" onClick={reset}>
                   Cancel
                 </Button>
-                <Button size="sm"
+                <Button
                   onClick={doImport}
                   disabled={importing || (batch.error_count ?? 0) > 0 || (batch.valid_count ?? 0) === 0}
                 >
