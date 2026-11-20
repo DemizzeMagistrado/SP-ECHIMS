@@ -37,7 +37,7 @@ type Props<T> = {
   onRowClick?: (row: T) => void
   /** Accessible name for an openable row, e.g. "Open Juan Dela Cruz's profile". */
   rowLabel?: (row: T) => string
-  /** Items per page (default and max: 6, the shared PAGE_SIZE); 0 turns pagination off. */
+  /** Items per page (default and max: 5, the shared PAGE_SIZE); 0 turns pagination off. */
   pageSize?: number
   /** scroll = horizontal scroll on narrow screens; cards = one card per row below sm. */
   mobile?: 'scroll' | 'cards'

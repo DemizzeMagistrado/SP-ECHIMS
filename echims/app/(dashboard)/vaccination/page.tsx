@@ -602,7 +602,7 @@ function ScheduleSection() {
   }, [cards, chip, requestFilter, from, to, search])
   const pageControl = useMemo(() => ({ page, onPageChange: setPage }), [page, setPage])
   const { visible, bindList, listStyle, props: pagerProps } = usePagination(shown, PAGE_SIZE, pageControl)
-  // Same stable height as the Children list, from 6 collapsed cards: open cards scroll inside the
+  // Same stable height as the Children list, from 5 collapsed cards: open cards scroll inside the
   // list, so the card and the pager never change height between pages.
   const { bindArea: bindStable, height: stableHeight } = useStableHeight(pagerProps.pageCount > 1, true, collapsedRowsHeight)
 

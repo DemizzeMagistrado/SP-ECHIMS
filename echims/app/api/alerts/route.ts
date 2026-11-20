@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     const page = Number(params.get("page") ?? "1");
     if (!Number.isSafeInteger(page) || page < 1 || page > 100000)
       return errorResponse("Invalid page.", 400);
-    // Server-side paging and filters (NIP-REV01): pages of 6 like the rest of the app; 50 is the
+    // Server-side paging and filters (NIP-REV01): pages of 5 like the rest of the app; 50 is the
     // old batch size, still the default for older clients.
     const pageSize = Number(params.get("pageSize") ?? "50");
     if (![5, 6, 50].includes(pageSize)) return errorResponse("pageSize must be 5, 6 or 50.", 400);

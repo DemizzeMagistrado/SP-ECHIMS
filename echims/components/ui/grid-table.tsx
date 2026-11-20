@@ -21,7 +21,7 @@ export type GridColumn<T> = {
   sticky?: boolean
 }
 
-export const GRID_PAGE_SIZE = 10
+export const GRID_PAGE_SIZE = 5
 
 export function GridTable<T>({ rows, columns, rowKey, onRowClick, empty, caption, title, minWidth = 860, pageSize = GRID_PAGE_SIZE, className }: {
   rows: T[]

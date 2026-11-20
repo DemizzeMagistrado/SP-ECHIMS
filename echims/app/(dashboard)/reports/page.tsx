@@ -31,6 +31,9 @@ import { FilterCard, REPORT_CARD, SectionHeader } from '@/components/ui/report-p
 import { StatusBadge } from '@/components/ui/status-badge'
 import { TabPanel } from '@/components/brand/page-gate'
 import { cn } from '@/lib/utils'
+
+// Generated reports per page (the API serves exactly this many).
+const REPORT_PAGE_SIZE = 5;
 type Options = {
   currentUserId: string;
   role: string;
@@ -161,8 +164,8 @@ export default function ReportsPage() {
     let current = true;
     const timeout = setTimeout(() => controller.abort(), 20000);
     if (!readPageCache(user?.id, cacheKey + ":" + page)) setLoading(true);
-    // Pages of 6 from the server, with the exact total.
-    void fetch("/api/reports?pageSize=6&page=" + page, {
+    // Pages of REPORT_PAGE_SIZE from the server, with the exact total.
+    void fetch(`/api/reports?pageSize=${REPORT_PAGE_SIZE}&page=` + page, {
       cache: "no-store",
       signal: controller.signal,
     })
@@ -336,7 +339,7 @@ export default function ReportsPage() {
       if (active.current) setBusy(false);
     }
   }
-  const reportPagerProps = { page: page - 1, pageCount: Math.max(1, Math.ceil((options?.total ?? 0) / 6)), total: options?.total ?? 0, pageSize: 6, onChange: (p: number) => { clear(); setPage(p + 1); } };
+  const reportPagerProps = { page: page - 1, pageCount: Math.max(1, Math.ceil((options?.total ?? 0) / REPORT_PAGE_SIZE)), total: options?.total ?? 0, pageSize: REPORT_PAGE_SIZE, onChange: (p: number) => { clear(); setPage(p + 1); } };
   const shown = detail?.report.snapshot ?? preview;
   const fields = shown
     ? columns[

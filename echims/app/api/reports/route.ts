@@ -94,19 +94,21 @@ export async function GET(request: Request) {
       if (!/^[1-9]\d*$/.test(raw) || !id(Number(raw)) || Number(raw) > 100000)
         return json({ error: "Invalid page." }, 400);
       const p = Number(raw);
-      if (u.searchParams.get("pageSize") === "6") {
-        // list_generated_reports returns 50 per page; serve pages of 6 from it (reading the next
-        // page of 50 when a page of 6 crosses the boundary). Total stays exact.
-        const offset = (p - 1) * 6, dbPage = Math.floor(offset / 50) + 1, start = offset % 50;
+      const size = Number(u.searchParams.get("pageSize"));
+      // 5 = the app's page size; 6 = clients still on the previous build.
+      if (size === 5 || size === 6) {
+        // list_generated_reports returns 50 per page; serve pages of `size` from it (reading the
+        // next page of 50 when a page crosses the boundary). Total stays exact.
+        const offset = (p - 1) * size, dbPage = Math.floor(offset / 50) + 1, start = offset % 50;
         const first = await auth.db.rpc("list_generated_reports", { p_page: dbPage });
         if (first.error || !first.data) result = first;
         else {
-          let reports = ((first.data.reports ?? []) as unknown[]).slice(start, start + 6);
-          if (reports.length < 6 && start + 6 > 50 && Number(first.data.total ?? 0) > dbPage * 50) {
+          let reports = ((first.data.reports ?? []) as unknown[]).slice(start, start + size);
+          if (reports.length < size && start + size > 50 && Number(first.data.total ?? 0) > dbPage * 50) {
             const next = await auth.db.rpc("list_generated_reports", { p_page: dbPage + 1 });
-            if (!next.error && next.data) reports = reports.concat(((next.data.reports ?? []) as unknown[]).slice(0, 6 - reports.length));
+            if (!next.error && next.data) reports = reports.concat(((next.data.reports ?? []) as unknown[]).slice(0, size - reports.length));
           }
-          result = { data: { ...first.data, page: p, pageSize: 6, reports }, error: null };
+          result = { data: { ...first.data, page: p, pageSize: size, reports }, error: null };
         }
       } else {
         result = await auth.db.rpc("list_generated_reports", { p_page: p });

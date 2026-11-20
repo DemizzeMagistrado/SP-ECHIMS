@@ -1,7 +1,7 @@
 'use client'
 
-// Shared pagination: 6 items per page everywhere (PAGE_SIZE), Previous / Next with chevrons,
-// page numbers with the current one filled, "Showing 1–6 of 42"; on phones "Prev · 1/7 · Next".
+// Shared pagination: 5 items per page everywhere (PAGE_SIZE), Previous / Next with chevrons,
+// page numbers with the current one filled, "Showing 1–5 of 42"; on phones "Prev · 1/7 · Next".
 //   const { visible, bindList, listStyle, props } = usePagination(rows)
 //   <div ref={bindList} style={listStyle}>{visible.map(...)}</div>
 //   <Pagination {...props} />   // destructure: the React compiler lint treats pager.bindList as a ref read
@@ -13,7 +13,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from './button'
 import { cn } from '@/lib/utils'
 
-export const PAGE_SIZE = 6
+export const PAGE_SIZE = 5
 
 /** `control` keeps the page outside (e.g. useSessionState, so Back returns to the same page). The
  *  caller then resets it when filters change; it is only clamped here. */
