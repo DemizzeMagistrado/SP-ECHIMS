@@ -21,6 +21,7 @@ import { Input, Select } from '@/components/ui/form'
 import { CountsStrip, REPORT_CARD } from '@/components/ui/report-parts'
 import { EmptyState } from '@/components/ui/empty-state'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { formatCoords, getDeviceLocation, type DeviceCoords } from '@/components/geospatial/device-location'
 import { toast } from '@/components/ui/toast'
 
 const MAP_HEIGHT = 560
@@ -74,7 +75,15 @@ export default function GeospatialMapPage() {
   const [barangay, setBarangay] = useState('all')
   const [status, setStatus] = useState('ACTIVE')
   const [followUp, setFollowUp] = useState<FollowUp>('all')
-  const [picking, setPicking] = useState<{ householdId: number; name: string } | null>(null)
+  // Add location: the device's location is read first (shown to check before saving); tapping the
+  // map stays the manual way, and the only one when the location cannot be read.
+  const [picking, setPicking] = useState<{ householdId: number; name: string; locating?: boolean; coords?: DeviceCoords; error?: string } | null>(null)
+  async function startPicking(householdId: number, name: string) {
+    setPicking({ householdId, name, locating: true })
+    const next = await getDeviceLocation().then((coords) => ({ coords }), (e: Error) => ({ error: e.message }))
+    // Ignore a late reading if the user cancelled or moved on to another household.
+    setPicking((p) => (p?.householdId === householdId ? { householdId, name, ...next } : p))
+  }
   const [saving, setSaving] = useState(false)
   // Admins span several municipalities: the map, stats and lists follow the one selected.
   const [muniCode, setMuniCode] = useState('')
@@ -225,9 +234,20 @@ export default function GeospatialMapPage() {
           <div className="grid gap-6 lg:grid-cols-3">
             <section aria-label="Map" className="space-y-3 rounded-2xl border border-border bg-white p-3 sm:p-4 lg:col-span-2">
               {picking && (
-                <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/20 bg-brand-ice px-3 py-2 text-sm text-brand-navy">
-                  <span className="flex items-center gap-2"><MapPin size={16} aria-hidden="true" />Click the map where <strong>{picking.name}</strong>&rsquo;s household is.</span>
-                  <Button variant="ghost" size="sm" onClick={() => setPicking(null)} disabled={saving}>Cancel</Button>
+                <div role="status" className="space-y-2 rounded-xl border border-primary/20 bg-brand-ice px-3 py-2 text-sm text-brand-navy">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="flex items-center gap-2">
+                      <MapPin size={16} aria-hidden="true" />
+                      {picking.locating ? <>Getting your location for <strong>{picking.name}</strong>&rsquo;s household… You can also tap the map.</>
+                        : picking.coords ? <>Your location: <span className="font-mono">{formatCoords(picking.coords)}</span>. Save it, or tap the map to place <strong>{picking.name}</strong>&rsquo;s household yourself.</>
+                        : <>Tap the map where <strong>{picking.name}</strong>&rsquo;s household is.</>}
+                    </span>
+                    <span className="flex items-center gap-2">
+                      {picking.coords && <Button size="sm" loading={saving} onClick={() => void saveLocation(picking.coords!.latitude, picking.coords!.longitude)}>Save this location</Button>}
+                      <Button variant="ghost" size="sm" onClick={() => setPicking(null)} disabled={saving}>Cancel</Button>
+                    </span>
+                  </div>
+                  {picking.error && <p role="alert" className="text-severe">{picking.error}</p>}
                 </div>
               )}
               {municipalities.length > 1 && (
@@ -297,7 +317,7 @@ export default function GeospatialMapPage() {
                         </Link>
                         {canEditLocation && (
                           <Button variant="secondary" size="sm" disabled={saving}
-                            onClick={() => { setPicking({ householdId: c.household_id, name: c.name }); toast.info('Click the household’s location on the map.') }}>
+                            onClick={() => void startPicking(c.household_id, c.name)}>
                             <MapPin size={14} aria-hidden="true" />Add location
                           </Button>
                         )}

@@ -33,6 +33,7 @@ import {
 } from '@/lib/children/profile-fields'
 import { describeMedicalHistory, toStructured } from '@/lib/children/medical-history'
 import { MedicalHistoryPicker, useMedicalHistoryOptions } from '@/components/children/medical-history-picker'
+import { DeviceLocationField, formatCoords, type DeviceCoords } from '@/components/geospatial/device-location'
 
 type Mode = "create" | "edit";
 type Conflict =
@@ -88,6 +89,8 @@ export function ChildFormModal({
   const [newGuardian, setNewGuardian] = useState(draft?.newGuardian ?? false);
   const [originalGuardianContact, setOriginalGuardianContact] = useState("");
   const [newHousehold, setNewHousehold] = useState(draft?.newHousehold ?? false);
+  // Registration only: the household's map location from this device, saved right after the child.
+  const [coords, setCoords] = useState<DeviceCoords | null>(null);
   const [householdQuery, setHouseholdQuery] = useState("");
   const [guardianQuery, setGuardianQuery] = useState("");
   const [message, setMessage] = useState("");
@@ -300,6 +303,12 @@ export function ChildFormModal({
       if (r.status === 409 && d.duplicate) { await showDuplicate(values); return; }
       if (!r.ok) throw new Error(d.error || "The child record was not saved. Check your connection and try again.");
       if (d.warning) toast.warning(d.warning);
+      if (mode === "create" && coords && d.household_id) {
+        // The child is saved either way; a failed location only warns (it can be pinned on the Map tab).
+        const loc = await fetch("/api/households/location", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ household_id: d.household_id, latitude: coords.latitude, longitude: coords.longitude }) }).catch(() => null);
+        if (!loc?.ok) toast.warning(`Child registered, but the map location was not saved. ${(await loc?.json().catch(() => null))?.error ?? "Pin it on the Map tab."}`);
+      }
       setConflict(null);
       onSaved();
     } catch (e) {
@@ -658,6 +667,13 @@ export function ChildFormModal({
                 </>)}
                 {choice("water_source_type", "Water source")}
                 {choice("toilet_facility_type", "Toilet facility")}
+                {mode === "create" && !draft && (
+                  <div className={wide}>
+                    <Field label="Household map location (optional)" hint="Uses this device's location; check the coordinates before saving. Saved with the household when the child is registered.">
+                      <DeviceLocationField value={coords} onChange={setCoords} disabled={saving || !online} />
+                    </Field>
+                  </div>
+                )}
               </div>
             </StepSection>
           )}
@@ -694,6 +710,7 @@ export function ChildFormModal({
                   ? `New: ${[str("household_no"), str("household_address"), str("purok") && `Purok ${str("purok")}`].filter(Boolean).join(" · ")}${form.is_4ps_member ? " · 4Ps" : ""}`
                   : form.household_id ? householdQuery : ""],
                 ["Water source", str("water_source_type")], ["Toilet facility", str("toilet_facility_type")],
+                ...(mode === "create" && !draft ? [["Map location", coords ? formatCoords(coords) : "Not set"] as [string, string]] : []),
               ]} />
               {mode === 'create' && draft && online && (
                 <div className="rounded-xl border border-warn/25 bg-warn-soft p-4">

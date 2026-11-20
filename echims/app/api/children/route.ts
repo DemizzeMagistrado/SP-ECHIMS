@@ -191,7 +191,7 @@ export async function GET(request: Request) {
         ? auth.supabase
             .from("household")
             .select(
-              "household_id, household_no, family_serial_no, household_address, purok, is_4ps_member, water_source_type, toilet_facility_type, information_revision",
+              "household_id, household_no, family_serial_no, household_address, purok, is_4ps_member, water_source_type, toilet_facility_type, information_revision, latitude, longitude",
             )
             .eq("household_id", child.household_id)
             .maybeSingle()
@@ -508,10 +508,11 @@ export async function POST(request: Request) {
   if (!household) {
     const facilityError = await saveHouseholdFacilities(auth.supabase, householdId, body);
     if (facilityError)
-      return NextResponse.json({ child_id: inserted.data.child_id, warning: `Child registered. ${facilityError}` }, { status: 201 });
+      return NextResponse.json({ child_id: inserted.data.child_id, household_id: householdId, warning: `Child registered. ${facilityError}` }, { status: 201 });
   }
   return NextResponse.json(
-    { child_id: inserted.data.child_id },
+    // household_id: the form saves the captured map location through /api/households/location.
+    { child_id: inserted.data.child_id, household_id: householdId },
     { status: 201 },
   );
 }

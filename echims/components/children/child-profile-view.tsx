@@ -49,6 +49,7 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { StickySubnav } from "@/components/ui/sticky-subnav";
 import { BackToTop } from "@/components/landing/section-nav";
 import { CHILD_ID_HELP, FSN_HELP, InfoTip } from '@/components/ui/info-tip'
+import { HouseholdLocationCapture, formatCoords } from '@/components/geospatial/device-location'
 type ChildRow = {
   child_id: number;
   first_name: string;
@@ -114,6 +115,8 @@ type HouseholdRow = {
   household_address: string | null;
   purok: string | null;
   is_4ps_member: boolean | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 type RhuRow = { rhu_id: number; rhu_name: string | null };
 type Vaccination = {
@@ -758,6 +761,16 @@ export function ChildProfileView({childId}: {childId: string}) {
               value={household ? (household.household_no ? `HH-${household.household_no}` : `HH-${household.household_id}`) : "—"}
             />
             <InfoRow label="Household address" value={household?.household_address || "—"} icon={<MapPin size={14} />} />
+            {household && (
+              <InfoRow
+                label="Map location"
+                value={household.latitude != null && household.longitude != null
+                  ? <span className="font-mono">{formatCoords({ latitude: Number(household.latitude), longitude: Number(household.longitude) })}</span>
+                  : canEdit
+                    ? <HouseholdLocationCapture householdId={household.household_id} onSaved={() => { toast.success("Location saved for this household"); void mutate() }} />
+                    : "Not set"}
+              />
+            )}
             <InfoRow label="Purok" value={household?.purok || "—"} />
             <InfoRow label="Child's address" value={child.address || "—"} />
             <InfoRow
