@@ -1646,8 +1646,8 @@ export default function SupplementsPage() {
     <tr id={id} data-detail={open ? "open" : "closed"}>
       <td colSpan={99} className="bg-slate-50 p-0">
         <div className={cn("grid transition-[grid-template-rows,opacity] duration-[220ms] ease-out motion-reduce:transition-none", open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
-          {/* overflow-y-clip, not overflow-hidden: hidden would make this the sticky scroll box. */}
-          <div className="overflow-y-clip" inert={!open}>
+          {/* min-h-0 lets the 0fr row collapse; overflow-y-clip (not hidden) keeps sticky working. */}
+          <div className="min-h-0 overflow-y-clip" inert={!open}>
             <div className={cn("border-t border-primary/15 px-4 py-4 sm:px-6", !open && "border-t-0")}>
               {/* Pinned to the left of the visible table area (--view-w from trackViewWidth) while it scrolls sideways. */}
               <div className="sticky left-4 w-[calc(var(--view-w,100%)-2rem)] max-w-[100ch] sm:left-6 sm:w-[calc(var(--view-w,100%)-3rem)]">

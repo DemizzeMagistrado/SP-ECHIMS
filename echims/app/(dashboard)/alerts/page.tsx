@@ -304,11 +304,14 @@ function AlertsWorkspace() {
   useEffect(()=>()=>{sequence.current++;ownerRef.current=null},[]);
   // Dashboard links open a program directly: /alerts?program=VACCINATION
   useEffect(()=>{const q=new URLSearchParams(window.location.search),p=q.get("program"),t=q.get("tab");if(p&&/^[A-Z_]{1,40}$/.test(p))setProgram(p);if(t==="SMS")setTab("SMS");else if(t==="RULES")setTab("RULES")},[]);
-  const load = useCallback(async () => {
+  // force (the refresh button): show the loader even when this view is cached.
+  const load = useCallback(async (force = false) => {
     if (!owner) return;
     const token = ++sequence.current;
     const cacheKey = `alerts:${page}:${filter}:${program}`;
-    if (!readPageCache(owner, cacheKey)) setLoading(true);
+    // A cached view shows at once and refreshes quietly; otherwise the list shows the loader.
+    const cached = force ? null : readPageCache<Data>(owner, cacheKey);
+    if (cached) setData(cached); else setLoading(true);
     setError("");
     try {
       const body: Data = await jsonResponse(
@@ -507,7 +510,7 @@ function AlertsWorkspace() {
           subtitle="Monitor system alerts and configure evaluation rules"
           actions={
             // SMS overview has its own refresh next to "About this view".
-            view !== "SMS" && <Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={loading || !owner} onClick={() => void load()}><RefreshCw size={16} aria-hidden="true" className={loading ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>
+            view !== "SMS" && <Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={loading || !owner} onClick={() => void load(true)}><RefreshCw size={16} aria-hidden="true" className={loading ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>
           }
         />
         {data?.canConfigure && (
@@ -588,8 +591,10 @@ function AlertsWorkspace() {
                 ))}
               </Select>
             </FilterCard>
-            <div key={`${filter}|${program}|${page}`} className={`space-y-3 animate-in fade-in duration-150 motion-reduce:animate-none ${loading ? "opacity-60 transition-opacity" : ""}`}>
-              {alerts.length === 0 ? (
+            <div key={`${filter}|${program}|${page}`} className="space-y-3 animate-in fade-in duration-150 motion-reduce:animate-none">
+              {loading ? (
+                <LogoLoader size="section" label="Loading alerts…" />
+              ) : alerts.length === 0 ? (
                 <EmptyState icon={CheckCircle} title="No matching alerts" description="Try another filter or program." className="rounded-xl border border-[#D5E2EA] bg-white" />
               ) : (
                 alerts.map((alert) => {

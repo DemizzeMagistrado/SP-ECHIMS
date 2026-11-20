@@ -12,7 +12,6 @@ import { InfoContent } from '@/components/ui/info-tip'
 import { GridTable } from '@/components/ui/grid-table'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { LoadError } from '@/components/ui/load-error'
-import { LogoLoader } from '@/components/brand/logo-loader'
 import { InventorySection } from './InventorySection'
 import { fetcher, formatDateTime, formatYmd, one } from './inventory-utils'
 
@@ -74,6 +73,15 @@ export function BatchTraceSection({ first }: { first?: boolean }) {
     ...data.supplementations.map((s) => ({ key: `s-${s.supplementation_record_id}`, date: s.supplementation_date, child: one(s.child), what: one(s.supplement)?.supplement_type ?? 'Supplement', kind: 'Supplementation', status: null, qty: s.quantity_given ?? 1 })),
   ].sort((a, b) => String(b.date).localeCompare(String(a.date))) : []
 
+  // One layout before, during and after a trace: the three tables are always there and only their
+  // rows / empty state change, so nothing jumps when results arrive.
+  const tracing = Boolean(submitted) && isLoading
+  const emptyFor = (found: { icon: typeof Hash; title: string; description?: string }) =>
+    !submitted ? { icon: Hash, title: 'No batch traced yet', description: 'Enter a batch number above and select Trace.' }
+      : tracing ? { icon: Search, title: 'Tracing the batch…' }
+      : error && !data ? { icon: found.icon, title: 'Not loaded', description: 'See the message above.' }
+      : found
+
   return (
     <InventorySection
       id="batch-trace"
@@ -97,37 +105,27 @@ export function BatchTraceSection({ first }: { first?: boolean }) {
             </span>
           </label>
           <Button type="submit"><Search size={16} aria-hidden="true" /> Trace</Button>
-          {data && <Button variant="outline" onClick={downloadCsv}><Download size={16} aria-hidden="true" /> Export CSV</Button>}
+          <Button type="button" variant="outline" onClick={downloadCsv} disabled={!data}><Download size={16} aria-hidden="true" /> Export CSV</Button>
         </form>
-        {data && (
-          <CountsStrip label="Batch counts" items={[
-            { label: 'Barangays holding', value: data.counts.batches.toLocaleString() },
-            { label: 'Transactions', value: data.counts.transactions.toLocaleString() },
-            { label: 'Children vaccinated', value: data.counts.children_vaccinated.toLocaleString() },
-            { label: 'Children supplemented', value: data.counts.children_supplemented.toLocaleString() },
-          ]} />
-        )}
+        <CountsStrip label="Batch counts" items={[
+          { label: 'Barangays holding', value: data ? data.counts.batches.toLocaleString() : '–' },
+          { label: 'Transactions', value: data ? data.counts.transactions.toLocaleString() : '–' },
+          { label: 'Children vaccinated', value: data ? data.counts.children_vaccinated.toLocaleString() : '–' },
+          { label: 'Children supplemented', value: data ? data.counts.children_supplemented.toLocaleString() : '–' },
+        ]} />
       </section>
 
-      {!submitted ? (
-        <div className="flex min-h-40 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[#D5E2EA] bg-white p-8 text-center">
-          <Hash size={24} aria-hidden="true" className="text-[#8896B0]" />
-          <p className="text-sm text-[#55617F]">Enter a batch number to trace it.</p>
-        </div>
-      ) : isLoading ? (
-        <LogoLoader size="section" label="Tracing the batch…" />
-      ) : error ? (
-        <LoadError what="the batch trace" error={error} retrying={isValidating} onRetry={() => void mutate()} />
-      ) : data && (
-        <div className="space-y-3 animate-in fade-in duration-150 motion-reduce:animate-none">
+      {submitted && error && !isLoading && <LoadError what="the batch trace" error={error} retrying={isValidating} onRetry={() => void mutate()} />}
+      {/* Re-keyed when results arrive, so they fade in. */}
+      <div key={data ? `result-${data.batch_number}` : 'empty'} aria-busy={tracing || undefined} className="space-y-3 animate-in fade-in duration-150 motion-reduce:animate-none">
           <GridTable
               title={<><MapPin size={14} aria-hidden="true" /> Barangay distribution</>}
               caption="Barangays holding this batch"
               pageSize={5}
-              rows={data.batches}
+              rows={data?.batches ?? []}
               rowKey={(b) => b.batch_id}
               minWidth={600}
-              empty={{ icon: Package, title: 'No active batches with this number', description: 'Check the batch number and search again.' }}
+              empty={emptyFor({ icon: Package, title: 'No active batches with this number', description: 'Check the batch number and search again.' })}
               columns={[
                 { key: 'barangay', header: 'Barangay', cell: (b) => one(one(b.inventory)?.barangay)?.barangay_name ?? '—' },
                 { key: 'item', header: 'Item', cell: (b) => one(one(b.inventory)?.item)?.item_name ?? '—' },
@@ -141,10 +139,10 @@ export function BatchTraceSection({ first }: { first?: boolean }) {
               title={<><Clock size={14} aria-hidden="true" /> Transactions</>}
               caption="Batch transactions"
               pageSize={5}
-              rows={data.transactions}
+              rows={data?.transactions ?? []}
               rowKey={(t) => t.transaction_id}
               minWidth={720}
-              empty={{ icon: Clock, title: 'No transactions recorded', description: 'Stock-in, allocation and usage entries for this batch appear here.' }}
+              empty={emptyFor({ icon: Clock, title: 'No transactions recorded', description: 'Stock-in, allocation and usage entries for this batch appear here.' })}
               columns={[
                 { key: 'when', header: 'When', cell: (t) => formatDateTime(t.transaction_date) },
                 { key: 'type', header: 'Type', cell: (t) => <StatusBadge status={t.movement_subtype ?? t.transaction_type} tone={t.movement_subtype === 'WASTE' ? 'danger' : t.transaction_type === 'STOCK_IN' ? 'good' : 'info'} label={String(t.movement_subtype ?? t.transaction_type).replaceAll('_', ' ').toLowerCase().replace(/^\w/, (c: string) => c.toUpperCase())} /> },
@@ -162,7 +160,7 @@ export function BatchTraceSection({ first }: { first?: boolean }) {
               rows={children}
               rowKey={(c) => c.key}
               minWidth={720}
-              empty={{ icon: Users, title: 'No children received this batch yet', description: 'Doses given from this batch are listed here.' }}
+              empty={emptyFor({ icon: Users, title: 'No children received this batch yet', description: 'Doses given from this batch are listed here.' })}
               columns={[
                 { key: 'date', header: 'Date', cell: (c) => formatYmd(c.date) },
                 { key: 'child', header: 'Child', cell: (c) => <span className="font-semibold text-[#0C1260]">{fullName(c.child)}</span> },
@@ -171,8 +169,7 @@ export function BatchTraceSection({ first }: { first?: boolean }) {
                 { key: 'status', header: 'Status · Qty', cell: (c) => c.status ? <StatusBadge status={c.status} /> : <span className="font-semibold">{c.qty}</span> },
               ]}
             />
-        </div>
-      )}
+      </div>
     </InventorySection>
   )
 }

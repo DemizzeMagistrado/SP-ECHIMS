@@ -29,7 +29,6 @@ export function ReplenishmentSection({ userId, canRequest, canReview, first }: {
   const { data, error, isLoading, isValidating, mutate } = useSWR<{ requests: ReplenishmentRequest[] }>(URL_, fetcher, { keepPreviousData: true })
 
   const all = useMemo(() => data?.requests ?? [], [data])
-  const count = (s: string) => all.filter((r) => r.status === s).length
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase()
     return all.filter((r) => (!status || r.status === status) && (!q || [one(r.item)?.item_name, one(r.target_barangay)?.barangay_name, r.requester?.full_name, String(r.stock_request_id), stripReqMarker(r.remarks)].some((v) => v?.toLowerCase().includes(q))))
@@ -61,12 +60,12 @@ export function ReplenishmentSection({ userId, canRequest, canReview, first }: {
           <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input aria-label="Search replenishment requests" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search item, barangay or requester…" className="pl-9" />
         </div>
-        {/* Status filter (was the Pending / Needs revision / Approved count buttons); same filtering. */}
+        {/* Status filter (was the count buttons); same filtering. */}
         <Select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="">All statuses</option>
-          <option value="PENDING">Pending{data ? ` (${count('PENDING')})` : ''}</option>
-          <option value="NEEDS_REVISION">Needs revision{data ? ` (${count('NEEDS_REVISION')})` : ''}</option>
-          <option value="APPROVED">Approved{data ? ` (${count('APPROVED')})` : ''}</option>
+          <option value="PENDING">Pending</option>
+          <option value="NEEDS_REVISION">Needs revision</option>
+          <option value="APPROVED">Approved</option>
         </Select>
       </FilterCard>
 

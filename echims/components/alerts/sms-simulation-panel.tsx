@@ -3,7 +3,7 @@ import { Select } from '@/components/ui/form'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 import { useEffect, useState } from "react";
 import { readPageCache, writePageCache } from '@/lib/page-cache'
-import { Spinner } from '@/components/brand/logo-loader'
+import { LogoLoader } from '@/components/brand/logo-loader'
 import { usePageLoading } from '@/components/brand/page-gate'
 import { GridTable } from '@/components/ui/grid-table'
 import { FilterCard, SectionHeader } from '@/components/ui/report-parts'
@@ -39,12 +39,14 @@ export function SmsSimulationPanel({ ownerId }: { ownerId: string }) {
     [loading, setLoading] = useState(() => !readPageCache(ownerId, "sms-overview")),
     [reload, setReload] = useState(0),
     [program, setProgram] = useState("ALL");
-  usePageLoading(loading)
+  // The page gate waits for the first load only; later loads show the loader in the section.
+  usePageLoading(loading && !data)
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
     setError("");
-    setLoading(!readPageCache(ownerId, "sms-overview"));
+    // Refresh clicks (reload > 0) always show the loader; a cached revisit refreshes quietly.
+    setLoading(reload > 0 || !readPageCache(ownerId, "sms-overview"));
     void (async () => {
       try {
         const response = await fetch("/api/sms/simulation", {
@@ -119,7 +121,7 @@ export function SmsSimulationPanel({ ownerId }: { ownerId: string }) {
         </Select>
       </FilterCard>
       {error && <p role="alert" className="text-sm text-[#C42B2B]">{error}</p>}
-      {loading && <Spinner showLabel label="Loading SMS overview…" className="w-full justify-center py-6 text-sm text-muted-foreground" />}
+      {loading ? <LogoLoader size="section" label="Loading SMS overview…" /> : <>
       <GridTable
         caption="SMS queue"
         rows={queue}
@@ -157,6 +159,7 @@ export function SmsSimulationPanel({ ownerId }: { ownerId: string }) {
           { key: "time", header: "Time", cell: (row) => time(row.created_at) },
         ]}
       />
+      </>}
     </section>
   );
 }
