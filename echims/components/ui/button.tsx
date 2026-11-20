@@ -25,7 +25,8 @@ const variants = cva(
         row: 'border-rowbtn-line bg-white text-brand-navy shadow-[0_1px_2px_rgba(12,18,96,0.08)] hover:border-brand-navy hover:bg-rowbtn-hover active:bg-rowbtn-active focus-visible:ring-0 focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-link',
       },
       size: {
-        sm: 'h-8 gap-1.5 px-3 text-xs',
+        // 36px like row buttons: the smallest button size in the app.
+        sm: 'h-9 gap-1.5 px-3 text-[13px]',
         md: 'h-10 px-4 text-sm',
         // Data-page controls: 44px tall, 10px radius.
         lg: 'h-11 rounded-[10px] px-4 text-sm',

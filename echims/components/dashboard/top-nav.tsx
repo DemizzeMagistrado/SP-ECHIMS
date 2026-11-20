@@ -223,7 +223,7 @@ export function TopNav() {
 
           {open && (
             <section id={dropdownId} aria-label="Notifications"
-              className="absolute right-0 top-full z-50 mt-3 w-[min(24rem,calc(100vw-2rem))] origin-top-right overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl animate-in fade-in zoom-in-95 slide-in-from-top-1 duration-150">
+              className="absolute right-0 top-full z-50 mt-3 w-[min(24rem,calc(100vw-2rem))] origin-top-right overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl animate-in fade-in slide-in-from-top-1 duration-150">
               <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                 <div>
                   <h2 className="font-bold text-[#03045E]">Notifications</h2>
@@ -309,7 +309,7 @@ export function TopNav() {
           </button>
           {settingsOpen && (
             <section id={settingsMenuId} aria-label="Settings"
-              className="absolute right-0 top-full z-50 mt-3 w-60 origin-top-right overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl animate-in fade-in zoom-in-95 slide-in-from-top-1 duration-150">
+              className="absolute right-0 top-full z-50 mt-3 w-60 origin-top-right overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl animate-in fade-in slide-in-from-top-1 duration-150">
               <div className="border-b border-slate-100 px-4 py-3">
                 <p className="truncate text-sm font-semibold text-[#03045E]">{user?.fullName ?? 'Account'}</p>
                 <p className="truncate text-xs text-slate-500">{user?.role ?? ''}</p>

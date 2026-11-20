@@ -53,7 +53,8 @@ export default function InventoryPage() {
         <TabBar className="pb-5" label="Inventory views" group="inventory" value={tab} onChange={choose} items={tabs} />
       </div>
 
-      <TabPanel tabKey={`${tab}|${traceKey}`}>
+      {/* Keyed by tab only: TabPanel keeps opened tabs mounted; a new trace remounts via key={traceKey}. */}
+      <TabPanel tabKey={tab}>
         {tab === 'stock'
           ? <StockDistributionTab role={role} onTrace={trace} />
           : <BatchesReplenishmentTab key={traceKey} role={role} userId={user.id} onTrace={trace} />}

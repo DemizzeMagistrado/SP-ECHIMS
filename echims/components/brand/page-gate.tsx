@@ -94,6 +94,8 @@ export function PageGate({ children }: { children: ReactNode }) {
  * Content of an in-page tab. On a tab change it keeps the previous panel's height, hides the new
  * content until its data is in, then fades it in (no layout jump). A slow tab shows the small
  * logo loader in the reserved space.
+ * Keep-alive: every tab opened once stays mounted (hidden), so switching back shows it as it was,
+ * with its state and data, instead of reloading it. Hidden tabs never hold the panel's loader.
  */
 export function TabPanel({ tabKey, children, className = '' }: {
   tabKey: string; children: ReactNode
@@ -108,14 +110,22 @@ export function TabPanel({ tabKey, children, className = '' }: {
   const [minHeight, setMinHeight] = useState<number | undefined>()
   const [armedFor, setArmedFor] = useState<string | null>(null)
   const firstKey = useRef(tabKey)
+  // Last content of each opened tab, in first-opened order (stable positions keep their state).
+  const [kept] = useState(() => new Map<string, ReactNode>())
+  const revisit = kept.has(tabKey)
+  kept.set(tabKey, children)
+  // A hidden tab reports "not loading", which also clears whatever it reported while visible.
+  const hiddenReport = useCallback<Report>((id) => report(id, false), [report])
 
-  // Before the new tab paints: hold the old height and hide the new content.
+  // Before the new tab paints: hold the old height and hide the new content. A tab opened before is
+  // already loaded, so it shows at once (its own short fade, below).
   useLayoutEffect(() => {
     if (tabKey === firstKey.current) return
     firstKey.current = ''
+    if (revisit) return
     setMinHeight((h) => (panel.current ? panel.current.offsetHeight : h))
     setShown(false)
-  }, [tabKey])
+  }, [tabKey]) // eslint-disable-line react-hooks/exhaustive-deps -- revisit is read for this tab change only
   useEffect(() => { setArmedFor(tabKey) }, [tabKey])
 
   // Same guard as PageGate: a request that never settles stops hiding the tab after 10s, so a tab
@@ -143,7 +153,13 @@ export function TabPanel({ tabKey, children, className = '' }: {
     <PendingContext.Provider value={report}>
       <div ref={panel} className="tab-panel" data-shown={shown} style={{ minHeight }}>
         {!shown && <div className="tab-loader"><LogoLoader size="section" /></div>}
-        <div className={`tab-content ${className}`} aria-hidden={!shown || undefined}>{children}</div>
+        <div className="tab-content" aria-hidden={!shown || undefined}>
+          {[...kept].map(([key, node]) => (
+            <PendingContext.Provider key={key} value={key === tabKey ? report : hiddenReport}>
+              <div className={`animate-in fade-in duration-150 motion-reduce:animate-none ${className}`} style={key === tabKey ? undefined : { display: 'none' }}>{node}</div>
+            </PendingContext.Provider>
+          ))}
+        </div>
       </div>
     </PendingContext.Provider>
   )

@@ -142,7 +142,8 @@ export function FilterChips<T extends string>({ options, value, onChange, label,
   className?: string
 }) {
   return (
-    <div role="group" aria-label={label} className={cn('flex flex-wrap items-center gap-2', className)}>
+    // Same button-like pills and sliding navy fill as the sub tabs (subPill + TabIndicator).
+    <div role="group" aria-label={label} className={cn(strip, 'flex flex-wrap items-center gap-1.5', className)}>
       {options.map((o) => {
         const active = o.value === value
         return (
@@ -151,18 +152,18 @@ export function FilterChips<T extends string>({ options, value, onChange, label,
             type="button"
             aria-pressed={active}
             onClick={() => onChange(o.value)}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
-              active ? 'border-primary bg-primary text-white' : 'border-border bg-white text-foreground hover:bg-muted',
-            )}
+            className={cn(subPill(active), 'shadow-[0_1px_2px_rgba(12,18,96,0.06)]')}
           >
-            {o.label}
-            {o.count !== undefined && (
-              <span className={cn('rounded-full px-1.5 text-[11px] font-semibold tabular-nums', active ? 'bg-white/20' : 'bg-muted text-muted-foreground')}>{o.count}</span>
-            )}
+            <PillLabel>
+              {o.label}
+              {o.count !== undefined && (
+                <span className={cn('rounded-full px-1.5 text-[11px] font-semibold tabular-nums', slideColors, active ? 'bg-white/20 text-white' : 'bg-brand-ice text-[#55617F]')}>{o.count}</span>
+              )}
+            </PillLabel>
           </button>
         )
       })}
+      <TabIndicator group={`chips:${label}`} activeKey={value} className={pillFill} />
     </div>
   )
 }

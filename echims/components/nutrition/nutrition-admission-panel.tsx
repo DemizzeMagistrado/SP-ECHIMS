@@ -441,7 +441,7 @@ export function NutritionAdmissionPanel({
                                 aria-label={`History for ${r.child_name}`}
                                 onClick={() => toggle(r.admission_id)}
                               >
-                                <ChevronDown aria-hidden="true" className={cn("transition-transform duration-150 ease-out motion-reduce:transition-none", expandedRow && "rotate-180")} />
+                                <ChevronDown aria-hidden="true" className={cn("transition-transform duration-200 ease-out motion-reduce:transition-none", expandedRow && "rotate-180")} />
                               </Button>
                             </div>
                           </td>
@@ -450,7 +450,7 @@ export function NutritionAdmissionPanel({
                             records rows); closed content is inert. */}
                         <tr id={historyId} data-detail={expandedRow ? "open" : "closed"}>
                           <td colSpan={7} className="bg-group-a p-0">
-                            <div className={cn("grid transition-[grid-template-rows,opacity] duration-150 ease-out motion-reduce:transition-none", expandedRow ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
+                            <div className={cn("grid transition-[grid-template-rows,opacity] duration-[220ms] ease-out motion-reduce:transition-none", expandedRow ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
                               <div className="overflow-hidden" inert={!expandedRow}>
                                 <div className="px-4 py-4 sm:px-6">
                                   {/* Pinned to the visible width when the table scrolls sideways (phones). */}

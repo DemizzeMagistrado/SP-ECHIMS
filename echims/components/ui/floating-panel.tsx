@@ -1,19 +1,22 @@
 'use client'
 
 // A panel anchored to a trigger, rendered in a portal on <body> so cards/modals never clip it.
-// Opens below the trigger; flips above only when below cannot show a usable list (MIN_BELOW) and
-// above has more room. The side is chosen once per opening, so scrolling never flips it back and
-// forth; the panel stays inside the viewport (8px margin) and follows scroll/resize. Closes on an outside press. Used by Select, Combobox and
-// DatePicker. `fit` (DatePicker) never clips or scrolls the content: below if it fits, else above,
-// else shifted up just enough to stay fully on screen.
+// Always opens below the trigger (never flips above). When there is too little room below, the
+// trigger is first scrolled toward the middle of its scroll box so the list has space. The panel
+// stays inside the viewport (8px margin) and follows scroll/resize. Closes on an outside press, and
+// opening one panel closes any other (one dropdown at a time). Used by Select, Combobox and
+// DatePicker. `fit` (DatePicker) never clips or scrolls the content: below if it fits, else shifted
+// up just enough to stay fully on screen.
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 
 const MARGIN = 8
-// Below is used whenever it can show at least this much (about 5 options); otherwise flip if above is roomier.
+// Less room than this below the trigger (about 5 options): scroll the trigger up first.
 const MIN_BELOW = 200
+// The open panel's close function: opening another panel closes it first.
+let closeOpenPanel: (() => void) | null = null
 
 export function FloatingPanel({ anchor, open, onClose, children, minWidth = 0, maxHeight = 320, width: fixedWidth, fit = false, className, id, sheetOnMobile = false, label }: {
   anchor: RefObject<HTMLElement | null>
@@ -36,11 +39,23 @@ export function FloatingPanel({ anchor, open, onClose, children, minWidth = 0, m
   // Hidden but already fixed and sized, so the first measurement matches the final layout.
   const [style, setStyle] = useState<CSSProperties>({ visibility: 'hidden', position: 'fixed', top: 0, left: 0, width: fixedWidth })
   const [sheet, setSheet] = useState(false)
-  const side = useRef<'down' | 'up' | null>(null)
+  // Latest onClose, so the one-at-a-time hook below does not re-run on every render.
+  const closeRef = useRef(onClose)
+  useLayoutEffect(() => { closeRef.current = onClose })
+  useEffect(() => {
+    if (!open) return
+    const close = () => closeRef.current()
+    if (closeOpenPanel && closeOpenPanel !== close) closeOpenPanel()
+    closeOpenPanel = close
+    return () => { if (closeOpenPanel === close) closeOpenPanel = null }
+  }, [open])
 
   useLayoutEffect(() => {
     if (!open) return
-    side.current = null
+    // Too little room below: bring the trigger up once, before the first placement.
+    const first = anchor.current?.getBoundingClientRect()
+    if (first && !(sheetOnMobile && window.innerWidth < 640) && window.innerHeight - first.bottom - MARGIN * 2 < MIN_BELOW)
+      anchor.current?.scrollIntoView({ block: 'center' })
     const place = () => {
       const a = anchor.current?.getBoundingClientRect()
       const p = panel.current
@@ -52,19 +67,13 @@ export function FloatingPanel({ anchor, open, onClose, children, minWidth = 0, m
       const left = Math.min(Math.max(a.left, MARGIN), vw - width - MARGIN)
       if (fit) {
         const h = Math.min(p.scrollHeight + 2, vh - MARGIN * 2) // +2: the panel border
-        const top = a.bottom + 4 + h <= vh - MARGIN ? a.bottom + 4
-          : a.top - 4 - h >= MARGIN ? a.top - 4 - h
-          : Math.max(MARGIN, vh - MARGIN - h)
+        const top = a.bottom + 4 + h <= vh - MARGIN ? a.bottom + 4 : Math.max(MARGIN, vh - MARGIN - h)
         setStyle({ position: 'fixed', left, width, top, maxHeight: h })
         return
       }
       const below = vh - a.bottom - MARGIN * 2
-      const above = a.top - MARGIN * 2
       const natural = Math.min(p.scrollHeight, maxHeight)
-      if (side.current === null) side.current = below < Math.min(natural, MIN_BELOW) && above > below ? 'up' : 'down'
-      const up = side.current === 'up'
-      const height = Math.min(natural, up ? above : below)
-      setStyle({ position: 'fixed', left, width, maxHeight: Math.max(height, 120), ...(up ? { bottom: vh - a.top + 4 } : { top: a.bottom + 4 }) })
+      setStyle({ position: 'fixed', left, width, top: a.bottom + 4, maxHeight: Math.max(Math.min(natural, below), 120) })
     }
     place()
     // Content changes (search filtering, month switch) re-place without a render loop.
@@ -96,8 +105,9 @@ export function FloatingPanel({ anchor, open, onClose, children, minWidth = 0, m
         aria-label={label}
         style={style}
         className={cn(
-          'scroll-subtle z-[80] overflow-auto rounded-xl border border-brand-line bg-white text-sm text-brand-navy shadow-[0_16px_40px_-12px_rgba(3,4,94,0.28)] outline-none animate-in fade-in zoom-in-95 duration-150 ease-out motion-reduce:animate-none',
-          sheet && 'fixed inset-x-0 bottom-0 max-h-[85vh] rounded-b-none rounded-t-2xl pb-[env(safe-area-inset-bottom)] slide-in-from-bottom-8 zoom-in-100',
+          'scroll-subtle z-[80] overflow-auto rounded-xl border border-brand-line bg-white text-sm text-brand-navy shadow-[0_16px_40px_-12px_rgba(3,4,94,0.28)] outline-none animate-in fade-in duration-150 ease-out motion-reduce:animate-none',
+          // Drops down from the trigger (a short slide, no zoom); phones' bottom sheet slides up.
+          sheet ? 'fixed inset-x-0 bottom-0 max-h-[85vh] rounded-b-none rounded-t-2xl pb-[env(safe-area-inset-bottom)] slide-in-from-bottom-8' : 'origin-top slide-in-from-top-1',
           className,
         )}
       >

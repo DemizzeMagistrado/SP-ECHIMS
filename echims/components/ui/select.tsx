@@ -235,7 +235,7 @@ export function Select({ className, children, value, defaultValue, onChange, dis
             </div>
           </div>
         )}
-        <ul id={listId} role="listbox" aria-labelledby={triggerId} className="p-1">
+        <ul id={listId} role="listbox" aria-labelledby={triggerId} className="space-y-0.5 p-1.5">
           {shown.length === 0 && <li className="px-3 py-2.5 text-brand-muted">No matches for “{query}”</li>}
           {shown.map((o, i) => {
             const heading = o.group && o.group !== shown[i - 1]?.group ? o.group : null
@@ -251,9 +251,10 @@ export function Select({ className, children, value, defaultValue, onChange, dis
                   onPointerEnter={() => setActive(i)}
                   onClick={() => choose(o)}
                   className={cn(
-                    'flex cursor-pointer items-center justify-between gap-3 rounded-lg px-3 py-2 transition-colors',
-                    i === active && 'bg-brand-ice',
-                    isSelected && 'font-semibold text-brand-blue',
+                    // Each option reads as a button: its own rounded box, a border on hover / keyboard focus.
+                    'flex min-h-10 cursor-pointer items-center justify-between gap-3 rounded-lg border border-transparent px-3 py-2 font-medium transition-colors',
+                    i === active && 'border-brand-line bg-brand-ice',
+                    isSelected && 'border-brand-line bg-brand-ice/60 font-semibold text-brand-blue',
                     o.value === '' && !isSelected && 'text-brand-muted',
                     o.disabled && 'cursor-not-allowed opacity-45',
                   )}
