@@ -142,7 +142,7 @@ export function Modal({
         aria-labelledby={titleId}
         aria-describedby={subtitle ? subtitleId : undefined}
         className={cn(
-          'flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white text-brand-navy shadow-[0_24px_48px_-12px_rgba(3,4,94,0.3)] sm:max-h-[min(90dvh,860px)] sm:rounded-2xl',
+          'flex max-h-[92dvh] w-full flex-col overflow-clip rounded-t-2xl bg-white text-brand-navy shadow-[0_24px_48px_-12px_rgba(3,4,94,0.3)] sm:max-h-[min(90dvh,860px)] sm:rounded-2xl',
           'transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none',
           shown ? 'translate-y-0 opacity-100 sm:scale-100' : 'translate-y-8 opacity-0 sm:translate-y-0 sm:scale-95',
           SIZES[size], className,

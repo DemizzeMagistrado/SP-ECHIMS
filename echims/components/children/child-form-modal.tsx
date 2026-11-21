@@ -515,7 +515,7 @@ export function ChildFormModal({
                 <div className="flex flex-wrap gap-2">
                   {options.philhealth_membership_type.map((item) => (
                     <label key={item} className={cn(
-                      "cursor-pointer rounded-full border px-3 py-1.5 text-sm font-medium transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring",
+                      "relative cursor-pointer rounded-full border px-3 py-1.5 text-sm font-medium transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring",
                       str("philhealth_membership_type") === item ? "border-primary bg-primary text-white" : "border-border bg-white hover:bg-muted",
                     )}>
                       <input type="radio" name="philhealth_membership_type" value={item} className="sr-only"
