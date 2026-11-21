@@ -7,7 +7,9 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 // their household and barangay context, and every related health record
 // (vaccinations, nutritional assessments, supplementations) in one page.
 // Backed by GET /api/children?childId={id} which fans the queries out in parallel.
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
+import { ChildProfileBanner, InfoRow, SectionCard } from "@/components/children/child-profile-cards";
+import { ageDescription, classificationForDob } from "@/lib/children/profile-age";
 import Link from "next/link";
 import useSWR, { useSWRConfig } from "swr";
 import { SupplementationHistorySection } from "@/components/children/supplementation-history-section";
@@ -201,39 +203,6 @@ const fetcher = async (url: string) => {
   }
   return data;
 };
-function ageDescription(dob: string) {
-  if (!dob) return "—";
-  const birth = new Date(`${dob}T00:00:00Z`);
-  if (isNaN(birth.getTime())) return "—";
-  const now = new Date();
-  const months =
-    (now.getUTCFullYear() - birth.getUTCFullYear()) * 12 +
-    now.getUTCMonth() -
-    birth.getUTCMonth() -
-    (now.getUTCDate() < birth.getUTCDate() ? 1 : 0);
-  if (months < 0) return "Not yet born";
-  if (months < 12) return `${months} months`;
-  const years = Math.floor(months / 12);
-  const remainder = months % 12;
-  return remainder ? `${years} y ${remainder} mo` : `${years} years`;
-}
-function classificationForDob(dob: string) {
-  if (!dob) return "—";
-  const birth = new Date(`${dob}T00:00:00Z`);
-  if (isNaN(birth.getTime())) return "—";
-  const days = Math.floor((Date.now() - birth.getTime()) / 86400000);
-  const now = new Date();
-  const months =
-    (now.getUTCFullYear() - birth.getUTCFullYear()) * 12 +
-    now.getUTCMonth() -
-    birth.getUTCMonth() -
-    (now.getUTCDate() < birth.getUTCDate() ? 1 : 0);
-  if (days < 0) return "—";
-  if (days <= 28) return "Newborn (0-28 days)";
-  if (months < 12) return "Infant (0-1 y/o)";
-  if (months <= 59) return "PSAC (1-4 y/o)";
-  return "Out of 0-59 months range";
-}
 function formatDate(value: string | null | undefined) {
   if (!value) return "—";
   const date = new Date(`${value}T00:00:00Z`);
@@ -367,60 +336,6 @@ function nutritionSummary(record: Assessment | null): {
       "The stored risk result is unavailable or incomplete. A normal result is not assumed.",
     reasons: [],
   };
-}
-function InfoRow({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: ReactNode;
-  icon?: ReactNode;
-}) {
-  return (
-    <div className="grid grid-cols-[160px_1fr] items-start gap-3 py-2">
-      <dt className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-        {icon}
-        {label}
-      </dt>
-      <dd className="text-sm text-foreground">{value ?? "—"}</dd>
-    </div>
-  );
-}
-function SectionCard({
-  title,
-  subtitle,
-  icon,
-  children,
-  action,
-}: {
-  title: string;
-  subtitle?: string;
-  icon?: ReactNode;
-  children: ReactNode;
-  action?: ReactNode;
-}) {
-  return (
-    <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3">
-          {icon && (
-            <div className="rounded-lg bg-primary/10 p-2 text-primary">
-              {icon}
-            </div>
-          )}
-          <div>
-            <h2 className="text-lg font-semibold text-primary">{title}</h2>
-            {subtitle && (
-              <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
-            )}
-          </div>
-        </div>
-        {action}
-      </div>
-      {children}
-    </section>
-  );
 }
 const badgeTone = { danger: "danger", warning: "warn", success: "good", default: "neutral" } as const;
 /** Latest assessment summary for the Child Information card: date, each indicator, comments. */
@@ -623,7 +538,7 @@ export function ChildProfileView({childId}: {childId: string}) {
         <TransferredHouseholdRegistration childId={child.child_id} onSaved={() => void mutate()} />
       )}
       {/* Header: white card with a navy accent; name first, identifiers and details muted. */}
-      <section className="rounded-2xl border border-border border-l-4 border-l-primary bg-white p-5 shadow-sm sm:p-6">
+      <ChildProfileBanner>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-4">
             <div className="hidden rounded-xl bg-brand-ice p-3 text-primary sm:block">
@@ -654,7 +569,7 @@ export function ChildProfileView({childId}: {childId: string}) {
             <StatusBadge status="nutrition" tone={badgeTone[nutrition.tone]} label={nutrition.label} />
           </div>
         </div>
-      </section>
+      </ChildProfileBanner>
       <StickySubnav
         label="Jump to section"
         items={[

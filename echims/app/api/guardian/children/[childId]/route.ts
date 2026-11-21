@@ -14,8 +14,8 @@ export async function GET(request: Request, context: { params: Promise<{ childId
     if (before !== null && (!/^[1-9]\d*$/.test(before) || !Number.isSafeInteger(Number(before)))) return guardianJson({ error: 'Invalid cursor.' }, 400)
     const result = program
       ? await auth.db.rpc('echims_guardian_history', { p_child_id: Number(childId), p_program: program, p_before_id: before ? Number(before) : null })
-      : await auth.db.rpc('echims_guardian_child', { p_child_id: Number(childId) })
+      : await auth.db.rpc('echims_guardian_child_profile', { p_child_id: Number(childId) })
     if (result.error) return result.error.code === '42501' ? guardianJson({ error: 'Child not found or access changed.' }, 404) : guardianRpcError(result.error.code)
-    return guardianJson({ currentUserId: auth.user.id, ...(program ? result.data : { child: result.data }) })
+    return guardianJson({ currentUserId: auth.user.id, ...result.data })
   } catch { return guardianJson({ error: 'Unable to load the child record. Try again.' }, 500) }
 }
