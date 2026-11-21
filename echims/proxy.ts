@@ -10,6 +10,12 @@ const AUTH_PAGES = new Set(['/login', '/register'])
 const DASHBOARD_STATUSES = new Set(['ACTIVE', 'PENDING'])
 
 export async function proxy(request: NextRequest) {
+  const path = request.nextUrl.pathname
+  if (path === '/guardian' || path.startsWith('/guardian/')) {
+    // The guardian session is issued and checked by guardian routes and APIs.
+    return NextResponse.next({ request, headers: { 'Cache-Control': 'private, no-store, max-age=0' } })
+  }
+
   let response = NextResponse.next({ request })
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,7 +35,6 @@ export async function proxy(request: NextRequest) {
   // getUser() validates with Supabase and rotates an expiring token. Do not run code between
   // createServerClient and this call.
   const { data: { user } } = await supabase.auth.getUser()
-  const path = request.nextUrl.pathname
 
   const redirectTo = (pathname: string) => {
     const url = request.nextUrl.clone()
@@ -42,10 +47,6 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!user && DASHBOARD.test(path)) return redirectTo('/login')
-  if (path === '/guardian' || path.startsWith('/guardian/')) {
-    response.headers.set('Cache-Control', 'private, no-store, max-age=0')
-    if (path !== '/guardian/login' && !user) return redirectTo('/guardian/login')
-  }
   // Redirect phone-guardian sessions away from staff screens; database RPCs
   // separately verify every child access and never trust this routing marker.
   if (user?.phone && user.user_metadata?.account_type === 'guardian' && DASHBOARD.test(path)) return redirectTo('/guardian')
