@@ -78,8 +78,6 @@ export type HouseholdRow = {
   household_address: string | null;
   purok: string | null;
   is_4ps_member: boolean | null;
-  latitude?: number | null;
-  longitude?: number | null;
 };
 export type RhuRow = { rhu_id: number; rhu_name: string | null };
 export type Assessment = HistoryAssessment & {
@@ -292,13 +290,11 @@ function LatestNutrition({ record, canAdd, canOpenModule, onOpenHistory }: { rec
 }
 
 export function ChildProfileDetailsView({
-  data, latestNutrition, navigation, guardianActions, householdMembers, householdLocation, canAddNutrition = false, canViewNutrition = false, medicalConditions, onOpenNutritionHistory,
+  data, latestNutrition, navigation, guardianActions, householdMembers, canAddNutrition = false, canViewNutrition = false, medicalConditions, onOpenNutritionHistory,
 }: {
   data: ChildProfileDetails;
   latestNutrition: Assessment | null;
   navigation?: ReactNode;
-  // Staff view only; the guardian portal omits it, so no "Map location" row there.
-  householdLocation?: ReactNode;
   guardianActions?: ReactNode;
   householdMembers?: ReactNode;
   canAddNutrition?: boolean;
@@ -420,7 +416,6 @@ export function ChildProfileDetailsView({
               value={household ? (household.household_no ? `HH-${household.household_no}` : `HH-${household.household_id}`) : "—"}
             />
             <InfoRow label="Household address" value={household?.household_address || "—"} icon={<MapPin size={14} />} />
-            {household && householdLocation && <InfoRow label="Map location" value={householdLocation} />}
             <InfoRow label="Purok" value={household?.purok || "—"} />
             <InfoRow label="Child's address" value={child.address || "—"} />
             <InfoRow

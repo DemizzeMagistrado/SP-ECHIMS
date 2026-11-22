@@ -1,7 +1,6 @@
 "use client";
 import { childProgramEligibility, manilaDate } from '@/lib/child-program-eligibility'
 import { TransferredHouseholdRegistration } from '@/components/children/transferred-household-registration'
-import { HouseholdLocationCapture, formatCoords } from '@/components/geospatial/device-location'
 import { offlineFetch as fetch } from '@/lib/offline/fetch'
 // CHILD-USR003 — View Child Profile
 // Centralized profile view that pulls the child record, their linked guardian,
@@ -240,11 +239,6 @@ export function ChildProfileView({childId}: {childId: string}) {
         canAddNutrition={canAddNutrition}
         canViewNutrition={canViewNutrition}
         medicalConditions={medicalOptions?.conditions}
-        householdLocation={household && (household.latitude != null && household.longitude != null
-          ? <span className="font-mono">{formatCoords({ latitude: Number(household.latitude), longitude: Number(household.longitude) })}</span>
-          : canEdit
-            ? <HouseholdLocationCapture householdId={household.household_id} onSaved={() => { toast.success("Location saved for this household"); void mutate() }} />
-            : "Not set")}
         navigation={
           <StickySubnav
             label="Jump to section"
