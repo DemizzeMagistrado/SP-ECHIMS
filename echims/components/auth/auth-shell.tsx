@@ -51,7 +51,7 @@ export function AuthShell({
                 {audience === 'guardian' ? 'Your children’s health records, connected to your BHS and RHU.' : 'Health management for rural health units and barangay health workers.'}
               </p>
               <ul className="mt-10 space-y-4">
-                {(audience === 'guardian' ? ['View your linked children in one place', 'See recorded vaccinations, nutrition, and supplementation', 'Verify your mobile number when you register'] : points).map((p, i) => (
+                {(audience === 'guardian' ? ['View your linked children in one place', 'See recorded vaccinations, nutrition, and supplementation', 'Sign in securely using a mobile login code'] : points).map((p, i) => (
                   <li
                     key={p}
                     style={{ animationDelay: `${500 + i * 110}ms` }}
