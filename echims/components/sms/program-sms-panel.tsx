@@ -441,7 +441,8 @@ export function ProgramSmsPanel({
                         );
                         if (row) select(row);
                       }}
-                      className="block w-full"
+                      title={`${selected.child_name} · ${selected.service_name} · ${selected.due_date}`}
+                      className="w-full"
                     >
                       {data.rows.map((row) => (
                         <option key={row.service_key} value={row.service_key}>
