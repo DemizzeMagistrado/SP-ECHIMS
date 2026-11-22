@@ -19,7 +19,7 @@ export async function smsSession(program?: string, send = false) {
   if (program !== undefined) {
     if (!['VACCINATION', 'SUPPLEMENTATION'].includes(program)) return json({ error: 'Choose a valid SMS program.' }, 400)
     if (!canPerform(role, program === 'VACCINATION' ? 'Vaccination' : 'Supplementation', 'view')) return json({ error: 'This program is outside your permissions.' }, 403)
-    if (send && !['Rural Health Midwife', 'Barangay Health Worker'].includes(role)) return json({ error: 'Only authorized RHM/BHW accounts may send program reminders.' }, 403)
+    if (send && role === 'Administrator') return json({ error: 'Administrators can view SMS logs but cannot send reminders.' }, 403)
   }
   const db = await createClient()
   const account = await db.from('users').select('account_status').eq('user_id', context.authUser.id).maybeSingle()

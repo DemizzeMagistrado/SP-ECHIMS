@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button'
 import { DateInput, Input, Select } from '@/components/ui/form'
 import { Pagination, usePagination } from '@/components/ui/pagination'
 import { cn } from '@/lib/utils'
+import type { ReminderData } from '@/components/vaccination/schedule-reminders'
+import { ReminderMessage } from '@/components/sms/reminder-message'
 
 // Form labels and table cells: the shared muted label and .data-grid cell values.
 const fieldLabel = 'space-y-1.5 text-xs font-medium text-brand-muted'
@@ -46,6 +48,7 @@ type Row = {
   simulation_error: string | null;
   live_contact_verified?: boolean;
   live_status?: string | null;
+  live_message?: string | null;
   provider_uid?: string | null;
 };
 type Data = {
@@ -89,10 +92,12 @@ export function ProgramSmsPanel({
   program,
   ownerId,
   online = true,
+  onBulk,
 }: {
   program: Program;
   ownerId: string;
   online?: boolean;
+  onBulk: (data: ReminderData) => void;
 }) {
   const [data, setData] = useState<Data | null>(null),
     [loading, setLoading] = useState(true),
@@ -167,11 +172,11 @@ export function ProgramSmsPanel({
     data?.rows.find((row) => row.service_key === selectedKey) ?? data?.rows[0];
   const messageType: MessageType =
     selected?.phase === "OVERDUE" ? "OVERDUE" : "UPCOMING";
-  const message = selected
+  const message = (data?.liveEnabled ? selected?.live_message : null) ?? (selected
     ? messageType === "UPCOMING"
       ? selected.upcoming_message
       : selected.overdue_message
-    : "";
+    : "");
   const reminderDate = selected
     ? messageType === "UPCOMING"
       ? selected.upcoming_date
@@ -188,7 +193,7 @@ export function ProgramSmsPanel({
       online &&
       !busy,
   );
-  const liveReady = Boolean(data?.canSend && data.liveEnabled && selected?.eligible && selected.live_contact_verified && selected.phase === messageType && online && !busy && !['READY','SENDING','SUBMITTED','DELIVERED','UNCERTAIN'].includes(selected.live_status ?? ''));
+  const liveReady = Boolean(data?.canSend && data.liveEnabled && selected?.live_message && selected.eligible && selected.live_contact_verified && selected.phase === messageType && online && !busy && !['READY','SENDING','SUBMITTED','DELIVERED','UNCERTAIN'].includes(selected.live_status ?? ''));
   const currentContext = useRef(`${ownerId}:${program}`); currentContext.current = `${ownerId}:${program}`;
   async function sendLive() {
     if (sending.current || !liveReady || !selected) return;
@@ -200,7 +205,7 @@ export function ProgramSmsPanel({
       // Native fetch never queues a paid send as an offline form submission.
       const result = await readJson(await globalThis.fetch('/api/sms/reminders', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'SEND', program, serviceKey: selected.service_key, messageType, requestId: intent.current.requestId, requestOwnerId: ownerId, preview: false }),
+        body: JSON.stringify({ action: 'SEND', program, serviceKey: selected.service_key, messageType, requestId: intent.current.requestId, requestOwnerId: ownerId, reviewedMessage: selected.live_message, preview: false }),
       }));
       if (!active.current || currentContext.current !== context) return;
       if (result.currentUserId !== ownerId) throw new Error('Session changed. Refresh this page.');
@@ -294,6 +299,7 @@ export function ProgramSmsPanel({
   return (
     <section className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
+        <Link href="/alerts?tab=SMS_LOGS" className="text-sm text-link hover:underline">View SMS logs</Link>
         <p className="text-sm text-brand-muted">
           Reminder 1 day before the due date · missed-dose follow-up from 1 day after.
         </p>
@@ -320,7 +326,7 @@ export function ProgramSmsPanel({
       )}
       {data && !data.canSend && (
         <p className="rounded-lg bg-brand-ice p-3 text-sm text-brand-navy">
-          View only. Sending is available to RHM and BHW.
+          View only. Your account cannot send these reminders.
         </p>
       )}
       {loading ? (
@@ -365,6 +371,9 @@ export function ProgramSmsPanel({
                 />
               </label>
             </div>
+            {online && data.canSend && <Button variant="tonal" disabled={!data.rows.length} onClick={() => onBulk(data)}>
+              Send bulk reminders
+            </Button>}
             <div className="scroll-subtle overflow-x-auto rounded-xl border border-brand-line">
               <table className="data-grid w-full text-left text-sm text-brand-navy">
                 <thead>
@@ -469,7 +478,7 @@ export function ProgramSmsPanel({
                   </div>
                 </div>
                 <p className="whitespace-pre-wrap rounded-lg border border-brand-line bg-white p-3 text-sm text-brand-navy">
-                  {message}
+                  <ReminderMessage body={message} live={data.liveEnabled} />
                 </p>
                 {!selected.rule_active && (
                   <p className="text-xs text-warn">The reminder rule is inactive.</p>

@@ -27,16 +27,20 @@ function displayDate(value: string|null) {
   const date = new Date(`${value}T00:00:00Z`)
   return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('en-PH',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'}).format(date) : value
 }
+const checkupOptions = { cache: 'no-store', credentials: 'same-origin', redirect: 'manual' } as const
+
 async function readJson(response: Response): Promise<Record<string, unknown>> {
-  const text = await response.text()
-  let body: unknown
-  try { body = JSON.parse(text) } catch {
-    const route='/api/children/<numeric child_id>/checkup-appointments'
-    const hint=response.redirected?'The request was redirected; check sign-in and middleware.':response.status===404?'The API route was not found; restore app/api/children/[childId]/checkup-appointments/route.ts.':'Check the Next.js terminal for a route compilation or middleware error.'
-    throw new Error(`Checkup API returned HTML/non-JSON (HTTP ${response.status}). ${hint} Requested route: ${response.url || route}`)
+  if (response.type === 'opaqueredirect' || response.redirected || (response.status >= 300 && response.status < 400)) {
+    throw new Error('The checkup request was redirected. Sign in again and reopen this profile.')
   }
-  if (!body || typeof body!=='object' || Array.isArray(body)) throw new Error('The appointment response could not be read.')
-  return body as Record<string,unknown>
+  if (!response.headers.get('content-type')?.includes('application/json')) {
+    throw new Error(response.status === 404 || response.ok
+      ? 'The checkup API is unavailable. Confirm the checkup route is included in the current build.'
+      : `The checkup API returned an unexpected response (HTTP ${response.status}). Try again.`)
+  }
+  const body: unknown = await response.json().catch(() => null)
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('The appointment response could not be read.')
+  return body as Record<string, unknown>
 }
 function pendingKey(owner: string, childId: number) { return `echims:checkup-pending:${owner}:${childId}` }
 function readPending(key: string): Payload|null {
@@ -96,7 +100,7 @@ function Appointments({childId,dateOfBirth,registryStatus,canEdit,owner}: Props 
     return ()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update)}
   },[storageKey])
   const fetchPage=async([url,identity]: readonly [string,string]): Promise<Page>=>{
-    const response=await fetch(url,{cache:'no-store',credentials:'same-origin'})
+    const response=await fetch(url,{...checkupOptions, headers: { Accept: 'application/json' }})
     const body=await readJson(response)
     if(!response.ok) throw new Error(typeof body.error==='string'?body.error:'Unable to load checkup appointments.')
     if(body.currentUserId!==identity || body.childId!==childId || !Array.isArray(body.records)) throw new Error('Session changed. Refresh the profile.')
@@ -114,7 +118,7 @@ function Appointments({childId,dateOfBirth,registryStatus,canEdit,owner}: Props 
   async function suggest() {
     setSuggesting(true);setFailure('')
     try {
-      const response=await fetch(`${endpoint}?suggestions=true`,{cache:'no-store',credentials:'same-origin'})
+      const response=await fetch(`${endpoint}?suggestions=true`,{...checkupOptions, headers: { Accept: 'application/json' }})
       const body=await readJson(response)
       if(!response.ok) throw new Error(typeof body.error==='string'?body.error:'Unable to propose dates.')
       if(body.currentUserId!==owner || body.childId!==childId) throw new Error('Session changed. Refresh the profile.')
@@ -140,7 +144,7 @@ function Appointments({childId,dateOfBirth,registryStatus,canEdit,owner}: Props 
     }
     sending.current=true;setBusy(true);setFailure('');setMessage('')
     try {
-      const response=await fetch(endpoint,{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(20000)})
+      const response=await fetch(endpoint,{...checkupOptions, method:'POST',headers:{'Content-Type':'application/json', Accept:'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(20000)})
       const body=await readJson(response)
       if(!response.ok) {
         // Server/network uncertainty keeps the same UUID and payload for retry.

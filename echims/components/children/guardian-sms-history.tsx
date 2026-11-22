@@ -1,326 +1,92 @@
-"use client";
-import { offlineFetch as fetch } from '@/lib/offline/fetch'
+'use client'
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { readPageCache, writePageCache } from '@/lib/page-cache'
-import { useAuth } from "@/components/auth/auth-provider";
-import { Spinner } from '@/components/brand/logo-loader'
+import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import { RefreshCw } from 'lucide-react'
+import { useAuth } from '@/components/auth/auth-provider'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { usePageLoading } from '@/components/brand/page-gate'
-import { EmptyState } from '@/components/ui/empty-state'
-import { MessageSquare, RefreshCw } from 'lucide-react'
+
+const names: Record<string, string> = {
+  VACCINATION: 'Vaccination', SUPPLEMENTATION: 'Supplementation', CHECKUP: 'Follow-up checkup',
+}
+const statuses: Record<string, string> = { SUBMITTED: 'Submitted', IN_PROGRESS: 'In progress', FAILED: 'Failed' }
 
 type Attempt = {
-  simulation_id: number;
-  outcome: string;
-  error_code: string | null;
-  message_snapshot: string;
-  created_at: string;
-  performed_by: string;
-};
-type Reminder = {
-  notification_id: number;
-  notification_type: string;
-  source_module: string | null;
-  message: string;
-  delivery_status: string;
-  queue_status: string;
-  created_at: string;
-  sent_at: string | null;
-  masked_number: string | null;
-  simulation_attempts: Attempt[];
-};
-type History = {
-  currentUserId: string;
-  childId: number;
-  guardianId: number;
-  reminders: Reminder[];
-};
-function time(value: string | null) {
-  if (!value) return "Not sent";
-  const parsed = new Date(value);
-  return Number.isFinite(parsed.getTime())
-    ? parsed.toLocaleString("en-PH", { timeZone: "Asia/Manila" })
-    : "Unavailable";
-}
-const errors: Record<string, string> = {
-  NETWORK_ERROR: "Network error",
-  INSUFFICIENT_CREDITS: "Insufficient credits",
-  PROVIDER_ERROR: "Provider error",
-};
-function reminderLabel(type: string) {
-  const program = type.startsWith("VACCINATION")
-    ? "Vaccination"
-    : type.startsWith("SUPPLEMENTATION")
-      ? "Supplementation"
-      : "Health";
-  if (type.includes("UPCOMING")) return `${program} — Upcoming reminder`;
-  if (type.includes("OVERDUE")) return `${program} — Missed-dose reminder`;
-  return `${program} reminder`;
+  id: string
+  program: string
+  status: string
+  created_at: string
+  masked_number: string | null
+  provider_uid: string | null
+  error_code: string | null
+  needs_provider_check: boolean
 }
 
-export function GuardianSmsHistory({
-  childId,
-  guardianId,
-}: {
-  childId: number;
-  guardianId: number;
+export function GuardianSmsHistory({ childId, guardianId }: { childId: number; guardianId: number }) {
+  const { user, isReady } = useAuth()
+  const owner = isReady ? user?.id : undefined
+  return <GuardianSmsHistoryPanel key={`${owner ?? ''}:${childId}:${guardianId}`} owner={owner} childId={childId} guardianId={guardianId} />
+}
+
+function GuardianSmsHistoryPanel({ childId, guardianId, owner }: {
+  childId: number
+  guardianId: number
+  owner?: string
 }) {
-  const sharedAuth = useAuth();
-  const [owner, setOwner] = useState<string | null>(null);
-  const [data, setData] = useState<History | null>(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
-  // Last result per child and guardian: reopening the profile shows it at once, and the 30s
-  // background refresh never holds the page.
-  const cacheKey = `guardian-sms:${childId}:${guardianId}`;
-  usePageLoading(loading && !data)
-  const ownerRef = useRef<string | null>(null);
-  const generation = useRef(0);
-  const mounted = useRef(true);
-  const pending = useRef(new Set<AbortController>());
+  const [open, setOpen] = useState(false)
+  const [reload, setReload] = useState(0)
+  const [result, setResult] = useState<{ rows: Attempt[] } | { error: string } | null>(null)
 
   useEffect(() => {
-    mounted.current = true;
-    const activeRequests = pending.current;
-    const apply = (id: string | null) => {
-      if (!mounted.current) return;
-      if (ownerRef.current === id) {
-        if (!id) {
-          setLoading(false);
-          setData(null);
-          setError("Please sign in to view SMS history.");
+    if (!owner || !open) return
+    const request = new AbortController()
+    void (async () => {
+      try {
+        const response = await fetch(`/api/children/${childId}/guardian-sms?guardian_id=${guardianId}`, {
+          cache: 'no-store', signal: request.signal,
+        })
+        const body = await response.json().catch(() => null)
+        if (!response.ok) throw new Error(body?.error || 'Unable to load the selected guardian’s SMS history.')
+        if (body?.currentUserId !== owner || body.childId !== childId || body.guardianId !== guardianId || !Array.isArray(body.rows)) {
+          throw new Error('The selected child or guardian changed. Refresh the profile.')
         }
-        return;
+        if (!request.signal.aborted) setResult({ rows: body.rows })
+      } catch (cause) {
+        if (!request.signal.aborted) setResult({
+          error: navigator.onLine && cause instanceof Error ? cause.message : 'Reconnect to load SMS history.',
+        })
       }
-      ownerRef.current = id;
-      generation.current++;
-      pending.current.forEach((controller) => controller.abort());
-      pending.current.clear();
-      setOwner(id);
-      setData(readPageCache<History>(id, cacheKey) ?? null);
-      setError("");
-      setLoading(Boolean(id));
-    };
-    if(sharedAuth.isReady) apply(sharedAuth.user?.id ?? null);
-    return () => {
-      mounted.current = false;
-      generation.current++;
-      activeRequests.forEach((controller) => controller.abort());
-      activeRequests.clear();
-    };
-  }, [sharedAuth.isReady, sharedAuth.user?.id, cacheKey]);
+    })()
+    return () => request.abort()
+  }, [owner, open, childId, guardianId, reload])
 
-  const refresh = useCallback(async () => {
-    if (!owner || ownerRef.current !== owner) return;
-    const current = ++generation.current;
-    const controller = new AbortController();
-    pending.current.add(controller);
-    setLoading(true);
-    setError("");
-    try {
-      const response = await fetch(
-        `/api/children/${childId}/guardian-sms?guardian_id=${guardianId}`,
-        { cache: "no-store", signal: controller.signal },
-      );
-      const result: unknown = await response.json().catch(() => null);
-      if (!response.ok)
-        throw new Error(
-          result &&
-          typeof result === "object" &&
-          "error" in result &&
-          typeof result.error === "string"
-            ? result.error
-            : "Unable to load child SMS history.",
-        );
-      if (
-        !result ||
-        typeof result !== "object" ||
-        !("currentUserId" in result) ||
-        result.currentUserId !== owner ||
-        !("childId" in result) ||
-        result.childId !== childId ||
-        !("guardianId" in result) ||
-        result.guardianId !== guardianId ||
-        !("reminders" in result) ||
-        !Array.isArray(result.reminders)
-      )
-        throw new Error(
-          "Unexpected SMS history response. Check the API route and refresh the profile.",
-        );
-      if (
-        mounted.current &&
-        generation.current === current &&
-        ownerRef.current === owner
-      ) {
-        setData(result as History);
-        writePageCache(owner, cacheKey, result);
-      }
-    } catch (cause) {
-      if (
-        mounted.current &&
-        generation.current === current &&
-        !(cause instanceof Error && cause.name === "AbortError")
-      ) {
-        setData(null);
-        setError(
-          cause instanceof Error
-            ? cause.message
-            : "Unable to load SMS history.",
-        );
-      }
-    } finally {
-      pending.current.delete(controller);
-      if (mounted.current && generation.current === current) setLoading(false);
-    }
-  }, [owner, childId, guardianId, cacheKey]);
-  useEffect(() => {
-    setData(readPageCache<History>(ownerRef.current, cacheKey) ?? null);
-    void refresh();
-    const id = setInterval(() => {
-      if (document.visibilityState === "visible") void refresh();
-    }, 30000);
-    return () => {
-      clearInterval(id);
-      generation.current++;
-    };
-  }, [refresh, cacheKey]);
-
-  return (
-    <details className="group mt-4 rounded-xl border border-border">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-semibold [&::-webkit-details-marker]:hidden">
-        <span>Guardian SMS status</span>
-        <span className="text-xs font-medium text-primary">
-          <span className="group-open:hidden">Show</span>
-          <span className="hidden group-open:inline">Hide</span>
-        </span>
-      </summary>
-      <div className="space-y-3 border-t border-border p-4">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold">Message history</h3>
-          <Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={!owner} onClick={() => void refresh()}><RefreshCw size={16} aria-hidden="true" className={loading && Boolean(data) ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Simulated results are for presentation. Simulation times do not mean
-          an actual text was sent.
-        </p>
-        {error && (
-          <p role="alert" className="text-sm text-red-600">
-            {error}
-          </p>
-        )}
-        {loading && !data && (
-          <Spinner showLabel label="Loading SMS history…" className="w-full justify-center py-6 text-sm text-muted-foreground" />
-        )}
-        {data?.reminders.length === 0 && (
-          <EmptyState icon={MessageSquare} title="No SMS reminders yet" description="Reminders sent to this guardian about this child will appear here." />
-        )}
-        {data?.reminders.map((reminder) => {
-          const latest = reminder.simulation_attempts[0];
-          const lastSimulatedSent = reminder.simulation_attempts.find(
-            (attempt) => attempt.outcome === "SIMULATED_SENT",
-          );
-          return (
-            <article
-              key={reminder.notification_id}
-              className="space-y-3 rounded-lg bg-muted/30 p-3"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs font-semibold">
-                  {reminderLabel(reminder.notification_type)}
-                </p>
-                {latest && (
-                  <StatusBadge
-                    status={latest.outcome}
-                    tone={latest.outcome === "SIMULATED_SENT" ? "good" : "danger"}
-                    label={latest.outcome.replace(/_/g, " ")}
-                  />
-                )}
-              </div>
-              <p className="whitespace-pre-wrap text-sm">
-                {latest?.message_snapshot ?? reminder.message}
-              </p>
-              {latest?.error_code && (
-                <p className="text-xs text-red-700">
-                  Simulation error:{" "}
-                  {errors[latest.error_code] ?? latest.error_code}
-                </p>
-              )}
-              <dl className="grid gap-2 text-xs sm:grid-cols-2">
-                <div>
-                  <dt className="text-muted-foreground">
-                    Actual delivery status
-                  </dt>
-                  <dd className="mt-1 font-medium">
-                    {reminder.delivery_status.replace(/_/g, " ")}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Actual time sent</dt>
-                  <dd className="mt-1">{time(reminder.sent_at)}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Queue status</dt>
-                  <dd className="mt-1">
-                    {reminder.queue_status.replace(/_/g, " ")}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Guardian number</dt>
-                  <dd className="mt-1">
-                    {reminder.masked_number ?? "Unavailable"}
-                  </dd>
-                </div>
-                {latest && (
-                  <div>
-                    <dt className="text-muted-foreground">
-                      Latest simulation time
-                    </dt>
-                    <dd className="mt-1">{time(latest.created_at)}</dd>
-                  </div>
-                )}
-                {lastSimulatedSent && (
-                  <div>
-                    <dt className="text-muted-foreground">
-                      Simulated sent time
-                    </dt>
-                    <dd className="mt-1">
-                      {time(lastSimulatedSent.created_at)}
-                    </dd>
-                  </div>
-                )}
-              </dl>
-              {reminder.simulation_attempts.length > 0 && (
-                <details className="text-xs">
-                  <summary className="cursor-pointer font-medium text-primary">
-                    Simulation history
-                  </summary>
-                  <div className="mt-2 space-y-2">
-                    {reminder.simulation_attempts.map((attempt) => (
-                      <div
-                        key={attempt.simulation_id}
-                        className="rounded border border-border p-2"
-                      >
-                        <p className="font-medium">
-                          {attempt.outcome.replace(/_/g, " ")}
-                          {attempt.error_code
-                            ? ` · ${errors[attempt.error_code] ?? attempt.error_code}`
-                            : ""}
-                        </p>
-                        <p className="mt-1 text-muted-foreground">
-                          {time(attempt.created_at)} · {attempt.performed_by}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </details>
-              )}
-            </article>
-          );
-        })}
+  return <details className="group mt-4 rounded-xl border border-border" onToggle={(event) => setOpen(event.currentTarget.open)}>
+    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+      Guardian SMS status <span className="text-xs font-medium text-primary"><span className="group-open:hidden">Show</span><span className="hidden group-open:inline">Hide</span></span>
+    </summary>
+    <div className="space-y-3 border-t border-border p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">Message history</h3>
+        <Button variant="secondary" size="icon" aria-label="Refresh SMS history" disabled={!owner} onClick={() => { setResult(null); setReload((value) => value + 1) }}><RefreshCw size={16} /></Button>
       </div>
-    </details>
-  );
+      {!owner && <p className="text-sm text-brand-muted">Sign in online to see SMS history.</p>}
+      {owner && !result && <p role="status" className="text-sm text-brand-muted">Loading SMS history…</p>}
+      {result && 'error' in result && <p role="alert" className="text-sm text-danger">{result.error}</p>}
+      {result && 'rows' in result && <>
+        {!result.rows.length && <p className="text-sm text-brand-muted">No SMS attempts for this child and guardian.</p>}
+        {result.rows.map((row) => <article key={row.id} className="space-y-1 rounded-lg bg-muted/30 p-3 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="font-semibold">{names[row.program] ?? row.program}</span>
+            <StatusBadge status={row.status} label={statuses[row.status] ?? row.status} />
+          </div>
+          <p>{new Date(row.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })} · {row.masked_number ?? '—'}</p>
+          {row.provider_uid && <p className="text-brand-muted">iProg reference {row.provider_uid}</p>}
+          {row.error_code && <p className="text-brand-muted">{row.error_code}</p>}
+          {row.needs_provider_check && <p className="text-brand-muted">Check with iProg before resending.</p>}
+        </article>)}
+      </>}
+      <Link href={`/alerts?tab=SMS_LOGS&child=${childId}`} className="text-xs font-medium text-link hover:underline">View child SMS logs</Link>
+    </div>
+  </details>
 }
-    

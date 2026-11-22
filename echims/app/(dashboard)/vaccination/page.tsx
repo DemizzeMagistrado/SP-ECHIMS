@@ -41,7 +41,7 @@ import { PAGE_SIZE, Pagination, collapsedRowsHeight, usePagination, useStableHei
 import { Field } from '@/components/ui/form'
 import { BhwAssistBadge, BhwAssistToggle } from '@/components/vaccination/bhw-assist'
 import { ScheduleHistoryButton } from '@/components/vaccination/schedule-history'
-import { BulkReminderButton, SendReminderButton, remindersByChild, type ReminderData, type ReminderRow } from '@/components/vaccination/schedule-reminders'
+import { BulkReminderButton, SendReminderButton, remindersByChild, type ReminderData } from '@/components/vaccination/schedule-reminders'
 import { NoAccess } from '@/components/ui/no-access'
 
 /* ═════════════════════════ Shared helpers ═════════════════════════ */
@@ -647,10 +647,6 @@ function ScheduleSection() {
       <SectionHeader
         title="Vaccination: Schedule"
         subtitle="Each child's next dose, Missed doses with their new dates, schedule requests and guardian reminders."
-        actions={<>
-          {role === 'Administrator' && <Link href="/alerts?tab=SMS" className={buttonVariants({ variant: 'tonal' })}><MessageSquare size={16} aria-hidden="true" /> SMS history</Link>}
-          {!readOnly && <BulkReminderButton rows={shown.map((c) => reminders.get(c.child_id)).filter((r): r is ReminderRow => Boolean(r))} data={sms.data} onSent={refreshAll} />}
-        </>}
       />
 
       {doses.isLoading ? (
@@ -661,7 +657,17 @@ function ScheduleSection() {
         <fieldset disabled={readOnly} className={REPORT_CARD}>
           <FilterBar
             className="p-4"
-            chips={<FilterChips label="Show" value={chip} onChange={setChip} options={CHIPS.map((c) => ({ value: c, label: chipLabel[c], count: chipCount[c] }))} />}
+            chips={
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <FilterChips label="Show" value={chip} onChange={setChip} options={CHIPS.map((c) => ({ value: c, label: chipLabel[c], count: chipCount[c] }))} />
+                {!readOnly && <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+                  <Link href="/alerts?tab=SMS_LOGS" className={buttonVariants({ variant: 'tonal' })}>
+                    <MessageSquare size={16} aria-hidden="true" /> SMS logs
+                  </Link>
+                  <BulkReminderButton rows={sms.data?.rows ?? []} data={sms.data} onSent={refreshAll} />
+                </div>}
+              </div>
+            }
             search={
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} aria-hidden="true" />

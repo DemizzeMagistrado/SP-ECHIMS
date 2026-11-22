@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     const panel = result.data as unknown as Record<string, unknown> | null
     if (!panel || panel.currentUserId !== auth.userId) return json({ error: 'Session changed. Refresh the page.' }, 409)
     const config = smsConfiguration()
-    return json({ ...panel, mode: config.mode, canSend: panel.canSend === true && ['Rural Health Midwife', 'Barangay Health Worker'].includes(auth.role),
+    return json({ ...panel, mode: config.mode, canSend: auth.role !== 'Administrator' && (config.mode === 'simulation' ? panel.canSimulate === true : panel.canSend === true),
       liveEnabled: config.ready, simulationEnabled: config.mode === 'simulation' && process.env.SMS_SIMULATION_ENABLED === 'true',
       previewEnabled: config.mode === 'simulation' && process.env.SMS_PRESENTATION_PREVIEW_ENABLED === 'true' })
   } catch { return json({ error: 'Unable to load SMS reminders.' }, 500) }
@@ -29,6 +29,7 @@ export async function POST(request: Request) {
     if (typeof body.serviceKey !== 'string' || !body.serviceKey || body.serviceKey.length > 500 || !uuid(body.requestId) || !['UPCOMING', 'OVERDUE'].includes(String(body.messageType))) return json({ error: 'Choose a valid saved reminder and request ID.' }, 400)
     const config = smsConfiguration()
     if (body.action !== 'SEND') {
+      if (!['Rural Health Midwife', 'Barangay Health Worker'].includes(auth.role)) return json({ error: 'This account cannot run SMS simulations.' }, 403)
       if (config.mode !== 'simulation' || process.env.SMS_SIMULATION_ENABLED !== 'true') return json({ error: 'Simulation is disabled.' }, 403)
       if (!['SIMULATED_SENT', 'SIMULATED_FAILED'].includes(String(body.outcome)) || (body.outcome === 'SIMULATED_SENT' && body.errorCode !== null) || (body.outcome === 'SIMULATED_FAILED' && !['NETWORK_ERROR', 'INSUFFICIENT_CREDITS', 'PROVIDER_ERROR'].includes(String(body.errorCode))) || (body.preview !== undefined && typeof body.preview !== 'boolean')) return json({ error: 'Choose a valid simulation scenario.' }, 400)
       if (body.preview === true && process.env.SMS_PRESENTATION_PREVIEW_ENABLED !== 'true') return json({ error: 'Presentation preview is disabled.' }, 403)
@@ -41,10 +42,22 @@ export async function POST(request: Request) {
     if (!config.ready) return json({ error: 'Live sending is disabled. Configure iProg SMS credentials and SMS_MODE=live. Sender and network availability follow the approved provider account route.' }, 503)
     if (body.preview === true) return json({ error: 'Presentation previews cannot be sent as live SMS.' }, 400)
     if (body.requestOwnerId !== auth.userId) return json({ error: 'Session changed. Refresh before sending.' }, 409)
+    if (body.batchId != null && !uuid(body.batchId)) return json({ error: 'Invalid SMS batch reference.' }, 400)
+    if (typeof body.reviewedMessage !== 'string' || !body.reviewedMessage.trim() || body.reviewedMessage.length > 300) {
+      return json({ error: 'Refresh and review the reminder before sending.' }, 400)
+    }
     const service = smsService() // Fail before reserving an attempt if server credentials are missing.
-    const prepared = await auth.db.rpc('echims_prepare_live_sms', { p_program: program, p_service_key: body.serviceKey, p_phase: body.messageType, p_request_id: body.requestId })
-    if (prepared.error) return dbFailure(prepared.error)
-    const attempt = prepared.data as { attempt_id: number }
+    const prepared = await auth.db.rpc('echims_prepare_reviewed_live_sms', {
+      p_program: program, p_service_key: body.serviceKey, p_phase: body.messageType,
+      p_request_id: body.requestId, p_batch_id: body.batchId ?? null, p_message: body.reviewedMessage,
+    })
+    if (prepared.error) return prepared.error.code === '40001' ? json({ error: prepared.error.message }, 409) : dbFailure(prepared.error)
+    const attempt = prepared.data as { attempt_id: number; status: string; can_claim?: boolean }
+    if (attempt.can_claim === false) return json({
+      currentUserId: auth.userId,
+      result: { mode: 'LIVE', attempt_id: attempt.attempt_id, status: attempt.status, replayed: true },
+      message: 'An existing attempt is recorded for this reminder.',
+    })
     const claimed = await service.rpc('echims_claim_live_sms', { p_attempt_id: attempt.attempt_id, p_actor_id: auth.userId })
     if (claimed.error) return dbFailure(claimed.error)
     const dispatch = claimed.data as { send: boolean; destination?: string; message?: string; status: string }
