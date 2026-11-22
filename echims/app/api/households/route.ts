@@ -9,7 +9,7 @@ export async function GET(request:Request){
   if(search.length>200)return fail('Search must be at most 200 characters.',400)
   const addressOnly=params.get('searchBy')==='address'
   const pattern=`%${search.replace(/[\\%_]/g,'\\$&')}%`
-  let query=auth.db.from('household').select('household_id,household_no,family_serial_no,household_address,purok,barangay_id,water_source_type,toilet_facility_type,information_revision,information_updated_by,information_updated_at').eq('barangay_id',barangayId)
+  let query=auth.db.from('household').select('household_id,household_no,family_serial_no,household_address,purok,barangay_id,water_source_type,toilet_facility_type,information_revision,information_updated_by,information_updated_at,latitude,longitude').eq('barangay_id',barangayId)
   if(addressOnly)query=query.ilike('household_address',pattern)
   else{
    // Quote pattern as a PostgREST literal rather than interpolating filter syntax.

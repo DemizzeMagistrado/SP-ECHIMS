@@ -46,7 +46,7 @@ type Guardian = {
   guardian_id: number; first_name: string; middle_name: string | null; last_name: string;
   relationship_to_child: string | null; contact_number?: string | null; address?: string | null;
 };
-type Household = { household_id: number; household_no: string | null; family_serial_no?: string | null; household_address: string | null; purok?: string | null };
+type Household = { household_id: number; household_no: string | null; family_serial_no?: string | null; household_address: string | null; purok?: string | null; latitude?: number | null; longitude?: number | null };
 
 const fetcher = async (url: string) => {
   const response = await fetch(url);
@@ -91,6 +91,7 @@ export function ChildFormModal({
   const [newHousehold, setNewHousehold] = useState(draft?.newHousehold ?? false);
   // Registration only: the household's map location from this device, saved right after the child.
   const [coords, setCoords] = useState<DeviceCoords | null>(null);
+  const [pickedHousehold, setPickedHousehold] = useState<Household | null>(null);
   const [householdQuery, setHouseholdQuery] = useState("");
   const [guardianQuery, setGuardianQuery] = useState("");
   const [message, setMessage] = useState("");
@@ -110,6 +111,10 @@ export function ChildFormModal({
       ? `/api/households?q=${encodeURIComponent(householdQuery)}&barangayId=${form.barangay_id}` : null,
     fetcher,
   );
+  // The selected existing household's stored location: shown read-only and never overwritten.
+  const savedCoords = !newHousehold && pickedHousehold && String(pickedHousehold.household_id) === String(form.household_id)
+    && pickedHousehold.latitude != null && pickedHousehold.longitude != null
+    ? { latitude: Number(pickedHousehold.latitude), longitude: Number(pickedHousehold.longitude) } : null;
   const { data: guardianMatches = [] } = useSWR<Guardian[]>(
     !newGuardian && guardianQuery.length > 1 ? `/api/guardians?q=${encodeURIComponent(guardianQuery)}` : null,
     fetcher,
@@ -303,7 +308,9 @@ export function ChildFormModal({
       if (r.status === 409 && d.duplicate) { await showDuplicate(values); return; }
       if (!r.ok) throw new Error(d.error || "The child record was not saved. Check your connection and try again.");
       if (d.warning) toast.warning(d.warning);
-      if (mode === "create" && coords && d.household_id) {
+      // Never overwrite a location the chosen existing household already has.
+      const hasSavedLocation = pickedHousehold?.household_id === d.household_id && pickedHousehold?.latitude != null && pickedHousehold?.longitude != null;
+      if (mode === "create" && coords && !hasSavedLocation && d.household_id) {
         // The child is saved either way; a failed location only warns (it can be pinned on the Map tab).
         const loc = await fetch("/api/households/location", { method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ household_id: d.household_id, latitude: coords.latitude, longitude: coords.longitude }) }).catch(() => null);
@@ -392,8 +399,8 @@ export function ChildFormModal({
       )}
     </Field>
   );
-  const choice = (key: string, label: string, opts: { required?: boolean; values?: string[] } = {}) => (
-    <Field label={label} required={opts.required} error={errors[key]}>
+  const choice = (key: string, label: string, opts: { required?: boolean; values?: string[]; className?: string } = {}) => (
+    <Field label={label} required={opts.required} error={errors[key]} className={opts.className}>
       <Select value={str(key)} onChange={(e) => set(key, e.target.value)}>
         <option value="">Select</option>
         {(opts.values ?? options[key as keyof typeof options]).map((item) => <option key={item}>{item}</option>)}
@@ -641,7 +648,7 @@ export function ChildFormModal({
                     <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-56 overflow-auto rounded-lg border border-border bg-white shadow-lg">
                       {householdMatches.length > 0 ? householdMatches.map((h) => (
                         <button key={h.household_id} type="button"
-                          onClick={() => { set("household_id", String(h.household_id)); setHouseholdQuery(`${h.household_no} — ${h.household_address}`); setCodes((c) => ({ ...c, fsn: h.family_serial_no ?? "" })); }}
+                          onClick={() => { set("household_id", String(h.household_id)); setPickedHousehold(h); setHouseholdQuery(`${h.household_no} — ${h.household_address}`); setCodes((c) => ({ ...c, fsn: h.family_serial_no ?? "" })); }}
                           className="block w-full border-l-[3px] border-transparent px-3 py-2 text-left text-sm hover:border-primary hover:bg-brand-ice/70 focus-visible:border-primary focus-visible:bg-brand-ice/70 focus-visible:outline-none active:bg-brand-ice">
                           {h.household_no} — {h.household_address}
                           {h.family_serial_no && <span className="block font-mono text-xs text-muted-foreground">{h.family_serial_no}</span>}
@@ -666,12 +673,18 @@ export function ChildFormModal({
                   </div>
                 </>)}
                 {choice("water_source_type", "Water source")}
-                {choice("toilet_facility_type", "Toilet facility")}
+                {choice("toilet_facility_type", "Toilet facility", { className: "sm:col-span-2" })}
                 {mode === "create" && !draft && (
                   <div className={wide}>
-                    <Field label="Household map location (optional)" hint="Uses this device's location; check the coordinates before saving. Saved with the household when the child is registered.">
-                      <DeviceLocationField value={coords} onChange={setCoords} disabled={saving || !online} />
-                    </Field>
+                    {savedCoords ? (
+                      <Field label="Household map location" hint="This household already has a saved location.">
+                        <p className="font-mono text-sm text-brand-navy">{formatCoords(savedCoords)}</p>
+                      </Field>
+                    ) : (
+                      <Field label="Household map location (optional)" hint="Uses this device's location; check the coordinates before saving. Saved with the household when the child is registered.">
+                        <DeviceLocationField value={coords} onChange={setCoords} disabled={saving || !online} />
+                      </Field>
+                    )}
                   </div>
                 )}
               </div>
@@ -710,7 +723,7 @@ export function ChildFormModal({
                   ? `New: ${[str("household_no"), str("household_address"), str("purok") && `Purok ${str("purok")}`].filter(Boolean).join(" · ")}${form.is_4ps_member ? " · 4Ps" : ""}`
                   : form.household_id ? householdQuery : ""],
                 ["Water source", str("water_source_type")], ["Toilet facility", str("toilet_facility_type")],
-                ...(mode === "create" && !draft ? [["Map location", coords ? formatCoords(coords) : "Not set"] as [string, string]] : []),
+                ...(mode === "create" && !draft ? [["Map location", savedCoords ? formatCoords(savedCoords) : coords ? formatCoords(coords) : "Not set"] as [string, string]] : []),
               ]} />
               {mode === 'create' && draft && online && (
                 <div className="rounded-xl border border-warn/25 bg-warn-soft p-4">
