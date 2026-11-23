@@ -7,6 +7,7 @@ import { useRouter } from "@/lib/offline/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
 import type { UserRole } from "@/lib/echims-data";
 import { createClient } from "@/lib/supabase/client";
+import { authInputClass, authSubmitClass } from "@/components/auth/auth-form-style";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { Spinner } from "@/components/brand/logo-loader";
 /* =========================================================
@@ -439,8 +440,7 @@ export default function RegisterPage() {
   /* =======================================================
      STYLES
   ======================================================= */
-  const inputClass =
-    "h-12 w-full rounded-xl border border-[#C9DCE6] bg-white px-4 text-base text-[#03045E] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#8A93A6] focus:border-[#087DB9] focus:ring-4 focus:ring-[#087DB9]/15 disabled:bg-[#F4F6F8] disabled:text-[#8A93A6]";
+  const inputClass = `${authInputClass} disabled:bg-[#F4F6F8] disabled:text-[#8A93A6]`;
   /* =======================================================
      UI
   ======================================================= */
@@ -458,7 +458,9 @@ export default function RegisterPage() {
             <div className="mt-5 rounded-xl border border-brand-line bg-brand-ice p-4 text-sm">
               <p className="font-semibold">Registering as a parent or guardian?</p>
               <p className="mt-1 text-brand-muted">Verify your mobile number to view your linked children. No employee details are required.</p>
-              <Link href="/guardian/login?mode=register" className="mt-2 inline-block font-semibold underline">Register as Guardian</Link>
+              {/* Full page load on purpose: the guardian portal has its own session and skips the staff proxy check. */}
+              {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+              <a href="/guardian/register" className="mt-2 inline-block font-semibold text-[#087DB9] hover:underline">Register as Guardian</a>
             </div>
           )}
           <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-500 [animation-delay:250ms]">
@@ -528,7 +530,9 @@ export default function RegisterPage() {
                       value={form.role}
                       onChange={(event) => {
                         if (event.target.value === 'Guardian') {
-                          router.push('/guardian/login?mode=register');
+                          // Full page load on purpose (separate guardian session), as in GRD-USR003.
+                          // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+                          window.location.assign('/guardian/register');
                           return;
                         }
                         handleRoleChange(event.target.value as UserRole);
@@ -887,7 +891,7 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="h-12 w-full rounded-lg bg-[#087DB9] px-5 font-semibold text-white shadow-sm shadow-[#087DB9]/30 transition-colors hover:bg-[#056d9e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                  className={authSubmitClass}
                 >
                   {loading && <Spinner label="Creating account" className="mr-2" />}
                   {loading ? "Creating account…" : "Create account"}

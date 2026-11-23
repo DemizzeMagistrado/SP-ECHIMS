@@ -6,6 +6,7 @@ import { FormEvent, useState, useEffect } from 'react'
 import { useAuth } from '@/components/auth/auth-provider'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from '@/lib/offline/navigation'
+import { authInputClass as inputClass, authSubmitClass } from '@/components/auth/auth-form-style'
 import { AuthShell } from '@/components/auth/auth-shell'
 import { Spinner } from '@/components/brand/logo-loader'
 
@@ -50,6 +51,14 @@ export default function LoginPage() {
         <p className="mt-2 text-[#5B6478]">{offline?'Sign in to your saved account on this device':'Sign in to your RHU account'}</p>
         {offline && <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm leading-6 text-amber-900">Use the email and password you last used to sign in online on this browser. Saved access lasts seven days from online verification. New accounts and password resets require internet.</p>}
       </div>
+      {process.env.NEXT_PUBLIC_GUARDIAN_PORTAL_ENABLED === 'true' && (
+        <div className="mt-5 rounded-xl border border-brand-line bg-brand-ice p-4 text-sm">
+          <p className="font-semibold">Signing in as a parent or guardian?</p>
+          {/* Full page load on purpose: the guardian portal has its own session and skips the staff proxy check. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a href="/guardian/login" className="mt-2 inline-block font-semibold text-[#087DB9] hover:underline">Log in as Guardian</a>
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="auth-stagger mt-8 space-y-5">
         <div>
           <label htmlFor="email" className="text-sm font-semibold">Username or email</label>
@@ -67,7 +76,7 @@ export default function LoginPage() {
         </div>
         <label className="flex w-fit items-center gap-2 text-sm text-[#5B6478]"><input type="checkbox" className="h-4 w-4 accent-[#087DB9]" />Remember me</label>
         {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 animate-in fade-in slide-in-from-top-1 duration-200">{error}</p>}
-        <button type="submit" disabled={busy} className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#087DB9] font-semibold text-white shadow-sm shadow-[#087DB9]/30 transition-colors hover:bg-[#056d9e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087DB9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70">
+        <button type="submit" disabled={busy} className={authSubmitClass}>
           {busy && <Spinner label="Signing in" />}
           {busy?'Signing in…':offline?'Sign in offline':'Sign in'}
         </button>
@@ -79,5 +88,3 @@ export default function LoginPage() {
     </AuthShell>
   )
 }
-
-const inputClass = 'h-12 w-full rounded-xl border border-[#C9DCE6] bg-white px-4 text-base text-[#03045E] placeholder:text-[#8A93A6] outline-none transition-[border-color,box-shadow] duration-150 focus:border-[#087DB9] focus:ring-4 focus:ring-[#087DB9]/15'
