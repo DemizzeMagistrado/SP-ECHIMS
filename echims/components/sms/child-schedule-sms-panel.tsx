@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { ReminderMessage } from '@/components/sms/reminder-message'
 import { Button } from '@/components/ui/button'
+import { RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 type Row={source_key:string;program:string;kind:string;due_date:string;start_time:string|null;title:string;phase:string;message:string;preview_signature:string;last_status:string|null;can_send:boolean}
 type Panel={currentUserId:string;childId:number;childName:string;contactStatus:string;maskedNumber:string|null;records:Row[];liveEnabled:boolean}
@@ -54,7 +55,7 @@ export function ChildScheduleSmsPanel({childId,embedded=false}:{childId?:number;
    <label className="flex flex-col gap-1 text-sm">Child ID<input className={field} inputMode="numeric" value={id} disabled={busy||!!pending} onChange={e=>{setId(e.target.value);invalidate()}}/></label>
    <label className="flex flex-col gap-1 text-sm">Language<select className={field} value={language} disabled={busy||!!pending} onChange={e=>{setLanguage(e.target.value);invalidate()}}><option value="TL">Tagalog</option><option value="EN">English</option></select></label>
    <label className="flex flex-col gap-1 text-sm">Confirmed venue / contact facility<input className={field} value={venue} maxLength={60} disabled={busy||!!pending} placeholder="e.g. Bibirao BHS" onChange={e=>{setVenue(e.target.value);invalidate()}}/></label>
-   <Button variant="secondary" className="self-end" disabled={busy||!online} onClick={()=>void load()}>Refresh reminders</Button>
+   <Button variant="secondary" size="icon" className="size-10 self-end" aria-label="Refresh reminders" title="Refresh reminders" disabled={busy||!online} onClick={()=>void load()}><RefreshCw size={16} aria-hidden="true" /></Button>
   </div>
   {data&&<>
    <Link className="mb-2 inline-block text-sm text-link hover:underline" href={`/alerts?tab=SMS_LOGS&child=${data.childId}`}>View SMS logs</Link>

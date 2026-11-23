@@ -174,9 +174,32 @@ export default function ChildHealthPage() {
       <ChildChangeDraftPanel onUploaded={()=>{void mutate()}}/>
       <PageHeader
         title="Child Profiling: Children"
-        subtitle={view === 'archived'
-          ? 'Children who turned five. Profiles and service histories are kept.'
-          : 'Register and monitor children aged 0–59 months.'}
+        subtitle={<>
+          {view === 'archived'
+            ? 'Children who turned five. Profiles and service histories are kept.'
+            : 'Register and monitor children aged 0–59 months.'}
+          {' '}
+          {/* Inline after the subtitle (this page only) so it no longer takes its own row. */}
+          <InfoTip label="About this view" text="About this view" align="start">
+            <InfoContent
+              title={view === 'archived' ? 'Archived (age-out) children' : 'Active children (0–59 months)'}
+              description={view === 'archived'
+                ? 'Children who have reached their fifth birthday. They leave the under-five program on the exact anniversary; profiles, service history and continuing care remain available.'
+                : 'Registered children currently inside the 0–59 month under-five program for your assigned scope.'}
+              sections={[
+                { label: 'Scope', value: 'Filtered to your authorized barangays or RHU. Transfers in / out are handled in Transfer Inbox, not here.' },
+                { label: 'Values', value: view === 'archived'
+                  ? ['Age-out is not an Inactive status', 'History stays available']
+                  : ['Status = registry state', 'Monitoring = latest service rules']
+                },
+                ...(canSeeArchive ? [{ label: 'Tip' as const, value: view === 'archived'
+                  ? 'Switch to Active to register a child.'
+                  : 'Switch to Archived (age-out) for children past age five.'
+                }] : []),
+              ]}
+            />
+          </InfoTip>
+        </>}
         actions={
           <>
             {canUploadMasterlist && view === 'active' && (
@@ -191,8 +214,8 @@ export default function ChildHealthPage() {
         }
       />
       {/* View switch (FINAL-POLISH: merged Archived Children into this tab). */}
-      <div className="-mt-2 flex flex-wrap items-center gap-2">
-        {canSeeArchive && <div role="tablist" aria-label="Children view" className={segmentGroup}>
+      {canSeeArchive && <div className="-mt-2 flex flex-wrap items-center gap-2">
+        <div role="tablist" aria-label="Children view" className={segmentGroup}>
           {([
             { value: 'active' as const, label: 'Active (0–59 mos)' },
             { value: 'archived' as const, label: 'Archived (age-out)' },
@@ -209,27 +232,8 @@ export default function ChildHealthPage() {
             </button>
           ))}
           <TabIndicator group="children-view" activeKey={view} className={segmentFill} />
-        </div>}
-        <InfoTip label="About this view" text="About this view" align="end">
-          <InfoContent
-            title={view === 'archived' ? 'Archived (age-out) children' : 'Active children (0–59 months)'}
-            description={view === 'archived'
-              ? 'Children who have reached their fifth birthday. They leave the under-five program on the exact anniversary; profiles, service history and continuing care remain available.'
-              : 'Registered children currently inside the 0–59 month under-five program for your assigned scope.'}
-            sections={[
-              { label: 'Scope', value: 'Filtered to your authorized barangays or RHU. Transfers in / out are handled in Transfer Inbox, not here.' },
-              { label: 'Values', value: view === 'archived'
-                ? ['Age-out is not an Inactive status', 'History stays available']
-                : ['Status = registry state', 'Monitoring = latest service rules']
-              },
-              ...(canSeeArchive ? [{ label: 'Tip' as const, value: view === 'archived'
-                ? 'Switch to Active to register a child.'
-                : 'Switch to Archived (age-out) for children past age five.'
-              }] : []),
-            ]}
-          />
-        </InfoTip>
-      </div>
+        </div>
+      </div>}
       {canRegister && view === 'active' && <ChildDraftPanel onUploaded={() => mutate()} />}
 
       {error && !children ? (
