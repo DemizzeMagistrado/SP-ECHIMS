@@ -756,8 +756,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             options: {
 
-              emailRedirectTo: `${window.location.origin}/auth/callback?next=/login`,
-
+              emailRedirectTo: "https://sp-echims.vercel.app/auth/callback?next=/login",    
               data: metadata,
 
             },
