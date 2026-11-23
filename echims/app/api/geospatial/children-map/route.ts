@@ -18,7 +18,7 @@
 //   allowedBarangayIds: number[],
 //   perBarangay: [{ barangay_id, barangay_name, municipality, child_count }],
 //   children: [{ child_id, child_code, name, status, barangay_id, household_id,
-//                family_serial_no, lat, lng, at_risk }],  // lat/lng from the household
+//                family_serial_no, lat, lng, at_risk, program_archive_status }],  // lat/lng from the household
 //   scopeLevel: 'barangay' | 'municipality',
 //   focusBarangayIds: number[],          // barangay-level users: their barangay
 //   municipalities: [{ code, name, geojson, barangayIds }]   // map extent per municipality
@@ -100,29 +100,7 @@ export async function GET() {
     return NextResponse.json({ role, scopeLabel, allowedBarangayIds: [], perBarangay: [] })
   }
 
-  // ─── 2. Count children per barangay — no coords needed ───
-  const { data: children, error: childErr } = await supabase
-    .from('child')
-    .select('child_id, barangay_id')
-    .eq('status', 'ACTIVE')
-    .in('barangay_id', allowedBarangayIds)
-  if (childErr) return NextResponse.json({ error: childErr.message }, { status: 500 })
-
-  const counts = new Map<number, number>()
-  for (const c of children ?? []) {
-    counts.set(c.barangay_id as number, (counts.get(c.barangay_id as number) ?? 0) + 1)
-  }
-
-  // Return one row per allowed barangay (zero-fill those with no children, so the
-  // table reads completely for the scope).
-  const perBarangay = allowed.map((b) => ({
-    barangay_id: b.barangay_id,
-    barangay_name: b.barangay_name,
-    municipality: b.municipality,
-    child_count: counts.get(b.barangay_id) ?? 0,
-  }))
-
-  // ─── 3. Children in scope, for markers and lists (RLS applies as well) ───
+  // ─── 2. Children in scope, for markers and lists (RLS applies as well) ───
   // Pins use the household's coordinates, so siblings share one location. Only the signed-in
   // worker's own scope is returned; the latest nutrition assessment gives the at-risk flag.
   const { data: kids, error: kidsErr } = await supabase
@@ -141,6 +119,16 @@ export async function GET() {
       .order('assessment_date', { ascending: false })
       .order('assessment_id', { ascending: false })
     for (const a of assessments ?? []) if (!atRisk.has(a.child_id as number)) atRisk.set(a.child_id as number, a.is_at_risk === true)
+  }
+  // Under five vs aged out: the same live rule (child_program_roster) as Children › Active / Archived.
+  const archiveStatus = new Map<number, string>()
+  if (ids.length) {
+    const { data: roster, error: rosterErr } = await supabase
+      .from('child_program_roster')
+      .select('child_id, program_archive_status')
+      .in('child_id', ids)
+    if (rosterErr) return NextResponse.json({ error: 'The children for the map could not be loaded. Refresh to try again.' }, { status: 500 })
+    for (const r of roster ?? []) archiveStatus.set(r.child_id as number, String(r.program_archive_status))
   }
   const byBarangay = new Map(allowed.map((b) => [b.barangay_id, b]))
   const childRows = (kids ?? []).map((k) => {
@@ -161,8 +149,23 @@ export async function GET() {
       lat: Number.isFinite(lat) ? lat : null,
       lng: Number.isFinite(lng) ? lng : null,
       at_risk: atRisk.get(k.child_id as number) ?? false,
+      program_archive_status: archiveStatus.get(k.child_id as number) ?? 'NEEDS_REVIEW',
     }
   })
+
+  // ─── 3. Children per barangay: Active and under five (the map's default view) ───
+  // One row per allowed barangay (zero-filled, so the table reads completely for the scope).
+  const counts = new Map<number, number>()
+  for (const c of childRows) {
+    if (c.status !== 'ACTIVE' || c.program_archive_status !== 'UNDER_FIVE') continue
+    counts.set(c.barangay_id as number, (counts.get(c.barangay_id as number) ?? 0) + 1)
+  }
+  const perBarangay = allowed.map((b) => ({
+    barangay_id: b.barangay_id,
+    barangay_name: b.barangay_name,
+    municipality: b.municipality,
+    child_count: counts.get(b.barangay_id) ?? 0,
+  }))
 
   // ─── 4. Map extent: the municipalities in scope and where to start ───
   // Barangay-level users (BHW / BNS assigned to one barangay) start on it; RHM, PHN, Admin and

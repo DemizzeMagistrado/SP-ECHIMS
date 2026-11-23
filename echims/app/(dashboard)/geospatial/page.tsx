@@ -44,6 +44,8 @@ type MapChild = {
   barangay_id: number; barangay_name: string; municipality: string
   household_id: number; family_serial_no: string | null
   lat: number | null; lng: number | null; at_risk: boolean
+  /** UNDER_FIVE | AGED_OUT | NEEDS_REVIEW (same live rule as Children › Active / Archived). */
+  program_archive_status?: string
 }
 type ApiResponse = {
   role: string | null
@@ -102,7 +104,8 @@ export default function GeospatialMapPage() {
     return children.filter((c) =>
       (!q || [c.name, c.child_code, c.family_serial_no].some((v) => v?.toLowerCase().includes(q))) &&
       (barangay === 'all' || String(c.barangay_id) === barangay) &&
-      (status === 'all' || c.status === status) &&
+      // "Active" means Active and under five, matching Children › Active; aged-out children only show under "All statuses".
+      (status === 'all' || (c.status === status && (status !== 'ACTIVE' || c.program_archive_status === 'UNDER_FIVE'))) &&
       (followUp === 'all' || (followUp === 'any' ? c.follow_up !== null : c.follow_up === followUp)))
   }, [children, search, barangay, status, followUp])
 
@@ -125,11 +128,16 @@ export default function GeospatialMapPage() {
     return [...rows.values()].sort((a, b) => (b.missed + b.atRisk) - (a.missed + a.atRisk) || b.total - a.total)
   }, [filtered])
 
-  const polygons = useMemo(() => scopeBarangays.map((p) => ({
-    barangay_id: p.barangay_id, barangay_name: p.barangay_name, municipality: p.municipality,
-    lat: 0, lng: 0, // polygons come from GeoJSON
-    value: p.child_count,
-  })), [scopeBarangays])
+  // Shading counts the same children as the list and pins (current filters), so they always match.
+  const polygons = useMemo(() => {
+    const counts = new Map<number, number>()
+    for (const c of filtered) counts.set(c.barangay_id, (counts.get(c.barangay_id) ?? 0) + 1)
+    return scopeBarangays.map((p) => ({
+      barangay_id: p.barangay_id, barangay_name: p.barangay_name, municipality: p.municipality,
+      lat: 0, lng: 0, // polygons come from GeoJSON
+      value: counts.get(p.barangay_id) ?? 0,
+    }))
+  }, [scopeBarangays, filtered])
 
   const markers = mapped.map((c) => ({
     child_id: c.child_id, full_name: c.name, barangay_id: c.barangay_id, barangay_name: c.barangay_name,
@@ -202,7 +210,7 @@ export default function GeospatialMapPage() {
             </Select>
             <Select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="all">All statuses</option>
-              {['ACTIVE', 'INACTIVE', 'MOVED', 'LOST', 'DECEASED'].map((s) => <option key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</option>)}
+              {['ACTIVE', 'INACTIVE', 'MOVED', 'LOST', 'DECEASED'].map((s) => <option key={s} value={s}>{s === 'ACTIVE' ? 'Active, under five' : s.charAt(0) + s.slice(1).toLowerCase()}</option>)}
             </Select>
             <Select aria-label="Follow-up" value={followUp} onChange={(e) => setFollowUp(e.target.value as FollowUp)}>
               <option value="all">All children</option>
