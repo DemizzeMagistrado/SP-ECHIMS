@@ -150,6 +150,20 @@ export default function ReportsPage() {
     active = useRef(true),
     request = useRef<AbortController | null>(null),
     generation = useRef(0);
+  // View / View Preview: once the report (or the error) is on screen, bring it into view and focus
+  // it, since the report opens below the table and errors show at the top of the page.
+  const reportSection = useRef<HTMLElement>(null),
+    errorBanner = useRef<HTMLParagraphElement>(null);
+  const [reveal, setReveal] = useState<{ target: "report" | "error"; n: number } | null>(null);
+  useEffect(() => {
+    if (!reveal) return;
+    const el = reveal.target === "report" ? reportSection.current?.querySelector<HTMLElement>("h2") : errorBanner.current;
+    if (!el) return;
+    el.tabIndex = -1;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    el.focus({ preventScroll: true });
+  }, [reveal]);
   useEffect(() => {
     active.current = true;
     setRange(periodRange("MONTHLY", manilaToday()));
@@ -250,10 +264,13 @@ export default function ReportsPage() {
           setPreview(b);
           setDetail(null);
         }
+        setReveal((r) => ({ target: "report", n: (r?.n ?? 0) + 1 }));
       }
     } catch (e) {
-      if (n === generation.current && !controller.signal.aborted)
+      if (n === generation.current && !controller.signal.aborted) {
         setError(e instanceof Error ? e.message : "Unable to load report.");
+        setReveal((r) => ({ target: "error", n: (r?.n ?? 0) + 1 }));
+      }
     } finally {
       if (n === generation.current) setLoading(false);
     }
@@ -373,6 +390,7 @@ export default function ReportsPage() {
       />
       {error && (
         <p
+          ref={errorBanner}
           role="alert"
           className="rounded-lg bg-red-50 p-3 text-sm text-red-700"
         >
@@ -637,7 +655,7 @@ export default function ReportsPage() {
       </TabPanel>
       {loading && <LogoLoader size="section" label="Loading reports…" />}
       {shown && (
-        <section className={cn(REPORT_CARD, "space-y-4 p-5")}>
+        <section ref={reportSection} className={cn(REPORT_CARD, "space-y-4 p-5")}>
           <header className="space-y-1">
             <SectionHeader
               title={detail?.report.title ?? `${labels[shown.module]} preview`}
