@@ -23,7 +23,6 @@ import {
 } from "@/lib/supplementation-offline";
 import { SupplementationMonitoringPanel } from "@/components/supplementation/supplementation-monitoring-panel";
 import { SupplementStockRequestsPanel } from "@/components/supplementation/supplement-stock-requests-panel";
-import { BulkReminderWizard, type ReminderData } from "@/components/vaccination/schedule-reminders";
 import { SupplementationSmsPanel } from "@/components/supplementation/supplementation-sms-panel";
 import { LogoLoader } from '@/components/brand/logo-loader'
 import { TabPanel, usePageLoading } from '@/components/brand/page-gate'
@@ -544,7 +543,6 @@ export default function SupplementsPage() {
   // One detail open at a time across Entries and Supply plans (the Vaccines tab accordion).
   const { isOpen, toggle } = useSingleOpen<string>();
   const [smsOpen, setSmsOpen] = useState(false);
-  const [smsBulk, setSmsBulk] = useState<ReminderData | null>(null);
   const [modal, setModal] = useState<
     "RECORD" | "PLAN" | "DISPENSE" | "CLINICAL" | null
   >(null);
@@ -1584,7 +1582,8 @@ export default function SupplementsPage() {
   const canRecord = Boolean(data?.permissions.record || data?.role === "RHM");
   // BHW: record administration only (docs/permissions.md); dispensing stays with RHM / BNS.
   const canDispense = canRecord && data?.role !== "BHW";
-  const canSendReminders = data?.role === "RHM" || data?.role === "BHW" || data?.role === "BNS" || data?.role === "PHN";
+  // Only the roles the SMS API lets send (RHM, BHW) get the reminders button.
+  const canSendReminders = data?.role === "RHM" || data?.role === "BHW";
   const canPlan = Boolean(data?.permissions.stock);
   const showFollowUp = Boolean(data?.permissions.monitor && (data.role === "PHN" || data.role === "Administrator"));
   const activeTab = tab === "followup" && !showFollowUp ? "records" : tab;
@@ -1800,8 +1799,10 @@ export default function SupplementsPage() {
               refresh={
                 <>
                   {owner && canSendReminders && (
-                  <SupplementationSmsPanel key={owner} ownerId={owner} online={online} />
-                )}
+                    <Button variant="secondary" onClick={() => setSmsOpen(true)}>
+                      <Send size={16} aria-hidden="true" /> Send reminders
+                    </Button>
+                  )}
                   {refreshButton}
                 </>
               }
@@ -2098,6 +2099,19 @@ export default function SupplementsPage() {
         prescribe iron doses or automatically select treatment from a
         nutrition classification.
       </GuidanceCard>
+
+      {smsOpen && owner && (
+        <Modal
+          open
+          size="xl"
+          title="Send reminders"
+          subtitle="Reminders to guardians. Sent messages appear in Alerts › SMS Overview."
+          onClose={() => setSmsOpen(false)}
+          cancelLabel="Close"
+        >
+          <SupplementationSmsPanel key={owner} ownerId={owner} online={online} />
+        </Modal>
+      )}
 
       {modal && (
         <Modal

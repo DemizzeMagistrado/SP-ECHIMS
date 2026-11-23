@@ -172,7 +172,7 @@ export function Select({ className, children, value, defaultValue, onChange, dis
           'flex h-10 w-full min-w-0 cursor-pointer items-center justify-between gap-2 rounded-lg border border-brand-line bg-white px-3 text-left text-sm text-brand-navy outline-none transition-[border-color,box-shadow,background-color] hover:border-brand-blue/50 hover:bg-brand-ice/40 focus-visible:border-brand-blue focus-visible:ring-3 focus-visible:ring-brand-blue/20 disabled:cursor-not-allowed disabled:bg-brand-ice disabled:text-brand-muted aria-invalid:border-danger aria-invalid:focus-visible:ring-danger/15',
           open && 'border-brand-blue ring-3 ring-brand-blue/20',
           controlSize === 'lg' && 'h-11 rounded-[10px] border-control-line px-4',
-          clearable && 'pr-[3.75rem]',
+          clearable && 'pr-16',
           className,
         )}
       >
@@ -209,7 +209,7 @@ export function Select({ className, children, value, defaultValue, onChange, dis
               aria-label={`Clear ${rest['aria-label'] ?? 'selection'}`}
               title="Clear"
               onClick={() => choose({ value: '', label: '', disabled: false })}
-              className="absolute right-8 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-brand-muted outline-none hover:bg-brand-ice hover:text-brand-navy focus-visible:ring-2 focus-visible:ring-brand-blue/35"
+              className="absolute right-9 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-brand-muted outline-none hover:bg-brand-ice hover:text-brand-navy focus-visible:ring-2 focus-visible:ring-brand-blue/35"
             >
               <X size={14} aria-hidden="true" />
             </button>

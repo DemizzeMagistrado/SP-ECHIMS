@@ -19,6 +19,7 @@ import {
   Tooltip,
   GeoJSON,
   LayersControl,
+  Pane,
   useMap,
   useMapEvents,
 } from 'react-leaflet'
@@ -292,8 +293,13 @@ export default function BarangayMap({
           </CircleMarker>
         ))}
 
-        {/* Child pins, clustered when zoomed out */}
-        {childrenMarkers.length > 0 && <ChildMarkers points={childrenMarkers} />}
+        {/* Child pins, clustered when zoomed out. Own pane above the barangay polygons (overlayPane,
+            z 400) and below tooltips / popups, so a re-added polygon can never cover or block them. */}
+        {childrenMarkers.length > 0 && (
+          <Pane name="child-markers" style={{ zIndex: 450 }}>
+            <ChildMarkers points={childrenMarkers} />
+          </Pane>
+        )}
         {onPick && <PickHandler onPick={onPick} />}
       </MapContainer>
 

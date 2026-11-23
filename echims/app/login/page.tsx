@@ -54,6 +54,8 @@ export default function LoginPage() {
       {process.env.NEXT_PUBLIC_GUARDIAN_PORTAL_ENABLED === 'true' && (
         <div className="mt-5 rounded-xl border border-brand-line bg-brand-ice p-4 text-sm">
           <p className="font-semibold">Signing in as a parent or guardian?</p>
+          {/* Full page load on purpose: the guardian portal has its own session and skips the staff proxy check. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a href="/guardian/login" className="mt-2 inline-block font-semibold text-[#087DB9] hover:underline">Log in as Guardian</a>
         </div>
       )}

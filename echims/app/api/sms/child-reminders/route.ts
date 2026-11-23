@@ -22,6 +22,7 @@ export async function POST(request: Request) {
  try {
   const auth=await smsSession();if(auth instanceof NextResponse)return auth
   if(auth.role === 'Administrator')return json({error:'Administrators can view reminders but cannot send them.'},403)
+  if(!['Rural Health Midwife','Barangay Health Worker'].includes(auth.role))return json({error:'Assigned RHM/BHW sender required.'},403)
   const b=await request.json().catch(()=>null)
   if(!b||!uuid(b.requestId)||!positive(b.childId)||typeof b.sourceKey!=='string'||!b.sourceKey||b.sourceKey.length>500||!['TL','EN'].includes(b.language)||typeof b.venue!=='string'||!b.venue.trim()||b.venue.length>60||typeof b.previewSignature!=='string'||!/^[a-f0-9]{32}$/.test(b.previewSignature)||b.confirmedDetails!==true)return json({error:'Review the preview and confirm these saved schedule details.'},400)
   if(b.requestOwnerId!==auth.userId)return json({error:'Session changed. Refresh before sending.'},409)

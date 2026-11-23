@@ -1,4 +1,19 @@
 BEGIN;
+-- Context returns no clinical data until the existing resolver has accepted the link.
+CREATE OR REPLACE FUNCTION public.echims_guardian_context()
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,public AS $$
+DECLARE a public.guardian_portal_account%ROWTYPE; v_phone text;
+BEGIN
+ v_phone:=echims_guardian_private.session_phone();
+ SELECT * INTO a FROM public.guardian_portal_account WHERE auth_user_id=auth.uid();
+ IF NOT FOUND THEN RETURN jsonb_build_object('registered',false,'linked',false); END IF;
+ BEGIN
+  PERFORM echims_guardian_private.guardian_id();
+ EXCEPTION WHEN insufficient_privilege THEN
+  RETURN jsonb_build_object('registered',true,'linked',false,'message','Contact your BHS/RHU to verify your guardian record.');
+ END;
+ RETURN jsonb_build_object('registered',true,'linked',true,'name',concat_ws(' ',a.first_name,a.last_name));
+END; $$;
 
 CREATE OR REPLACE FUNCTION public.echims_guardian_history(
   p_child_id bigint,
@@ -27,7 +42,7 @@ BEGIN
       SELECT coalesce(jsonb_agg(jsonb_build_object(
         'id', r.vaccination_record_id,
         'date', r.vaccination_date,
-        'name', coalesce(to_jsonb(i)->>'item_name', to_jsonb(v)->>'vaccine_type', 'Vaccine'),
+        'name', coalesce(v.vaccine_type::text, 'Vaccine'),
         'dose', to_jsonb(r)->'dose_number',
         'status', 'Recorded',
         'batch', to_jsonb(r)->'batch_number'
@@ -42,8 +57,7 @@ BEGIN
         ORDER BY vaccination_record_id DESC
         LIMIT 21
       ) r
-      LEFT JOIN public.vaccine v USING (vaccine_id)
-      LEFT JOIN public.item i ON i.item_id = v.item_id;
+      LEFT JOIN public.vaccine v USING (vaccine_id);
 
     WHEN 'nutrition' THEN
       SELECT coalesce(jsonb_agg(jsonb_build_object(
@@ -124,9 +138,10 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.echims_guardian_context() FROM PUBLIC,anon;
 REVOKE ALL ON FUNCTION public.echims_guardian_history(bigint, text, bigint)
   FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.echims_guardian_history(bigint, text, bigint)
+GRANT EXECUTE ON FUNCTION public.echims_guardian_context(),public.echims_guardian_history(bigint, text, bigint)
   TO authenticated;
 
 COMMIT;

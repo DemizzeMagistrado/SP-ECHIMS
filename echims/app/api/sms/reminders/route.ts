@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     const panel = result.data as unknown as Record<string, unknown> | null
     if (!panel || panel.currentUserId !== auth.userId) return json({ error: 'Session changed. Refresh the page.' }, 409)
     const config = smsConfiguration()
-    return json({ ...panel, mode: config.mode, canSend: auth.role !== 'Administrator' && (config.mode === 'simulation' ? panel.canSimulate === true : panel.canSend === true),
+    return json({ ...panel, mode: config.mode, canSend: ['Rural Health Midwife', 'Barangay Health Worker'].includes(auth.role) && (config.mode === 'simulation' ? panel.canSimulate === true : panel.canSend === true),
       liveEnabled: config.ready, simulationEnabled: config.mode === 'simulation' && process.env.SMS_SIMULATION_ENABLED === 'true',
       previewEnabled: config.mode === 'simulation' && process.env.SMS_PRESENTATION_PREVIEW_ENABLED === 'true' })
   } catch { return json({ error: 'Unable to load SMS reminders.' }, 500) }

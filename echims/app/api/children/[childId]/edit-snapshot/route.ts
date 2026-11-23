@@ -1,0 +1,4 @@
+import {NextResponse} from 'next/server'
+import {householdSession,householdFailure as fail,householdHeaders as headers} from '@/lib/household-access'
+export const dynamic='force-dynamic'
+export async function GET(_request:Request,context:{params:Promise<{childId:string}>}){try{const auth=await householdSession('edit');if(auth instanceof NextResponse)return auth;const raw=(await context.params).childId;if(!/^[1-9]\d*$/.test(raw)||!Number.isSafeInteger(Number(raw)))return fail('Invalid child.',400);const r=await auth.db.rpc('echims_child_edit_snapshot',{p_child_id:Number(raw)});if(r.error)return fail(r.error.code==='42501'?'Child outside current edit assignment.':'Unable to prepare child edit snapshot. Check the offline edit migration.',r.error.code==='42501'?403:500);return NextResponse.json(r.data,{headers})}catch{return fail('Unable to prepare child edit snapshot.',500)}}

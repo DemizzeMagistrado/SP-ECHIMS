@@ -288,6 +288,8 @@ function AlertsWorkspace() {
   usePageLoading(!authReady || (loading && !data));
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  // The first alerts request has finished (data or error): tabs and content wait for it together.
+  const [firstLoadDone, setFirstLoadDone] = useState(false);
   const [tab, setTab] = useState<"ALERTS" | "RULES" | "SMS" | "SMS_LOGS">("ALERTS");
   const [smsChild, setSmsChild] = useState("");
   const [filter, setFilter] = useState("unresolved");
@@ -304,6 +306,9 @@ function AlertsWorkspace() {
   const ownerRef = useRef<string | null>(null);
   ownerRef.current=owner;
   useEffect(()=>()=>{sequence.current++;ownerRef.current=null},[]);
+  // A remount without a render (React Strict Mode in development) must not leave the ref cleared,
+  // or the first response is dropped as another account's. Runs before the load effect below.
+  useEffect(()=>{ownerRef.current=owner},[owner]);
   // Dashboard links open a program directly: /alerts?program=VACCINATION
   useEffect(()=>{const q=new URLSearchParams(window.location.search),p=q.get("program"),t=q.get("tab");if(p&&/^[A-Z_]{1,40}$/.test(p))setProgram(p);if(t==="SMS_LOGS"){setTab("SMS_LOGS");setSmsChild(q.get("child")??"")}else if(t==="SMS")setTab("SMS");else if(t==="RULES")setTab("RULES")},[]);
   // force (the refresh button): show the loader even when this view is cached.
@@ -338,7 +343,7 @@ function AlertsWorkspace() {
         );
       }
     } finally {
-      if (sequence.current === token) setLoading(false);
+      if (sequence.current === token) { setLoading(false); setFirstLoadDone(true); }
     }
   }, [owner, page, filter, program]);
   useEffect(() => {
@@ -501,6 +506,8 @@ function AlertsWorkspace() {
   const programs = data?.programs ?? [...new Set(alerts.map((alert) => alert.source_module ?? alert.alert_type))].sort();
   // ?tab=SMS / ?tab=RULES only apply to roles that can configure alerts; everyone else gets the list.
   const view = tab === "SMS_LOGS" || data?.canConfigure ? tab : "ALERTS";
+  // A cached result counts as loaded: a revisit shows tabs and content at once.
+  const ready = Boolean(data) || firstLoadDone;
   const inputClass =
     "mt-1 w-full rounded-lg border border-[#D5E2EA] bg-white px-3 py-2 text-sm";
   return (
@@ -515,7 +522,7 @@ function AlertsWorkspace() {
             view !== "SMS" && view !== "SMS_LOGS" && <Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={loading || !owner} onClick={() => void load(true)}><RefreshCw size={16} aria-hidden="true" className={loading ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>
           }
         />
-        {owner && (
+        {owner && ready && (
           <TabBar
             className="pb-5"
             label="Alert sections"
@@ -550,7 +557,7 @@ function AlertsWorkspace() {
       ) : null}
       {/* Tab content fades in with the previous tab's height held, so the page below does not jump. */}
       <TabPanel tabKey={view}>
-      {owner && view === "SMS_LOGS" && <SmsLogs key={owner} ownerId={owner} childId={smsChild} />}
+      {owner && ready && view === "SMS_LOGS" && <SmsLogs key={owner} ownerId={owner} childId={smsChild} />}
       {data?.canConfigure && view === "SMS" && (
         <div role="tabpanel" aria-label="SMS overview">
           <SmsSimulationPanel key={data.currentUserId} ownerId={data.currentUserId} />

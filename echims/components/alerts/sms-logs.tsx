@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link'
-import { CalendarDays } from 'lucide-react'
+import { CalendarDays, RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { DateInput, Select } from '@/components/ui/form'
@@ -37,12 +37,15 @@ export function SmsLogs({ ownerId, childId }: { ownerId: string; childId: string
   const [rangeOpen, setRangeOpen] = useState(false)
   const invalidRange = Boolean(range.from && range.through && range.from > range.through)
   const [reload, setReload] = useState(0)
-  const [data, setData] = useState<LogPage>()
-  const [error, setError] = useState('')
+  // A result counts only for the request it answers, so changing filters shows the loader again.
+  const requestKey = JSON.stringify([ownerId, childId, filters, reload])
+  const [result, setResult] = useState<{ key: string; data?: LogPage; error?: string }>()
+  const data = result?.key === requestKey ? result.data : undefined
+  const error = result?.key === requestKey ? result.error ?? '' : ''
   useEffect(() => {
     const controller = new AbortController()
-    setData(undefined)
-    setError('')
+    const setData = (body: LogPage) => setResult({ key: requestKey, data: body })
+    const setError = (message: string) => setResult({ key: requestKey, error: message })
     const params = new URLSearchParams({
       program: filters.program, status: filters.status, from: filters.from, through: filters.through,
       page: String(filters.page + 1), child: childId,
@@ -59,7 +62,7 @@ export function SmsLogs({ ownerId, childId }: { ownerId: string; childId: string
       }
     })()
     return () => controller.abort()
-  }, [ownerId, childId, filters, reload])
+  }, [ownerId, childId, filters, requestKey])
 
   function filter(key: 'program' | 'status', value: string) {
     setFilters((old) => ({ ...old, [key]: value, page: 0 }))
@@ -72,7 +75,7 @@ export function SmsLogs({ ownerId, childId }: { ownerId: string; childId: string
 
   return <section className="space-y-4">
     <SectionHeader title="SMS logs" subtitle="Track guardian reminders submitted within your work scope."
-      actions={<Button variant="secondary" onClick={() => setReload((old) => old + 1)}>Refresh</Button>} />
+      actions={<Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" onClick={() => setReload((old) => old + 1)}><RefreshCw size={16} aria-hidden="true" /></Button>} />
     {childId && <p className="text-sm text-brand-muted">Filtered to child #{childId}</p>}
     <FilterCard>
       <Select aria-label="SMS program" value={filters.program} onChange={(event) => filter('program', event.target.value)}>
@@ -111,11 +114,6 @@ export function SmsLogs({ ownerId, childId }: { ownerId: string; childId: string
     {error && <p role="alert" className="text-sm text-danger">{error}</p>}
     {!error && !data && <p role="status" className="text-sm text-brand-muted">Loading SMS logs…</p>}
     {data && <>
-      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {statusKeys.map((status) => <div key={status} className="rounded-xl border border-brand-line bg-white p-3">
-          <dt className="text-xs text-brand-muted">{statuses[status]}</dt><dd className="font-semibold">{data.counts[status] ?? 0}</dd>
-        </div>)}
-      </dl>
       <div className="overflow-x-auto rounded-xl border border-brand-line bg-white">
         <table className="data-grid w-full text-left text-sm">
           <thead><tr>{['Child', 'Program', 'Recipient', 'Status', 'Attempted', 'Provider reference', 'Batch'].map((value) =>
@@ -139,8 +137,8 @@ export function SmsLogs({ ownerId, childId }: { ownerId: string; childId: string
           </tbody>
         </table>
       </div>
-      <Pagination label="SMS log pages" page={filters.page} pageCount={Math.max(1, Math.ceil(data.total / 25))}
-        total={data.total} pageSize={25} onChange={(page) => setFilters((old) => ({ ...old, page }))} />
+      <Pagination label="SMS log pages" page={filters.page} pageCount={Math.max(1, Math.ceil(data.total / 5))}
+        total={data.total} pageSize={5} onChange={(page) => setFilters((old) => ({ ...old, page }))} />
       <p className="text-xs text-brand-muted">Submitted means iProg accepted the message.</p>
     </>}
   </section>

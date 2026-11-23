@@ -458,6 +458,8 @@ export default function RegisterPage() {
             <div className="mt-5 rounded-xl border border-brand-line bg-brand-ice p-4 text-sm">
               <p className="font-semibold">Registering as a parent or guardian?</p>
               <p className="mt-1 text-brand-muted">Verify your mobile number to view your linked children. No employee details are required.</p>
+              {/* Full page load on purpose: the guardian portal has its own session and skips the staff proxy check. */}
+              {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
               <a href="/guardian/register" className="mt-2 inline-block font-semibold text-[#087DB9] hover:underline">Register as Guardian</a>
             </div>
           )}
@@ -528,6 +530,8 @@ export default function RegisterPage() {
                       value={form.role}
                       onChange={(event) => {
                         if (event.target.value === 'Guardian') {
+                          // Full page load on purpose (separate guardian session), as in GRD-USR003.
+                          // eslint-disable-next-line @next/next/no-location-assign-relative-destination
                           window.location.assign('/guardian/register');
                           return;
                         }
