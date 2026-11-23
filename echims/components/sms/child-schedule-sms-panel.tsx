@@ -1,5 +1,7 @@
 'use client'
 import Link from 'next/link'
+import { ReminderMessage } from '@/components/sms/reminder-message'
+import { Button } from '@/components/ui/button'
 import { useEffect, useState } from 'react'
 type Row={source_key:string;program:string;kind:string;due_date:string;start_time:string|null;title:string;phase:string;message:string;preview_signature:string;last_status:string|null;can_send:boolean}
 type Panel={currentUserId:string;childId:number;childName:string;contactStatus:string;maskedNumber:string|null;records:Row[];liveEnabled:boolean}
@@ -52,20 +54,21 @@ export function ChildScheduleSmsPanel({childId,embedded=false}:{childId?:number;
    <label className="flex flex-col gap-1 text-sm">Child ID<input className={field} inputMode="numeric" value={id} disabled={busy||!!pending} onChange={e=>{setId(e.target.value);invalidate()}}/></label>
    <label className="flex flex-col gap-1 text-sm">Language<select className={field} value={language} disabled={busy||!!pending} onChange={e=>{setLanguage(e.target.value);invalidate()}}><option value="TL">Tagalog</option><option value="EN">English</option></select></label>
    <label className="flex flex-col gap-1 text-sm">Confirmed venue / contact facility<input className={field} value={venue} maxLength={60} disabled={busy||!!pending} placeholder="e.g. Bibirao BHS" onChange={e=>{setVenue(e.target.value);invalidate()}}/></label>
-   <button className={field+' self-end'} disabled={busy||!online} onClick={()=>void load()}>Load / refresh reminders</button>
+   <Button variant="secondary" className="self-end" disabled={busy||!online} onClick={()=>void load()}>Refresh reminders</Button>
   </div>
   {data&&<>
+   <Link className="mb-2 inline-block text-sm text-link hover:underline" href={`/alerts?tab=SMS_LOGS&child=${data.childId}`}>View SMS logs</Link>
    <p className="text-sm font-medium">{data.childName} · {data.maskedNumber??'No valid number'} · {data.contactStatus.replaceAll('_',' ')}</p>
    {!embedded&&<Link className="mt-2 inline-block text-sm underline" href={'/child-profiling/children/'+data.childId}>Open child profile / guardian SMS verification</Link>}
    {!data.liveEnabled&&<p className="mt-2 text-sm text-amber-800">Live iProg sending is disabled in server configuration.</p>}
    <label className="mt-4 flex flex-col gap-1 text-sm">Saved service<select className={field} disabled={busy||!!pending} value={selected} onChange={e=>{setSelected(e.target.value);setConfirmed(false)}}><option value="">Choose service</option>{data.records.map(r=><option key={r.source_key} value={r.source_key}>{r.title} · {r.due_date} · {r.kind} · {r.phase}{r.last_status?' · '+r.last_status:''}</option>)}</select></label>
    {!data.records.length&&<p className="mt-3 text-sm">No current reminders. Completed, cancelled and rescheduled entries are excluded; routine under-five reminders end at the fifth birthday.</p>}
    {row&&<>
-    <div className="my-4 rounded-lg bg-slate-50 p-3 text-sm"><p className="mb-2 font-semibold">Full preview with your provider header and footer</p><p>eCHIMS</p><p className="my-2 whitespace-pre-wrap">{row.message}</p><p>Please do not reply.</p></div>
-    <p className="text-xs text-slate-500">{row.message.length} body characters. Headers, footer and encoding may add SMS segments and charges. {row.start_time?'':'No time is stored for this service; confirm the time with the facility.'}</p>
+    <div className="my-4 rounded-lg bg-slate-50 p-3 text-sm"><p className="mb-2 font-semibold">Full preview with your provider header and footer</p><ReminderMessage body={row.message} live /></div>
+    <p className="text-xs text-slate-500">{row.start_time?'':'No time is stored for this service; confirm the time with the facility.'}</p>
     {!row.can_send&&<p className="mt-2 text-sm text-amber-800">Sending unavailable. Check consent, current phone verification, sender permission, venue and existing attempts.</p>}
     <label className="mt-4 flex gap-2 text-sm"><input type="checkbox" checked={confirmed} disabled={busy||!!pending} onChange={e=>setConfirmed(e.target.checked)}/>I reviewed the child, current service, date and venue. This reminder is appropriate.</label>
-    <button className="mt-3 rounded-full bg-blue-950 px-4 py-2 text-sm text-white disabled:opacity-40" disabled={busy||!online||!!pending||!data.liveEnabled||!row.can_send||!confirmed||!venue.trim()} onClick={()=>void send()}>{busy?'Processing…':'Send reminder'}</button>
+    <Button className="mt-3" disabled={busy||!online||!!pending||!data.liveEnabled||!row.can_send||!confirmed||!venue.trim()} onClick={()=>void send()}>{busy?'Processing…':'Send reminder'}</Button>
    </>}
   </>}
  </section>

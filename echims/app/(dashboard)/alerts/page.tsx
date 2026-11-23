@@ -8,6 +8,7 @@ import { AlertTriangle, AlertCircle, Info, CheckCircle, Plus, RefreshCw, History
 import Link from "next/link";
 import { alertDestination } from "@/lib/alerts/alert-destination";
 import { SmsSimulationPanel } from "@/components/alerts/sms-simulation-panel";
+import { SmsLogs } from "@/components/alerts/sms-logs";
 import { useAuth } from "@/components/auth/auth-provider";
 import { offlineScope } from "@/lib/offline/fetch";
 import { LogoLoader } from '@/components/brand/logo-loader'
@@ -287,7 +288,8 @@ function AlertsWorkspace() {
   usePageLoading(!authReady || (loading && !data));
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [tab, setTab] = useState<"ALERTS" | "RULES" | "SMS">("ALERTS");
+  const [tab, setTab] = useState<"ALERTS" | "RULES" | "SMS" | "SMS_LOGS">("ALERTS");
+  const [smsChild, setSmsChild] = useState("");
   const [filter, setFilter] = useState("unresolved");
   const [program, setProgram] = useState("ALL");
   const [page, setPage] = useState(1);
@@ -303,7 +305,7 @@ function AlertsWorkspace() {
   ownerRef.current=owner;
   useEffect(()=>()=>{sequence.current++;ownerRef.current=null},[]);
   // Dashboard links open a program directly: /alerts?program=VACCINATION
-  useEffect(()=>{const q=new URLSearchParams(window.location.search),p=q.get("program"),t=q.get("tab");if(p&&/^[A-Z_]{1,40}$/.test(p))setProgram(p);if(t==="SMS")setTab("SMS");else if(t==="RULES")setTab("RULES")},[]);
+  useEffect(()=>{const q=new URLSearchParams(window.location.search),p=q.get("program"),t=q.get("tab");if(p&&/^[A-Z_]{1,40}$/.test(p))setProgram(p);if(t==="SMS_LOGS"){setTab("SMS_LOGS");setSmsChild(q.get("child")??"")}else if(t==="SMS")setTab("SMS");else if(t==="RULES")setTab("RULES")},[]);
   // force (the refresh button): show the loader even when this view is cached.
   const load = useCallback(async (force = false) => {
     if (!owner) return;
@@ -498,7 +500,7 @@ function AlertsWorkspace() {
   const alertPagerProps = { page: page - 1, pageCount: Math.max(1, Math.ceil(matched / ALERT_PAGE_SIZE)), total: matched, pageSize: ALERT_PAGE_SIZE, onChange: (p: number) => setPage(p + 1) };
   const programs = data?.programs ?? [...new Set(alerts.map((alert) => alert.source_module ?? alert.alert_type))].sort();
   // ?tab=SMS / ?tab=RULES only apply to roles that can configure alerts; everyone else gets the list.
-  const view = data?.canConfigure ? tab : "ALERTS";
+  const view = tab === "SMS_LOGS" || data?.canConfigure ? tab : "ALERTS";
   const inputClass =
     "mt-1 w-full rounded-lg border border-[#D5E2EA] bg-white px-3 py-2 text-sm";
   return (
@@ -510,10 +512,10 @@ function AlertsWorkspace() {
           subtitle="Monitor system alerts and configure evaluation rules"
           actions={
             // SMS overview has its own refresh next to "About this view".
-            view !== "SMS" && <Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={loading || !owner} onClick={() => void load(true)}><RefreshCw size={16} aria-hidden="true" className={loading ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>
+            view !== "SMS" && view !== "SMS_LOGS" && <Button variant="secondary" size="icon" className="size-10" aria-label="Refresh" disabled={loading || !owner} onClick={() => void load(true)}><RefreshCw size={16} aria-hidden="true" className={loading ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>
           }
         />
-        {data?.canConfigure && (
+        {owner && (
           <TabBar
             className="pb-5"
             label="Alert sections"
@@ -522,8 +524,11 @@ function AlertsWorkspace() {
             onChange={setTab}
             items={[
               { value: "ALERTS", label: "Alerts & evaluation monitoring" },
-              { value: "RULES", label: "Rules & change history" },
-              { value: "SMS", label: "SMS overview" },
+              ...(data?.canConfigure ? [
+                { value: "RULES" as const, label: "Rules & change history" },
+                { value: "SMS" as const, label: "SMS overview" },
+              ] : []),
+              { value: "SMS_LOGS", label: "SMS Logs" },
             ]}
           />
         )}
@@ -545,6 +550,7 @@ function AlertsWorkspace() {
       ) : null}
       {/* Tab content fades in with the previous tab's height held, so the page below does not jump. */}
       <TabPanel tabKey={view}>
+      {owner && view === "SMS_LOGS" && <SmsLogs key={owner} ownerId={owner} childId={smsChild} />}
       {data?.canConfigure && view === "SMS" && (
         <div role="tabpanel" aria-label="SMS overview">
           <SmsSimulationPanel key={data.currentUserId} ownerId={data.currentUserId} />

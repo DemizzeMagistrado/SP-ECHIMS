@@ -4,6 +4,8 @@ import { childProgramEligibility, manilaDate } from '@/lib/child-program-eligibi
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 type Context = {params: Promise<{childId: string}>}
+const missingSchema = (code: string) => ['42P01', '42883', 'PGRST202', 'PGRST205'].includes(code)
+const checkupSetupError = 'Checkup database setup is incomplete. Ask your administrator to check the checkup migration.'
 async function idOf(context: Context) {
   const raw = (await context.params).childId
   return /^[1-9]\d*$/.test(raw) && Number.isSafeInteger(Number(raw)) ? Number(raw) : null
@@ -22,7 +24,7 @@ export async function GET(request: Request, context: Context) {
     const childRecord = child.data
     if (suggestions) {
       const result = await auth.db.rpc('echims_checkup_date_suggestions',{p_child_id:id})
-      if (result.error) return fail('Unable to suggest dates for this child.',result.error.code==='42501'?403:500)
+      if (result.error) return fail(missingSchema(result.error.code) ? checkupSetupError : 'Unable to suggest dates for this child.',result.error.code==='42501'?403:500)
       return NextResponse.json({currentUserId:auth.user.id,childId:id,suggestions:result.data},{headers})
     }
     const cursor = params.get('beforeId')
@@ -30,7 +32,7 @@ export async function GET(request: Request, context: Context) {
     let query = auth.db.from('child_checkup_appointment').select('*').eq('child_id',id).order('appointment_id',{ascending:false}).limit(51)
     if (cursor) query=query.lt('appointment_id',Number(cursor))
     const result=await query
-    if (result.error) return fail('Unable to load checkup appointments.',500)
+    if (result.error) return fail(missingSchema(result.error.code) ? checkupSetupError : 'Unable to load checkup appointments.',500)
     const today=manilaDate()
     const underFive=childProgramEligibility(childRecord.date_of_birth,childRecord.status,today).underFive===true
     const rows=result.data ?? []
@@ -58,6 +60,7 @@ export async function POST(request: Request, context: Context) {
     const result=await auth.db.rpc('echims_manage_checkup_appointment',{p_child_id:id,p_request_id:b.requestId,p_action:b.action,p_appointment_id:b.appointmentId??null,p_expected_revision:b.expectedRevision??null,p_date:b.date??null,p_notes:b.notes})
     if (result.error) {
       const code=result.error.code
+      if (missingSchema(code)) return fail(checkupSetupError,500)
       return fail(code==='42501'?'An assigned worker is required.':['40001','23505'].includes(code)?'The appointment or request changed. Refresh and review before retrying.':['22023','22007','22008','23514'].includes(code)?'Invalid appointment date, state or details.':'Unable to save appointment.',code==='42501'?403:['40001','23505'].includes(code)?409:['22023','22007','22008','23514'].includes(code)?400:500)
     }
     return NextResponse.json({currentUserId:auth.user.id,result:result.data,message:'Appointment saved. Relevant follow-up notifications were reconciled.'},{headers})

@@ -11,7 +11,7 @@ import { offlineFetch as fetch } from '@/lib/offline/fetch'
 
 import { FormEvent, useEffect, useRef, useState, type ReactNode } from "react";
 import useSWR from "swr";
-import { Check } from "lucide-react";
+import { FormStepper } from "@/components/ui/form-stepper";
 import { useAuth } from '@/components/auth/auth-provider'
 import { offlineScope } from '@/lib/offline/fetch'
 import { submitSafeDraft } from '@/lib/offline/safe-submit'
@@ -428,7 +428,7 @@ export function ChildFormModal({
       size="xl"
       title={mode === "edit" ? "Edit Child" : draft ? "Review Child Draft" : "Register Child"}
       subtitle={STEPS[step].label}
-      belowHeader={<Stepper current={step} visited={visited} onSelect={goTo} />}
+      belowHeader={<FormStepper steps={STEPS.map(({ label }) => label)} label="Registration steps" current={step} visited={visited} onSelect={goTo} />}
       bodyRef={body}
       bodyClassName="space-y-5"
       onSubmit={submit}
@@ -734,42 +734,6 @@ export function ChildFormModal({
             </div>
           )}
     </Modal>
-  );
-}
-
-function Stepper({ current, visited, onSelect }: { current: number; visited: number; onSelect: (index: number) => void }) {
-  return (
-    <ol aria-label="Registration steps" className="flex gap-1 overflow-x-auto border-b border-border bg-brand-ice/50 px-3 py-3 sm:px-6">
-      {STEPS.map((s, i) => {
-        const done = i < current;
-        const reachable = i <= visited && i !== current;
-        return (
-          <li key={s.key} className="flex min-w-0 flex-1 items-center gap-1">
-            <button
-              type="button"
-              disabled={!reachable}
-              onClick={() => onSelect(i)}
-              aria-current={i === current ? "step" : undefined}
-              className={cn(
-                "flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm font-medium",
-                i === current ? "text-brand-navy" : done ? "text-good" : "text-muted-foreground",
-                reachable && "hover:bg-white",
-              )}
-            >
-              <span className={cn(
-                "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                i === current ? "bg-primary text-white" : done ? "bg-good-soft text-good" : "bg-white text-muted-foreground ring-1 ring-border",
-              )}>
-                {done ? <Check size={14} aria-hidden="true" /> : i + 1}
-              </span>
-              <span className="truncate">{s.label}</span>
-              {done && <span className="sr-only">(completed)</span>}
-            </button>
-            {i < STEPS.length - 1 && <span aria-hidden="true" className="hidden h-px flex-1 bg-border sm:block" />}
-          </li>
-        );
-      })}
-    </ol>
   );
 }
 
