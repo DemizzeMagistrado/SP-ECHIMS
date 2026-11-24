@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Field, Select, Textarea, Input } from '@/components/ui/form'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { cn } from '@/lib/utils'
-import { MUAC_SOFT_WARNING, muacUnusual, nutritionFlagClass, nutritionLabel, nutritionTone } from '@/lib/nutrition-status'
+import { MUAC_SOFT_WARNING, muacUnusual, nutritionFlagClass, nutritionLabel, nutritionTone, verificationLabel, type VerificationStatus } from '@/lib/nutrition-status'
 
 type Num = number | string | null
 
@@ -43,6 +43,8 @@ export type ScoresAssessment = {
   muac_status: string | null
   nutritional_status: string
   evaluation_status: string
+  verification_status?: VerificationStatus
+  revision_count?: number
   engine_version: string | null
   remarks?: string | null
 }
@@ -83,6 +85,7 @@ const REASON_LABEL: Record<string, string> = {
   ENTRY_ERROR: 'Entry error',
   REMEASURED_SAME_DAY: 'Re-measured the same day',
   WRONG_POSITION: 'Wrong measurement position',
+  VERIFICATION_RECHECK: 'Measurements rechecked',
   OTHER: 'Other',
 }
 const EDEMA_OPTIONS = [
@@ -164,6 +167,7 @@ export function ScoresDialog({ item, childName, meta, recommendation, canEdit, o
   const muacFlag = nutritionFlagClass(item.muac_status) || (muacUnusual(item.muac, item.age_days) ? 'font-semibold text-severe' : '')
 
   const editing = mode === 'edit'
+  const recheck = item.verification_status === 'PENDING' || item.verification_status === 'RECHECKED_FLAGGED'
   return (
     <Modal
       open
@@ -181,7 +185,7 @@ export function ScoresDialog({ item, childName, meta, recommendation, canEdit, o
           <ChevronLeft size={14} aria-hidden="true" /> Back to scores
         </button>
       ) : undefined}
-      title={editing ? 'Edit measurements' : childName}
+      title={editing ? recheck ? 'Re-evaluate assessment' : 'Edit measurements' : childName}
       titleRef={titleRef}
       titleClassName="font-sans text-[22px]"
       subtitle={editing ? `${childName}. Assessment of ${item.assessment_date}.` : meta}
@@ -206,14 +210,14 @@ export function ScoresDialog({ item, childName, meta, recommendation, canEdit, o
       footer={editing ? (
         <>
           <Button variant="outline" size="lg" disabled={saving} onClick={() => showScores('now')}>Cancel</Button>
-          <Button type="submit" form={formId} size="lg" loading={saving}>Save changes</Button>
+          <Button type="submit" form={formId} size="lg" loading={saving}>{recheck ? 'Save re-evaluation' : 'Save changes'}</Button>
         </>
       ) : (
         <>
           <Button variant="outline" size="lg" onClick={onClose}>Close</Button>
           {canEdit && (
             <Button size="lg" disabled={!online} title={online ? undefined : 'Reconnect to edit'} onClick={() => { swapped.current = true; setNotice(null); setSession((n) => n + 1); setMode('edit') }}>
-              <Pencil size={16} aria-hidden="true" /> Edit measurements
+              <Pencil size={16} aria-hidden="true" /> {recheck ? 'Re-evaluate assessment' : 'Edit measurements'}
             </Button>
           )}
         </>
@@ -224,10 +228,11 @@ export function ScoresDialog({ item, childName, meta, recommendation, canEdit, o
           key={session}
           formId={formId}
           item={item}
+          recheck={recheck}
           onSavingChange={setSaving}
           onSaved={(updated) => {
-            setNotice('Changes saved. Scores were recalculated.')
-            showScores('history')
+            setNotice(verificationLabel(updated.verification_status) ?? 'Changes saved. Scores were recalculated.')
+            showScores(recheck ? 'now' : 'history')
             void history.mutate()
             onEdited(updated)
           }}
@@ -240,6 +245,7 @@ export function ScoresDialog({ item, childName, meta, recommendation, canEdit, o
                 <Pill item={item} />
                 <div className="min-w-0 flex-[1_1_16rem] text-sm">
                   <p className="font-semibold text-brand-navy">{recommendation}</p>
+                  {verificationLabel(item.verification_status) && <p className="font-semibold text-brand-muted">{verificationLabel(item.verification_status)}</p>}
                   <p className="text-brand-muted">{driver(item)}</p>
                 </div>
               </div>
@@ -275,7 +281,7 @@ export function ScoresDialog({ item, childName, meta, recommendation, canEdit, o
                     ] as const).map(([name, z, cls], i) => (
                       <tr key={name} data-zebra={i % 2 === 1 || undefined}>
                         <th scope="row" className="px-4 py-3.5 text-left font-medium">{name}</th>
-                        <td className="px-4 py-3.5 text-right tabular-nums">{zScore(z)}</td>
+                        <td className="px-4 py-3.5 text-right tabular-nums">{cls === 'NEEDS_VERIFICATION' ? '—' : zScore(z)}</td>
                         <td className={cn('px-4 py-3.5', nutritionFlagClass(cls))}>{nutritionLabel(cls)}</td>
                       </tr>
                     ))}
@@ -325,6 +331,8 @@ function changeText(field: string, oldV: unknown, newV: unknown) {
     case 'weight': return `Weight ${shown(oldV)} kg → ${shown(newV)} kg`
     case 'height': return `Length/height ${shown(oldV)} cm → ${shown(newV)} cm`
     case 'muac': return `MUAC ${oldV == null ? 'not recorded' : `${shown(oldV)} cm`} → ${newV == null ? 'not recorded' : `${shown(newV)} cm`}`
+    case 'verification_recheck': return 'Measurements rechecked in person'
+    case 'verification_status': return `Verification: ${verificationLabel(oldV as VerificationStatus) ?? '—'} → ${verificationLabel(newV as VerificationStatus) ?? '—'}`
     case 'measurement_type': return `Measured as ${position(oldV)} → ${position(newV)}`
     case 'edema_grade': return `Pitting edema ${edemaText(oldV)} → ${edemaText(newV)}`
     default: return `${field} ${shown(oldV)} → ${shown(newV)}`
@@ -426,7 +434,8 @@ function Warning({ children }: { children: ReactNode }) {
 
 /** The Edit measurements form, shown inside the Scores modal. Submitted by the modal's Save button
  *  (form attribute), so the footer stays the modal's own. */
-function EditMeasurementsForm({ item, formId, onSaved, onSavingChange }: {
+function EditMeasurementsForm({ item, formId, recheck, onSaved, onSavingChange }: {
+  recheck: boolean
   item: ScoresAssessment
   formId: string
   onSaved: (updated: Partial<ScoresAssessment>) => void
@@ -437,8 +446,9 @@ function EditMeasurementsForm({ item, formId, onSaved, onSavingChange }: {
   const [type, setType] = useState<'LENGTH' | 'HEIGHT' | ''>(item.measurement_type ?? '')
   const [muac, setMuac] = useState(item.muac == null ? '' : String(item.muac))
   const [edema, setEdema] = useState(item.edema_grade == null ? '0' : String(item.edema_grade))
-  const [reason, setReason] = useState('')
+  const [reason, setReason] = useState(recheck ? 'REMEASURED_SAME_DAY' : '')
   const [note, setNote] = useState('')
+  const [remeasured, setRemeasured] = useState(false)
   const [errors, setErrors] = useState<Partial<Record<FieldName, string>>>({})
   const setSaving = onSavingChange
   const name = useId()
@@ -457,6 +467,7 @@ function EditMeasurementsForm({ item, formId, onSaved, onSavingChange }: {
     if (!positive(height)) next.height = 'Enter the length or height in cm as a positive number.'
     if (!type) next.measurementType = 'Choose how it was measured.'
     if (muac.trim() && !positive(muac)) next.muac = 'Enter MUAC in cm as a positive number, or leave it empty.'
+    if (recheck && !remeasured) next.form = 'Confirm that you remeasured the child.'
     if (!reason) next.reason = 'Choose a reason for the change.'
     if (reason === 'OTHER' && !note.trim()) next.note = 'Add a note explaining the change.'
     setErrors(next)
@@ -469,6 +480,7 @@ function EditMeasurementsForm({ item, formId, onSaved, onSavingChange }: {
         body: JSON.stringify({
           assessmentId: item.assessment_id, weight: weight.trim(), height: height.trim(), measurementType: type,
           muac: muac.trim() || null, edemaGrade: Number(edema), reason, note: note.trim() || null,
+          ...(recheck ? { recheck: true, expectedRevision: item.revision_count ?? 0 } : {}),
         }),
       })
       const d = await r.json().catch(() => ({}))
@@ -524,17 +536,21 @@ function EditMeasurementsForm({ item, formId, onSaved, onSavingChange }: {
             {errors.edemaGrade && <Warning>{errors.edemaGrade}</Warning>}
           </Field>
         </div>
-        <Field label="Reason for change" required>
+        {recheck ? <p className="text-sm text-brand-muted">Enter or confirm each measurement after remeasuring the child. You can save the same values if you confirmed them.</p> : <Field label="Reason for change" required>
           <Select controlSize="lg" value={reason} onChange={(e) => { setReason(e.target.value); clear('reason') }} aria-invalid={Boolean(errors.reason) || undefined}>
             <option value="">Choose a reason</option>
-            {Object.entries(REASON_LABEL).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+            {Object.entries(REASON_LABEL).filter(([v]) => v !== 'VERIFICATION_RECHECK').map(([v, t]) => <option key={v} value={v}>{t}</option>)}
           </Select>
           {errors.reason && <Warning>{errors.reason}</Warning>}
-        </Field>
+        </Field>}
         <Field label={reason === 'OTHER' ? 'Note' : 'Note (optional)'} required={reason === 'OTHER'}>
           <Textarea value={note} maxLength={500} rows={3} onChange={(e) => { setNote(e.target.value); clear('note') }} className="rounded-[10px] border-control-line px-4" aria-invalid={Boolean(errors.note) || undefined} />
           {errors.note && <Warning>{errors.note}</Warning>}
         </Field>
+        {recheck && <label className="flex items-center gap-2 text-sm text-brand-navy">
+          <input type="checkbox" checked={remeasured} onChange={(event) => { setRemeasured(event.target.checked); clear('form') }} />
+          I remeasured the child and checked the values above.
+        </label>}
         {errors.form && <Warning>{errors.form}</Warning>}
         <p className="rounded-[10px] bg-brand-ice px-4 py-3 text-sm text-brand-navy">
           Saving recalculates the scores and classification. The earlier values stay in this assessment&rsquo;s history and the child&rsquo;s record.

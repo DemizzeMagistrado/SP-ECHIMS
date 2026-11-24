@@ -9,7 +9,7 @@ import { TabPanel } from '@/components/brand/page-gate'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { nutritionTone } from '@/lib/nutrition-status'
+import { nutritionTone, verificationLabel } from '@/lib/nutrition-status'
 const metrics = [
   { key: 'weight', label: 'Weight', unit: 'kg', color: '#087DB9' },
   { key: 'height', label: 'Length / height', unit: 'cm', color: '#0F766E' },
@@ -82,6 +82,7 @@ function LatestAssessment({ assessment }: { assessment: HistoryAssessment }) {
       <div><h3 className="font-semibold">Latest Nutritional Assessment</h3><p className="mt-1 text-sm text-muted-foreground">Assessment #{assessment.assessment_id} · {dateLabel(assessment.assessment_date)}</p></div>
       <StatusBadge status="nutrition" tone={risk === true ? 'danger' : risk === false ? 'good' : 'warn'} label={risk === true ? 'Nutrition: At risk' : risk === false ? 'Nutrition: No recorded risk' : 'Nutrition: Needs review'} />
     </div>
+    {verificationLabel(assessment.verification_status) && <p className="text-sm font-semibold text-brand-navy">{verificationLabel(assessment.verification_status)}</p>}
     <p className="text-sm text-muted-foreground">{risk === true ? 'The latest saved assessment is flagged for nutrition follow-up. Review its classifications and related alerts.' : risk === false ? 'The latest saved assessment has no recorded nutritional risk. This describes that assessment only.' : 'The stored risk result is unavailable or incomplete. A normal result is not assumed.'}</p>
     <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {[
@@ -92,7 +93,7 @@ function LatestAssessment({ assessment }: { assessment: HistoryAssessment }) {
       ].map(item => <div key={item.label} className="rounded-xl bg-muted/40 p-3"><dt className="text-xs text-muted-foreground">{item.label}</dt><dd className="mt-1 text-sm font-medium">{item.value}{item.detail && <span className="block text-xs font-normal text-muted-foreground">{item.detail}</span>}</dd></div>)}
     </dl>
     <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {classifications.map(item => <div key={item.label} className="rounded-xl border border-border p-3"><dt className="text-xs text-muted-foreground">{item.label}</dt><dd className="mt-2 text-sm font-medium">{item.value ? <StatusBadge status={item.value} tone={nutritionTone(item.value)} label={labelClassification(item.value)} /> : labelClassification(item.value)}{item.score != null && <span className="mt-1 block text-xs font-normal text-muted-foreground">Z-score: {numberLabel(item.score)} SD</span>}</dd></div>)}
+      {classifications.map(item => <div key={item.label} className="rounded-xl border border-border p-3"><dt className="text-xs text-muted-foreground">{item.label}</dt><dd className="mt-2 text-sm font-medium">{item.value ? <StatusBadge status={item.value} tone={nutritionTone(item.value)} label={labelClassification(item.value)} /> : labelClassification(item.value)}{item.score != null && item.value !== 'NEEDS_VERIFICATION' && <span className="mt-1 block text-xs font-normal text-muted-foreground">Z-score: {numberLabel(item.score)} SD</span>}</dd></div>)}
     </dl>
     <p className="text-xs text-muted-foreground">Evaluation: {labelClassification(assessment.evaluation_status)}</p>
     {assessment.remarks?.trim() && <div className="rounded-xl bg-muted/40 p-3"><h4 className="text-xs font-medium text-muted-foreground">Remarks</h4><p className="mt-1 whitespace-pre-wrap text-sm">{assessment.remarks}</p></div>}

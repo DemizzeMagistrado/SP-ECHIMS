@@ -54,7 +54,7 @@ const assessmentFields = `
 
   weight_for_age, height_for_age, weight_for_height, bmi_for_age,
 
-  muac_status, nutritional_status, evaluation_status,
+  muac_status, nutritional_status, evaluation_status, verification_status, revision_count,
 
   engine_version, evaluated_at, is_at_risk, remarks, created_at,
 
@@ -500,7 +500,7 @@ export async function POST(request: Request) {
 
       'child_id', 'assessment_date', 'weight', 'height', 'muac',
 
-      'measurement_type', 'edema_grade', 'remarks', 'schedule_id', 'client_request_id', 'request_owner_id',
+      'measurement_type', 'edema_grade', 'remarks', 'schedule_id', 'client_request_id', 'request_owner_id', 'save_for_verification',
 
     ])
 
@@ -514,6 +514,10 @@ export async function POST(request: Request) {
 
       return fail('Sign back into the account that recorded this assessment draft.', 403)
 
+    }
+
+    if (body.save_for_verification !== undefined && typeof body.save_for_verification !== 'boolean') {
+      return fail('Choose whether to save for verification.', 400)
     }
 
     const requestId = body.client_request_id == null ? null : body.client_request_id
@@ -679,6 +683,7 @@ export async function POST(request: Request) {
       // Required existing column; the database evaluator replaces this value.
 
       nutritional_status: 'NOT_EVALUATED',
+      verification_status: body.save_for_verification === true ? 'PENDING' : null,
 
     }).select(assessmentFields).single()
 

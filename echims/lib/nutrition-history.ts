@@ -1,4 +1,7 @@
+import type { VerificationStatus } from './nutrition-status'
+
 export type HistoryAssessment = {
+  verification_status?: VerificationStatus
   assessment_id: number
   assessment_date: string
   weight?: number | string | null
@@ -39,6 +42,7 @@ const profiles: Record<string, Record<string, [string, number]>> = {
 export function labelClassification(value: string | null | undefined) {
   if (!value) return 'Not evaluated'
   if (value === 'SAM' || value === 'MAM') return value
+  if (value === 'RECHECKED_FLAGGED') return 'Rechecked — flagged for review'
   return value.toLowerCase().replace(/_/g, ' ').replace(/^./, (letter) => letter.toUpperCase())
 }
 export function numericValue(value: unknown): number | null {

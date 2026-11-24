@@ -39,11 +39,11 @@ export function NutritionRiskMonitor({ monitoring, error, loading, offline, refr
   return <section className="nutrition-no-print space-y-5" aria-label="Nutritional risk monitoring">
     <SectionHeader
       title="Nutritional risk monitoring"
-      subtitle="Children whose latest saved assessment shows a nutritional risk. One row per active child."
+      subtitle="Nutritional risks and measurements needing review. One row per active child based on their latest assessment."
       about={<InfoContent
         title="Nutritional risk monitoring"
         description="Uses each active child's latest saved assessment, across all years."
-        sections={[{ label: 'Values', value: ['Needs review = risk flags unavailable or the latest evaluation is incomplete'] }]}
+        sections={[{ label: 'Values', value: ['Needs review = a measurement needs verification or the latest evaluation is incomplete'] }]}
         bullets={['Counts cover your full accessible scope']}
         note="Children needing review are not assumed to be normal."
       />}
@@ -70,7 +70,7 @@ export function NutritionRiskMonitor({ monitoring, error, loading, offline, refr
         <div ref={bindList} style={listStyle} className="scroll-subtle overflow-x-auto">
           <table className="data-grid data-grid--hover w-full text-sm text-brand-navy">
             <thead><tr>
-              {['Child', 'Barangay', 'Latest assessment', 'Recorded risks', 'Priority', 'Change'].map((title) => <th key={title} scope="col" className={HEAD}>{title}</th>)}
+              {['Child', 'Barangay', 'Latest assessment', 'Risks and measurement review', 'Priority', 'Change'].map((title) => <th key={title} scope="col" className={HEAD}>{title}</th>)}
               <th scope="col" className={cn(HEAD, PINNED, 'z-[2]')}>Action</th>
             </tr></thead>
             <tbody>
