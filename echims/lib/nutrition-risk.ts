@@ -35,18 +35,28 @@ export function buildRiskMonitoring(assessments: Record<string, unknown>[], rule
   }
   const records: RiskRecord[] = []
   let needsReview = 0
+  let atRisk = 0
   for (const [childId, rows] of groups) {
     const ordered = withHistoryComparisons(rows)
     const latest = ordered[ordered.length - 1]
     const raw = latest.raw
-    if (raw.is_at_risk !== true) {
-      if (raw.is_at_risk !== false || raw.evaluation_status !== 'EVALUATED') needsReview++
-      continue
-    }
+    const verificationCode = raw.verification_status === 'RECHECKED_FLAGGED'
+      ? 'RECHECKED_FLAGGED' : raw.verification_status === 'PENDING' ? 'NEEDS_VERIFICATION' : null
+    const hasScreeningRisk = ['SAM', 'MAM', 'INFANT_URGENT_REVIEW'].includes(String(raw.nutritional_status))
+    const hasRecordedRisk = raw.is_at_risk === true || hasScreeningRisk
+    if (verificationCode || (!hasRecordedRisk && (raw.is_at_risk !== false || raw.evaluation_status !== 'EVALUATED'))) needsReview++
+    if (!hasRecordedRisk && !verificationCode) continue
+    if (hasRecordedRisk) atRisk++
     const child = relation(raw.child)!
     const barangay = relation(child.barangay)
-    const classifications = fields.flatMap(([field, label]) => typeof raw[field] === 'string' && riskCodes.has(raw[field] as string) ? [{ field, label, code: raw[field] as string }] : [])
-    let severity: RiskSeverity = 'MEDIUM'
+    const classifications: RiskRecord['classifications'] = fields.flatMap(([field, label]) => typeof raw[field] === 'string' && riskCodes.has(raw[field] as string) ? [{ field, label, code: raw[field] as string }] : [])
+    if (verificationCode) {
+      classifications.push({ field: 'verification_status', label: 'Measurement review', code: verificationCode })
+      for (const [field, label] of fields) {
+        if (field !== 'nutritional_status' && raw[field] === 'NEEDS_VERIFICATION') classifications.push({ field, label, code: 'NEEDS_VERIFICATION' })
+      }
+    }
+    let severity: RiskSeverity = ['SAM', 'INFANT_URGENT_REVIEW'].includes(String(raw.nutritional_status)) ? 'CRITICAL' : 'MEDIUM'
     for (const item of classifications) {
       const candidate = configured.get(rulesForCode[item.code])
       if (candidate && severityRank[candidate] > severityRank[severity]) severity = candidate
@@ -60,7 +70,7 @@ export function buildRiskMonitoring(assessments: Record<string, unknown>[], rule
       previous_assessment_id: latest.history_comparison.previous_assessment_id, previous_date: latest.history_comparison.previous_date })
   }
   records.sort((a, b) => severityRank[b.severity] - severityRank[a.severity] || b.assessment_date.localeCompare(a.assessment_date) || a.child_name.localeCompare(b.child_name))
-  return { records, counts: { at_risk: records.length, critical: records.filter((row) => row.severity === 'CRITICAL').length,
+  return { records, counts: { at_risk: atRisk, critical: records.filter((row) => row.severity === 'CRITICAL').length,
     high: records.filter((row) => row.severity === 'HIGH').length, worsened: records.filter((row) => row.worsening.length).length,
     needs_review: needsReview, assessed_children: groups.size } }
 }

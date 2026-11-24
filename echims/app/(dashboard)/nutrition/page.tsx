@@ -36,7 +36,7 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { canPerform, type UserRole } from '@/lib/echims-data'
-import { MUAC_SOFT_WARNING, muacUnusual, nutritionFlagClass, nutritionLabel, nutritionProfileHref, nutritionTone } from '@/lib/nutrition-status'
+import { MUAC_SOFT_WARNING, muacUnusual, nutritionFlagClass, nutritionLabel, nutritionProfileHref, nutritionTone, verificationLabel, type VerificationStatus } from '@/lib/nutrition-status'
 import { reportSync } from '@/lib/offline/refresh'
 type Relation<T> = T | T[] | null;
 type Barangay = {
@@ -95,6 +95,8 @@ type Assessment = {
   muac_status: string | null;
   nutritional_status: string;
   evaluation_status: string;
+  verification_status?: VerificationStatus;
+  revision_count?: number;
   engine_version: string | null;
   evaluated_at: string | null;
   remarks: string | null;
@@ -324,7 +326,8 @@ function matches(item: Assessment, category: string) {
     case "Infant urgent review":
       return item.nutritional_status === "INFANT_URGENT_REVIEW";
     case "Needs verification":
-      return item.evaluation_status === "NEEDS_VERIFICATION";
+      return item.evaluation_status === "NEEDS_VERIFICATION"
+        || item.verification_status === "PENDING" || item.verification_status === "RECHECKED_FLAGGED";
     case "Not evaluated":
       return !item.engine_version || item.evaluation_status === "NOT_EVALUATED";
     default:
@@ -339,13 +342,14 @@ function followUp(item: Assessment) {
     item.nutritional_status === "INFANT_URGENT_REVIEW"
   )
     return "Urgent clinical assessment";
-  if (item.evaluation_status === "NEEDS_VERIFICATION")
-    return "Verify measurements and review";
   if (
     item.nutritional_status === "MAM" ||
     item.nutritional_status === "AT_RISK"
   )
     return "Clinical follow-up";
+  if (item.verification_status === "RECHECKED_FLAGGED") return "Rechecked — flagged for review";
+  if (item.evaluation_status === "NEEDS_VERIFICATION" || item.verification_status === "PENDING")
+    return "Verify measurements and review";
   if (item.evaluation_status !== "EVALUATED")
     return "Complete or verify assessment";
   return "Routine growth monitoring";
@@ -1044,6 +1048,7 @@ export default function NutritionPage() {
   const [selected, setSelected] = useState<Assessment | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [verificationOffered, setVerificationOffered] = useState(false);
   const confirm = useConfirm();
   const role = sharedAuth.user?.role as UserRole | undefined;
   // Print is the export of this page (PHN monitors and exports; BNS and Admin too).
@@ -1178,6 +1183,7 @@ export default function NutritionPage() {
     draft.assessment_date < addMonths(child.date_of_birth, 6)
   );
   function change(key: keyof Draft, value: string) {
+    setVerificationOffered(false);
     onlineRequest.current = null;
     setDraft((previous) => {
       if (!previous) return previous;
@@ -1540,6 +1546,7 @@ export default function NutritionPage() {
       edema_grade: Number(draft.edema_grade),
       remarks: draft.remarks,
       client_request_id: requestId,
+      ...(verificationOffered ? { save_for_verification: true } : {}),
     };
     const validation = validateOfflinePayload(
       payload,
@@ -1629,7 +1636,9 @@ export default function NutritionPage() {
         setSelected(result.data);
         setReportYear(payload.assessment_date.slice(0, 4));
         setReportView("Assessments");
-        toast.success("Assessment saved on the server and classified.");
+        setVerificationOffered(false);
+        toast.success(result.data.verification_status === "PENDING"
+          ? "Assessment saved for verification." : "Assessment saved on the server and classified.");
         await mutate();
       } catch (problem) {
         const detail =
@@ -1673,7 +1682,10 @@ export default function NutritionPage() {
             setStorageError(
               `Assessment saved, but the list could not refresh. Use Refresh. ${detail}`,
             );
-          else setFormError(detail);
+          else {
+            if (status === 400 && detail.includes("NUT-R004")) setVerificationOffered(true);
+            setFormError(detail);
+          }
         }
       } finally {
         savingRef.current = false;
@@ -1717,6 +1729,7 @@ export default function NutritionPage() {
     if (row.ownerId !== ownerRef.current || syncing) return;
     onlineRequest.current = null;
     editingRequest.current = row.requestId;
+    setVerificationOffered(row.payload.save_for_verification === true || Boolean(row.lastError?.includes("NUT-R004")));
     setFormError("");
     setDraft({
       child_id: String(row.payload.child_id),
@@ -1956,6 +1969,7 @@ export default function NutritionPage() {
                 editingRequest.current = null;
                 onlineRequest.current = null;
                 setFormError("");
+                setVerificationOffered(false);
                 setDraft({
                   ...initialDraft(),
                   assessment_date:
@@ -2305,6 +2319,7 @@ export default function NutritionPage() {
                             </p>
                           </div>
                           <RecordBadge item={item} />
+      {verificationLabel(item.verification_status) && <p className="text-xs text-brand-muted">{verificationLabel(item.verification_status)}</p>}
                         </div>
                         <dl className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
                           {cells.map((cell, c) => (
@@ -2462,10 +2477,10 @@ export default function NutritionPage() {
           size="xl"
           title="Record nutritional assessment"
           busy={saving}
-          onClose={() => setDraft(null)}
+          onClose={() => { setDraft(null); setVerificationOffered(false); }}
           onSubmit={save}
           footer={<Button type="submit" loading={saving} disabled={!child || !canRecord || accessDenied || !ownerId}>
-            {saving ? "Saving…" : editingRequest.current ? "Save draft changes" : online ? "Save Assessment" : "Save Offline Draft"}
+            {saving ? "Saving…" : editingRequest.current ? "Save draft changes" : online ? verificationOffered ? "Save for verification" : "Save Assessment" : "Save Offline Draft"}
           </Button>}
         >
           <div className="space-y-6">

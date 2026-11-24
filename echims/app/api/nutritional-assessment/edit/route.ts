@@ -57,22 +57,29 @@ export async function POST(request: Request) {
   if (measurementType !== 'LENGTH' && measurementType !== 'HEIGHT') return fail('Choose how it was measured: length (lying down) or height (standing).', 400, 'measurementType')
   const edemaGrade = Number(body.edemaGrade)
   if (!Number.isInteger(edemaGrade) || edemaGrade < 0 || edemaGrade > 3) return fail('Choose the bilateral pitting edema grade.', 400, 'edemaGrade')
+  const recheck = body.recheck === true
   const reason = body.reason
-  if (typeof reason !== 'string' || !(REASONS as readonly string[]).includes(reason)) return fail('Choose a reason for the change.', 400, 'reason')
+  if (!recheck && (typeof reason !== 'string' || !(REASONS as readonly string[]).includes(reason))) return fail('Choose a reason for the change.', 400, 'reason')
   const note = typeof body.note === 'string' && body.note.trim() ? body.note.trim() : null
   if (note && note.length > 500) return fail('Keep the note to 500 characters or fewer.', 400, 'note')
   if (reason === 'OTHER' && !note) return fail('Add a note explaining the change.', 400, 'note')
 
-  const { data, error } = await supabase.rpc('edit_nutritional_assessment', {
+  if (recheck && (typeof body.expectedRevision !== 'number'
+    || !Number.isSafeInteger(body.expectedRevision) || body.expectedRevision < 0)) {
+    return fail('Refresh the assessment before re-evaluating.', 400)
+  }
+  const measurements = {
     p_assessment_id: assessmentId,
     p_weight: weight,
     p_height: height,
     p_measurement_type: measurementType,
     p_muac: muac,
     p_edema_grade: edemaGrade,
-    p_reason: reason,
     p_note: note,
-  })
+  }
+  const { data, error } = recheck
+    ? await supabase.rpc('reevaluate_nutritional_assessment', { ...measurements, p_expected_revision: body.expectedRevision })
+    : await supabase.rpc('edit_nutritional_assessment', { ...measurements, p_reason: reason })
   if (error) {
     // The RPC does not exist until migration nut_rev01_01 is applied.
     if (error.code === 'PGRST202' || error.code === '42883') {
@@ -80,7 +87,7 @@ export async function POST(request: Request) {
     }
     const message = error.message || 'Unable to save the changes.'
     const code = /NUT-[ER]\d+/.exec(message)?.[0]
-    const status = error.code === '42501' ? 403 : error.code === 'P0002' ? 404 : 400
+    const status = error.code === '42501' ? 403 : error.code === 'P0002' ? 404 : error.code === '40001' ? 409 : 400
     return fail(message, status, fieldFor(message), code)
   }
   const result = data as { assessment: unknown; revision_no: number }

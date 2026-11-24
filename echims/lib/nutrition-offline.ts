@@ -14,6 +14,7 @@ export type NutritionPayload = {
   edema_grade: number
   remarks: string
   client_request_id: string
+  save_for_verification?: boolean
 }
 export type QueuedAssessment = {
   key: string

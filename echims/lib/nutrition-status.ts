@@ -52,6 +52,7 @@ const LABELS: Record<string, string> = {
   INFANT_URGENT_REVIEW: 'Infant urgent review',
   NOT_EVALUATED: 'Not evaluated',
   NEEDS_VERIFICATION: 'Needs verification',
+  RECHECKED_FLAGGED: 'Rechecked — flagged for review',
   NORMAL: 'Normal',
   NO_LOW_MUAC: 'No low MUAC',
   AT_RISK: 'At risk',
@@ -81,4 +82,15 @@ export const MUAC_SOFT_WARNING = { low: 'Unusually low for this child. Re-measur
 export function muacUnusual(muac: number | string | null | undefined, ageDays: number | null | undefined): 'low' | 'high' | null {
   if (muac == null || muac === '' || !Number.isFinite(Number(muac)) || (ageDays != null && ageDays < 182)) return null
   return Number(muac) < MUAC_SOFT_CM.min ? 'low' : Number(muac) > MUAC_SOFT_CM.max ? 'high' : null
+}
+
+export type VerificationStatus = 'PENDING' | 'RECHECKED_FLAGGED' | 'VERIFIED' | null
+
+export function verificationLabel(status?: VerificationStatus) {
+  switch (status) {
+    case 'PENDING': return 'Needs verification'
+    case 'RECHECKED_FLAGGED': return 'Rechecked — flagged for review'
+    case 'VERIFIED': return 'Measurements verified'
+    default: return null
+  }
 }

@@ -206,7 +206,7 @@ export async function GET(request: Request) {
       auth.supabase
         .from("nutritional_assessment")
         .select(
-          "assessment_id, assessment_date, weight, height, muac, measurement_type, edema_grade, waz, haz, whz, baz, bmi_for_age, muac_status, weight_for_age, height_for_age, weight_for_height, nutritional_status, evaluation_status, is_at_risk, engine_version, evaluated_at, remarks",
+          "assessment_id, assessment_date, weight, height, muac, measurement_type, edema_grade, waz, haz, whz, baz, bmi_for_age, muac_status, weight_for_age, height_for_age, weight_for_height, nutritional_status, evaluation_status, verification_status, is_at_risk, engine_version, evaluated_at, remarks",
         )
         .eq("child_id", child.child_id)
         .order("assessment_date", { ascending: true })
