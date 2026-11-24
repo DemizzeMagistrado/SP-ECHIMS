@@ -43,8 +43,8 @@ async function run<T>(name: 'identities' | 'snapshots' | 'device', mode: IDBTran
     tx.onabort = tx.onerror = () => reject(tx.error ?? request.error ?? new Error('Offline storage failed.'))
   })
 }
-export async function saveIdentity(identity: OfflineIdentity) {
-  if (isOfflineLocked() || identity.user.accountStatus !== 'APPROVED') throw new Error('Only a signed-in verified active account can prepare offline access.')
+export async function saveIdentity(identity: OfflineIdentity, activateAfterUnlock = false) {
+  if ((!activateAfterUnlock && isOfflineLocked()) || identity.user.accountStatus !== 'APPROVED') throw new Error('Only a signed-in verified active account can prepare offline access.')
   const db=await open()
   await new Promise<void>((resolve,reject)=>{
     const tx=db.transaction(['identities','device'],'readwrite')

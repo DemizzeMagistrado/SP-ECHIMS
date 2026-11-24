@@ -26,7 +26,7 @@ export default function LoginPage() {
     setError('')
     if(busy)return
     setBusy(true)
-    let result: {error?:string}
+    let result: {error?:string; offline?:boolean}
     try{result=await login(email,password)}catch{result={error:'Unable to sign in. Check your connection or saved offline account.'}}
     if (result.error) {
       // Only an error re-enables the form; on success it stays busy until the dashboard replaces this page.
@@ -36,7 +36,7 @@ export default function LoginPage() {
     }
     // The auth overlay covers this page until the dashboard has rendered, then crossfades into it.
     beginEntering()
-    if (!navigator.onLine) { router.replace('/offline?path=%2Fdashboard'); return }
+    if (result.offline || !navigator.onLine) { router.replace('/offline?path=%2Fdashboard'); return }
     // signInWithPassword has written the session cookie; confirm it before the server render reads it.
     await createClient().auth.getSession()
     router.replace('/dashboard')

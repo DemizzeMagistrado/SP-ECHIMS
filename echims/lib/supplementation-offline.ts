@@ -45,8 +45,9 @@ async function transaction<T>(store:'snapshots'|'drafts',mode:IDBTransactionMode
 export async function cacheSupplementData<T extends {currentUserId:string}>(ownerId:string,data:T){
   if(data.currentUserId!==ownerId)throw new Error('Cached data belongs to another account.')
   const identity=await loadIdentity(ownerId)
-  if(!identity)throw new Error('Prepare this account online before caching supplementation records.')
+  if(!identity)return false
   await transaction('snapshots','readwrite',s=>s.put({ownerId,scope:offlineScope(identity.user),savedAt:new Date().toISOString(),data}))
+  return true
 }
 export async function loadSupplementCache<T extends {currentUserId:string}>(ownerId:string){
   const identity=await loadIdentity(ownerId)

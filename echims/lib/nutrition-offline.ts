@@ -73,8 +73,9 @@ async function transact<T>(store: 'snapshots' | 'queue', mode: IDBTransactionMod
 export async function saveSnapshot<T extends { currentUserId: string }>(ownerId: string, data: T) {
   if (data.currentUserId !== ownerId) throw new Error('The snapshot belongs to a different account.')
   const identity = await loadIdentity(ownerId)
-  if (!identity) throw new Error('Prepare this account online before caching nutrition records.')
+  if (!identity) return false
   await transact('snapshots', 'readwrite', (store) => store.put({ ownerId, scope: offlineScope(identity.user), savedAt: new Date().toISOString(), data }))
+  return true
 }
 export async function loadSnapshot<T>(ownerId: string): Promise<T | null> {
   const identity = await loadIdentity(ownerId)
