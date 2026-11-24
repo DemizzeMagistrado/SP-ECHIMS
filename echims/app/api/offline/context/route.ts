@@ -12,7 +12,7 @@ type OfflineProfile = {
 }
 
 const headers={'Cache-Control':'private, no-store'}
-const roles:Record<string,UserRole>={administrator:'Administrator',admin:'Administrator',phn:'Public Health Nurse','public health nurse':'Public Health Nurse',rhm:'Rural Health Midwife','rural health midwife':'Rural Health Midwife',bhw:'Barangay Health Worker','barangay health worker':'Barangay Health Worker',bns:'Barangay Nutrition Scholar','barangay nutrition scholar':'Barangay Nutrition Scholar'}
+const roles:Record<string,UserRole>={administrator:'Administrator',admin:'Administrator',phn:'Public Health Nurse','public health nurse':'Public Health Nurse',rhm:'Rural Health Midwife',midwife:'Rural Health Midwife','rural health midwife':'Rural Health Midwife',bhw:'Barangay Health Worker','barangay health worker':'Barangay Health Worker',bns:'Barangay Nutrition Scholar','barangay nutrition scholar':'Barangay Nutrition Scholar'}
 export async function GET(){
  try {
  const db=await createClient();

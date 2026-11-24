@@ -637,11 +637,8 @@ export default function SupplementsPage() {
 
       try {
         await cacheSupplementData(user, prepared);
-      } catch (e) {
-        if (ownerRef.current === user)
-          setNotice(
-            "Online data loaded, but offline storage could not be prepared.",
-          );
+      } catch {
+        window.dispatchEvent(new Event("echims-offline-storage-error"));
       }
 
       return prepared;

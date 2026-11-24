@@ -11,7 +11,7 @@ import type { UserRole } from "@/lib/echims-data";
 
 import { createClient } from "@/lib/supabase/client";
 import { enrollOfflineLogin, unlockOfflineLogin, revokeOfflineLogin } from '@/lib/offline/login-vault';
-import { saveIdentity, loadIdentity, loadActiveIdentity, clearActiveIdentity, isOfflineLocked, lockOfflineDevice, unlockOfflineDevice, forgetIdentity, type OfflineIdentity } from "@/lib/offline/store";
+import { saveIdentity, loadActiveIdentity, clearActiveIdentity, isOfflineLocked, lockOfflineDevice, unlockOfflineDevice, forgetIdentity, type OfflineIdentity } from "@/lib/offline/store";
 
 /* =========================================================
 
@@ -115,7 +115,7 @@ type AuthContextValue = {
   /** Sign-in/registration succeeded: cover the page until the dashboard has rendered. */
   beginEntering: () => void;
 
-  login: (email: string, password: string) => Promise<{ error?: string }>;
+  login: (email: string, password: string) => Promise<{ error?: string; offline?: boolean }>;
 
   register: (form: RegistrationForm) => Promise<{
 
@@ -375,6 +375,28 @@ const AuthContext = createContext<AuthContextValue>({
 
 ========================================================= */
 
+function reportOfflineStorageError(error: unknown) {
+  console.warn('Unable to save offline access:', error instanceof Error ? error.message : 'Local storage unavailable.');
+}
+
+async function getOfflineIdentityForLogin(userId: string): Promise<OfflineIdentity | null> {
+  // Retry transient failures while the freshly verified password is available.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const response = await fetch('/api/offline/context', { cache: 'no-store', signal: AbortSignal.timeout(10000) });
+      if (response.ok) {
+        const identity = await response.json() as OfflineIdentity;
+        return identity.user.id === userId && identity.user.accountStatus === 'APPROVED' ? identity : null;
+      }
+      if (response.status === 403 || (response.status < 500 && response.status !== 401)) return null;
+      if (attempt === 1) reportOfflineStorageError(new Error(`Offline context returned HTTP ${response.status}.`));
+    } catch (error) {
+      if (attempt === 1) reportOfflineStorageError(error);
+    }
+  }
+  return null;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -424,21 +446,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (error) { apply(null); return; }
         verifiedUser = toAuthUser(authUser, profile as ProfileRow | null);
         const response = await fetch('/api/offline/context', { cache: 'no-store', signal: AbortSignal.timeout(10000) });
+        if (!mounted || turn !== generation) return;
         if (response.ok) {
           const identity = await response.json() as OfflineIdentity;
           if (identity.user.id === authUser.id && mounted && turn === generation) {
-            await saveIdentity(identity);
+            await saveIdentity(identity).catch(reportOfflineStorageError);
             apply(identity.user);
+            return;
           }
-        } else if (response.status === 401 || response.status === 403) {
+        } else if (response.status === 403) {
           await revokeOfflineLogin(authUser.id).catch(() => {});
-          await forgetIdentity(authUser.id);
+          await forgetIdentity(authUser.id).catch(() => {});
+          apply(verifiedUser.accountStatus === 'PENDING_APPROVAL' ? verifiedUser : null);
+          return;
+        } else if (response.status === 401) {
           apply(null);
+          return;
         }
+        apply(verifiedUser);
       } catch {
-        // Never treat a server denial or online lookup failure as offline permission.
-        if (authUser && !navigator.onLine) {
-          try { apply((await loadIdentity(authUser.id))?.user ?? null); } catch { apply(null); }
+        if (!navigator.onLine) {
+          const active = await loadActiveIdentity().catch(() => null);
+          apply(active?.user ?? null);
         } else apply(verifiedUser);
       } finally { if (mounted && turn === generation) setIsReady(true); }
     }
@@ -518,15 +547,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!navigator.onLine) {
           try {
             const identity=await unlockOfflineLogin(email,password);
+            await saveIdentity(identity, true);
             unlockOfflineDevice();
-            await saveIdentity(identity);
             setSigningOut(false);
-            setUser(identity.user);setIsReady(true);
-            return {};
+            setUser(identity.user);
+            setIsReady(true);
+            return { offline: true };
           } catch(error) {return {error:error instanceof Error?error.message:'Unable to sign in offline.'};}
         }
 
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
 
           email: email.trim().toLowerCase(),
 
@@ -556,15 +586,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         unlockOfflineDevice();
         setSigningOut(false);
-        try {
-          const response=await fetch('/api/offline/context',{cache:'no-store',signal:AbortSignal.timeout(10000)});
-          if(response.ok){
-            const identity=await response.json() as OfflineIdentity;
-            await saveIdentity(identity);
-            setUser(identity.user);
-            await enrollOfflineLogin(email,password,identity);
+        if (data.user && data.session && data.user.user_metadata?.account_type !== 'guardian') {
+          const identity = await getOfflineIdentityForLogin(data.user.id);
+          if (identity) {
+            const currentSession = await supabase.auth.getSession();
+            if (currentSession.data.session?.user.id === identity.user.id && !isOfflineLocked()) {
+              const results = await Promise.allSettled([
+                saveIdentity(identity),
+                enrollOfflineLogin(email, password, identity),
+              ]);
+              for (const result of results) {
+                if (result.status === 'rejected') reportOfflineStorageError(result.reason);
+              }
+              if (!isOfflineLocked()) setUser(identity.user);
+            }
           }
-        } catch(error) {console.warn('Offline sign-in was not prepared:',error instanceof Error?error.message:'Local storage unavailable.');}
+        }
         return {};
 
       },
