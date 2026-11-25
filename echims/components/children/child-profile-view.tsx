@@ -1,4 +1,5 @@
 "use client";
+
 import { childProgramEligibility, manilaDate } from '@/lib/child-program-eligibility'
 import { TransferredHouseholdRegistration } from '@/components/children/transferred-household-registration'
 import { HouseholdLocationCapture, formatCoords } from '@/components/geospatial/device-location'
@@ -18,7 +19,6 @@ import { NutritionHistorySection } from "@/components/children/nutrition-history
 import {
   ArrowLeft,
   Pencil,
-  History,
   Printer,
   ChevronRight,
 } from "lucide-react";
@@ -38,6 +38,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { StickySubnav, subnavPill } from "@/components/ui/sticky-subnav";
 import { BackToTop } from "@/components/landing/section-nav";
+
 type Vaccination = {
   vaccination_record_id: number;
   vaccination_date: string;
@@ -52,6 +53,7 @@ type Vaccination = {
     target_age: string | null;
   } | null;
 };
+
 type Supplementation = {
   supplementation_record_id: number;
   supplementation_date: string;
@@ -64,24 +66,16 @@ type Supplementation = {
     age_group: string | null;
   } | null;
 };
-type MovementRow = {
-  movement_id: number;
-  movement_type: string;
-  movement_date: string;
-  reason: string | null;
-  status: string;
-  previous_address: string | null;
-  new_address: string | null;
-  remarks: string | null;
-  recorded_at: string;
-};
+
 type ProfilePayload = ChildProfileDetails & {
+  masterlistImported?: boolean;
   vaccinations: Vaccination[];
   assessments: Assessment[];
   supplementations: Supplementation[];
   siblings?: { child_id: number; child_code: string | null; first_name: string; last_name: string; date_of_birth: string; status: string | null }[];
   openAlertCount?: number | null;
 };
+
 const fetcher = async (url: string) => {
   const response = await fetch(url, { cache: "no-store" });
   let data;
@@ -94,11 +88,12 @@ const fetcher = async (url: string) => {
   }
   if (!response.ok)
     throw new Error(data.error || "Unable to load the child profile.");
-  if(url.startsWith('/api/children?') && (!data || typeof data!=='object' || !data.child || !Number.isSafeInteger(Number(data.child.child_id)))) {
+  if (url.startsWith('/api/children?') && (!data || typeof data !== 'object' || !data.child || !Number.isSafeInteger(Number(data.child.child_id)))) {
     throw new Error('This saved child profile is incomplete. Reconnect and open the child online to refresh it.');
   }
   return data;
 };
+
 // Accept database IDs, formatted display IDs, and links from older child lists.
 function parseChildRouteId(value: string): number {
   const match = /^(?:E?CH-)?(?:\d{4}-)?(\d+)$/i.exec(value.trim());
@@ -106,6 +101,7 @@ function parseChildRouteId(value: string): number {
   const id = Number(match[1]);
   return Number.isSafeInteger(id) && id > 0 ? id : Number.NaN;
 }
+
 export function ChildProfileView({childId}: {childId: string}) {
   const parsedId = parseChildRouteId(childId);
   const { user, isReady } = useAuth();
@@ -142,7 +138,6 @@ export function ChildProfileView({childId}: {childId: string}) {
     return k.includes(`child_id=${parsedId}`) || k.includes(`childId=${parsedId}`) || k.startsWith(`/api/children/${parsedId}/`);
   });
   const [editOpen, setEditOpen] = useState(false);
-
 
   if (!isReady) {
     return (
@@ -202,9 +197,16 @@ export function ChildProfileView({childId}: {childId: string}) {
       <LogoLoader label="Loading child profile…" />
     );
   }
+
   const { child, guardian, household, assessments, siblings = [], openAlertCount } = data;
   const programEligibility = childProgramEligibility(child.date_of_birth, child.status ?? '', manilaDate());
+  const fields = [
+    {label: 'Child information incomplete', missing: [!child.birth_place && 'Birthplace', !child.address && 'Current address']},
+    {label: 'Household information incomplete', missing: [!household && 'Linked household', household && !household.household_address && 'Household address']},
+    {label: 'Guardian information incomplete', missing: [!guardian && 'Linked guardian', guardian && !guardian.relationship_to_child && 'Relationship', guardian && !guardian.contact_number && 'Contact number']},
+  ].map(section => ({...section, missing: section.missing.filter(Boolean)})).filter(section => section.missing.length)
   const latestNutrition = latestAssessment(assessments ?? []);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -215,24 +217,30 @@ export function ChildProfileView({childId}: {childId: string}) {
           <ArrowLeft size={16} />
           Back to Children
         </Link>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="tonal" onClick={() => window.print()}>
-              <Printer size={16} aria-hidden="true" />
-              Print
-            </Button>
-            {canEdit && (<>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="tonal" onClick={() => window.print()}>
+            <Printer size={16} aria-hidden="true" />
+            Print
+          </Button>
+          {canEdit && (
             <Button variant="secondary" onClick={() => setEditOpen(true)}>
               <Pencil size={16} aria-hidden="true" />
               Edit profile
             </Button>
-            </>)}
-          </div>
+          )}
+        </div>
       </div>
+
       {programEligibility.underFive === false && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Archived from the under-five program after the fifth birthday. The profile, service history and continuing care remain available.</div>}
+      {data.masterlistImported && fields.length > 0 && <div role="status" className="grid gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 sm:grid-cols-3">
+        {fields.map(section => <div key={section.label}><p className="font-semibold">{section.label}</p><p>{section.missing.join(', ')}</p></div>)}
+      </div>}
+
       {/* Transfer accepted without a household: a task until one is assigned (NIP-REV01). */}
-      {!household && (
+      {!household && !data.masterlistImported && (
         <TransferredHouseholdRegistration childId={child.child_id} onSaved={() => void mutate()} />
       )}
+
       <BackToTop />
       <ChildProfileDetailsView
         data={data}
@@ -283,7 +291,7 @@ export function ChildProfileView({childId}: {childId: string}) {
             </>
           ) : (
             <p className="mt-3 rounded-xl bg-muted/50 p-4 text-sm text-muted-foreground">
-              No present guardian is linked yet.{canEdit ? " Use Edit profile to link or register one." : ""}
+              No present guardian is linked yet.{canEdit ? " Use Edit profile to update guardian information." : ""}
             </p>
           )
         }
@@ -298,7 +306,6 @@ export function ChildProfileView({childId}: {childId: string}) {
               <ul className="mt-2 space-y-1">
                 {siblings.map((sib) => (
                   <li key={sib.child_id}>
-                    {/* The whole row is the link: tinted on hover/focus, accent bar, "View" hint. */}
                     <Link
                       href={`/child-profiling/children/${sib.child_id}`}
                       className="group flex items-center justify-between gap-3 rounded-lg border-l-[3px] border-transparent px-3 py-2 text-sm transition-colors hover:border-primary hover:bg-brand-ice/70 focus-visible:border-primary focus-visible:bg-brand-ice/70 focus-visible:outline-2 focus-visible:outline-ring active:bg-brand-ice"
@@ -320,6 +327,7 @@ export function ChildProfileView({childId}: {childId: string}) {
           </div>
         }
       />
+
       {/* NIP-USR001 — Vaccination Schedule request + preview. Computed from DOB + NIP
           catalog, already-administered doses excluded. BHW/RHM can request, PHN reviews. */}
       <div id="vaccination-schedule" className="scroll-mt-[var(--subnav-offset,8rem)]">
@@ -333,15 +341,25 @@ export function ChildProfileView({childId}: {childId: string}) {
           actions={canViewNutrition && <Link href="/nutritional-assessment/records" className={buttonVariants({ variant: "secondary", size: "sm" })}>{canAddNutrition ? "Review / Record" : "Review nutrition"}</Link>}
         />
       </div>
+
       {/* Full saved administration, dispensing, plans and due dates. */}
       <div id="supplementation" className="scroll-mt-[var(--subnav-offset,8rem)]">
         <SupplementationHistorySection childId={child.child_id} />
       </div>
 
-      <ChildChangeDraftPanel childId={child.child_id} onUploaded={()=>{void mutate()}}/>
-      <div id="checkups-transfers" className="scroll-mt-[var(--subnav-offset,8rem)]"><ChildCareSections childId={child.child_id} householdId={child.household_id}
-        barangayId={child.barangay_id} dateOfBirth={child.date_of_birth}
-        registryStatus={child.status ?? ''} canEdit={canEdit} onSaved={()=>{void mutate()}}/></div>
+      <ChildChangeDraftPanel childId={child.child_id} onUploaded={() => { void mutate() }} />
+      <div id="checkups-transfers" className="scroll-mt-[var(--subnav-offset,8rem)]">
+        <ChildCareSections
+          childId={child.child_id}
+          householdId={child.household_id}
+          barangayId={child.barangay_id}
+          dateOfBirth={child.date_of_birth}
+          registryStatus={child.status ?? ''}
+          canEdit={canEdit}
+          onSaved={() => { void mutate() }}
+        />
+      </div>
+
       {editOpen && canEdit && (
         <ChildFormModal
           mode="edit"
@@ -349,8 +367,7 @@ export function ChildProfileView({childId}: {childId: string}) {
           onClose={() => setEditOpen(false)}
           onSaved={() => {
             setEditOpen(false);
-            // Re-fetch the profile so every section (personal info, guardian, history)
-            // re-renders with the saved values. User stays on this page.
+            // Refresh the profile and its related sections after saving.
             mutate();
             void refreshChildSections();
             toast.success("Changes saved");
@@ -358,7 +375,6 @@ export function ChildProfileView({childId}: {childId: string}) {
           onError={(message) => toast.error(message)}
         />
       )}
-
     </div>
   );
 }

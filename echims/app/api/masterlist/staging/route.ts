@@ -1,146 +1,74 @@
-// echims/app/api/masterlist/staging/route.ts
-// GET    ?batch_id=N              → list staged rows (role-scoped by RLS)
-// PATCH  { staging_id, patch }    → update a staged row (edits raw+normalized, re-validates)
-// DELETE { staging_id }           → remove a staged row
-
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-
-type NormalizedRow = Record<string, string>
-
-const REQUIRED = new Set([
-  'child_first_name','child_last_name','child_sex','child_date_of_birth',
-  'barangay_name','household_address',
-  'guardian_first_name','guardian_last_name',
-])
-
-async function revalidateRow(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  raw: Record<string, string>,
-): Promise<{ status: 'VALID'|'ERROR'|'DUPLICATE'; errors: string[]; normalized: NormalizedRow }> {
-  const errors: string[] = []
-  for (const k of REQUIRED) if (!raw[k]) errors.push(`${k} is required`)
-
-  const sex = (raw.child_sex ?? '').toUpperCase()
-  if (sex && !['MALE','FEMALE','M','F'].includes(sex)) errors.push(`child_sex must be MALE or FEMALE`)
-
-  const dob = raw.child_date_of_birth
-  if (dob) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dob) || isNaN(new Date(dob).getTime())) {
-      errors.push(`child_date_of_birth must be YYYY-MM-DD`)
-    } else {
-      const now = new Date(); const d = new Date(dob)
-      const months = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth())
-      if (months < 0) errors.push(`child_date_of_birth is in the future`)
-      else if (months > 59) errors.push(`child is older than 59 months`)
-    }
-  }
-
-  let barangay_id = ''
-  let municipality = ''
-  if (raw.barangay_name) {
-    const { data: b } = await supabase.from('barangay').select('barangay_id, municipality')
-      .ilike('barangay_name', raw.barangay_name.trim()).maybeSingle()
-    if (!b) errors.push(`barangay_name "${raw.barangay_name}" not found`)
-    else { barangay_id = String(b.barangay_id); municipality = b.municipality as string }
-  }
-
-  const normalized: NormalizedRow = {
-    ...raw,
-    child_sex: sex === 'M' ? 'MALE' : sex === 'F' ? 'FEMALE' : sex,
-    is_4ps_member: ['true','yes','1'].includes((raw.is_4ps_member ?? '').toLowerCase()) ? 'true' : 'false',
-    barangay_id,
-    municipality,
-  }
-
-  // Dedup against existing children
-  let isDup = false
-  if (!errors.length && raw.child_first_name && raw.child_last_name && dob) {
-    const { data: existing } = await supabase.from('child').select('child_id')
-      .ilike('first_name', raw.child_first_name.trim())
-      .ilike('last_name',  raw.child_last_name.trim())
-      .eq('date_of_birth', dob)
-      .eq('status', 'ACTIVE')
-      .maybeSingle()
-    isDup = !!existing
-  }
-
-  return {
-    status: errors.length ? 'ERROR' : isDup ? 'DUPLICATE' : 'VALID',
-    errors,
-    normalized,
-  }
-}
-
-async function recomputeBatchCounts(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  batchId: number,
-) {
-  const { data } = await supabase.from('masterlist_staging').select('status').eq('batch_id', batchId)
-  const by = { VALID: 0, ERROR: 0, DUPLICATE: 0 }
-  for (const r of data ?? []) {
-    if (r.status === 'VALID') by.VALID++
-    else if (r.status === 'ERROR') by.ERROR++
-    else if (r.status === 'DUPLICATE') by.DUPLICATE++
-  }
-  await supabase.from('masterlist_upload_batch').update({
-    valid_count: by.VALID,
-    error_count: by.ERROR,
-    duplicate_count: by.DUPLICATE,
-  }).eq('batch_id', batchId)
-}
+import { masterlistAccess, masterlistLocations } from '@/lib/masterlist-access'
+import { masterlistRaw, validateMasterlistRow } from '@/lib/masterlist-roster'
 
 export async function GET(request: Request) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 })
-
+  const access = await masterlistAccess()
+  if (access.error) return access.error
   const batchId = Number(new URL(request.url).searchParams.get('batch_id'))
-  if (!Number.isSafeInteger(batchId) || batchId <= 0) return NextResponse.json({ error: 'batch_id required' }, { status: 400 })
+  if (!Number.isSafeInteger(batchId) || batchId <= 0) return NextResponse.json({ error: 'Choose an import batch.' }, { status: 400 })
 
-  const { data, error } = await supabase.from('masterlist_staging').select('*').eq('batch_id', batchId).order('row_number')
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ rows: data ?? [] })
+  const rows = []
+  for (let offset = 0; ; offset += 500) {
+    const { data, error } = await access.supabase.from('masterlist_staging').select('*')
+      .eq('batch_id', batchId).order('row_number').order('staging_id').range(offset, offset + 499)
+    if (error) return NextResponse.json({ error: 'Could not load the import rows.' }, { status: 500 })
+    rows.push(...data)
+    if (data.length < 500) break
+  }
+  const { data: matches, error } = await access.supabase.rpc('mlu_preview_matches', { p_batch_id: batchId })
+  if (error) return NextResponse.json({ error: 'Could not check possible duplicates.' }, { status: 500 })
+  const matched = new Map<number, number | null>(matches.map((match: { staging_id: number; child_id: number | null }) => [match.staging_id, match.child_id]))
+  return NextResponse.json({ rows: rows.map(row => matched.has(row.staging_id)
+    ? { ...row, possible_duplicate: true, matched_child_id: matched.get(row.staging_id) }
+    : row) })
 }
 
 export async function PATCH(request: Request) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 })
-
-  const body = await request.json().catch(() => null) as { staging_id?: number; patch?: Record<string, string> } | null
+  const access = await masterlistAccess()
+  if (access.error) return access.error
+  const { supabase } = access
+  const body = await request.json().catch(() => null)
   const stagingId = Number(body?.staging_id)
-  const patch = body?.patch
-  if (!Number.isSafeInteger(stagingId) || stagingId <= 0 || !patch) return NextResponse.json({ error: 'staging_id and patch required' }, { status: 400 })
+  if (!Number.isSafeInteger(stagingId) || stagingId <= 0 || !body?.patch || typeof body.patch !== 'object' || Array.isArray(body.patch)) {
+    return NextResponse.json({ error: 'Choose a row and enter the corrected details.' }, { status: 400 })
+  }
 
-  const { data: existing, error: readErr } = await supabase.from('masterlist_staging').select('*').eq('staging_id', stagingId).maybeSingle()
-  if (readErr || !existing) return NextResponse.json({ error: readErr?.message ?? 'Row not found' }, { status: 404 })
+  const { data: existing } = await supabase.from('masterlist_staging').select('raw,status,scope_barangay_id,updated_at')
+    .eq('staging_id', stagingId).maybeSingle()
+  if (!existing) return NextResponse.json({ error: 'Row not found in your scope.' }, { status: 404 })
+  if (existing.status === 'IMPORTED') return NextResponse.json({ error: 'Edit the registered child from Child Profiling.' }, { status: 409 })
 
-  const mergedRaw = { ...(existing.raw as Record<string, string>), ...patch }
-  const { status, errors, normalized } = await revalidateRow(supabase, mergedRaw)
-
-  const { error: upErr } = await supabase.from('masterlist_staging').update({
-    raw: mergedRaw, normalized, status, errors, updated_at: new Date().toISOString(),
-  }).eq('staging_id', stagingId)
-  if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })
-
-  await recomputeBatchCounts(supabase, existing.batch_id as number)
+  let locations
+  try {
+    locations = await masterlistLocations(supabase)
+  } catch {
+    return NextResponse.json({ error: 'Could not load assigned locations.' }, { status: 500 })
+  }
+  const raw = masterlistRaw({ ...existing.raw, ...body.patch })
+  const { errors, normalized, location } = validateMasterlistRow(raw, locations)
+  if (location && !location.allowed) return NextResponse.json({ error: 'This barangay is outside your assignment.' }, { status: 403 })
+  if (existing.scope_barangay_id && location?.barangay_id !== existing.scope_barangay_id) {
+    return NextResponse.json({ error: 'The import row is already assigned to a barangay. Use the child transfer workflow to change a registered child’s barangay.' }, { status: 409 })
+  }
+  const status = errors.length ? 'ERROR' : 'VALID'
+  const update = supabase.from('masterlist_staging').update({
+    raw, normalized, scope_barangay_id: location?.barangay_id ?? null, status, errors, updated_at: new Date().toISOString(),
+  }).eq('staging_id', stagingId).neq('status', 'IMPORTED')
+  const { data: saved, error } = await (existing.updated_at ? update.eq('updated_at', existing.updated_at) : update.is('updated_at', null))
+    .select('staging_id').maybeSingle()
+  if (error || !saved) return NextResponse.json({ error: 'This row changed or is outside your scope. Refresh the batch and try again.' }, { status: 409 })
   return NextResponse.json({ ok: true, status, errors })
 }
 
 export async function DELETE(request: Request) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 })
-
-  const body = await request.json().catch(() => null) as { staging_id?: number } | null
+  const access = await masterlistAccess()
+  if (access.error) return access.error
+  const body = await request.json().catch(() => null)
   const stagingId = Number(body?.staging_id)
-  if (!Number.isSafeInteger(stagingId) || stagingId <= 0) return NextResponse.json({ error: 'staging_id required' }, { status: 400 })
-
-  const { data: existing } = await supabase.from('masterlist_staging').select('batch_id').eq('staging_id', stagingId).maybeSingle()
-  const { error } = await supabase.from('masterlist_staging').delete().eq('staging_id', stagingId)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  if (existing?.batch_id) await recomputeBatchCounts(supabase, existing.batch_id as number)
+  if (!Number.isSafeInteger(stagingId) || stagingId <= 0) return NextResponse.json({ error: 'Choose a row.' }, { status: 400 })
+  const { data, error } = await access.supabase.from('masterlist_staging').delete()
+    .eq('staging_id', stagingId).in('status', ['VALID', 'PENDING', 'ERROR']).select('staging_id').maybeSingle()
+  if (error || !data) return NextResponse.json({ error: 'Row could not be removed.' }, { status: 409 })
   return NextResponse.json({ ok: true })
 }
