@@ -356,6 +356,7 @@ function followUp(item: Assessment) {
 }
 type IndicatorField = "weight_for_age" | "height_for_age" | "weight_for_height";
 type ListCode = "UW" | "SUW" | "St" | "SSt" | "W" | "SW";
+type ClassificationLists = Record<ListCode, Assessment[]>;
 type ReportView = "Summary" | "Assessments" | "Risk" | "Admissions" | ListCode;
 const listDefinitions: Record<
   ListCode,
@@ -553,6 +554,7 @@ const SUMMARY_GROUP_START = new Set(
 );
 function SummaryReport({
   records,
+  classificationLists,
   year,
   barangay,
   onList,
@@ -560,6 +562,7 @@ function SummaryReport({
   views,
 }: {
   records: Assessment[];
+  classificationLists: ClassificationLists;
   year: string;
   barangay: string;
   onList: (code: ListCode) => void;
@@ -704,9 +707,11 @@ function SummaryReport({
             </thead>
             <tbody>
               {summaryRows.map((row, r) => {
-                const matching = eligible.filter(
-                  (item) => validIndicator(item, row.field) && item[row.field] === row.value,
-                );
+                const matching = row.list
+                  ? classificationLists[row.list]
+                  : eligible.filter(
+                      (item) => validIndicator(item, row.field) && item[row.field] === row.value,
+                    );
                 const f1k = inAgeBand(matching, 0, 23);
                 const ip = sexCounts(ipYes(matching));
                 const values: (number | string)[] = [
@@ -786,10 +791,10 @@ function SummaryReport({
   );
 }
 /** Overview / List UW … List SW: the shared view switcher (one row, counts in badges). */
-function SummaryViews({ value, onChange, counts }: {
+function SummaryViews({ value, onChange, classificationLists }: {
   value: "Summary" | ListCode;
   onChange: (view: "Summary" | ListCode) => void;
-  counts: Record<ListCode, number>;
+  classificationLists: ClassificationLists;
 }) {
   return (
     <ViewSwitch
@@ -799,7 +804,7 @@ function SummaryViews({ value, onChange, counts }: {
       items={(["Summary", ...listCodes] as Array<"Summary" | ListCode>).map((view) => ({
         value: view,
         label: view === "Summary" ? "Overview" : `List ${view}`,
-        count: view === "Summary" ? undefined : counts[view],
+        count: view === "Summary" ? undefined : classificationLists[view].length,
       }))}
     />
   );
@@ -818,7 +823,7 @@ const LIST_COLUMNS = [
   { label: "Date measured", width: "min-w-28" },
 ] as const;
 function ClassificationList({
-  records,
+  items,
   code,
   year,
   barangay,
@@ -826,7 +831,7 @@ function ClassificationList({
   canPrint,
   views,
 }: {
-  records: Assessment[];
+  items: Assessment[];
   code: ListCode;
   year: string;
   barangay: string;
@@ -835,7 +840,6 @@ function ClassificationList({
   views: ReactNode;
 }) {
   const definition = listDefinitions[code];
-  const items = listRecords(records, code);
   const heightIndicator = definition.field === "height_for_age";
   const head = "px-4 py-2.5 align-bottom text-[13px] font-semibold leading-tight text-brand-navy";
   const sticky = "sticky right-0 w-[260px] min-w-[260px] border-l-brand-line shadow-[-6px_0_8px_-6px_rgba(12,18,96,0.18)]";
@@ -1137,6 +1141,10 @@ export default function NutritionPage() {
     .sort()
     .reverse();
   const latest = useMemo(() => latestPerChild(scopedRecords), [scopedRecords]);
+  const classificationLists = useMemo(
+    () => Object.fromEntries(listCodes.map((code) => [code, listRecords(latest, code)])) as ClassificationLists,
+    [latest],
+  );
   const visible = (history ? scopedRecords : latest).filter((item) =>
     matches(item, category),
   );
@@ -1907,7 +1915,7 @@ export default function NutritionPage() {
     <SummaryViews
       value={reportView === "Summary" || listCodes.includes(reportView as ListCode) ? (reportView as "Summary" | ListCode) : "Summary"}
       onChange={setReportView}
-      counts={Object.fromEntries(listCodes.map((code) => [code, listRecords(latest, code).length])) as Record<ListCode, number>}
+      classificationLists={classificationLists}
     />
   );
   // Year and barangay: on the Summary tab on their own, on All assessments with the other filters.
@@ -2125,6 +2133,7 @@ export default function NutritionPage() {
       {reportView === "Summary" && (
         <SummaryReport
           records={latest}
+          classificationLists={classificationLists}
           year={reportYear}
           barangay={
             reportBarangay === "All"
@@ -2141,7 +2150,7 @@ export default function NutritionPage() {
         reportView !== "Risk" &&
         reportView !== "Admissions" && (
           <ClassificationList
-            records={latest}
+            items={classificationLists[reportView]}
             code={reportView}
             year={reportYear}
             barangay={

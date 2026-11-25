@@ -119,6 +119,7 @@ const rolePermissions: Record<UserRole, Partial<Record<string, Permission[]>>> =
   },
   'Rural Health Midwife': {
     Dashboard: ['view'],
+    'Masterlist Upload': ['view', 'create', 'edit'],
     'Child Profiling': ['view', 'create', 'edit', 'approve'],
     Geospatial: ['view'],
     Vaccination: ['view', 'create', 'edit'],                    // record vaccinations
@@ -137,6 +138,7 @@ const rolePermissions: Record<UserRole, Partial<Record<string, Permission[]>>> =
     Organization: ['view'],
   },
   'Barangay Health Worker': {
+    'Masterlist Upload': ['view', 'create', 'edit'],
     Dashboard: ['view'],
     'Child Profiling': ['view', 'create', 'edit'],
     Geospatial: ['view'],

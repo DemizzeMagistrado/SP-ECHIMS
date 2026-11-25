@@ -153,6 +153,7 @@ export async function GET(request: Request) {
       supplementations,
       siblings,
       openAlerts,
+      masterlist,
     ] = await Promise.all([
       child.guardian_id
         ? auth.supabase
@@ -231,6 +232,7 @@ export async function GET(request: Request) {
         .select("alert_id", { count: "exact", head: true })
         .eq("child_id", child.child_id)
         .neq("status", "RESOLVED"),
+      auth.supabase.from("child").select("masterlist_imported_at").eq("child_id", child.child_id).maybeSingle(),
     ]);
     if (latestAssessment.error || assessments.error)
       return invalid(
@@ -249,6 +251,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       child,
       guardian: guardian.data,
+      masterlistImported: Boolean(masterlist.data?.masterlist_imported_at),
       profile: profile.data,
       monitoringStatus: latestAssessment.data
         ? (latestAssessment.data.nutritional_status ?? "Needs Review")

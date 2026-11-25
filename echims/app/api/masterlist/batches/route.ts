@@ -4,12 +4,12 @@
 //   ?limit=N (optional, default 50)
 
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { masterlistAccess } from '@/lib/masterlist-access'
 
 export async function GET(request: Request) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 })
+  const access = await masterlistAccess()
+  if (access.error) return access.error
+  const { supabase } = access
 
   const url = new URL(request.url)
   const batchId = url.searchParams.get('batch_id')
@@ -23,17 +23,10 @@ export async function GET(request: Request) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     if (!data) return NextResponse.json({ error: 'Batch not found.' }, { status: 404 })
 
-    // Enrich with uploader info via a separate lookup (users FK is to auth.users,
-    // so a PostgREST join to public.users doesn't resolve automatically).
-    const { data: uploader } = await supabase
-      .from('users')
-      .select('user_id, full_name, email')
-      .eq('user_id', data.uploaded_by)
-      .maybeSingle()
-    return NextResponse.json({ batch: { ...data, uploader: uploader ?? null } })
+    return NextResponse.json({ batch: data })
   }
 
-  const limit = Math.min(Number(url.searchParams.get('limit') ?? 50), 200)
+  const limit = Math.max(1, Math.min(Number(url.searchParams.get('limit')) || 50, 200))
   const { data, error } = await supabase
     .from('masterlist_upload_batch')
     .select('*')
